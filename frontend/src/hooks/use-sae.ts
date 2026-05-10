@@ -41,6 +41,22 @@ export function useSaveSaeCredential() {
   })
 }
 
+export function useSaeVerify() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sae-verify', { body: {} })
+      if (error) throw new Error(error.message)
+      if (data?.error) throw new Error(data.error)
+      return data as { success: boolean }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['sae-credential'] })
+    },
+  })
+}
+
 export function useDeleteSaeCredential() {
   const supabase = createClient()
   const queryClient = useQueryClient()
@@ -111,8 +127,9 @@ export function useSaeListProceedings() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('sae-list', { body: {} })
-      if (error) throw new Error(error.message)
+      // Check data.error first — edge functions return error details in the body even on 4xx/5xx
       if (data?.error) throw new Error(data.error)
+      if (error) throw new Error(error.message)
       return data as { cases: SaeCaseItem[] }
     },
   })

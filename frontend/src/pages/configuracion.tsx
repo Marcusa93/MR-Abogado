@@ -37,7 +37,7 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react'
-import { useSaeCredential, useSaveSaeCredential, useDeleteSaeCredential } from '@/hooks/use-sae'
+import { useSaeCredential, useSaveSaeCredential, useDeleteSaeCredential, useSaeVerify } from '@/hooks/use-sae'
 
 // ---------------------------------------------------------------------------
 // Profile Section
@@ -333,6 +333,7 @@ const STATUS_CONFIG = {
 function SaeCredentialsSection() {
   const { data: credential, isLoading } = useSaeCredential()
   const save = useSaveSaeCredential()
+  const verify = useSaeVerify()
   const remove = useDeleteSaeCredential()
 
   const [username, setUsername] = useState('')
@@ -342,6 +343,7 @@ function SaeCredentialsSection() {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const isValid = username.trim().length > 0 && password.length > 0
+  const isBusy = save.isPending || verify.isPending
 
   const handleSave = () => {
     if (!isValid) return
@@ -349,10 +351,14 @@ function SaeCredentialsSection() {
       { username: username.trim(), password },
       {
         onSuccess: () => {
-          toast.success('Credenciales SAE guardadas')
           setShowForm(false)
           setUsername('')
           setPassword('')
+          // Auto-verify immediately after saving so status shows activo/error
+          verify.mutate(undefined, {
+            onSuccess: () => toast.success('Credenciales SAE verificadas y activas'),
+            onError: (err) => toast.error(err instanceof Error ? err.message : 'Credenciales guardadas pero no se pudo verificar con SAE'),
+          })
         },
         onError: (err) => {
           toast.error(err instanceof Error ? err.message : 'Error al guardar')
@@ -388,13 +394,28 @@ function SaeCredentialsSection() {
           <span className="text-[10px] text-zinc-500">justucuman.gov.ar</span>
         </div>
         {credential && !showForm && (
-          <button
-            onClick={() => { setShowForm(true); setUsername(credential.username) }}
-            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/10 transition-colors"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Actualizar
-          </button>
+          <div className="flex items-center gap-2">
+            {credential.status !== 'activo' && (
+              <button
+                onClick={() => verify.mutate(undefined, {
+                  onSuccess: () => toast.success('Conexión SAE verificada'),
+                  onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo verificar'),
+                })}
+                disabled={verify.isPending}
+                className="flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
+              >
+                {verify.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Verificar
+              </button>
+            )}
+            <button
+              onClick={() => { setShowForm(true); setUsername(credential.username) }}
+              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/10 transition-colors"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Actualizar
+            </button>
+          </div>
         )}
       </div>
 
@@ -501,11 +522,12 @@ function SaeCredentialsSection() {
           <div className="flex items-center gap-3 pt-1">
             <button
               onClick={handleSave}
-              disabled={!isValid || save.isPending}
+              disabled={!isValid || isBusy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 px-4 py-2 text-sm font-medium text-cyan-400 hover:bg-cyan-500/25 disabled:opacity-50 transition-colors"
             >
-              {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Guardar credenciales
+              <Loader2 className={cn('h-4 w-4', isBusy ? 'animate-spin' : 'hidden')} />
+              {!isBusy && <Check className="h-4 w-4" />}
+              {save.isPending ? 'Guardando...' : verify.isPending ? 'Verificando con SAE...' : 'Guardar credenciales'}
             </button>
             {showForm && (
               <button
