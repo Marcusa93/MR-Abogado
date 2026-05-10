@@ -25,6 +25,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
 import {
   Plus,
+  Database,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -260,6 +261,13 @@ export default function ExpedientesPage() {
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+          <button
+            onClick={() => navigate('/importar-sae')}
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          >
+            <Database className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar SAE</span>
+          </button>
           <button
             onClick={() => navigate('/expedientes/nuevo')}
             className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:opacity-90 transition-colors"

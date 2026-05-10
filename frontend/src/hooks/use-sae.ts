@@ -94,3 +94,61 @@ export function useTriggerSaeSync() {
     },
   })
 }
+
+// ─── SAE List hook ────────────────────────────────────────────────────────────
+
+export interface SaeCaseItem {
+  procid: string
+  jurisdictionId: number
+  numero_sae: string
+  caratula: string
+  ya_importado: boolean
+  expediente_id?: string
+}
+
+export function useSaeListProceedings() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sae-list', { body: {} })
+      if (error) throw new Error(error.message)
+      if (data?.error) throw new Error(data.error)
+      return data as { cases: SaeCaseItem[] }
+    },
+  })
+}
+
+// ─── SAE Import hook ──────────────────────────────────────────────────────────
+
+export interface SaeImportCase {
+  procid: string
+  jurisdictionId: number
+  numero_sae: string
+  caratula: string
+  cliente_id?: string
+}
+
+export interface SaeImportResult {
+  results: Array<{ numero_sae: string; expediente_id?: string; success: boolean; error?: string }>
+  total: number
+  exitosos: number
+  errores: number
+}
+
+export function useSaeImport() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (cases: SaeImportCase[]) => {
+      const { data, error } = await supabase.functions.invoke('sae-import', {
+        body: { cases },
+      })
+      if (error) throw new Error(error.message)
+      if (data?.error) throw new Error(data.error)
+      return data as SaeImportResult
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expedientes'] })
+    },
+  })
+}
