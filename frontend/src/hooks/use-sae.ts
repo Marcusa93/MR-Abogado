@@ -5,6 +5,21 @@ import type { Tables } from '@/types/database.types'
 export type SaeCredential = Omit<Tables<'sae_credentials'>, 'encrypted_secret'>
 export type SaeMovement = Tables<'sae_movements'>
 
+// When an edge function returns non-2xx, supabase-js sets data=null and puts the
+// Response in error.context. We must read it to get the specific error message.
+async function extractFnError(error: unknown): Promise<Error> {
+  if (error && typeof error === 'object' && 'context' in error) {
+    const ctx = (error as { context: unknown }).context
+    if (ctx instanceof Response) {
+      try {
+        const body = await ctx.json()
+        if (body?.error) return new Error(body.error)
+      } catch { /* body is not JSON, fall through */ }
+    }
+  }
+  return error instanceof Error ? error : new Error('Error desconocido')
+}
+
 // ─── Credential hooks ────────────────────────────────────────────────────────
 
 export function useSaeCredential() {
@@ -47,7 +62,7 @@ export function useSaeVerify() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('sae-verify', { body: {} })
-      if (error) throw new Error(error.message)
+      if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)
       return data as { success: boolean }
     },
@@ -100,7 +115,7 @@ export function useTriggerSaeSync() {
       const { data, error } = await supabase.functions.invoke('sae-sync', {
         body: { expediente_id: expedienteId },
       })
-      if (error) throw new Error(error.message)
+      if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)
       return data as { success: boolean; log_id: string; nuevas?: number; message?: string }
     },
@@ -127,9 +142,8 @@ export function useSaeListProceedings() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('sae-list', { body: {} })
-      // Check data.error first — edge functions return error details in the body even on 4xx/5xx
+      if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)
-      if (error) throw new Error(error.message)
       return data as { cases: SaeCaseItem[] }
     },
   })
@@ -160,7 +174,7 @@ export function useSaeImport() {
       const { data, error } = await supabase.functions.invoke('sae-import', {
         body: { cases },
       })
-      if (error) throw new Error(error.message)
+      if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)
       return data as SaeImportResult
     },

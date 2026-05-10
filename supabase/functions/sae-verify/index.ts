@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
         .update({ status: 'error', last_error: msg })
         .eq('id', cred.id)
 
+      // Return 400 so the client can read the error body (non-2xx → data=null in supabase-js)
       return json({ error: msg, error_code: code }, 400)
     }
 

@@ -220,6 +220,9 @@ Deno.serve(async (req) => {
     console.error('[sae-list]', err)
     const errMsg = err instanceof SaeError ? err.message : err instanceof Error ? err.message : 'Error interno'
     const errCode = err instanceof SaeError ? err.code : 'UNKNOWN'
-    return json({ error: errMsg, error_code: errCode }, 500)
+    // Auth/credential errors → 400 so the client can read the body; server errors → 500
+    const authCodes = ['SAE_AUTH_INVALID_CREDENTIALS', 'SAE_AUTH_REJECTED', 'SAE_AUTH_CSRF_MISSING', 'SAE_AUTH_SESSION_REJECTED']
+    const status = err instanceof SaeError && authCodes.includes(err.code) ? 400 : 500
+    return json({ error: errMsg, error_code: errCode }, status)
   }
 })
