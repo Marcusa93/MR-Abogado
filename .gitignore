@@ -8,7 +8,8 @@ dist/
 ._*
 **/._*
 supabase/.temp/
-.claude/worktrees/
+.claude/
+memory/
 tmp/
 Manual de marca/
 frontend/.vercel/
