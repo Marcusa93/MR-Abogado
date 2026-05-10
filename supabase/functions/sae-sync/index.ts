@@ -104,13 +104,9 @@ Deno.serve(async (req) => {
     if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas' }, 400)
 
     // ── Descifrar contraseña del Vault ───────────────────────────────────────
-    const { data: vaultData, error: vaultError } = await serviceClient
-      .schema('vault')
-      .from('decrypted_secrets')
-      .select('decrypted_secret')
-      .eq('id', cred.encrypted_secret)
-      .single()
-    if (vaultError || !vaultData?.decrypted_secret) {
+    const { data: password, error: pwdError } = await serviceClient
+      .rpc('get_sae_password', { p_user_id: user.id })
+    if (pwdError || !password) {
       return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
 
@@ -127,7 +123,7 @@ Deno.serve(async (req) => {
       // ── Autenticar en SAE ──────────────────────────────────────────────────
       const session = await authenticateWithSae({
         username: cred.username,
-        password: vaultData.decrypted_secret,
+        password,
       })
 
       // Marcar credencial como activa

@@ -35,18 +35,14 @@ Deno.serve(async (req) => {
     if (credError) throw credError
     if (!cred) return json({ error: 'No tenés credenciales SAE configuradas.' }, 400)
 
-    const { data: vaultData } = await serviceClient
-      .schema('vault')
-      .from('decrypted_secrets')
-      .select('decrypted_secret')
-      .eq('id', cred.encrypted_secret)
-      .single()
-    if (!vaultData?.decrypted_secret) {
+    const { data: password, error: pwdError } = await serviceClient
+      .rpc('get_sae_password', { p_user_id: user.id })
+    if (pwdError || !password) {
       return json({ error: 'No se pudo recuperar la contraseña. Reingresá tus credenciales.' }, 500)
     }
 
     try {
-      await authenticateWithSae({ username: cred.username, password: vaultData.decrypted_secret })
+      await authenticateWithSae({ username: cred.username, password })
 
       await serviceClient
         .from('sae_credentials')
