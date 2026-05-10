@@ -24,6 +24,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
   const [prioridad, setPrioridad] = useState<Prioridad>(expediente.prioridad as Prioridad)
   const [caratula, setCaratula] = useState(expediente.caratula ?? '')
   const [observaciones, setObservaciones] = useState(expediente.observaciones ?? '')
+  const [numeroSae, setNumeroSae] = useState((expediente as any).numero_sae ?? '')
 
   // Reset state when expediente changes
   useEffect(() => {
@@ -32,6 +33,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
       setPrioridad(expediente.prioridad as Prioridad)
       setCaratula(expediente.caratula ?? '')
       setObservaciones(expediente.observaciones ?? '')
+      setNumeroSae((expediente as any).numero_sae ?? '')
     }
   }, [open, expediente])
 
@@ -43,7 +45,8 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
         prioridad,
         caratula: caratula.trim() || null,
         observaciones: observaciones.trim() || null,
-      })
+        numero_sae: numeroSae.trim() || null,
+      } as any)
       toast.success('Expediente actualizado')
       onClose()
     } catch {
@@ -106,6 +109,17 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
                 <option key={p} value={p}>{PRIORIDAD_LABELS[p]}</option>
               ))}
             </select>
+          </div>
+
+          {/* Número SAE */}
+          <div>
+            <label className={labelClass}>Número SAE <span className="text-zinc-500">(Poder Judicial Tucumán)</span></label>
+            <input
+              value={numeroSae}
+              onChange={(e) => setNumeroSae(e.target.value)}
+              className={inputClass}
+              placeholder="Ej: 123456/2024"
+            />
           </div>
 
           {/* Observaciones */}
