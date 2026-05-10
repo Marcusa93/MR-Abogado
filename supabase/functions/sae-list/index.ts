@@ -112,9 +112,8 @@ Deno.serve(async (req) => {
     if (!cred) return json({ error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
     if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas.' }, 400)
 
-    const { data: password, error: pwdError } = await serviceClient
-      .rpc('get_sae_password', { p_user_id: user.id })
-    if (pwdError || !password) {
+    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    if (!password) {
       return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
 
