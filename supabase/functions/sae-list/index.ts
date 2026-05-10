@@ -34,69 +34,59 @@ function unwrapArray(payload: unknown): unknown[] {
   return []
 }
 
-async function fetchJurisdictionIds(): Promise<number[]> {
-  const centersRes = await fetch(`${SAE_API_URL}/centers`, { headers: { Accept: JSON_ACCEPT } })
-  if (!centersRes.ok) throw new SaeError('SAE_CATALOG', 'No se pudo obtener el catálogo de centros.', centersRes.status)
-  const centers = unwrapArray(await tryJson<unknown>(centersRes))
-    .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
-    .map(e => Number(e.id)).filter(id => Number.isFinite(id))
-
-  const jurisdictionSets = await Promise.all(centers.map(async centerId => {
-    const res = await fetch(`${SAE_API_URL}/jurisdictions?center=${centerId}&full=1`, { headers: { Accept: JSON_ACCEPT } })
-    if (!res.ok) return []
-    return unwrapArray(await tryJson<unknown>(res))
-      .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
-      .map(e => Number(e.id)).filter(id => Number.isFinite(id))
-  }))
-
-  return [...new Set(jurisdictionSets.flat())]
-}
-
-async function fetchProceedingsForJurisdiction(jurisdictionId: number, session: SaeSession): Promise<ProceedingEntry[]> {
-  const results: ProceedingEntry[] = []
-  let page = 1
-
-  while (true) {
-    const url = new URL(`${SAE_API_URL}/user/proceedings`)
-    url.searchParams.set('jurisdiction', String(jurisdictionId))
-    url.searchParams.set('page', String(page))
-    url.searchParams.set('unit', '')
-    url.searchParams.set('number', '')
-    url.searchParams.set('actor', '')
-    url.searchParams.set('accused', '')
-
-    const res = await fetch(url.toString(), { method: 'GET', headers: apiHeaders(session) })
-    if (!res.ok) break
-
-    const entries = unwrapArray(await tryJson<unknown>(res))
-      .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
-    if (!entries.length) break
-
-    for (const entry of entries) {
-      const procid = String(entry.procid ?? entry.id ?? '').trim()
-      if (!procid) continue
-      results.push({
-        procid,
-        jurisdictionId,
-        numero_sae: String(entry.nro_expediente ?? entry.number ?? entry.numero ?? '').trim(),
-        caratula: String(entry.cover ?? entry.caratula ?? entry.caption ?? entry.caratura ?? '').trim(),
-      })
-    }
-
-    if (entries.length < 20) break
-    page++
-  }
-
-  return results
-}
-
 async function fetchMyProceedings(session: SaeSession): Promise<ProceedingEntry[]> {
-  const jurisdictionIds = await fetchJurisdictionIds()
+  // Step 1: get only the jurisdictions where the user has cases (/api/user/jurisdictions)
+  // This is what the SAE portal uses at /mis-expedientes — avoids iterating all 17 jurisdictions
+  const jurisdRes = await fetch(`${SAE_API_URL}/user/jurisdictions`, {
+    method: 'GET',
+    headers: apiHeaders(session),
+  })
+  if (!jurisdRes.ok) {
+    throw new SaeError('SAE_AUTH_SESSION_REJECTED', 'La sesión SAE fue rechazada al obtener jurisdicciones.', jurisdRes.status)
+  }
+  const jurisdPayload = await tryJson<unknown>(jurisdRes)
+  const jurisdictionIds = unwrapArray(jurisdPayload)
+    .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
+    .map(e => Number(e.id ?? e.jurisdictionId))
+    .filter(id => Number.isFinite(id) && id > 0)
 
-  // Fetch all jurisdictions in parallel
-  const perJurisdiction = await Promise.all(
-    jurisdictionIds.map(id => fetchProceedingsForJurisdiction(id, session))
-  )
+  if (!jurisdictionIds.length) return []
+
+  // Step 2: fetch proceedings for each user jurisdiction in parallel
+  const perJurisdiction = await Promise.all(jurisdictionIds.map(async jurisdictionId => {
+    const results: ProceedingEntry[] = []
+    let page = 1
+    while (true) {
+      const url = new URL(`${SAE_API_URL}/user/proceedings`)
+      url.searchParams.set('jurisdiction', String(jurisdictionId))
+      url.searchParams.set('page', String(page))
+      url.searchParams.set('unit', '')
+      url.searchParams.set('number', '')
+      url.searchParams.set('actor', '')
+      url.searchParams.set('accused', '')
+
+      const res = await fetch(url.toString(), { method: 'GET', headers: apiHeaders(session) })
+      if (!res.ok) break
+
+      const entries = unwrapArray(await tryJson<unknown>(res))
+        .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
+      if (!entries.length) break
+
+      for (const entry of entries) {
+        const procid = String(entry.procid ?? entry.id ?? '').trim()
+        if (!procid) continue
+        results.push({
+          procid,
+          jurisdictionId,
+          numero_sae: String(entry.nro_expediente ?? entry.number ?? entry.numero ?? '').trim(),
+          caratula: String(entry.cover ?? entry.caratula ?? entry.caption ?? entry.caratura ?? '').trim(),
+        })
+      }
+      if (entries.length < 20) break
+      page++
+    }
+    return results
+  }))
 
   // Deduplicate by procid
   const seen = new Set<string>()
