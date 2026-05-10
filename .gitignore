@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+.env*.local
+dist/
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+supabase/.temp/
+.claude/worktrees/
+tmp/
+Manual de marca/
+frontend/.vercel/

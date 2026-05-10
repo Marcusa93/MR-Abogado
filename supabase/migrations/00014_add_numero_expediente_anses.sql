@@ -1,0 +1,4 @@
+-- ============================================================
+-- Migration 00014: absorbed into 00002
+-- numero_sae field is defined directly in expedientes table
+-- ============================================================

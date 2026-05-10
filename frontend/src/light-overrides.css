@@ -1,0 +1,66 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   Imported AFTER tailwindcss to guarantee these rules override utilities.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Backgrounds: white-alpha are invisible on white in light mode */
+html:not(.dark) [class*="bg-white/5"],
+html:not(.dark) [class*="bg-white/\[0.0"] {
+  background-color: oklch(0.96 0.003 247) !important;
+}
+html:not(.dark) [class*="bg-white/10"] {
+  background-color: oklch(0.94 0.003 247) !important;
+}
+
+/* Borders */
+html:not(.dark) [class*="border-white/"] {
+  border-color: oklch(0.88 0.004 286) !important;
+}
+
+/* Hover backgrounds */
+html:not(.dark) [class*="hover:bg-white/"]:hover {
+  background-color: oklch(0.92 0.003 247) !important;
+}
+
+/* ─── Dark backgrounds that must become light in light mode ─── */
+
+/* bg-slate-900 / bg-zinc-900 → light card surface */
+html:not(.dark) [class*="bg-slate-900"],
+html:not(.dark) [class*="bg-zinc-900"] {
+  background-color: oklch(1 0 0) !important;               /* white */
+  border-color: oklch(0.90 0.004 286) !important;
+}
+
+/* bg-zinc-950 / bg-slate-950 → light page surface (skip auth pages via data attr) */
+html:not(.dark) :not([data-theme-fixed]) > [class*="bg-zinc-950"],
+html:not(.dark) :not([data-theme-fixed]) > [class*="bg-slate-950"] {
+  background-color: oklch(0.975 0.002 247) !important;     /* near-white */
+}
+html:not(.dark) [class*="bg-zinc-800"],
+html:not(.dark) [class*="bg-slate-800"] {
+  background-color: oklch(0.96 0.003 247) !important;      /* very light gray */
+}
+
+/* ─── Text colors that are too light for light mode ─── */
+
+/* text-white on dark-bg elements → dark text */
+html:not(.dark) [class*="bg-slate-900"] [class*="text-white"],
+html:not(.dark) [class*="bg-zinc-900"] [class*="text-white"] {
+  color: oklch(0.205 0.005 286) !important;                 /* near-black */
+}
+
+/* text-zinc-100 / text-zinc-200 / text-zinc-300 → readable in light mode */
+html:not(.dark) [class*="text-zinc-100"]:not(.dark *) {
+  color: oklch(0.21 0.006 286) !important;
+}
+html:not(.dark) [class*="text-zinc-200"]:not(.dark *) {
+  color: oklch(0.27 0.006 286) !important;
+}
+html:not(.dark) [class*="text-zinc-300"]:not(.dark *) {
+  color: oklch(0.37 0.006 286) !important;
+}
+
+/* ─── Specific opacity-based dark bg patterns ─── */
+html:not(.dark) [class*="bg-slate-900/"] {
+  background-color: oklch(0.96 0.003 247) !important;
+}

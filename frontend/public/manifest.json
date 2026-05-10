@@ -1,0 +1,20 @@
+{
+  "name": "Alba | CRM Previsional",
+  "short_name": "Alba CRM",
+  "description": "Sistema de gestión de expedientes previsionales",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#06b6d4",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es-AR"
+}

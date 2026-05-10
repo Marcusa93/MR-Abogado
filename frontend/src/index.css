@@ -1,0 +1,585 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import "tailwindcss";
+
+/* ─── Theme Variables ─── */
+
+/* Light mode */
+:root {
+  --background: oklch(0.985 0.003 220);
+  --foreground: oklch(0.12 0.04 234);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.12 0.04 234);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0.04 234);
+  --primary: oklch(0.12 0.04 234);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.015 220);
+  --secondary-foreground: oklch(0.28 0.04 260);
+  --muted: oklch(0.96 0.015 220);
+  --muted-foreground: oklch(0.48 0.04 220);
+  --accent: oklch(0.92 0.02 220);
+  --accent-foreground: oklch(0.12 0.04 234);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.88 0.02 220);
+  --input: oklch(0.88 0.02 220);
+  --ring: oklch(0.52 0.06 220);
+  --radius: 0.625rem;
+
+  /* Brand tokens — Marco Rossi Estudio Jurídico */
+  --brand-navy: oklch(0.12 0.04 234);
+  --brand-medium: oklch(0.28 0.04 260);
+  --brand-accent: oklch(0.52 0.06 220);
+  --brand-ice: oklch(0.87 0.03 220);
+
+  /* Sidebar & layout light-mode tokens */
+  --sidebar-bg: oklch(1 0 0);
+  --sidebar-border: oklch(0.88 0.02 220);
+  --header-bg: oklch(1 0 0 / 85%);
+  --layout-bg: oklch(0.975 0.005 220);
+}
+
+/* Dark mode */
+.dark {
+  --background: oklch(0.14 0.04 234);
+  --foreground: oklch(0.96 0.008 220);
+  --card: oklch(0.19 0.04 246);
+  --card-foreground: oklch(0.96 0.008 220);
+  --popover: oklch(0.19 0.04 246);
+  --popover-foreground: oklch(0.96 0.008 220);
+  --primary: oklch(0.65 0.07 220);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.24 0.04 255);
+  --secondary-foreground: oklch(0.96 0.008 220);
+  --muted: oklch(0.24 0.04 255);
+  --muted-foreground: oklch(0.60 0.04 220);
+  --accent: oklch(0.24 0.04 255);
+  --accent-foreground: oklch(0.96 0.008 220);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.65 0.07 220);
+
+  --brand-navy: oklch(0.12 0.04 234);
+  --brand-medium: oklch(0.28 0.04 260);
+  --brand-accent: oklch(0.65 0.07 220);
+  --brand-ice: oklch(0.87 0.03 220);
+
+  --sidebar-bg: oklch(0.11 0.04 234);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --header-bg: oklch(0.14 0.04 234 / 85%);
+  --layout-bg: oklch(0.14 0.04 234);
+}
+
+/* ─── Light Mode Readability — DEFINITIVE FIX ─── */
+/* In light mode, zinc-50/100/200/300 are used as text colors (came from dark theme).
+   They are near-white and invisible on white backgrounds.
+   This block forces them to dark readable values in light mode ONLY.
+   In dark mode (.dark), Tailwind's defaults remain and these are ignored. */
+
+/* Light mode text + bg overrides are in index.html <style> to survive tree-shaking */
+
+/* ─── Base Styles ─── */
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* ─── Custom Scrollbar ─── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.5 0.005 286 / 30%) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: oklch(0.5 0.005 286 / 30%);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.5 0.005 286 / 55%);
+}
+
+/* Selection styling — navy-light */
+::selection {
+  background-color: oklch(0.52 0.06 220 / 25%);
+  color: oklch(0.12 0.04 234);
+}
+
+.dark ::selection {
+  color: oklch(0.96 0.008 220);
+}
+
+/* ─── Glassmorphism Utilities ─── */
+
+.glass {
+  background: oklch(1 0 0 / 60%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+}
+.dark .glass {
+  background: oklch(1 0 0 / 5%);
+}
+
+.glass-strong {
+  background: oklch(1 0 0 / 70%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+.dark .glass-strong {
+  background: oklch(1 0 0 / 8%);
+}
+
+.glass-card {
+  background: oklch(1 0 0 / 70%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 6%), 0 4px 16px oklch(0 0 0 / 4%);
+}
+.dark .glass-card {
+  background: oklch(1 0 0 / 5%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 20%);
+}
+
+/* Glass card with animated gradient border — navy-light accent */
+.glass-card-glow {
+  background: oklch(1 0 0 / 70%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 6%), 0 4px 16px oklch(0 0 0 / 4%);
+  position: relative;
+  overflow: hidden;
+}
+.dark .glass-card-glow {
+  background: oklch(1 0 0 / 5%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 20%);
+}
+
+.glass-card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    var(--border-angle, 0deg),
+    oklch(0.52 0.06 220 / 25%),
+    transparent 40%,
+    transparent 60%,
+    oklch(0.45 0.06 220 / 18%)
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  animation: border-rotate 8s linear infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.glass-card-glow > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Gradient Utilities ─── */
+
+/* Title text — navy in light mode, ice/celeste in dark mode */
+.text-gradient-cyan {
+  color: oklch(0.12 0.04 234);
+}
+.dark .text-gradient-cyan {
+  color: oklch(0.87 0.03 220);
+}
+
+.text-gradient-violet {
+  color: oklch(0.28 0.04 260);
+}
+.dark .text-gradient-violet {
+  color: oklch(0.75 0.05 220);
+}
+
+/* Button background — navy-light */
+.bg-gradient-cyan {
+  background: oklch(0.52 0.06 220);
+}
+
+.bg-gradient-subtle {
+  background: var(--background);
+}
+
+/* Gradient divider — navy-light */
+.divider-gradient {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    oklch(0.52 0.06 220 / 25%),
+    oklch(0.45 0.06 220 / 18%),
+    transparent
+  );
+}
+
+/* ─── Glow Effects — navy-light ─── */
+
+.glow-cyan {
+  box-shadow: 0 0 20px oklch(0.52 0.06 220 / 18%),
+    0 0 40px oklch(0.52 0.06 220 / 8%);
+}
+
+.glow-cyan-sm {
+  box-shadow: 0 0 10px oklch(0.52 0.06 220 / 12%);
+}
+
+/* ─── Mesh Gradient Background ─── */
+
+.mesh-gradient-bg {
+  background-color: var(--layout-bg);
+  background-image: none;
+}
+.dark .mesh-gradient-bg {
+  background-image:
+    radial-gradient(ellipse at 20% 0%, oklch(0.52 0.06 220 / 4%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.45 0.06 220 / 3%) 0%, transparent 50%);
+}
+
+/* ─── Login Background ─── */
+
+.login-bg-pattern {
+  background-image: radial-gradient(
+      circle at 20% 50%,
+      oklch(0.52 0.06 220 / 6%) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      oklch(0.12 0.04 234 / 4%) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 50% 80%,
+      oklch(0.87 0.03 220 / 5%) 0%,
+      transparent 50%
+    );
+}
+
+.dot-pattern {
+  background-image: radial-gradient(
+    circle,
+    oklch(0 0 0 / 4%) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+.dark .dot-pattern {
+  background-image: radial-gradient(
+    circle,
+    oklch(1 0 0 / 4%) 1px,
+    transparent 1px
+  );
+}
+
+.brand-splash-bg {
+  background:
+    radial-gradient(circle at 50% 30%, oklch(0.52 0.06 220 / 8%), transparent 26%),
+    radial-gradient(circle at 20% 65%, oklch(0.87 0.03 220 / 12%), transparent 32%),
+    radial-gradient(circle at 80% 18%, oklch(0.28 0.04 260 / 6%), transparent 26%),
+    linear-gradient(180deg, oklch(0.985 0.003 220), oklch(0.96 0.01 220));
+}
+
+.dark .brand-splash-bg {
+  background:
+    radial-gradient(circle at 50% 26%, oklch(0.52 0.06 220 / 12%), transparent 26%),
+    radial-gradient(circle at 18% 70%, oklch(0.28 0.04 260 / 10%), transparent 34%),
+    radial-gradient(circle at 82% 18%, oklch(0.65 0.07 220 / 8%), transparent 28%),
+    linear-gradient(180deg, oklch(0.12 0.04 234), oklch(0.10 0.04 234));
+}
+
+.brand-logo-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 2rem;
+  padding: 1.75rem 2.25rem;
+  border: 1px solid oklch(0.87 0.03 220 / 60%);
+  background:
+    linear-gradient(180deg, oklch(1 0 0 / 86%), oklch(0.97 0.01 220 / 90%));
+  box-shadow:
+    0 24px 64px oklch(0.12 0.04 234 / 10%),
+    inset 0 1px 0 oklch(1 0 0 / 75%);
+}
+
+.dark .brand-logo-frame {
+  border-color: oklch(1 0 0 / 8%);
+  background:
+    linear-gradient(180deg, oklch(0.19 0.04 246 / 92%), oklch(0.16 0.04 246 / 96%));
+  box-shadow:
+    0 24px 72px oklch(0 0 0 / 40%),
+    inset 0 1px 0 oklch(1 0 0 / 6%);
+}
+
+.brand-logo-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, oklch(1 0 0 / 38%), transparent 45%, oklch(0.87 0.03 220 / 16%));
+  pointer-events: none;
+}
+
+.dark .brand-logo-frame::before {
+  background:
+    linear-gradient(135deg, oklch(1 0 0 / 6%), transparent 45%, oklch(0.65 0.07 220 / 12%));
+}
+
+/* ─── Interaction Utilities ─── */
+
+.card-lift {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+.writing-vertical {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Animation Utilities ─── */
+
+.animate-fade-in {
+  animation: fade-in 300ms ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 400ms ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 300ms ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 300ms ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms ease-out;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
+}
+
+.animate-brand-splash-in {
+  animation: brand-splash-in 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-brand-splash-out {
+  animation: brand-splash-out 240ms ease-out both;
+}
+
+.animate-brand-logo {
+  animation:
+    logo-enter 640ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    logo-float 5.8s ease-in-out 760ms infinite;
+}
+
+.animate-logo-aura {
+  animation: logo-aura 4.8s ease-in-out infinite;
+}
+
+.animate-stagger-fade-in > * {
+  opacity: 0;
+  animation: fade-in-up 400ms ease-out forwards;
+}
+.animate-stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
+.animate-stagger-fade-in > *:nth-child(2) { animation-delay: 60ms; }
+.animate-stagger-fade-in > *:nth-child(3) { animation-delay: 120ms; }
+.animate-stagger-fade-in > *:nth-child(4) { animation-delay: 180ms; }
+.animate-stagger-fade-in > *:nth-child(5) { animation-delay: 240ms; }
+.animate-stagger-fade-in > *:nth-child(6) { animation-delay: 300ms; }
+.animate-stagger-fade-in > *:nth-child(7) { animation-delay: 360ms; }
+
+/* ─── Keyframes ─── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes brand-splash-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes brand-splash-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(1.01);
+    filter: blur(4px);
+  }
+}
+
+@keyframes logo-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+    filter: blur(6px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes logo-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.006);
+  }
+}
+
+@keyframes logo-aura {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+  50% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.03);
+  }
+}
+
+html[data-theme='light'] .mesh-gradient-bg {
+  background-image:
+    radial-gradient(ellipse at 12% 0%, oklch(0.87 0.03 220 / 8%) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 90%, oklch(0.52 0.06 220 / 4%) 0%, transparent 42%);
+}
+
+html[data-theme='dark'] .mesh-gradient-bg {
+  background-image:
+    radial-gradient(ellipse at 20% 0%, oklch(0.52 0.06 220 / 4%) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.45 0.06 220 / 3%) 0%, transparent 50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-brand-splash-in,
+  .animate-brand-splash-out,
+  .animate-brand-logo,
+  .animate-logo-aura {
+    animation: none !important;
+  }
+}
+
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes border-rotate {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Light mode bg/border overrides are in light-overrides.css (imported after tailwind) */

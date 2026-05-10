@@ -1,0 +1,5 @@
+-- ============================================================
+-- Migration 00017: absorbed into 00006
+-- Trigger fixes applied directly to 00006
+-- Honorarios removed from system
+-- ============================================================

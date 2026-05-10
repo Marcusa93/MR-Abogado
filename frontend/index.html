@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marco Rossi — Estudio Jurídico</title>
+    <script>
+      (() => {
+        const STORAGE_KEY = 'mr-ui-store'
+        const root = document.documentElement
+
+        const resolveTheme = (theme) => {
+          if (theme === 'dark' || theme === 'light') return theme
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY)
+          const parsed = raw ? JSON.parse(raw) : null
+          const preferredTheme = parsed?.state?.theme ?? 'system'
+          const resolvedTheme = resolveTheme(preferredTheme)
+
+          root.classList.toggle('dark', resolvedTheme === 'dark')
+          root.dataset.theme = resolvedTheme
+          root.style.colorScheme = resolvedTheme
+        } catch {
+          const resolvedTheme = resolveTheme('system')
+          root.classList.toggle('dark', resolvedTheme === 'dark')
+          root.dataset.theme = resolvedTheme
+          root.style.colorScheme = resolvedTheme
+        }
+      })()
+    </script>
+    <style>
+      /* Light mode: force readable text & visible backgrounds */
+      html:not(.dark) {
+        --color-zinc-50: oklch(0.14 0.005 286);
+        --color-zinc-100: oklch(0.20 0.005 286);
+        --color-zinc-200: oklch(0.30 0.005 286);
+        --color-zinc-300: oklch(0.40 0.005 286);
+      }
+      html:not(.dark) [class*="bg-white/5"],
+      html:not(.dark) [class*="bg-white/\[0.0"] { background-color: #f3f3f4 !important; }
+      html:not(.dark) [class*="bg-white/10"] { background-color: #ededef !important; }
+      html:not(.dark) [class*="border-white/"] { border-color: #d4d4d8 !important; }
+      html:not(.dark) [class*="hover:bg-white/"]:hover { background-color: #e4e4e7 !important; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
