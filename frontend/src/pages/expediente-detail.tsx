@@ -18,6 +18,7 @@ import { TabDocumentos } from '@/components/expedientes/tab-documentos'
 import { TabActuaciones } from '@/components/expedientes/tab-actuaciones'
 import { TabActuacionesClaves } from '@/components/expedientes/tab-actuaciones-claves'
 import { TabEscritos } from '@/components/expedientes/tab-escritos'
+import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
@@ -92,6 +93,7 @@ export default function ExpedienteDetailPage() {
   const [turnoDialogOpen, setTurnoDialogOpen] = useState(false)
   const [tareaDialogOpen, setTareaDialogOpen] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [descargarExpedienteOpen, setDescargarExpedienteOpen] = useState(false)
 
   // ---- Loading state ----
   if (isLoading) {
@@ -195,6 +197,14 @@ export default function ExpedienteDetailPage() {
             >
               {generatingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               Resumen PDF
+            </button>
+            <button
+              onClick={() => setDescargarExpedienteOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+              title="Descargar expediente completo (portada + actuaciones + PDFs adjuntos en uno solo)"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Expediente completo
             </button>
             <button
               onClick={() => setEstadoDialogOpen(true)}
@@ -386,6 +396,13 @@ export default function ExpedienteDetailPage() {
         expediente={expediente}
         open={editDialogOpen}
         onClose={() => setEditDialogOpen(false)}
+      />
+
+      <DescargarExpedienteDialog
+        open={descargarExpedienteOpen}
+        onClose={() => setDescargarExpedienteOpen(false)}
+        expedienteId={id!}
+        expedienteNumero={(expediente as any).numero}
       />
 
       {/* Quick Action Dialogs */}
