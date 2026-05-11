@@ -33,17 +33,17 @@ import {
 // ---------------------------------------------------------------------------
 
 const ESTADO_HEX: Record<string, string> = {
-  NUEVA_CONSULTA: '#94a3b8',          // slate-400
-  PARA_INICIAR: '#a78bfa',            // violet-400
-  INICIADO: '#60a5fa',                // blue-400
-  PRUEBA: '#22d3ee',                  // cyan-400
-  ALEGATOS: '#fbbf24',                // amber-400
-  SENTENCIA: '#fb923c',               // orange-400
-  APELACION: '#c084fc',               // purple-400
-  CORTE: '#818cf8',                   // indigo-400
-  FINALIZADO: '#22c55e',              // green-500
-  NO_VIABLE_RECHAZADO: '#fb7185',     // rose-400
-  PAUSADO: '#a1a1aa',                 // zinc-400
+  NUEVA_CONSULTA: '#94a3b8',      // slate-400
+  PARA_INICIAR: '#fbbf24',        // amber-400
+  INICIADO: '#60a5fa',            // blue-400
+  PRUEBA: '#818cf8',              // indigo-400
+  ALEGATOS: '#a78bfa',            // violet-400
+  SENTENCIA: '#22d3ee',           // cyan-400
+  APELACION: '#fb923c',           // orange-400
+  CORTE: '#fb7185',               // rose-400
+  FINALIZADO: '#34d399',          // emerald-400
+  NO_VIABLE_RECHAZADO: '#f87171', // red-400
+  PAUSADO: '#a1a1aa',             // zinc-400
 }
 
 // ---------------------------------------------------------------------------

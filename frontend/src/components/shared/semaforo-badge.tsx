@@ -22,6 +22,12 @@ const SEMAFORO_CONFIG: Record<
     label: 'Audiencia próxima',
     animate: true,
   },
+  verde_terminal: {
+    color: 'bg-emerald-400',
+    glow: 'shadow-[0_0_10px] shadow-emerald-400/70 ring-emerald-300/30',
+    label: 'Finalizado favorablemente',
+    animate: false,
+  },
   amarillo: {
     color: 'bg-amber-400',
     glow: 'shadow-[0_0_6px] shadow-amber-400/40',

@@ -188,20 +188,20 @@ export default function ImportarExcelPage() {
                   'APELACION': 'Apelación',
                   'CORTE': 'Corte',
                   'FINALIZADO': 'Finalizados',
-                  'NO_VIABLE_RECHAZADO': 'No viable',
+                  'NO_VIABLE_RECHAZADO': 'No viable / rechazado',
                   'PAUSADO': 'Pausado',
                 }
                 const colors: Record<string, string> = {
                   'NUEVA_CONSULTA': 'bg-slate-400',
-                  'PARA_INICIAR': 'bg-violet-400',
+                  'PARA_INICIAR': 'bg-amber-400',
                   'INICIADO': 'bg-blue-400',
-                  'PRUEBA': 'bg-cyan-400',
-                  'ALEGATOS': 'bg-amber-400',
-                  'SENTENCIA': 'bg-orange-400',
-                  'APELACION': 'bg-purple-400',
-                  'CORTE': 'bg-indigo-400',
+                  'PRUEBA': 'bg-indigo-400',
+                  'ALEGATOS': 'bg-violet-400',
+                  'SENTENCIA': 'bg-cyan-400',
+                  'APELACION': 'bg-orange-400',
+                  'CORTE': 'bg-rose-400',
                   'FINALIZADO': 'bg-emerald-400',
-                  'NO_VIABLE_RECHAZADO': 'bg-rose-400',
+                  'NO_VIABLE_RECHAZADO': 'bg-red-400',
                   'PAUSADO': 'bg-zinc-400',
                 }
                 return (

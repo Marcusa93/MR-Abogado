@@ -208,6 +208,8 @@ export function useConsultasVsTomados() {
   return useQuery<ConsultasVsTomados[]>({
     queryKey: ['informes', 'consultas-vs-tomados'],
     queryFn: async () => {
+      // "Consultas" = expedientes aún no comprometidos (NUEVA_CONSULTA, PAUSADO).
+      // "Tomados" = todo lo demás (PARA_INICIAR en adelante, incluidos terminales).
       const CONSULTAS = ['NUEVA_CONSULTA', 'PAUSADO']
       const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 

@@ -1,18 +1,7 @@
 import type { ClienteListItem } from '@/hooks/use-clientes'
+import { ESTADO_INTERNO_LABELS } from '@/types/enums'
 
-const ESTADO_LABELS: Record<string, string> = {
-  NUEVA_CONSULTA: 'Nueva consulta',
-  PARA_INICIAR: 'Para iniciar',
-  INICIADO: 'Iniciado',
-  PRUEBA: 'Prueba',
-  ALEGATOS: 'Alegatos',
-  SENTENCIA: 'Sentencia',
-  APELACION: 'Apelación',
-  CORTE: 'Corte',
-  FINALIZADO: 'Finalizado',
-  NO_VIABLE_RECHAZADO: 'No viable / rechazado',
-  PAUSADO: 'Pausado',
-}
+const ESTADO_LABELS: Record<string, string> = ESTADO_INTERNO_LABELS
 
 export async function exportClientePDF(cliente: ClienteListItem) {
   const { default: jsPDF } = await import('jspdf')

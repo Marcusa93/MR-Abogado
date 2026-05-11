@@ -1,22 +1,7 @@
 import type { EstadoCount, TipoCount, ResumenFinanciero } from '@/hooks/use-informes'
+import { ESTADO_INTERNO_LABELS } from '@/types/enums'
 
-// ---------------------------------------------------------------------------
-// Estado labels (duplicate here to avoid importing React components)
-// ---------------------------------------------------------------------------
-
-const ESTADO_LABELS: Record<string, string> = {
-  NUEVA_CONSULTA: 'Nueva consulta',
-  PARA_INICIAR: 'Para iniciar',
-  INICIADO: 'Iniciado',
-  PRUEBA: 'Prueba',
-  ALEGATOS: 'Alegatos',
-  SENTENCIA: 'Sentencia',
-  APELACION: 'Apelación',
-  CORTE: 'Corte',
-  FINALIZADO: 'Finalizado',
-  NO_VIABLE_RECHAZADO: 'No viable / rechazado',
-  PAUSADO: 'Pausado',
-}
+const ESTADO_LABELS: Record<string, string> = ESTADO_INTERNO_LABELS
 
 function fmtMoney(n: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)

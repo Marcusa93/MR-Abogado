@@ -12,10 +12,10 @@ describe('calcularSemaforo', () => {
     })).toBe('rojo')
   })
 
-  it('returns rojo for FINALIZADO', () => {
+  it('returns verde_terminal for FINALIZADO (caso ganado)', () => {
     expect(calcularSemaforo({
       estado_interno: 'FINALIZADO',
-    })).toBe('rojo')
+    })).toBe('verde_terminal')
   })
 
   it('returns verde when there is an active audiencia (future date)', () => {
@@ -75,6 +75,13 @@ describe('calcularSemaforo', () => {
     })).toBe('rojo')
   })
 
+  it('verde_terminal takes priority over verde', () => {
+    expect(calcularSemaforo({
+      estado_interno: 'FINALIZADO',
+      audiencias: [{ id: '1', estado: 'PENDIENTE', fecha: tomorrow }],
+    })).toBe('verde_terminal')
+  })
+
   it('verde takes priority over amarillo', () => {
     expect(calcularSemaforo({
       estado_interno: 'INICIADO',
@@ -92,6 +99,12 @@ describe('calcularSemaforoKanban', () => {
     expect(calcularSemaforoKanban({
       estado_interno: 'NO_VIABLE_RECHAZADO',
     })).toBe('rojo')
+  })
+
+  it('returns verde_terminal for FINALIZADO', () => {
+    expect(calcularSemaforoKanban({
+      estado_interno: 'FINALIZADO',
+    })).toBe('verde_terminal')
   })
 
   it('returns verde when has future proxima_fecha_audiencia', () => {

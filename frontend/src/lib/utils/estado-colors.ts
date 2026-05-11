@@ -6,7 +6,8 @@
 
 import { calcularSemaforo, calcularSemaforoKanban, type SemaforoColor } from './semaforo'
 
-// Intense semáforo row styles — visible full-row tinting
+// Intense semáforo row styles — visible full-row tinting.
+// `verde` = activo con audiencia próxima (saludable). `verde_terminal` = ganado/cerrado favorable (distinto, con glow).
 const SEMAFORO_STYLES: Record<SemaforoColor, { bg: string; borderL: string; hoverBg: string }> = {
   rojo: {
     bg: 'bg-red-500/[0.10]',
@@ -17,6 +18,11 @@ const SEMAFORO_STYLES: Record<SemaforoColor, { bg: string; borderL: string; hove
     bg: 'bg-emerald-500/[0.10]',
     borderL: 'border-l-emerald-500',
     hoverBg: 'hover:bg-emerald-500/[0.16]',
+  },
+  verde_terminal: {
+    bg: 'bg-emerald-500/[0.18] shadow-[inset_3px_0_0_0_rgba(16,185,129,0.45)]',
+    borderL: 'border-l-emerald-400',
+    hoverBg: 'hover:bg-emerald-500/[0.24]',
   },
   amarillo: {
     bg: 'bg-amber-400/[0.10]',

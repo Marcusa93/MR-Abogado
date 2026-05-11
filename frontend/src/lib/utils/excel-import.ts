@@ -218,7 +218,8 @@ function parseTareasPendientes(ws: XLSX.WorkSheet): { clientes: ImportedCliente[
     expedientes.push({
       cliente_dni: dni,
       tramite: 'otro',
-      estado_interno: 'LISTO_PARA_INICIAR',
+      // Legacy "LISTO_PARA_INICIAR" → PARA_INICIAR en el enum actual
+      estado_interno: 'PARA_INICIAR',
       fecha_alta: null,
       numero_expediente: null,
       observaciones: tarea || null,
@@ -335,7 +336,8 @@ function parseResueltos(ws: XLSX.WorkSheet): { clientes: ImportedCliente[]; expe
     expedientes.push({
       cliente_dni: dni,
       tramite: tramiteRaw ? mapTramite(tramiteRaw) : 'otro',
-      estado_interno: 'FINALIZADO_FAVORABLE',
+      // Legacy "FINALIZADO_FAVORABLE" (Excel "RESUELTOS") → FINALIZADO en el enum actual
+      estado_interno: 'FINALIZADO',
       fecha_alta: parseDate(row[10]),
       numero_expediente: nroExp || null,
       observaciones: clean(row[9]) || null,
