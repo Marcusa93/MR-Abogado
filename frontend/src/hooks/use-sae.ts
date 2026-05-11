@@ -183,6 +183,55 @@ export function useAnalyzeMovements() {
   })
 }
 
+// ─── Brief del expediente ────────────────────────────────────────────────────
+
+export interface ExpedienteBrief {
+  brief: string
+  model: string
+  generated_at: string
+}
+
+export function useExpedienteBrief(expedienteId: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['expediente-brief', expedienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select('ai_brief, ai_brief_generated_at, ai_brief_model')
+        .eq('id', expedienteId)
+        .single()
+      if (error) throw error
+      const row = data as unknown as { ai_brief: string | null; ai_brief_generated_at: string | null; ai_brief_model: string | null }
+      if (!row.ai_brief) return null
+      return {
+        brief: row.ai_brief,
+        model: row.ai_brief_model ?? '',
+        generated_at: row.ai_brief_generated_at ?? '',
+      } as ExpedienteBrief
+    },
+    enabled: !!expedienteId,
+  })
+}
+
+export function useGenerateBrief() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (expedienteId: string) => {
+      const { data, error } = await supabase.functions.invoke('sae-generate-brief', {
+        body: { expediente_id: expedienteId },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as ExpedienteBrief
+    },
+    onSuccess: (_data, expedienteId) => {
+      queryClient.invalidateQueries({ queryKey: ['expediente-brief', expedienteId] })
+    },
+  })
+}
+
 // ─── Document download hook ──────────────────────────────────────────────────
 
 export interface SaeDocumentRequest {

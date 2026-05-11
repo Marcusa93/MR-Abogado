@@ -29,6 +29,7 @@ import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { CrearTurnoDialog } from './crear-turno-dialog'
+import { SaeIntelligencePanel } from './sae-intelligence-panel'
 import { extractPdfText } from '@/lib/utils/pdf-text'
 
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
@@ -657,6 +658,9 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       }
     >
       <div className="space-y-4">
+        {/* ── Inteligencia del expediente (Fase 2) ── */}
+        <SaeIntelligencePanel expedienteId={expedienteId} />
+
         {/* ── Summary header ── */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-mono font-medium text-cyan-400">
