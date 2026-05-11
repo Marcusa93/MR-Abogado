@@ -80,16 +80,27 @@ interface AnalyzeInput {
   fecha: string
   apiKey: string
   model?: string
+  /** Texto extraído de uno o varios PDFs adjuntos (opcional). */
+  documentText?: string
+  /** Nombre de los archivos analizados, para contexto. */
+  documentFileNames?: string[]
 }
 
 export async function analyzeMovementWithAI(input: AnalyzeInput): Promise<AiAnalysis> {
+  const docSection = input.documentText && input.documentText.trim()
+    ? `
+
+Texto extraído de archivo(s) adjunto(s)${input.documentFileNames?.length ? ` (${input.documentFileNames.join(', ')})` : ''}:
+${input.documentText.trim()}`
+    : ''
+
   const userMessage = `Actuación judicial:
 
 Tipo clasificado: ${input.tipo_movimiento}
 Fecha: ${input.fecha}
 Título: ${input.titulo}
 Cuerpo:
-${input.cuerpo ?? '(sin cuerpo de texto disponible)'}`
+${input.cuerpo ?? '(sin cuerpo de texto disponible)'}${docSection}`
 
   const model = input.model ?? DEFAULT_MODEL
 

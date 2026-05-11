@@ -159,9 +159,17 @@ export function useAnalyzeMovements() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { movement_ids: string[]; expediente_id?: string }) => {
+    mutationFn: async (input: {
+      movement_ids: string[]
+      expediente_id?: string
+      document_text?: string
+      document_file_names?: string[]
+    }) => {
+      const payload: Record<string, unknown> = { movement_ids: input.movement_ids }
+      if (input.document_text) payload.document_text = input.document_text
+      if (input.document_file_names) payload.document_file_names = input.document_file_names
       const { data, error } = await supabase.functions.invoke('sae-analyze-movement', {
-        body: { movement_ids: input.movement_ids },
+        body: payload,
       })
       if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)

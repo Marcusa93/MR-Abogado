@@ -29,6 +29,7 @@ import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { CrearTurnoDialog } from './crear-turno-dialog'
+import { extractPdfText } from '@/lib/utils/pdf-text'
 
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
 type AiSuggestedAction = NonNullable<SaeMovement['ai_suggested_action']>
@@ -489,6 +490,41 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     setViewer({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
   }
 
+  const [analyzingFromPdf, setAnalyzingFromPdf] = useState(false)
+  const handleAnalyzePdfInViewer = async () => {
+    if (!viewer.objectUrl || !viewer.movement) {
+      toast.error('Esperá a que termine de cargar el PDF.')
+      return
+    }
+    const movement = viewer.movement
+    const fileName = viewer.attachments[viewer.index]?.fileName ?? 'archivo'
+    setAnalyzingFromPdf(true)
+    try {
+      const { text, pages, truncated } = await extractPdfText(viewer.objectUrl)
+      if (!text.trim()) {
+        toast.error('No se pudo extraer texto del PDF (puede ser un PDF escaneado / imagen).')
+        return
+      }
+      toast.info(`Analizando PDF (${pages} pág${pages !== 1 ? 's' : ''}${truncated ? ', truncado' : ''})…`)
+      const result = await analyze.mutateAsync({
+        movement_ids: [movement.id],
+        expediente_id: expedienteId,
+        document_text: text,
+        document_file_names: [fileName],
+      })
+      if (result.failed > 0) {
+        const err = result.results.find(r => !r.success)
+        toast.error(`No se pudo analizar: ${err?.error ?? 'desconocido'}`)
+      } else {
+        toast.success('Análisis IA actualizado con el contenido del PDF.')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error analizando PDF')
+    } finally {
+      setAnalyzingFromPdf(false)
+    }
+  }
+
   const handleAnalyzeIds = (ids: string[], confirmIfMany = true) => {
     if (ids.length === 0) {
       toast.info('No hay actuaciones pendientes de análisis.')
@@ -778,6 +814,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         currentIndex={viewer.index}
         onPrev={() => handleNavigatePdf(-1)}
         onNext={() => handleNavigatePdf(1)}
+        onAnalyzeWithAI={handleAnalyzePdfInViewer}
+        isAnalyzing={analyzingFromPdf}
       />
 
       <CrearTareaDialog

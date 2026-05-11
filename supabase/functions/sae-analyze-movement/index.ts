@@ -40,7 +40,14 @@ Deno.serve(async (req) => {
     if (authError || !user) return json({ error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
-      | { movement_id?: string; movement_ids?: string[] }
+      | {
+          movement_id?: string
+          movement_ids?: string[]
+          /** Texto extraído de PDFs adjuntos. Solo aplicable si se manda un movement_id (no múltiples). */
+          document_text?: string
+          /** Nombres de los archivos para contexto al LLM. */
+          document_file_names?: string[]
+        }
       | null
     const ids = Array.isArray(body?.movement_ids)
       ? body!.movement_ids
@@ -49,6 +56,12 @@ Deno.serve(async (req) => {
         : []
     if (!ids.length) return json({ error: 'Especificá movement_id o movement_ids.' }, 400)
     if (ids.length > 25) return json({ error: 'Máximo 25 actuaciones por llamada.' }, 400)
+
+    const documentText = typeof body?.document_text === 'string' ? body.document_text.trim() : undefined
+    const documentFileNames = Array.isArray(body?.document_file_names) ? body.document_file_names.filter((s): s is string => typeof s === 'string') : undefined
+    if (documentText && ids.length > 1) {
+      return json({ error: 'document_text solo se acepta con un único movement_id.' }, 400)
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -79,7 +92,9 @@ Deno.serve(async (req) => {
     const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean }[] = []
 
     await Promise.all(allowedMovements.map(async (m) => {
-      if (!shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)) {
+      // Si el usuario mandó document_text explícito, salteamos el filtro
+      // (es un click manual sobre una actuación que sí quiere analizar).
+      if (!documentText && !shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)) {
         results.push({ id: m.id, success: false, skipped: true, error: 'Tipo de actuación filtrado (puro trámite administrativo).' })
         return
       }
@@ -90,6 +105,8 @@ Deno.serve(async (req) => {
           tipo_movimiento: m.tipo_movimiento,
           fecha: m.fecha,
           apiKey,
+          documentText,
+          documentFileNames,
         })
         await serviceClient
           .from('sae_movements')
