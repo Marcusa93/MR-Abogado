@@ -13,6 +13,7 @@ import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
 import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles, Paperclip } from 'lucide-react'
 import { useSaeMovements, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { TranscriptionPanel } from './transcription-panel'
 
 interface TabTurnosProps {
   audiencias: Tables<'audiencias'>[]
@@ -150,6 +151,7 @@ function TurnoRow({
         {turno.notas && (
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{turno.notas}</p>
         )}
+        <TranscriptionPanel audienciaId={turno.id} />
       </div>
       {/* Action buttons — visible on hover */}
       <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -325,9 +327,7 @@ function ActuacionAudienciaRow({ movement }: { movement: SaeMovement }) {
               <span className="line-clamp-3">{aiSummary}</span>
             </p>
           )}
-          <p className="mt-2 text-[10px] text-zinc-600">
-            Próximamente: subir audio + transcripción + análisis IA.
-          </p>
+          <TranscriptionPanel movement={movement} />
         </div>
       </div>
     </div>

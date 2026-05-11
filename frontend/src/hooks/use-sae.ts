@@ -271,12 +271,131 @@ export function hasAudioAttachment(movement: SaeMovement): boolean {
 /**
  * Devuelve true si la actuación debe verse como audiencia:
  *   - is_audiencia === true (manual), o
- *   - is_audiencia IS NULL Y tiene adjunto de audio (auto)
+ *   - is_audiencia IS NULL Y (tipo_movimiento es 'audiencia' o tiene adjunto de audio)
  */
 export function passesAudienciaFilter(m: SaeMovement): boolean {
   if (m.is_audiencia === true) return true
   if (m.is_audiencia === false) return false
-  return hasAudioAttachment(m)
+  return m.tipo_movimiento === 'audiencia' || hasAudioAttachment(m)
+}
+
+// ─── Transcripción de audiencias ─────────────────────────────────────────────
+
+export interface AiTranscriptAnalysis {
+  resumen: string
+  partes_presentes: string[]
+  decisiones: string[]
+  proximos_pasos: string[]
+  puntos_clave: string[]
+}
+
+export interface AudienciaTranscript {
+  id: string
+  movement_id: string | null
+  audiencia_id: string | null
+  expediente_id: string
+  status: 'pending' | 'transcribing' | 'completed' | 'error'
+  audio_source: 'sae_attachment' | 'upload'
+  audio_filename: string | null
+  audio_duration_seconds: number | null
+  transcript: string | null
+  transcript_at: string | null
+  ai_analysis: AiTranscriptAnalysis | null
+  ai_analyzed_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+export function useAudienciaTranscripts(input: { movement_id?: string; audiencia_id?: string }) {
+  const supabase = createClient()
+  const enabled = !!(input.movement_id || input.audiencia_id)
+  return useQuery({
+    queryKey: ['audiencia-transcripts', input.movement_id ?? input.audiencia_id],
+    queryFn: async () => {
+      let q = (supabase.from as any)('audiencia_transcripts')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (input.movement_id) q = q.eq('movement_id', input.movement_id)
+      else if (input.audiencia_id) q = q.eq('audiencia_id', input.audiencia_id)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as unknown as AudienciaTranscript[]
+    },
+    enabled,
+  })
+}
+
+export function useTranscribeSaeAttachment() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movement_id: string; file_name: string }) => {
+      const { data, error } = await supabase.functions.invoke('sae-transcribe-audio', {
+        body: { source: 'sae_attachment', movement_id: input.movement_id, file_name: input.file_name },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as { transcript_id: string; transcript: string; duration_seconds: number | null }
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['audiencia-transcripts', vars.movement_id] })
+    },
+  })
+}
+
+export function useTranscribeUpload() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { audiencia_id?: string; movement_id?: string; storage_path: string; file_name: string }) => {
+      const { data, error } = await supabase.functions.invoke('sae-transcribe-audio', {
+        body: { source: 'upload', ...input },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as { transcript_id: string; transcript: string; duration_seconds: number | null }
+    },
+    onSuccess: (_data, vars) => {
+      const key = vars.movement_id ?? vars.audiencia_id
+      if (key) queryClient.invalidateQueries({ queryKey: ['audiencia-transcripts', key] })
+    },
+  })
+}
+
+export function useAnalyzeTranscript() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { transcript_id: string; movement_id?: string; audiencia_id?: string }) => {
+      const { data, error } = await supabase.functions.invoke('sae-analyze-transcript', {
+        body: { transcript_id: input.transcript_id },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as { analysis: AiTranscriptAnalysis }
+    },
+    onSuccess: (_data, vars) => {
+      const key = vars.movement_id ?? vars.audiencia_id
+      if (key) queryClient.invalidateQueries({ queryKey: ['audiencia-transcripts', key] })
+    },
+  })
+}
+
+export function useUploadAudienciaAudio() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: { file: File; targetId: string }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autorizado')
+      const safeName = input.file.name.replace(/[^a-z0-9._-]/gi, '_')
+      const path = `${user.id}/${input.targetId}/${Date.now()}-${safeName}`
+      const { error } = await supabase.storage
+        .from('audiencias-audio')
+        .upload(path, input.file, { contentType: input.file.type, upsert: false })
+      if (error) throw error
+      return { storage_path: path, file_name: input.file.name }
+    },
+  })
 }
 
 // ─── Brief del expediente ────────────────────────────────────────────────────
