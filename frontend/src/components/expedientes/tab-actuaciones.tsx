@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument } from '@/hooks/use-sae'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -16,8 +16,11 @@ import {
   AlertCircle,
   Loader2,
   Info,
+  Paperclip,
+  Eye,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
+import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 
 type SaeMovement = Tables<'sae_movements'>
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
@@ -60,17 +63,52 @@ function MovementIcon({ tipo }: { tipo: MovementType }) {
   return <FileText className="h-3.5 w-3.5" />
 }
 
-function ActuacionRow({ movement }: { movement: SaeMovement }) {
+interface SaeAttachment {
+  fileName: string
+  raw: Record<string, unknown>
+}
+
+function pickFileName(entry: Record<string, unknown>): string | null {
+  const candidates = [entry.nombre, entry.name, entry.filename, entry.fileName, entry.label, entry.dscr]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim()
+  }
+  return null
+}
+
+function extractAttachments(movement: SaeMovement): SaeAttachment[] {
+  const rp = movement.raw_payload as Record<string, unknown> | null
+  if (!rp) return []
+  const archivos = Array.isArray(rp.archivos) ? rp.archivos : []
+  const vinculos = Array.isArray(rp.vinculos) ? rp.vinculos : []
+  return [...archivos, ...vinculos]
+    .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
+    .map(e => {
+      const fileName = pickFileName(e)
+      return fileName ? { fileName, raw: e } : null
+    })
+    .filter((x): x is SaeAttachment => x !== null)
+}
+
+function ActuacionRow({
+  movement,
+  onOpenPdf,
+}: {
+  movement: SaeMovement
+  onOpenPdf: (att: SaeAttachment, movement: SaeMovement) => void
+}) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
+  const attachments = extractAttachments(movement)
+  const canExpand = hasCuerpo || attachments.length > 0
 
   return (
     <div className="rounded-lg border border-white/5 bg-white/[0.02] overflow-hidden">
       <button
-        onClick={() => hasCuerpo && setExpanded((v) => !v)}
+        onClick={() => canExpand && setExpanded((v) => !v)}
         className={cn(
           'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors',
-          hasCuerpo ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
+          canExpand ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
         )}
       >
         <div className="shrink-0 mt-0.5">
@@ -86,24 +124,44 @@ function ActuacionRow({ movement }: { movement: SaeMovement }) {
           </p>
           <p className="mt-0.5 text-xs text-zinc-500">
             {formatDate(movement.fecha)}
-            {movement.tiene_documentos && (
-              <span className="ml-2 text-sky-400">· Con documentos</span>
+            {attachments.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 text-sky-400">
+                <Paperclip className="h-3 w-3" />
+                {attachments.length} {attachments.length === 1 ? 'archivo' : 'archivos'}
+              </span>
             )}
           </p>
         </div>
 
-        {hasCuerpo && (
+        {canExpand && (
           <span className="shrink-0 text-zinc-600 dark:text-zinc-500 mt-1">
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </span>
         )}
       </button>
 
-      {expanded && hasCuerpo && (
-        <div className="border-t border-white/5 px-4 py-3">
-          <p className="text-xs text-zinc-400 whitespace-pre-wrap leading-relaxed">
-            {movement.cuerpo}
-          </p>
+      {expanded && (
+        <div className="border-t border-white/5 px-4 py-3 space-y-3">
+          {hasCuerpo && (
+            <p className="text-xs text-zinc-400 whitespace-pre-wrap leading-relaxed">
+              {movement.cuerpo}
+            </p>
+          )}
+          {attachments.length > 0 && (
+            <div className="space-y-1.5">
+              {attachments.map((att, idx) => (
+                <button
+                  key={`${att.fileName}-${idx}`}
+                  onClick={(e) => { e.stopPropagation(); onOpenPdf(att, movement) }}
+                  className="group flex w-full items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/5 hover:border-sky-500/30"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-sky-400" />
+                  <span className="min-w-0 flex-1 truncate text-xs text-zinc-300">{att.fileName}</span>
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 group-hover:text-sky-400" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -119,6 +177,42 @@ interface TabActuacionesProps {
 export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }: TabActuacionesProps) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
+  const document = useSaeDocument()
+  const [viewer, setViewer] = useState<{ open: boolean; fileName: string; objectUrl?: string | null; error?: string | null }>({
+    open: false,
+    fileName: '',
+  })
+
+  useEffect(() => {
+    return () => {
+      if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    }
+  }, [viewer.objectUrl])
+
+  const handleOpenPdf = (att: SaeAttachment, m: SaeMovement) => {
+    const rp = m.raw_payload as Record<string, unknown> | null
+    const jurisdictionId = typeof rp?.jurisdiction_id === 'number' ? rp.jurisdiction_id : null
+    const procid = m.sae_case_id
+    const histid = m.external_id
+    if (!jurisdictionId || !procid || !histid) {
+      toast.error('Falta información de la actuación para descargar el archivo.')
+      return
+    }
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer({ open: true, fileName: att.fileName, objectUrl: null, error: null })
+    document.mutate(
+      { procid, jurisdictionId, histid, fileName: att.fileName },
+      {
+        onSuccess: ({ objectUrl }) => setViewer((v) => ({ ...v, objectUrl, error: null })),
+        onError: (err) => setViewer((v) => ({ ...v, error: err instanceof Error ? err.message : 'No se pudo descargar el documento.' })),
+      },
+    )
+  }
+
+  const handleCloseViewer = () => {
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer({ open: false, fileName: '', objectUrl: null, error: null })
+  }
 
   const handleSync = () => {
     sync.mutate(
@@ -197,11 +291,20 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         ) : (
           <div className="space-y-2">
             {movements.map((m) => (
-              <ActuacionRow key={m.id} movement={m} />
+              <ActuacionRow key={m.id} movement={m} onOpenPdf={handleOpenPdf} />
             ))}
           </div>
         )}
       </div>
+
+      <SaePdfViewerDialog
+        open={viewer.open}
+        onClose={handleCloseViewer}
+        fileName={viewer.fileName}
+        isLoading={document.isPending}
+        objectUrl={viewer.objectUrl ?? null}
+        error={viewer.error ?? null}
+      />
     </Card>
   )
 }

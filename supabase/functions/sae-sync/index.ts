@@ -6,7 +6,47 @@ import {
   fetchCaseHistory,
   fetchStoryBody,
   SaeError,
+  type SaeSession,
 } from '../_shared/sae-request-connector.ts'
+
+const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+function apiHeaders(session: SaeSession): Headers {
+  const h = new Headers({
+    Accept: 'application/json, text/plain, */*',
+    'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+    'User-Agent': BROWSER_UA,
+    Origin: 'https://consultaexpedientes.justucuman.gov.ar',
+    Referer: 'https://consultaexpedientes.justucuman.gov.ar/',
+  })
+  if (session.cookies.length) h.set('Cookie', session.cookies.join('; '))
+  if (session.headers?.Authorization) h.set('Authorization', session.headers.Authorization)
+  return h
+}
+
+async function findCaseInUserProceedings(
+  numeroSae: string,
+  session: SaeSession,
+): Promise<{ procid: string; jurisdictionId: number } | null> {
+  const res = await fetch(`${SAE_API_URL}/user`, { method: 'GET', headers: apiHeaders(session) })
+  if (!res.ok) return null
+  const payload = await res.json().catch(() => null) as unknown
+  if (!payload || typeof payload !== 'object') return null
+  const root = payload as Record<string, unknown>
+  const proceedingsSrc = root.proceedings ?? (root.data && typeof root.data === 'object' ? (root.data as Record<string, unknown>).proceedings : null)
+  if (!Array.isArray(proceedingsSrc)) return null
+  for (const entry of proceedingsSrc) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    const num = String(e.nro_expediente ?? e.number ?? e.numero ?? '').trim()
+    if (num !== numeroSae) continue
+    const procid = String(e.procid ?? e.id ?? '').trim()
+    const jurisdictionId = Number(e.jurisdictionId ?? e.jurisdiction_id ?? 0)
+    if (procid && jurisdictionId > 0) return { procid, jurisdictionId }
+  }
+  return null
+}
 
 type MovementType =
   | 'sentencia' | 'traslado' | 'audiencia' | 'prueba' | 'embargo'
@@ -148,7 +188,16 @@ Deno.serve(async (req) => {
         jurisdictionId = typeof rp?.jurisdiction_id === 'number' ? rp.jurisdiction_id : null
       }
 
-      // Si no hay movimientos previos, buscar por numero_sae
+      // Si no hay movimientos previos, buscar primero en /api/user (rápido, una sola llamada)
+      if (!procid || !jurisdictionId) {
+        const fromUserList = await findCaseInUserProceedings(exp.numero_sae, session)
+        if (fromUserList) {
+          procid = fromUserList.procid
+          jurisdictionId = fromUserList.jurisdictionId
+        }
+      }
+
+      // Fallback: escanear por jurisdicción (lento, sólo si /api/user no lo trae)
       if (!procid || !jurisdictionId) {
         const found = await findCaseByNumber(exp.numero_sae, session)
         if (!found) {

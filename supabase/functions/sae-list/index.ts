@@ -12,8 +12,16 @@ interface ProceedingEntry {
   caratula: string
 }
 
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
 function apiHeaders(session: SaeSession): Headers {
-  const h = new Headers({ Accept: JSON_ACCEPT })
+  const h = new Headers({
+    Accept: JSON_ACCEPT,
+    'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+    'User-Agent': BROWSER_UA,
+    Origin: 'https://consultaexpedientes.justucuman.gov.ar',
+    Referer: 'https://consultaexpedientes.justucuman.gov.ar/',
+  })
   if (session.cookies.length) h.set('Cookie', session.cookies.join('; '))
   if (session.headers?.Authorization) h.set('Authorization', session.headers.Authorization)
   return h
@@ -34,17 +42,91 @@ function unwrapArray(payload: unknown): unknown[] {
   return []
 }
 
+function extractProceedingsFromPayload(payload: unknown, jurisdictionId = 0): ProceedingEntry[] {
+  const entries = unwrapArray(payload)
+    .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
+  const results: ProceedingEntry[] = []
+  for (const entry of entries) {
+    const procid = String(entry.procid ?? entry.id ?? '').trim()
+    if (!procid) continue
+    const jid = typeof entry.jurisdictionId === 'number' ? entry.jurisdictionId
+      : typeof entry.jurisdiction_id === 'number' ? entry.jurisdiction_id
+      : jurisdictionId
+    results.push({
+      procid,
+      jurisdictionId: jid,
+      numero_sae: String(entry.nro_expediente ?? entry.number ?? entry.numero ?? '').trim(),
+      caratula: String(entry.cover ?? entry.caratula ?? entry.caption ?? entry.caratura ?? '').trim(),
+    })
+  }
+  return results
+}
+
+function extractMyProceedings(payload: unknown): ProceedingEntry[] {
+  const root = payload && typeof payload === 'object'
+    ? ((payload as Record<string, unknown>).data && typeof (payload as Record<string, unknown>).data === 'object'
+        ? (payload as Record<string, unknown>).data as Record<string, unknown>
+        : payload as Record<string, unknown>)
+    : null
+
+  if (!root) return []
+
+  const proceedings =
+    root.proceedings ??
+    root.expedientes ??
+    root.cases ??
+    (payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>).proceedings ??
+        (payload as Record<string, unknown>).expedientes ??
+        (payload as Record<string, unknown>).cases
+      : undefined)
+
+  return Array.isArray(proceedings) ? extractProceedingsFromPayload(proceedings) : []
+}
+
 async function fetchMyProceedings(session: SaeSession): Promise<ProceedingEntry[]> {
-  // Step 1: get only the jurisdictions where the user has cases (/api/user/jurisdictions)
-  // This is what the SAE portal uses at /mis-expedientes — avoids iterating all 17 jurisdictions
+  // Step 1: call /api/user — the SAE portal populates "mis-expedientes" from this response
+  // (the Redux store sets auth.proceedings from the login response payload which comes from /api/user)
+  const userRes = await fetch(`${SAE_API_URL}/user`, {
+    method: 'GET',
+    headers: apiHeaders(session),
+  })
+  if (!userRes.ok) {
+    throw new SaeError('SAE_AUTH_SESSION_REJECTED', 'La sesión SAE fue rechazada al obtener datos del usuario.', userRes.status)
+  }
+  const userPayload = await tryJson<unknown>(userRes)
+  console.log('[sae-list] /api/user keys:', userPayload && typeof userPayload === 'object' ? Object.keys(userPayload as object) : typeof userPayload)
+
+  const directProceedings = extractMyProceedings(userPayload)
+  if (directProceedings.length > 0) {
+    console.log('[sae-list] found', directProceedings.length, 'proceedings in /api/user')
+    return directProceedings
+  }
+
+  // Step 2: try /api/user/proceedings with no jurisdiction filter
+  const allProcRes = await fetch(`${SAE_API_URL}/user/proceedings?page=1&unit=&number=&actor=&accused=`, {
+    method: 'GET',
+    headers: apiHeaders(session),
+  })
+  if (allProcRes.ok) {
+    const allProcPayload = await tryJson<unknown>(allProcRes)
+    console.log('[sae-list] /api/user/proceedings (no jurisdiction) payload:', JSON.stringify(allProcPayload)?.slice(0, 300))
+    const allEntries = extractProceedingsFromPayload(allProcPayload)
+    if (allEntries.length > 0) {
+      console.log('[sae-list] found', allEntries.length, 'proceedings in /api/user/proceedings (no filter)')
+      return allEntries
+    }
+  }
+
+  // Step 3: fallback — get user's jurisdictions then fetch per-jurisdiction
   const jurisdRes = await fetch(`${SAE_API_URL}/user/jurisdictions`, {
     method: 'GET',
     headers: apiHeaders(session),
   })
-  if (!jurisdRes.ok) {
-    throw new SaeError('SAE_AUTH_SESSION_REJECTED', 'La sesión SAE fue rechazada al obtener jurisdicciones.', jurisdRes.status)
-  }
+  if (!jurisdRes.ok) return []
+
   const jurisdPayload = await tryJson<unknown>(jurisdRes)
+  console.log('[sae-list] /api/user/jurisdictions payload:', JSON.stringify(jurisdPayload)?.slice(0, 300))
   const jurisdictionIds = unwrapArray(jurisdPayload)
     .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
     .map(e => Number(e.id ?? e.jurisdictionId))
@@ -52,7 +134,6 @@ async function fetchMyProceedings(session: SaeSession): Promise<ProceedingEntry[
 
   if (!jurisdictionIds.length) return []
 
-  // Step 2: fetch proceedings for each user jurisdiction in parallel
   const perJurisdiction = await Promise.all(jurisdictionIds.map(async jurisdictionId => {
     const results: ProceedingEntry[] = []
     let page = 1
@@ -72,23 +153,13 @@ async function fetchMyProceedings(session: SaeSession): Promise<ProceedingEntry[
         .filter((e): e is Record<string, unknown> => Boolean(e) && typeof e === 'object')
       if (!entries.length) break
 
-      for (const entry of entries) {
-        const procid = String(entry.procid ?? entry.id ?? '').trim()
-        if (!procid) continue
-        results.push({
-          procid,
-          jurisdictionId,
-          numero_sae: String(entry.nro_expediente ?? entry.number ?? entry.numero ?? '').trim(),
-          caratula: String(entry.cover ?? entry.caratula ?? entry.caption ?? entry.caratura ?? '').trim(),
-        })
-      }
+      results.push(...extractProceedingsFromPayload(entries, jurisdictionId))
       if (entries.length < 20) break
       page++
     }
     return results
   }))
 
-  // Deduplicate by procid
   const seen = new Set<string>()
   const results: ProceedingEntry[] = []
   for (const entries of perJurisdiction) {

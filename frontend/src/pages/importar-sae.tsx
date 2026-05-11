@@ -368,15 +368,19 @@ export default function ImportarSaePage() {
                         </td>
 
                         {/* Estado */}
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3">
                           {hasImportError ? (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[11px] font-medium text-red-400"
-                              title={importResult?.error}
-                            >
-                              <AlertCircle className="h-3 w-3" />
-                              Error
-                            </span>
+                            <div className="flex flex-col gap-1 max-w-xs">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[11px] font-medium text-red-400 self-start">
+                                <AlertCircle className="h-3 w-3" />
+                                Error
+                              </span>
+                              {importResult?.error && (
+                                <span className="text-[11px] text-red-400/80 break-words leading-snug">
+                                  {importResult.error}
+                                </span>
+                              )}
+                            </div>
                           ) : row.ya_importado ? (
                             <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
                               Ya importado

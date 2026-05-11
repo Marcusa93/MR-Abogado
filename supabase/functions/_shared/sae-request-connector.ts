@@ -96,8 +96,16 @@ async function followRedirects(res: Response, jar: CookieJar, max = 5): Promise<
   return cur
 }
 
+const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
 function apiHeaders(session: SaeSession): Headers {
-  const h = new Headers({ Accept: JSON_ACCEPT })
+  const h = new Headers({
+    Accept: JSON_ACCEPT,
+    'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+    'User-Agent': BROWSER_UA,
+    Origin: 'https://consultaexpedientes.justucuman.gov.ar',
+    Referer: 'https://consultaexpedientes.justucuman.gov.ar/',
+  })
   if (session.cookies.length) h.set('Cookie', session.cookies.join('; '))
   if (session.headers?.Authorization) h.set('Authorization', session.headers.Authorization)
   return h

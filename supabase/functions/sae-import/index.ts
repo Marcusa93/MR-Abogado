@@ -71,10 +71,11 @@ Deno.serve(async (req) => {
         })
 
         if (error) {
+          console.error('[sae-import] RPC error for', c.numero_sae, JSON.stringify(error))
           results.push({
             numero_sae: c.numero_sae,
             success: false,
-            error: error.message,
+            error: error.message + (error.details ? ` (${error.details})` : '') + (error.hint ? ` [${error.hint}]` : ''),
           })
         } else {
           const expediente_id = typeof data === 'string' ? data : (data as Record<string, unknown>)?.id as string | undefined

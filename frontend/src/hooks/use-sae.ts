@@ -126,6 +126,46 @@ export function useTriggerSaeSync() {
   })
 }
 
+// ─── Document download hook ──────────────────────────────────────────────────
+
+export interface SaeDocumentRequest {
+  procid: string
+  jurisdictionId: number
+  histid: string
+  fileName: string
+}
+
+export function useSaeDocument() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: SaeDocumentRequest) => {
+      const { data: session } = await supabase.auth.getSession()
+      const token = session.session?.access_token
+      if (!token) throw new Error('No autorizado')
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sae-document`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify(input),
+        },
+      )
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: `Error ${res.status}` }))
+        throw new Error(errBody.error ?? `Error ${res.status}`)
+      }
+      const blob = await res.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      return { objectUrl, mimeType: blob.type, fileName: input.fileName }
+    },
+  })
+}
+
 // ─── SAE List hook ────────────────────────────────────────────────────────────
 
 export interface SaeCaseItem {
