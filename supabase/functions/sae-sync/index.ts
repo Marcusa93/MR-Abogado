@@ -225,10 +225,11 @@ Deno.serve(async (req) => {
         return db.localeCompare(da)
       })
 
-      // Fetch body text para las primeras 10
+      // Fetch body text para las primeras 30 (cap razonable de tiempo de sync;
+      // el resto se baja on-demand al generar el PDF y se cachea en DB).
       const withBody = await Promise.all(
         sorted.map(async (story, idx) => {
-          const body = idx < 10
+          const body = idx < 30
             ? await fetchStoryBody(procid!, jurisdictionId!, story.histid, session)
             : undefined
           return { ...story, body }

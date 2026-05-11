@@ -34,15 +34,30 @@ interface ExpedienteData {
 }
 
 export interface ProgressUpdate {
-  stage: 'fetching' | 'cover' | 'downloading' | 'merging' | 'finalizing' | 'done'
+  stage: 'fetching' | 'bodies' | 'cover' | 'downloading' | 'merging' | 'finalizing' | 'done' | 'cancelled'
   current?: number
   total?: number
   message: string
+  /** Bytes acumulados de adjuntos descargados (estimación running del tamaño final). */
+  bytesSoFar?: number
 }
 
 export interface GenerateOptions {
   /** Si true, solo incluye actuaciones claves (is_key=true o auto-detectadas no excluidas). */
   onlyKeys?: boolean
+  /** Permite cancelar la generación desde el llamador. */
+  signal?: AbortSignal
+}
+
+export class CancelledError extends Error {
+  constructor() {
+    super('Generación cancelada por el usuario')
+    this.name = 'CancelledError'
+  }
+}
+
+function checkCancel(signal?: AbortSignal) {
+  if (signal?.aborted) throw new CancelledError()
 }
 
 const KEY_TYPES = new Set(['sentencia', 'audiencia', 'intimacion', 'embargo', 'traslado', 'decreto', 'cedula'])
@@ -203,6 +218,66 @@ export async function generateExpedientePdf(
   const movements = options.onlyKeys
     ? allMovements.filter(passesKeyFilter)
     : allMovements
+
+  checkCancel(options.signal)
+
+  // ── 1.5. Lazy-fetch de cuerpos faltantes ──────────────────────────────
+  // En expedientes largos solo las primeras 30 tienen cuerpo guardado.
+  // Bajamos en lotes lo que falte para que el PDF esté completo.
+  const idsWithoutBody = movements
+    .filter(m => !m.cuerpo?.trim() && m.external_id && m.sae_case_id)
+    .map(m => m.id)
+
+  if (idsWithoutBody.length > 0) {
+    onProgress({
+      stage: 'bodies',
+      message: `Recuperando texto de ${idsWithoutBody.length} actuación${idsWithoutBody.length !== 1 ? 'es' : ''} (puede tardar un momento la primera vez)…`,
+      total: idsWithoutBody.length,
+    })
+
+    // El edge function caps a 60 por llamada; iteramos en chunks
+    const CHUNK = 60
+    for (let i = 0; i < idsWithoutBody.length; i += CHUNK) {
+      checkCancel(options.signal)
+      const chunkIds = idsWithoutBody.slice(i, i + CHUNK)
+      try {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sae-fetch-bodies`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({
+              expediente_id: expedienteId,
+              movement_ids: chunkIds,
+            }),
+            signal: options.signal,
+          },
+        )
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') throw new CancelledError()
+        // Si falla, seguimos: el PDF se arma con lo que tengamos
+        console.warn('[expediente-pdf] fetch-bodies failed', err)
+      }
+    }
+
+    // Re-fetch movements with updated cuerpo
+    const { data: refreshed } = await supabase
+      .from('sae_movements')
+      .select('id, external_id, sae_case_id, fecha, titulo, cuerpo, tipo_movimiento, ai_summary, raw_payload, is_key')
+      .eq('expediente_id', expedienteId)
+      .order('fecha', { ascending: true })
+    const refreshedAll = (refreshed ?? []) as unknown as MovementRow[]
+    const refreshedFiltered = options.onlyKeys ? refreshedAll.filter(passesKeyFilter) : refreshedAll
+    // Replace movements in-place
+    movements.length = 0
+    movements.push(...refreshedFiltered)
+  }
+
+  checkCancel(options.signal)
 
   // Pre-load logo (in parallel with cover building)
   const logoDataUrlPromise = loadLogoDataUrl()
@@ -462,19 +537,23 @@ export async function generateExpedientePdf(
 
   // ── 5. Download + merge attachments ────────────────────────────────────
   const failedAttachments: { fileName: string; movementTitle: string }[] = []
+  let bytesSoFar = 0
   for (let i = 0; i < allAttachments.length; i++) {
+    checkCancel(options.signal)
     const att = allAttachments[i]
     onProgress({
       stage: 'downloading',
       current: i + 1,
       total: allAttachments.length,
-      message: `Descargando archivo ${i + 1} de ${allAttachments.length}: ${att.fileName.slice(0, 50)}`,
+      message: `Descargando ${i + 1} de ${allAttachments.length}: ${att.fileName.slice(0, 60)}`,
+      bytesSoFar,
     })
     const bytes = await downloadAttachmentPdf(att, accessToken)
     if (!bytes) {
       failedAttachments.push({ fileName: att.fileName, movementTitle: att.movementTitle })
       continue
     }
+    bytesSoFar += bytes.byteLength
     try {
       const srcDoc = await PDFDocument.load(bytes, { ignoreEncryption: true })
       const pages = await finalDoc.copyPages(srcDoc, srcDoc.getPageIndices())
