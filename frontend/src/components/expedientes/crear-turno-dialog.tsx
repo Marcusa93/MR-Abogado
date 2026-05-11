@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTurno } from '@/hooks/use-turnos'
@@ -27,12 +27,18 @@ interface CrearTurnoDialogProps {
   open: boolean
   onClose: () => void
   expedienteId: string
+  initialValues?: {
+    fecha?: string
+    hora?: string
+    notas?: string
+  }
 }
 
 export function CrearTurnoDialog({
   open,
   onClose,
   expedienteId,
+  initialValues,
 }: CrearTurnoDialogProps) {
   const createTurno = useCreateTurno()
   const { profile } = useAuth()
@@ -44,6 +50,13 @@ export function CrearTurnoDialog({
   const [hora, setHora] = useState('')
   const [notas, setNotas] = useState('')
   const [touched, setTouched] = useState(false)
+
+  useEffect(() => {
+    if (!open || !initialValues) return
+    if (initialValues.fecha) setFecha(initialValues.fecha)
+    if (initialValues.hora) setHora(initialValues.hora)
+    if (initialValues.notas) setNotas(initialValues.notas)
+  }, [open, initialValues])
 
   if (!open) return null
 

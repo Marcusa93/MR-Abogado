@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTarea } from '@/hooks/use-tareas'
@@ -31,12 +31,19 @@ interface CrearTareaDialogProps {
   open: boolean
   onClose: () => void
   expedienteId?: string
+  initialValues?: {
+    titulo?: string
+    descripcion?: string
+    fechaVencimiento?: string
+    prioridad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
+  }
 }
 
 export function CrearTareaDialog({
   open,
   onClose,
   expedienteId,
+  initialValues,
 }: CrearTareaDialogProps) {
   const createTarea = useCreateTarea()
   const { data: members } = useTeamMembers()
@@ -51,6 +58,15 @@ export function CrearTareaDialog({
   const [asignadoA, setAsignadoA] = useState('')
   const [expId, setExpId] = useState(expedienteId ?? '')
   const [touched, setTouched] = useState(false)
+
+  // Apply initialValues whenever the dialog opens (or values change)
+  useEffect(() => {
+    if (!open || !initialValues) return
+    if (initialValues.titulo) setTitulo(initialValues.titulo)
+    if (initialValues.descripcion) setDescripcion(initialValues.descripcion)
+    if (initialValues.fechaVencimiento) setFechaVencimiento(initialValues.fechaVencimiento)
+    if (initialValues.prioridad) setPrioridad(initialValues.prioridad)
+  }, [open, initialValues])
 
   if (!open) return null
 

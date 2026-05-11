@@ -21,12 +21,46 @@ import {
   Search,
   Sparkles,
   X,
+  Clock,
+  Plus,
+  Users,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
+import { CrearTareaDialog } from './crear-tarea-dialog'
+import { CrearTurnoDialog } from './crear-turno-dialog'
 
-type SaeMovement = Tables<'sae_movements'>
+// Local extension of the generated row type to surface the AI columns added
+// in migration 00028 (database.types.ts is regenerated separately).
+type SaeMovement = Tables<'sae_movements'> & {
+  ai_summary?: string | null
+  ai_extracted?: AiExtracted | null
+  ai_suggested_action?: AiSuggestedAction | null
+  ai_analyzed_at?: string | null
+  ai_error?: string | null
+}
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
+
+interface AiExtracted {
+  partes?: string[]
+  fechas?: { tipo: string; fecha_iso: string; descripcion: string }[]
+  plazos?: { dias: number; habiles: boolean; vence_aprox: string | null; descripcion: string }[]
+}
+
+interface AiSuggestedAction {
+  tipo: 'tarea' | 'turno'
+  titulo: string
+  fecha: string | null
+  prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
+  descripcion: string
+}
+
+const PRIORIDAD_COLORS: Record<AiSuggestedAction['prioridad'], string> = {
+  URGENTE: 'bg-red-500/15 text-red-300 border-red-500/30',
+  ALTA: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  MEDIA: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+  BAJA: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
+}
 
 const TIPO_LABELS: Record<MovementType, string> = {
   sentencia: 'Sentencia',
@@ -152,20 +186,32 @@ function ActuacionRow({
   movement,
   isNew,
   onOpenPdf,
+  onCreateFromSuggestion,
 }: {
   movement: SaeMovement
   isNew: boolean
   onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
+  onCreateFromSuggestion: (action: AiSuggestedAction) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
   const attachments = extractAttachments(movement)
   const canExpand = hasCuerpo || attachments.length > 0
 
+  const aiSummary = movement.ai_summary?.trim() || null
+  const aiExtracted = movement.ai_extracted ?? null
+  const aiAction = movement.ai_suggested_action ?? null
+  const hasAi = Boolean(aiSummary || aiExtracted || aiAction)
+  const hasActionableHighlight = Boolean(aiAction)
+
   return (
     <div className={cn(
       'rounded-lg border bg-white/[0.02] overflow-hidden transition-colors',
-      isNew ? 'border-cyan-500/30 bg-cyan-500/[0.04]' : 'border-white/5'
+      isNew
+        ? 'border-cyan-500/30 bg-cyan-500/[0.04]'
+        : hasActionableHighlight
+          ? 'border-white/10'
+          : 'border-white/5'
     )}>
       <button
         onClick={() => canExpand && setExpanded((v) => !v)}
@@ -202,6 +248,57 @@ function ActuacionRow({
               </span>
             )}
           </p>
+
+          {/* AI summary inline (no need to expand) */}
+          {aiSummary && (
+            <p className="mt-2 text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
+              <Sparkles className="h-3 w-3 shrink-0 mt-[2px] text-violet-400" />
+              <span className="flex-1">{aiSummary}</span>
+            </p>
+          )}
+
+          {/* AI chips: dates, deadlines, parties */}
+          {hasAi && (
+            <div className="mt-1.5 flex items-center flex-wrap gap-1.5">
+              {aiExtracted?.fechas?.map((f, i) => (
+                <span key={`f-${i}`} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300" title={f.descripcion}>
+                  <Calendar className="h-2.5 w-2.5" />
+                  {f.tipo}: {formatDate(f.fecha_iso)}
+                </span>
+              ))}
+              {aiExtracted?.plazos?.map((p, i) => (
+                <span key={`p-${i}`} className="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] text-orange-300" title={p.descripcion}>
+                  <Clock className="h-2.5 w-2.5" />
+                  {p.dias} {p.habiles ? 'días háb.' : 'días'}
+                  {p.vence_aprox && <span className="opacity-80">· vence {formatDate(p.vence_aprox)}</span>}
+                </span>
+              ))}
+              {aiExtracted?.partes && aiExtracted.partes.length > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400" title={aiExtracted.partes.join(', ')}>
+                  <Users className="h-2.5 w-2.5" />
+                  {aiExtracted.partes.length} {aiExtracted.partes.length === 1 ? 'parte' : 'partes'}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Suggested action button */}
+          {aiAction && (
+            <div className="mt-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); onCreateFromSuggestion(aiAction) }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-125',
+                  PRIORIDAD_COLORS[aiAction.prioridad],
+                )}
+                title={aiAction.descripcion}
+              >
+                <Plus className="h-3 w-3" />
+                Crear {aiAction.tipo}: {aiAction.titulo}
+                <span className="ml-1 opacity-70">· {aiAction.prioridad.toLowerCase()}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {canExpand && (
@@ -268,6 +365,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   })
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<MovementType | 'all'>('all')
+  const [tareaPrefill, setTareaPrefill] = useState<{ open: boolean; values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: AiSuggestedAction['prioridad'] } }>({ open: false })
+  const [turnoPrefill, setTurnoPrefill] = useState<{ open: boolean; values?: { fecha: string; notas: string } }>({ open: false })
 
   // Capture lastViewedAt at first render (frozen reference) so the "new" highlight stays
   // visible during this visit, then bump it on unmount/visit-end.
@@ -368,6 +467,25 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const handleCloseViewer = () => {
     if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
     setViewer({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
+  }
+
+  const handleCreateFromSuggestion = (action: AiSuggestedAction) => {
+    if (action.tipo === 'turno') {
+      setTurnoPrefill({
+        open: true,
+        values: { fecha: action.fecha ?? '', notas: action.descripcion },
+      })
+    } else {
+      setTareaPrefill({
+        open: true,
+        values: {
+          titulo: action.titulo,
+          descripcion: action.descripcion,
+          fechaVencimiento: action.fecha ?? '',
+          prioridad: action.prioridad,
+        },
+      })
+    }
   }
 
   const handleSync = () => {
@@ -559,6 +677,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       movement={m}
                       isNew={isMovementNew(m)}
                       onOpenPdf={handleOpenPdf}
+                      onCreateFromSuggestion={handleCreateFromSuggestion}
                     />
                   ))}
                 </div>
@@ -579,6 +698,20 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         currentIndex={viewer.index}
         onPrev={() => handleNavigatePdf(-1)}
         onNext={() => handleNavigatePdf(1)}
+      />
+
+      <CrearTareaDialog
+        open={tareaPrefill.open}
+        onClose={() => setTareaPrefill({ open: false })}
+        expedienteId={expedienteId}
+        initialValues={tareaPrefill.values}
+      />
+
+      <CrearTurnoDialog
+        open={turnoPrefill.open}
+        onClose={() => setTurnoPrefill({ open: false })}
+        expedienteId={expedienteId}
+        initialValues={turnoPrefill.values}
       />
     </Card>
   )

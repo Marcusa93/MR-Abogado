@@ -8,6 +8,7 @@ import {
   SaeError,
   type SaeSession,
 } from '../_shared/sae-request-connector.ts'
+import { analyzeMovementWithAI, shouldAnalyzeMovement } from '../_shared/sae-ai-analyzer.ts'
 
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -236,42 +237,148 @@ Deno.serve(async (req) => {
       )
 
       // ── Upsert en sae_movements ───────────────────────────────────────────
-      let nuevas = 0
-      let duplicadas = 0
-
-      for (const story of withBody) {
+      // Build movements + fingerprints first so we can check existence in one query
+      const built = await Promise.all(withBody.map(async (story) => {
         const fecha = parseDate(story.fecha) ?? story.fecha.slice(0, 10)
         const fingerprint = await buildFingerprint(exp.numero_sae, fecha, story.dscr, story.body)
         const tipo = classifyMovement(story.dscr)
-
-        const movement = {
-          expediente_id,
-          external_id: story.histid,
-          sae_case_id: procid,
-          fecha,
-          titulo: story.dscr,
-          cuerpo: story.body ?? null,
-          tipo_movimiento: tipo,
+        return {
           fingerprint,
-          tiene_documentos: Boolean(story.archivos?.length || story.vinculos?.length),
-          raw_payload: {
-            jurisdiction_id: jurisdictionId,
-            archivos: story.archivos,
-            vinculos: story.vinculos,
+          movement: {
+            expediente_id,
+            external_id: story.histid,
+            sae_case_id: procid,
+            fecha,
+            titulo: story.dscr,
+            cuerpo: story.body ?? null,
+            tipo_movimiento: tipo,
+            fingerprint,
+            tiene_documentos: Boolean(story.archivos?.length || story.vinculos?.length),
+            raw_payload: {
+              jurisdiction_id: jurisdictionId,
+              archivos: story.archivos,
+              vinculos: story.vinculos,
+            },
+            synced_at: new Date().toISOString(),
           },
-          synced_at: new Date().toISOString(),
         }
+      }))
 
-        const { error: upsertError } = await serviceClient
+      // Find which fingerprints already exist
+      const fingerprints = built.map(b => b.fingerprint)
+      const { data: existingFps } = await serviceClient
+        .from('sae_movements')
+        .select('fingerprint')
+        .eq('expediente_id', expediente_id)
+        .in('fingerprint', fingerprints)
+      const existingSet = new Set((existingFps ?? []).map((r: { fingerprint: string }) => r.fingerprint))
+
+      const newOnes = built.filter(b => !existingSet.has(b.fingerprint))
+      const duplicadas = built.length - newOnes.length
+
+      // Insert only the new ones, returning IDs so we can attach AI analysis
+      let nuevas = 0
+      const insertedRows: { id: string; movement: typeof built[0]['movement'] }[] = []
+
+      if (newOnes.length > 0) {
+        const { data: inserted, error: insertError } = await serviceClient
           .from('sae_movements')
-          .upsert(movement, { onConflict: 'expediente_id,fingerprint', ignoreDuplicates: true })
-
-        if (upsertError) {
-          // fingerprint conflict = duplicate
-          duplicadas++
-        } else {
-          nuevas++
+          .insert(newOnes.map(b => b.movement))
+          .select('id, fingerprint')
+        if (insertError) {
+          console.error('[sae-sync] insert error', insertError)
+        } else if (inserted) {
+          nuevas = inserted.length
+          for (const row of inserted) {
+            const match = newOnes.find(b => b.fingerprint === row.fingerprint)
+            if (match) insertedRows.push({ id: row.id, movement: match.movement })
+          }
         }
+      }
+
+      // ── Análisis IA en paralelo (sólo nuevas e importantes) ─────────────
+      const apiKey = Deno.env.get('OPENROUTER_API_KEY')
+      if (apiKey && insertedRows.length > 0) {
+        const toAnalyze = insertedRows.filter(({ movement: m }) =>
+          shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)
+        )
+        await Promise.all(toAnalyze.map(async ({ id, movement: m }) => {
+          try {
+            const analysis = await analyzeMovementWithAI({
+              titulo: m.titulo,
+              cuerpo: m.cuerpo,
+              tipo_movimiento: m.tipo_movimiento,
+              fecha: m.fecha,
+              apiKey,
+            })
+            await serviceClient
+              .from('sae_movements')
+              .update({
+                ai_summary: analysis.summary,
+                ai_extracted: analysis.extracted,
+                ai_suggested_action: analysis.suggested_action,
+                ai_model: analysis.model,
+                ai_analyzed_at: new Date().toISOString(),
+                ai_error: null,
+              })
+              .eq('id', id)
+          } catch (aiErr) {
+            const msg = aiErr instanceof Error ? aiErr.message : 'Error IA desconocido'
+            console.error('[sae-sync][ai]', id, msg)
+            await serviceClient
+              .from('sae_movements')
+              .update({ ai_error: msg.slice(0, 500), ai_analyzed_at: new Date().toISOString() })
+              .eq('id', id)
+          }
+        }))
+      }
+
+      // ── Backfill IA: analizar hasta 5 actuaciones viejas sin análisis ────
+      // Permite que actuaciones pre-existentes a esta feature también ganen
+      // resumen + acción sugerida sin que el usuario tenga que esperar
+      // a que llegue una nueva.
+      if (apiKey) {
+        const { data: pending } = await serviceClient
+          .from('sae_movements')
+          .select('id, titulo, cuerpo, tipo_movimiento, fecha')
+          .eq('expediente_id', expediente_id)
+          .is('ai_analyzed_at', null)
+          .order('fecha', { ascending: false })
+          .limit(5)
+
+        const pendingImportant = (pending ?? []).filter((m: { titulo: string; cuerpo: string | null; tipo_movimiento: string }) =>
+          shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)
+        ) as { id: string; titulo: string; cuerpo: string | null; tipo_movimiento: string; fecha: string }[]
+
+        await Promise.all(pendingImportant.map(async (m) => {
+          try {
+            const analysis = await analyzeMovementWithAI({
+              titulo: m.titulo,
+              cuerpo: m.cuerpo,
+              tipo_movimiento: m.tipo_movimiento,
+              fecha: m.fecha,
+              apiKey,
+            })
+            await serviceClient
+              .from('sae_movements')
+              .update({
+                ai_summary: analysis.summary,
+                ai_extracted: analysis.extracted,
+                ai_suggested_action: analysis.suggested_action,
+                ai_model: analysis.model,
+                ai_analyzed_at: new Date().toISOString(),
+                ai_error: null,
+              })
+              .eq('id', m.id)
+          } catch (aiErr) {
+            const msg = aiErr instanceof Error ? aiErr.message : 'Error IA desconocido'
+            console.error('[sae-sync][ai-backfill]', m.id, msg)
+            await serviceClient
+              .from('sae_movements')
+              .update({ ai_error: msg.slice(0, 500), ai_analyzed_at: new Date().toISOString() })
+              .eq('id', m.id)
+          }
+        }))
       }
 
       // ── Actualizar expediente ─────────────────────────────────────────────
