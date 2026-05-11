@@ -23,6 +23,7 @@ export type SaeMovement = Tables<'sae_movements'> & {
   ai_analyzed_at?: string | null
   ai_model?: string | null
   ai_error?: string | null
+  is_key?: boolean | null
 }
 
 // When an edge function returns non-2xx, supabase-js sets data=null and puts the
@@ -179,6 +180,87 @@ export function useAnalyzeMovements() {
       if (vars.expediente_id) {
         queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
       }
+    },
+  })
+}
+
+// ─── Marcado manual de actuación clave ──────────────────────────────────────
+
+export function useSetMovementKey() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movementId: string; isKey: boolean | null; expedienteId: string }) => {
+      const { error } = await supabase.rpc('set_sae_movement_key' as any, {
+        p_movement_id: input.movementId,
+        p_is_key: input.isKey,
+      })
+      if (error) throw error
+    },
+    onMutate: async ({ movementId, isKey, expedienteId }) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ['sae-movements', expedienteId] })
+      const prev = queryClient.getQueryData<SaeMovement[]>(['sae-movements', expedienteId])
+      if (prev) {
+        queryClient.setQueryData<SaeMovement[]>(['sae-movements', expedienteId],
+          prev.map(m => m.id === movementId ? { ...m, is_key: isKey } : m))
+      }
+      return { prev }
+    },
+    onError: (_err, vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['sae-movements', vars.expedienteId], ctx.prev)
+    },
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expedienteId] })
+    },
+  })
+}
+
+// ─── Brief del expediente ────────────────────────────────────────────────────
+
+export interface ExpedienteBrief {
+  brief: string
+  model: string
+  generated_at: string
+}
+
+export function useExpedienteBrief(expedienteId: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['expediente-brief', expedienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select('ai_brief, ai_brief_generated_at, ai_brief_model')
+        .eq('id', expedienteId)
+        .single()
+      if (error) throw error
+      const row = data as unknown as { ai_brief: string | null; ai_brief_generated_at: string | null; ai_brief_model: string | null }
+      if (!row.ai_brief) return null
+      return {
+        brief: row.ai_brief,
+        model: row.ai_brief_model ?? '',
+        generated_at: row.ai_brief_generated_at ?? '',
+      } as ExpedienteBrief
+    },
+    enabled: !!expedienteId,
+  })
+}
+
+export function useGenerateBrief() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (expedienteId: string) => {
+      const { data, error } = await supabase.functions.invoke('sae-generate-brief', {
+        body: { expediente_id: expedienteId },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as ExpedienteBrief
+    },
+    onSuccess: (_data, expedienteId) => {
+      queryClient.invalidateQueries({ queryKey: ['expediente-brief', expedienteId] })
     },
   })
 }

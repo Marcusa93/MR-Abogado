@@ -12,11 +12,12 @@ import { CrearSeguimientoDialog } from '@/components/expedientes/crear-seguimien
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { TabGeneral } from '@/components/expedientes/tab-general'
-import { TabSeguimientos } from '@/components/expedientes/tab-seguimientos'
 import { TabTurnos } from '@/components/expedientes/tab-turnos'
 import { TabTareas } from '@/components/expedientes/tab-tareas'
 import { TabDocumentos } from '@/components/expedientes/tab-documentos'
 import { TabActuaciones } from '@/components/expedientes/tab-actuaciones'
+import { TabActuacionesClaves } from '@/components/expedientes/tab-actuaciones-claves'
+import { TabEscritos } from '@/components/expedientes/tab-escritos'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
@@ -31,7 +32,6 @@ import {
   Edit,
   Trash2,
   FileText,
-  MessageSquare,
   CalendarClock,
   CheckSquare,
   Paperclip,
@@ -46,6 +46,8 @@ import {
   Download,
   MessageSquareText,
   Database,
+  Star,
+  PenLine,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 
@@ -54,12 +56,13 @@ import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 // ---------------------------------------------------------------------------
 
 const TABS = [
-  { id: 'general', label: 'General', icon: FileText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
-  { id: 'seguimientos', label: 'Seguimientos', icon: MessageSquare, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'turnos', label: 'Turnos', icon: CalendarClock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
-  { id: 'tareas', label: 'Tareas', icon: CheckSquare, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'documentos', label: 'Documentos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
+  { id: 'datos', label: 'Datos', icon: FileText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
   { id: 'actuaciones', label: 'SAE', icon: Database, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'tareas', label: 'Tareas', icon: CheckSquare, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'audiencias', label: 'Audiencias', icon: CalendarClock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
+  { id: 'claves', label: 'Actuaciones claves', icon: Star, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
+  { id: 'documentos', label: 'Documentos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
+  { id: 'escritos', label: 'Escritos', icon: PenLine, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
   { id: 'notas', label: 'Notas', icon: MessageSquareText, activeClasses: 'border-pink-400 text-pink-400', badgeClasses: 'bg-pink-500/15 text-pink-400' },
   { id: 'timeline', label: 'Timeline', icon: Clock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
@@ -80,7 +83,7 @@ export default function ExpedienteDetailPage() {
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
 
-  const [activeTab, setActiveTab] = useState<TabId>('general')
+  const [activeTab, setActiveTab] = useState<TabId>('datos')
   const [estadoDialogOpen, setEstadoDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -287,8 +290,7 @@ export default function ExpedienteDetailPage() {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             let count: number | null = null
-            if (tab.id === 'seguimientos') count = seguimientos.length
-            if (tab.id === 'turnos') count = audiencias.length
+            if (tab.id === 'audiencias') count = audiencias.length
             if (tab.id === 'tareas') count = tareas.length
             if (tab.id === 'notas') count = (expediente.expediente_notas ?? []).length
 
@@ -325,18 +327,14 @@ export default function ExpedienteDetailPage() {
 
       {/* Tab Content */}
       <div className="mt-4">
-        {activeTab === 'general' && <TabGeneral expediente={expediente} />}
-        {activeTab === 'seguimientos' && (
-          <TabSeguimientos
-            seguimientos={seguimientos}
+        {activeTab === 'datos' && <TabGeneral expediente={expediente} />}
+        {activeTab === 'actuaciones' && (
+          <TabActuaciones
             expedienteId={id!}
-            clienteTelefono={(expediente.clientes as any)?.telefono}
-            clienteTelefonoAlt={(expediente.clientes as any)?.telefono_alternativo}
-            clienteNombre={(expediente.clientes as any) ? `${(expediente.clientes as any).apellido} ${(expediente.clientes as any).nombre}` : null}
-            caratula={expediente.caratula}
+            numeroSae={(expediente as any).numero_sae ?? null}
+            ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
           />
         )}
-        {activeTab === 'turnos' && <TabTurnos audiencias={audiencias} expedienteId={id!} />}
         {activeTab === 'tareas' && (
           <TabTareas
             tareas={tareas}
@@ -357,14 +355,10 @@ export default function ExpedienteDetailPage() {
             }}
           />
         )}
+        {activeTab === 'audiencias' && <TabTurnos audiencias={audiencias} expedienteId={id!} />}
+        {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
         {activeTab === 'documentos' && <TabDocumentos expedienteId={id!} />}
-        {activeTab === 'actuaciones' && (
-          <TabActuaciones
-            expedienteId={id!}
-            numeroSae={(expediente as any).numero_sae ?? null}
-            ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
-          />
-        )}
+        {activeTab === 'escritos' && <TabEscritos />}
         {activeTab === 'notas' && <ComentariosPanel expedienteId={id!} />}
         {activeTab === 'timeline' && (
           <Card title="Línea de tiempo">
@@ -416,8 +410,7 @@ export default function ExpedienteDetailPage() {
         {quickActionsOpen && (
           <div className="mb-2 flex flex-col gap-2 animate-fade-in">
             {[
-              { label: 'Seguimiento', icon: MessageSquare, color: 'bg-violet-500 hover:bg-violet-600', action: () => { setSeguimientoDialogOpen(true); setQuickActionsOpen(false) } },
-              { label: 'Turno', icon: CalendarClock, color: 'bg-amber-500 hover:bg-amber-600', action: () => { setTurnoDialogOpen(true); setQuickActionsOpen(false) } },
+              { label: 'Audiencia', icon: CalendarClock, color: 'bg-amber-500 hover:bg-amber-600', action: () => { setTurnoDialogOpen(true); setQuickActionsOpen(false) } },
               { label: 'Tarea', icon: CheckSquare, color: 'bg-emerald-500 hover:bg-emerald-600', action: () => { setTareaDialogOpen(true); setQuickActionsOpen(false) } },
             ].map((item) => (
               <button
