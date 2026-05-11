@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, StatusBadge, getTurnoColor } from './detail-helpers'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -11,7 +11,8 @@ import {
 import { useUpdateTurno, useDeleteTurno } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
-import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2 } from 'lucide-react'
+import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles, Paperclip } from 'lucide-react'
+import { useSaeMovements, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 
 interface TabTurnosProps {
   audiencias: Tables<'audiencias'>[]
@@ -22,6 +23,13 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
   const turnos = audiencias
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Actuaciones marcadas (manual o auto por audio adjunto) como audiencia
+  const { data: movements = [] } = useSaeMovements(expedienteId)
+  const audienciasFromActuaciones = useMemo(
+    () => movements.filter(passesAudienciaFilter).sort((a, b) => b.fecha.localeCompare(a.fecha)),
+    [movements],
+  )
 
   return (
     <>
@@ -37,13 +45,31 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
         </button>
       }
     >
-      {turnos.length === 0 ? (
+      {/* Audiencias detectadas en actuaciones SAE (manual o por adjunto de audio) */}
+      {audienciasFromActuaciones.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-cyan-300/80 font-medium flex items-center gap-1.5">
+            <Video className="h-3 w-3" />
+            Desde actuaciones SAE
+            <span className="text-zinc-500 font-normal normal-case">· {audienciasFromActuaciones.length}</span>
+          </p>
+          <div className="space-y-2">
+            {audienciasFromActuaciones.map((m) => (
+              <ActuacionAudienciaRow key={m.id} movement={m} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {turnos.length === 0 && audienciasFromActuaciones.length === 0 ? (
         <EmptyState
           icon={CalendarClock}
           title="Sin audiencias"
-          description="No hay audiencias registradas para este expediente."
+          description="No hay audiencias registradas. Podés agendar una con 'Agregar' o marcar una actuación SAE como audiencia (📹 en el tab SAE)."
           size="sm"
         />
+      ) : turnos.length === 0 ? (
+        <p className="text-[11px] text-zinc-500">No hay audiencias agendadas manualmente. Las de arriba vienen del SAE.</p>
       ) : (
         <div className="space-y-3">
           {[...turnos]
@@ -270,3 +296,41 @@ function TurnoEditRow({
     </div>
   )
 }
+
+// ─── Audiencia desde actuación SAE ──────────────────────────────────────────
+
+function ActuacionAudienciaRow({ movement }: { movement: SaeMovement }) {
+  const audioOnly = !movement.is_audiencia && hasAudioAttachment(movement)
+  const aiSummary = movement.ai_summary?.trim()
+  return (
+    <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-950/40">
+          <Video className="h-4 w-4 text-cyan-400" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-zinc-100 line-clamp-1">{movement.titulo}</p>
+            {audioOnly && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                <Paperclip className="h-2.5 w-2.5" />
+                audio adjunto
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-zinc-500">{formatDate(movement.fecha)}</p>
+          {aiSummary && (
+            <p className="mt-2 text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
+              <Sparkles className="h-3 w-3 shrink-0 mt-[2px] text-violet-400" />
+              <span className="line-clamp-3">{aiSummary}</span>
+            </p>
+          )}
+          <p className="mt-2 text-[10px] text-zinc-600">
+            Próximamente: subir audio + transcripción + análisis IA.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+

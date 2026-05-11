@@ -24,6 +24,7 @@ export type SaeMovement = Tables<'sae_movements'> & {
   ai_model?: string | null
   ai_error?: string | null
   is_key?: boolean | null
+  is_audiencia?: boolean | null
 }
 
 // When an edge function returns non-2xx, supabase-js sets data=null and puts the
@@ -214,6 +215,68 @@ export function useSetMovementKey() {
       queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expedienteId] })
     },
   })
+}
+
+// ─── Marcado manual de actuación como audiencia ─────────────────────────────
+
+export function useSetMovementAudiencia() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movementId: string; isAudiencia: boolean | null; expedienteId: string }) => {
+      const { error } = await supabase.rpc('set_sae_movement_audiencia' as any, {
+        p_movement_id: input.movementId,
+        p_is_audiencia: input.isAudiencia,
+      })
+      if (error) throw error
+    },
+    onMutate: async ({ movementId, isAudiencia, expedienteId }) => {
+      await queryClient.cancelQueries({ queryKey: ['sae-movements', expedienteId] })
+      const prev = queryClient.getQueryData<SaeMovement[]>(['sae-movements', expedienteId])
+      if (prev) {
+        queryClient.setQueryData<SaeMovement[]>(['sae-movements', expedienteId],
+          prev.map(m => m.id === movementId ? { ...m, is_audiencia: isAudiencia } : m))
+      }
+      return { prev }
+    },
+    onError: (_err, vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['sae-movements', vars.expedienteId], ctx.prev)
+    },
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expedienteId] })
+    },
+  })
+}
+
+// ─── Helpers de detección de adjuntos de audio ─────────────────────────────
+
+const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
+
+export function hasAudioAttachment(movement: SaeMovement): boolean {
+  const rp = movement.raw_payload as { archivos?: Array<Record<string, unknown>>; vinculos?: Array<Record<string, unknown>> } | null
+  if (!rp) return false
+  const items = [...(Array.isArray(rp.archivos) ? rp.archivos : []), ...(Array.isArray(rp.vinculos) ? rp.vinculos : [])]
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+    const candidates = [item.nombre, item.name, item.filename, item.fileName, item.label]
+    for (const c of candidates) {
+      if (typeof c !== 'string') continue
+      const lower = c.toLowerCase()
+      if (AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext))) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Devuelve true si la actuación debe verse como audiencia:
+ *   - is_audiencia === true (manual), o
+ *   - is_audiencia IS NULL Y tiene adjunto de audio (auto)
+ */
+export function passesAudienciaFilter(m: SaeMovement): boolean {
+  if (m.is_audiencia === true) return true
+  if (m.is_audiencia === false) return false
+  return hasAudioAttachment(m)
 }
 
 // ─── Brief del expediente ────────────────────────────────────────────────────

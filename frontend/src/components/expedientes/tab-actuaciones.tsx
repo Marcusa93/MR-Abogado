@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -25,6 +25,7 @@ import {
   Plus,
   Users,
   Star,
+  Video,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
@@ -171,6 +172,7 @@ function ActuacionRow({
   onAnalyze,
   isAnalyzing,
   onToggleKey,
+  onToggleAudiencia,
 }: {
   movement: SaeMovement
   isNew: boolean
@@ -179,6 +181,7 @@ function ActuacionRow({
   onAnalyze: (movementId: string) => void
   isAnalyzing: boolean
   onToggleKey: (movement: SaeMovement) => void
+  onToggleAudiencia: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -209,29 +212,58 @@ function ActuacionRow({
           canExpand ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
         )}
       >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onToggleKey(movement) }}
-          className="shrink-0 mt-0.5 p-1 -ml-1 rounded hover:bg-white/10 transition-colors"
-          title={
-            movement.is_key === true
-              ? 'Marcada como clave (click para desmarcar)'
-              : movement.is_key === false
-                ? 'Excluida de claves (click para marcar)'
-                : 'Marcar como clave'
-          }
-        >
-          <Star
-            className={cn(
-              'h-4 w-4 transition-colors',
+        <div className="shrink-0 mt-0.5 flex flex-col gap-0.5 -ml-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleKey(movement) }}
+            className="p-1 rounded hover:bg-white/10 transition-colors"
+            title={
               movement.is_key === true
-                ? 'fill-amber-400 text-amber-400'
+                ? 'Marcada como clave (click para desmarcar)'
                 : movement.is_key === false
-                  ? 'text-zinc-700'
-                  : 'text-zinc-600 hover:text-amber-400'
-            )}
-          />
-        </button>
+                  ? 'Excluida de claves (click para marcar)'
+                  : 'Marcar como clave'
+            }
+          >
+            <Star
+              className={cn(
+                'h-4 w-4 transition-colors',
+                movement.is_key === true
+                  ? 'fill-amber-400 text-amber-400'
+                  : movement.is_key === false
+                    ? 'text-zinc-700'
+                    : 'text-zinc-600 hover:text-amber-400'
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleAudiencia(movement) }}
+            className="p-1 rounded hover:bg-white/10 transition-colors"
+            title={
+              movement.is_audiencia === true
+                ? 'Marcada como audiencia (click para desmarcar)'
+                : movement.is_audiencia === false
+                  ? 'Excluida de audiencias (click para marcar)'
+                  : hasAudioAttachment(movement)
+                    ? 'Auto-detectada como audiencia por adjunto de audio (click para anclar manualmente)'
+                    : 'Marcar como audiencia'
+            }
+          >
+            <Video
+              className={cn(
+                'h-4 w-4 transition-colors',
+                movement.is_audiencia === true
+                  ? 'fill-cyan-500/30 text-cyan-400'
+                  : movement.is_audiencia === false
+                    ? 'text-zinc-700'
+                    : hasAudioAttachment(movement)
+                      ? 'text-cyan-500/50 hover:text-cyan-400'
+                      : 'text-zinc-600 hover:text-cyan-400'
+              )}
+            />
+          </button>
+        </div>
 
         <div className="shrink-0 mt-0.5">
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
@@ -397,6 +429,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const document = useSaeDocument()
   const analyze = useAnalyzeMovements()
   const setMovementKey = useSetMovementKey()
+  const setMovementAudiencia = useSetMovementAudiencia()
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
 
   const handleToggleKey = (movement: SaeMovement) => {
@@ -407,6 +440,19 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     else next = true
     setMovementKey.mutate(
       { movementId: movement.id, isKey: next, expedienteId },
+      {
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar'),
+      },
+    )
+  }
+
+  const handleToggleAudiencia = (movement: SaeMovement) => {
+    let next: boolean | null
+    if (movement.is_audiencia === true) next = false
+    else if (movement.is_audiencia === false) next = null
+    else next = true
+    setMovementAudiencia.mutate(
+      { movementId: movement.id, isAudiencia: next, expedienteId },
       {
         onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar'),
       },
@@ -841,6 +887,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       onAnalyze={(id) => handleAnalyzeIds([id], false)}
                       isAnalyzing={analyzingIds.has(m.id)}
                       onToggleKey={handleToggleKey}
+                      onToggleAudiencia={handleToggleAudiencia}
                     />
                   ))}
                 </div>
