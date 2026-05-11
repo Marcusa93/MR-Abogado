@@ -11,8 +11,8 @@ import {
 import { useUpdateTurno, useDeleteTurno } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
-import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles, Paperclip } from 'lucide-react'
-import { useSaeMovements, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles, Paperclip, VideoOff } from 'lucide-react'
+import { useSaeMovements, useSetMovementAudiencia, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { TranscriptionPanel } from './transcription-panel'
 
 interface TabTurnosProps {
@@ -56,7 +56,7 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
           </p>
           <div className="space-y-2">
             {audienciasFromActuaciones.map((m) => (
-              <ActuacionAudienciaRow key={m.id} movement={m} />
+              <ActuacionAudienciaRow key={m.id} movement={m} expedienteId={expedienteId} />
             ))}
           </div>
         </div>
@@ -301,11 +301,23 @@ function TurnoEditRow({
 
 // ─── Audiencia desde actuación SAE ──────────────────────────────────────────
 
-function ActuacionAudienciaRow({ movement }: { movement: SaeMovement }) {
+function ActuacionAudienciaRow({ movement, expedienteId }: { movement: SaeMovement; expedienteId: string }) {
   const audioOnly = !movement.is_audiencia && hasAudioAttachment(movement)
   const aiSummary = movement.ai_summary?.trim()
+  const setMovementAudiencia = useSetMovementAudiencia()
+  const manuallyMarked = movement.is_audiencia === true
+
+  const handleExclude = () => {
+    setMovementAudiencia.mutate(
+      { movementId: movement.id, isAudiencia: false, expedienteId },
+      {
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo excluir'),
+      },
+    )
+  }
+
   return (
-    <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3">
+    <div className="group rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-950/40">
           <Video className="h-4 w-4 text-cyan-400" />
@@ -313,6 +325,11 @@ function ActuacionAudienciaRow({ movement }: { movement: SaeMovement }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium text-zinc-100 line-clamp-1">{movement.titulo}</p>
+            {manuallyMarked && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                marcada
+              </span>
+            )}
             {audioOnly && (
               <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
                 <Paperclip className="h-2.5 w-2.5" />
@@ -329,6 +346,14 @@ function ActuacionAudienciaRow({ movement }: { movement: SaeMovement }) {
           )}
           <TranscriptionPanel movement={movement} />
         </div>
+        <button
+          onClick={handleExclude}
+          className="shrink-0 inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-colors opacity-0 group-hover:opacity-100"
+          title="Excluir de Audiencias (no volverá a aparecer aunque tenga audio adjunto o tipo audiencia)"
+        >
+          <VideoOff className="h-3 w-3" />
+          Excluir
+        </button>
       </div>
     </div>
   )
