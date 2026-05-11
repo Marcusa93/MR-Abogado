@@ -15,7 +15,9 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions'
-const WHISPER_MODEL = 'whisper-1'
+const GROQ_TRANSCRIPTION_URL = 'https://api.groq.com/openai/v1/audio/transcriptions'
+const OPENAI_WHISPER_MODEL = 'whisper-1'
+const GROQ_WHISPER_MODEL = 'whisper-large-v3-turbo' // 25 MB cap, español ok
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
@@ -131,37 +133,78 @@ async function downloadFromStorage(
   return await data.arrayBuffer()
 }
 
-async function callWhisper(audio: ArrayBuffer, fileName: string, apiKey: string): Promise<{ text: string; duration?: number }> {
-  if (audio.byteLength > 25 * 1024 * 1024) {
-    throw new Error(`Audio de ${(audio.byteLength / 1024 / 1024).toFixed(1)} MB excede el límite de Whisper (25 MB). Comprimilo antes.`)
-  }
+interface TranscribeResult {
+  text: string
+  duration?: number
+  provider: 'groq' | 'openai'
+  model: string
+}
 
+async function callWhisperProvider(
+  audio: ArrayBuffer,
+  fileName: string,
+  endpoint: string,
+  apiKey: string,
+  model: string,
+): Promise<{ text: string; duration?: number }> {
   const formData = new FormData()
   formData.append('file', new Blob([audio], { type: 'audio/mpeg' }), fileName)
-  formData.append('model', WHISPER_MODEL)
+  formData.append('model', model)
   formData.append('language', 'es')
   formData.append('response_format', 'verbose_json')
 
-  const res = await fetch(OPENAI_TRANSCRIPTION_URL, {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}` },
     body: formData,
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Whisper ${res.status}: ${text.slice(0, 200)}`)
+    throw new Error(`${res.status}: ${text.slice(0, 200)}`)
   }
   const payload = await res.json() as { text?: string; duration?: number }
-  if (!payload.text) throw new Error('Whisper no devolvió texto')
+  if (!payload.text) throw new Error('Sin texto en la respuesta')
   return { text: payload.text, duration: payload.duration }
+}
+
+async function transcribe(audio: ArrayBuffer, fileName: string, opts: { groqKey?: string; openaiKey?: string }): Promise<TranscribeResult> {
+  if (audio.byteLength > 25 * 1024 * 1024) {
+    throw new Error(`Audio de ${(audio.byteLength / 1024 / 1024).toFixed(1)} MB excede el límite de Whisper (25 MB). Comprimilo antes.`)
+  }
+
+  // 1) Probar Groq primero (gratis hasta rate limits)
+  if (opts.groqKey) {
+    try {
+      const r = await callWhisperProvider(audio, fileName, GROQ_TRANSCRIPTION_URL, opts.groqKey, GROQ_WHISPER_MODEL)
+      return { ...r, provider: 'groq', model: GROQ_WHISPER_MODEL }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn('[transcribe] Groq falló, fallback a OpenAI:', msg)
+      if (!opts.openaiKey) {
+        throw new Error(`Groq falló y no hay OpenAI key configurada: ${msg}`)
+      }
+      // continuamos al fallback OpenAI
+    }
+  }
+
+  // 2) Fallback OpenAI Whisper (paga ~$0.006/min)
+  if (opts.openaiKey) {
+    const r = await callWhisperProvider(audio, fileName, OPENAI_TRANSCRIPTION_URL, opts.openaiKey, OPENAI_WHISPER_MODEL)
+    return { ...r, provider: 'openai', model: OPENAI_WHISPER_MODEL }
+  }
+
+  throw new Error('No hay ningún proveedor de transcripción configurado (GROQ_API_KEY o OPENAI_API_KEY)')
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const apiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!apiKey) return json({ error: 'OPENAI_API_KEY no configurada' }, 500)
+    const groqKey = Deno.env.get('GROQ_API_KEY')
+    const openaiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!groqKey && !openaiKey) {
+      return json({ error: 'Configurá GROQ_API_KEY (recomendado) o OPENAI_API_KEY en Edge Functions secrets' }, 500)
+    }
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -252,14 +295,14 @@ Deno.serve(async (req) => {
     const transcriptId = (row as unknown as { id: string }).id
 
     try {
-      const { text, duration } = await callWhisper(audioBytes, body.file_name, apiKey)
+      const { text, duration, provider, model } = await transcribe(audioBytes, body.file_name, { groqKey, openaiKey })
 
       await serviceClient
         .from('audiencia_transcripts')
         .update({
           status: 'completed',
           transcript: text,
-          transcript_model: WHISPER_MODEL,
+          transcript_model: `${provider}:${model}`,
           transcript_at: new Date().toISOString(),
           audio_duration_seconds: duration ? Math.round(duration) : null,
           updated_at: new Date().toISOString(),
@@ -270,6 +313,8 @@ Deno.serve(async (req) => {
         transcript_id: transcriptId,
         transcript: text,
         duration_seconds: duration ? Math.round(duration) : null,
+        provider,
+        model,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error en transcripción'
