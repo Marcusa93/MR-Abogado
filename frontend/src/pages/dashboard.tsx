@@ -20,6 +20,8 @@ import { useTareas } from '@/hooks/use-tareas'
 import { KPIStrip, KPIStripSkeleton } from '@/components/dashboard/kpi-strip'
 import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/semaforo-panel'
 import { MisTareasPanel } from '@/components/dashboard/mis-tareas-panel'
+import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
+import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
 import { ErrorState } from '@/components/shared/error-state'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { ESTADOS_TERMINALES } from '@/types/enums'
@@ -210,6 +212,12 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <MisTareasPanel />
         <UpcomingTurnosPanel turnos={metrics?.turnos_proximos ?? []} />
+      </div>
+
+      {/* ── SAE: Plazos por vencer (IA) + Actuaciones recientes ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <PlazosProximosPanel />
+        <ActuacionesRecientesPanel />
       </div>
 
       <div className="divider-gradient" />
