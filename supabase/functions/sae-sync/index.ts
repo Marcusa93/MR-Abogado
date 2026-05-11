@@ -298,6 +298,44 @@ Deno.serve(async (req) => {
       // (El análisis IA es on-demand vía la edge function sae-analyze-movement
       //  para no quemar tokens en cada sync. El usuario decide qué analizar.)
 
+      // ── Push notification al owner cuando hay nuevas actuaciones ────────
+      // Skip si era la primera sync (existingSet.size === 0) — sería ruido
+      // post-import. Solo avisamos cuando ya había historial previo.
+      if (nuevas > 0 && existingSet.size > 0) {
+        try {
+          const importantTypes = new Set(['sentencia', 'audiencia', 'intimacion', 'embargo'])
+          const importantNew = insertedRows.filter(r => importantTypes.has(r.movement.tipo_movimiento))
+          const numero = exp.numero_sae
+          const emoji = importantNew.length > 0 ? '⚠️' : '📬'
+          const plural = nuevas !== 1
+          const title = `${emoji} ${numero}: ${nuevas} actuación${plural ? 'es' : ''} nueva${plural ? 's' : ''}`
+          const importantTypeNames = [...new Set(importantNew.map(r => r.movement.tipo_movimiento))]
+          const body = importantNew.length > 0
+            ? `Incluye: ${importantTypeNames.join(', ')}`
+            : insertedRows[0]?.movement.titulo.slice(0, 80) ?? 'Tocá para ver el expediente'
+
+          await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: req.headers.get('Authorization') ?? '',
+            },
+            body: JSON.stringify({
+              user_ids: [user.id],
+              payload: {
+                title,
+                body,
+                url: `/expedientes/${expediente_id}`,
+                tag: `sae-sync-${expediente_id}`,
+              },
+            }),
+          })
+        } catch (pushErr) {
+          // No fallar el sync si push falla
+          console.error('[sae-sync] push error', pushErr)
+        }
+      }
+
       // ── Actualizar expediente ─────────────────────────────────────────────
       await serviceClient
         .from('expedientes')
