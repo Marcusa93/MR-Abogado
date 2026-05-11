@@ -25,11 +25,14 @@
   --ring: oklch(0.52 0.06 220);
   --radius: 0.625rem;
 
-  /* Brand tokens — Marco Rossi Estudio Jurídico */
-  --brand-navy: oklch(0.12 0.04 234);
+  /* Brand tokens — calibrado contra www.marcorossi.com.ar */
+  --brand-navy: oklch(0.12 0.045 250);
   --brand-medium: oklch(0.28 0.04 260);
-  --brand-accent: oklch(0.52 0.06 220);
+  --brand-accent: oklch(0.55 0.045 230);
   --brand-ice: oklch(0.87 0.03 220);
+  /* Glow signature del sitio (#577c8e a distintas opacidades) */
+  --accent-glow: oklch(0.55 0.045 230 / 22%);
+  --accent-glow-soft: oklch(0.55 0.045 230 / 10%);
 
   /* Sidebar & layout light-mode tokens */
   --sidebar-bg: oklch(1 0 0);
@@ -38,15 +41,17 @@
   --layout-bg: oklch(0.975 0.005 220);
 }
 
-/* Dark mode */
+/* Dark mode — calibrado contra www.marcorossi.com.ar (navy deep #01101E) */
 .dark {
-  --background: oklch(0.14 0.04 234);
+  /* Background: matching #01101E navy deep del sitio público */
+  --background: oklch(0.12 0.045 250);
   --foreground: oklch(0.96 0.008 220);
-  --card: oklch(0.19 0.04 246);
+  --card: oklch(0.18 0.04 246);
   --card-foreground: oklch(0.96 0.008 220);
-  --popover: oklch(0.19 0.04 246);
+  --popover: oklch(0.18 0.04 246);
   --popover-foreground: oklch(0.96 0.008 220);
-  --primary: oklch(0.65 0.07 220);
+  /* Primary/accent: matching #577C8E (azul-gris desaturado del sitio) */
+  --primary: oklch(0.62 0.045 230);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.24 0.04 255);
   --secondary-foreground: oklch(0.96 0.008 220);
@@ -57,17 +62,20 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 10%);
-  --ring: oklch(0.65 0.07 220);
+  --ring: oklch(0.62 0.045 230);
 
-  --brand-navy: oklch(0.12 0.04 234);
+  --brand-navy: oklch(0.12 0.045 250);
   --brand-medium: oklch(0.28 0.04 260);
-  --brand-accent: oklch(0.65 0.07 220);
+  --brand-accent: oklch(0.62 0.045 230);
   --brand-ice: oklch(0.87 0.03 220);
+  /* Color del glow signature del sitio (#577c8e con opacidad) */
+  --accent-glow: oklch(0.62 0.045 230 / 30%);
+  --accent-glow-soft: oklch(0.62 0.045 230 / 15%);
 
-  --sidebar-bg: oklch(0.11 0.04 234);
+  --sidebar-bg: oklch(0.10 0.045 250);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --header-bg: oklch(0.14 0.04 234 / 85%);
-  --layout-bg: oklch(0.14 0.04 234);
+  --header-bg: oklch(0.12 0.045 250 / 85%);
+  --layout-bg: oklch(0.12 0.045 250);
 }
 
 /* ─── Light Mode Readability — DEFINITIVE FIX ─── */
@@ -125,10 +133,10 @@ html {
   background-color: oklch(0.5 0.005 286 / 55%);
 }
 
-/* Selection styling — navy-light */
+/* Selection styling — accent del sitio */
 ::selection {
-  background-color: oklch(0.52 0.06 220 / 25%);
-  color: oklch(0.12 0.04 234);
+  background-color: oklch(0.55 0.045 230 / 25%);
+  color: oklch(0.12 0.045 250);
 }
 
 .dark ::selection {
@@ -192,10 +200,10 @@ html {
   padding: 1px;
   background: linear-gradient(
     var(--border-angle, 0deg),
-    oklch(0.52 0.06 220 / 25%),
+    oklch(0.55 0.045 230 / 30%),
     transparent 40%,
     transparent 60%,
-    oklch(0.45 0.06 220 / 18%)
+    oklch(0.55 0.045 230 / 18%)
   );
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
@@ -228,36 +236,52 @@ html {
   color: oklch(0.75 0.05 220);
 }
 
-/* Button background — navy-light */
+/* Button background — accent navy del sitio (#577C8E aprox). Nombre legacy. */
 .bg-gradient-cyan {
-  background: oklch(0.52 0.06 220);
+  background: var(--brand-accent);
 }
 
 .bg-gradient-subtle {
   background: var(--background);
 }
 
-/* Gradient divider — navy-light */
+/* Gradient divider — accent del sitio */
 .divider-gradient {
   height: 1px;
   background: linear-gradient(
     to right,
     transparent,
-    oklch(0.52 0.06 220 / 25%),
-    oklch(0.45 0.06 220 / 18%),
+    oklch(0.55 0.045 230 / 25%),
+    oklch(0.55 0.045 230 / 18%),
     transparent
   );
 }
 
-/* ─── Glow Effects — navy-light ─── */
+/* ─── Glow Effects — signature navy del sitio público ─── */
 
+/* Glow principal, equivalente a `box-shadow: 0 0 20px #577c8e4d` del sitio */
+.glow {
+  box-shadow: 0 0 20px var(--accent-glow),
+    0 0 40px var(--accent-glow-soft);
+}
+
+.glow-sm {
+  box-shadow: 0 0 10px var(--accent-glow-soft);
+}
+
+.glow-lg {
+  box-shadow: 0 0 28px var(--accent-glow),
+    0 0 56px var(--accent-glow-soft);
+}
+
+/* Aliases legacy — mantenidos por backward compat con ~32 consumers */
 .glow-cyan {
-  box-shadow: 0 0 20px oklch(0.52 0.06 220 / 18%),
-    0 0 40px oklch(0.52 0.06 220 / 8%);
+  box-shadow: 0 0 20px var(--accent-glow),
+    0 0 40px var(--accent-glow-soft);
 }
 
 .glow-cyan-sm {
-  box-shadow: 0 0 10px oklch(0.52 0.06 220 / 12%);
+  box-shadow: 0 0 10px var(--accent-glow-soft);
 }
 
 /* ─── Mesh Gradient Background ─── */
@@ -266,10 +290,11 @@ html {
   background-color: var(--layout-bg);
   background-image: none;
 }
+/* Radiales más presentes en dark (matching la profundidad del sitio público) */
 .dark .mesh-gradient-bg {
   background-image:
-    radial-gradient(ellipse at 20% 0%, oklch(0.52 0.06 220 / 4%) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, oklch(0.45 0.06 220 / 3%) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 8%) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 6%) 0%, transparent 55%);
 }
 
 /* ─── Login Background ─── */
@@ -277,12 +302,12 @@ html {
 .login-bg-pattern {
   background-image: radial-gradient(
       circle at 20% 50%,
-      oklch(0.52 0.06 220 / 6%) 0%,
+      oklch(0.55 0.045 230 / 6%) 0%,
       transparent 50%
     ),
     radial-gradient(
       circle at 80% 20%,
-      oklch(0.12 0.04 234 / 4%) 0%,
+      oklch(0.12 0.045 250 / 4%) 0%,
       transparent 50%
     ),
     radial-gradient(
@@ -310,7 +335,7 @@ html {
 
 .brand-splash-bg {
   background:
-    radial-gradient(circle at 50% 30%, oklch(0.52 0.06 220 / 8%), transparent 26%),
+    radial-gradient(circle at 50% 30%, oklch(0.55 0.045 230 / 8%), transparent 26%),
     radial-gradient(circle at 20% 65%, oklch(0.87 0.03 220 / 12%), transparent 32%),
     radial-gradient(circle at 80% 18%, oklch(0.28 0.04 260 / 6%), transparent 26%),
     linear-gradient(180deg, oklch(0.985 0.003 220), oklch(0.96 0.01 220));
@@ -318,10 +343,10 @@ html {
 
 .dark .brand-splash-bg {
   background:
-    radial-gradient(circle at 50% 26%, oklch(0.52 0.06 220 / 12%), transparent 26%),
+    radial-gradient(circle at 50% 26%, oklch(0.55 0.045 230 / 14%), transparent 26%),
     radial-gradient(circle at 18% 70%, oklch(0.28 0.04 260 / 10%), transparent 34%),
-    radial-gradient(circle at 82% 18%, oklch(0.65 0.07 220 / 8%), transparent 28%),
-    linear-gradient(180deg, oklch(0.12 0.04 234), oklch(0.10 0.04 234));
+    radial-gradient(circle at 82% 18%, oklch(0.62 0.045 230 / 10%), transparent 28%),
+    linear-gradient(180deg, oklch(0.12 0.045 250), oklch(0.10 0.045 250));
 }
 
 .brand-logo-frame {
@@ -336,7 +361,7 @@ html {
   background:
     linear-gradient(180deg, oklch(1 0 0 / 86%), oklch(0.97 0.01 220 / 90%));
   box-shadow:
-    0 24px 64px oklch(0.12 0.04 234 / 10%),
+    0 24px 64px oklch(0.12 0.045 250 / 10%),
     inset 0 1px 0 oklch(1 0 0 / 75%);
 }
 
@@ -361,7 +386,7 @@ html {
 
 .dark .brand-logo-frame::before {
   background:
-    linear-gradient(135deg, oklch(1 0 0 / 6%), transparent 45%, oklch(0.65 0.07 220 / 12%));
+    linear-gradient(135deg, oklch(1 0 0 / 6%), transparent 45%, oklch(0.62 0.045 230 / 14%));
 }
 
 /* ─── Interaction Utilities ─── */
@@ -552,13 +577,13 @@ html {
 html[data-theme='light'] .mesh-gradient-bg {
   background-image:
     radial-gradient(ellipse at 12% 0%, oklch(0.87 0.03 220 / 8%) 0%, transparent 45%),
-    radial-gradient(ellipse at 100% 90%, oklch(0.52 0.06 220 / 4%) 0%, transparent 42%);
+    radial-gradient(ellipse at 100% 90%, oklch(0.55 0.045 230 / 4%) 0%, transparent 42%);
 }
 
 html[data-theme='dark'] .mesh-gradient-bg {
   background-image:
-    radial-gradient(ellipse at 20% 0%, oklch(0.52 0.06 220 / 4%) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, oklch(0.45 0.06 220 / 3%) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 8%) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 6%) 0%, transparent 55%);
 }
 
 @media (prefers-reduced-motion: reduce) {
