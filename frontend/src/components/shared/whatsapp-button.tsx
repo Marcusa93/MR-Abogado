@@ -17,12 +17,12 @@ function formatWhatsAppNumber(phone: string): string {
 // ---------------------------------------------------------------------------
 
 export interface WhatsAppContext {
-  tipo: 'general' | 'turno' | 'tarea_completada' | 'seguimiento' | 'resolucion' | 'documentacion' | 'estado_cambio'
+  tipo: 'general' | 'audiencia' | 'tarea_completada' | 'seguimiento' | 'resolucion' | 'documentacion' | 'estado_cambio'
   tipoTramite?: string
   estado?: string
-  fechaTurno?: string
-  horaTurno?: string
-  udai?: string
+  fechaAudiencia?: string
+  horaAudiencia?: string
+  organismo?: string
   tituloTarea?: string
   custom?: string
 }
@@ -32,14 +32,14 @@ function buildContextualMessage(
   context?: WhatsAppContext
 ): string {
   const saludo = clienteNombre
-    ? `Hola ${clienteNombre}! Nos comunicamos del estudio Alba Guerra`
-    : 'Hola! Nos comunicamos del estudio Alba Guerra'
+    ? `Hola ${clienteNombre}! Nos comunicamos del Estudio Jurídico Marco Rossi`
+    : 'Hola! Nos comunicamos del Estudio Jurídico Marco Rossi'
 
   if (!context) return `${saludo} para comunicarle sobre el estado de su trámite.`
 
   switch (context.tipo) {
-    case 'turno':
-      return `${saludo} para recordarle que tiene un turno en ANSES el ${context.fechaTurno ?? ''}${context.horaTurno ? ` a las ${context.horaTurno}` : ''}${context.udai ? ` en ${context.udai}` : ''}. Por favor, recuerde llevar toda la documentación requerida.`
+    case 'audiencia':
+      return `${saludo} para recordarle que tiene una audiencia el ${context.fechaAudiencia ?? ''}${context.horaAudiencia ? ` a las ${context.horaAudiencia}` : ''}${context.organismo ? ` en ${context.organismo}` : ''}. Por favor, recuerde llevar toda la documentación requerida.`
 
     case 'tarea_completada':
       return `${saludo} para informarle que ${context.tituloTarea ? `la gestión "${context.tituloTarea}"` : 'una gestión de su expediente'} ha sido completada.`

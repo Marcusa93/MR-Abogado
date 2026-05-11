@@ -56,7 +56,6 @@ interface TareaDetalle {
           apellido: string | null
           dni?: string | null
           cuil?: string | null
-          clave_anses?: string | null
           clave_arca?: string | null
         } | null
       }
@@ -334,8 +333,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                 )}
               </div>
 
-              {(tarea.expediente.clientes.clave_anses ||
-                tarea.expediente.clientes.clave_arca) && (
+              {tarea.expediente.clientes.clave_arca && (
                 <div className="pl-5 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -358,28 +356,15 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {tarea.expediente.clientes.clave_anses && (
-                      <CopyableField
-                        label="Clave ANSES"
-                        value={tarea.expediente.clientes.clave_anses}
-                        secret={!showClaves}
-                        copied={copiedKey === 'Clave ANSES'}
-                        onCopy={() =>
-                          handleCopy('Clave ANSES', tarea.expediente!.clientes!.clave_anses!)
-                        }
-                      />
-                    )}
-                    {tarea.expediente.clientes.clave_arca && (
-                      <CopyableField
-                        label="Clave ARCA"
-                        value={tarea.expediente.clientes.clave_arca}
-                        secret={!showClaves}
-                        copied={copiedKey === 'Clave ARCA'}
-                        onCopy={() =>
-                          handleCopy('Clave ARCA', tarea.expediente!.clientes!.clave_arca!)
-                        }
-                      />
-                    )}
+                    <CopyableField
+                      label="Clave ARCA"
+                      value={tarea.expediente.clientes.clave_arca}
+                      secret={!showClaves}
+                      copied={copiedKey === 'Clave ARCA'}
+                      onCopy={() =>
+                        handleCopy('Clave ARCA', tarea.expediente!.clientes!.clave_arca!)
+                      }
+                    />
                   </div>
                 </div>
               )}

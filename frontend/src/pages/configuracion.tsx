@@ -723,7 +723,7 @@ function UsersSection() {
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Usuarios del sistema
           </h2>
-          <span className="text-[10px] text-zinc-600">{users?.filter((u) => u.email !== 'admin@alba.com').length ?? 0}</span>
+          <span className="text-[10px] text-zinc-600">{users?.length ?? 0}</span>
         </div>
         <button
           onClick={() => { resetInvite(); setShowInvite(true) }}

@@ -53,7 +53,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
             numero_expediente: expedienteInfo.numero_expediente ?? null,
             caratula: expedienteInfo.caratula ?? null,
             clientes: expedienteInfo.clientes
-              ? { ...expedienteInfo.clientes, clave_anses: null, clave_arca: null }
+              ? { ...expedienteInfo.clientes, clave_arca: null }
               : null,
           }
         : null,

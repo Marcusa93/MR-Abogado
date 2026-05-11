@@ -111,7 +111,7 @@ Cuando una consulta sea ambigua, incompleta o arroje varios resultados posibles,
 Reglas:
 - si hay varios clientes con nombres parecidos, listalos de forma breve y pedí que elijan
 - si hay varios expedientes asociados a un mismo cliente, indicá cuáles son y pedí precisión
-- si el usuario pide "el turno", "la tarea", "la alerta" o "el expediente" sin contexto suficiente, pedí una aclaración concreta
+- si el usuario pide "la audiencia", "la tarea", "la alerta" o "el expediente" sin contexto suficiente, pedí una aclaración concreta
 - si la consulta admite filtros temporales y no está claro el período, preguntá si se refiere a hoy, esta semana, este mes o a todo el historial
 Cuando haya múltiples resultados, priorizá mostrar:
 - nombre y apellido del cliente
@@ -126,7 +126,7 @@ Podés responder únicamente sobre estas áreas del CRM:
 1. Expedientes: estado actual, tipo de trámite, fechas relevantes, responsable, observaciones registradas, historial visible si está disponible, alertas vinculadas, tareas vinculadas, agenda vinculada.
 2. Clientes: identificación del cliente, datos de contacto cargados, expedientes asociados, observaciones generales cargadas.
 3. Tareas: tareas pendientes, vencidas, próximas, responsable, prioridad, estado, vencimiento.
-4. Agenda y turnos: turnos registrados, fecha y hora, tipo de turno, responsable o profesional asignado, observaciones de agenda.
+4. Agenda y audiencias: audiencias registradas, fecha y hora, tipo de audiencia, responsable o profesional asignado, observaciones de agenda.
 5. Alertas: alertas activas, vencidas si el sistema las muestra, prioridad, tipo de alerta, expediente o cliente asociado.
 6. Resúmenes operativos: resumen de un expediente, resumen de pendientes de un cliente, resumen de tareas o alertas de un período si el sistema lo permite.
 
@@ -173,7 +173,7 @@ Ejemplos de comportamiento correcto:
 - "Ese dato no figura cargado en el CRM."
 - "Puedo mostrarte el estado del expediente, las tareas o las alertas vinculadas. Decime cuál querés ver."
 - "No tengo información suficiente para identificar un único expediente."
-- "No veo turnos registrados para ese cliente."
+- "No veo audiencias registradas para ese cliente."
 No menciones errores internos de base de datos, SQL, endpoints, tokens, stack traces ni detalles técnicos del backend.
 
 REFERENCIAS INTERNAS DEL CRM
@@ -247,7 +247,7 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
   '/dashboard': [
     '¿Cuántos expedientes tenemos activos?',
     '¿Qué tareas están vencidas?',
-    '¿Cuáles son los próximos turnos?',
+    '¿Cuáles son las próximas audiencias?',
     '¿Hay expedientes sin responsable?',
   ],
   '/expedientes': [
@@ -271,7 +271,7 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
   '/alertas': [
     '¿Cuántas alertas activas hay?',
     '¿Qué alertas son urgentes?',
-    '¿Hay alertas de turnos próximos?',
+    '¿Hay alertas de audiencias próximas?',
     '¿Qué expedientes tienen alertas pendientes?',
   ],
   '/kanban': [
@@ -281,10 +281,10 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
     '¿Cuántos expedientes hay en cada etapa?',
   ],
   '/agenda': [
-    '¿Cuáles son los próximos turnos?',
-    '¿Hay turnos para hoy?',
-    '¿Qué turnos hay esta semana?',
-    '¿Hay turnos sin organismo asignado?',
+    '¿Cuáles son las próximas audiencias?',
+    '¿Hay audiencias para hoy?',
+    '¿Qué audiencias hay esta semana?',
+    '¿Hay audiencias sin organismo asignado?',
   ],
 }
 
@@ -292,7 +292,7 @@ const DEFAULT_SUGGESTIONS = [
   '¿Cuántos expedientes tenemos activos?',
   '¿Qué tareas están vencidas?',
   '¿Qué expedientes están en etapa de prueba o alegatos?',
-  '¿Cuáles son los próximos turnos?',
+  '¿Cuáles son las próximas audiencias?',
 ]
 
 // Role-specific suggestions for non-admin users
@@ -300,7 +300,7 @@ const ROLE_SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
   '/dashboard': [
     '¿Cuántos expedientes tengo asignados?',
     '¿Qué tareas tengo vencidas?',
-    '¿Cuáles son mis próximos turnos?',
+    '¿Cuáles son mis próximas audiencias?',
     '¿Hay expedientes míos sin avanzar?',
   ],
   '/expedientes': [
@@ -316,16 +316,16 @@ const ROLE_SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
     '¿Hay tareas mías sin fecha de vencimiento?',
   ],
   '/agenda': [
-    '¿Cuáles son mis próximos turnos?',
-    '¿Tengo turnos para hoy?',
-    '¿Qué turnos tengo esta semana?',
-    '¿Hay turnos míos sin organismo asignado?',
+    '¿Cuáles son mis próximas audiencias?',
+    '¿Tengo audiencias para hoy?',
+    '¿Qué audiencias tengo esta semana?',
+    '¿Hay audiencias mías sin organismo asignado?',
   ],
   '/alertas': [
     '¿Tengo alertas activas?',
     '¿Hay alertas urgentes en mis expedientes?',
     '¿Qué expedientes míos tienen alertas pendientes?',
-    '¿Hay alertas de turnos próximos?',
+    '¿Hay alertas de audiencias próximas?',
   ],
   '/kanban': [
     '¿Cómo están distribuidos mis expedientes?',
@@ -338,7 +338,7 @@ const ROLE_SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
 const DEFAULT_ROLE_SUGGESTIONS = [
   '¿Cuántos expedientes tengo asignados?',
   '¿Qué tareas tengo vencidas?',
-  '¿Cuáles son mis próximos turnos?',
+  '¿Cuáles son mis próximas audiencias?',
   '¿Hay algo urgente en mis casos?',
 ]
 
@@ -363,7 +363,7 @@ function getDynamicSuggestions(
     return [
       '¿Cuál es el estado de este expediente?',
       '¿Qué tareas tiene pendientes?',
-      '¿Tiene turnos registrados?',
+      '¿Tiene audiencias registradas?',
       '¿Cuáles son los últimos seguimientos?',
     ]
   }
@@ -372,7 +372,7 @@ function getDynamicSuggestions(
       '¿Cuántos expedientes tiene este cliente?',
       '¿Hay tareas pendientes para este cliente?',
       '¿Cuál es el estado de sus trámites?',
-      '¿Tiene turnos próximos?',
+      '¿Tiene audiencias próximas?',
     ]
   }
 
@@ -387,7 +387,7 @@ function getDynamicSuggestions(
       smart.push(`${isPersonal ? 'Tengo' : 'Hay'} ${metrics.alertas_activas} alerta${metrics.alertas_activas > 1 ? 's' : ''} activa${metrics.alertas_activas > 1 ? 's' : ''}, ¿qué pasa?`)
     }
     if (metrics.turnos_semana > 0) {
-      smart.push(`¿Cuáles son ${prefix}${metrics.turnos_semana} turno${metrics.turnos_semana > 1 ? 's' : ''} de esta semana?`)
+      smart.push(`¿Cuáles son ${prefix}${metrics.turnos_semana} audiencia${metrics.turnos_semana > 1 ? 's' : ''} de esta semana?`)
     }
 
     // Fill with static fallbacks up to 4 suggestions
@@ -716,14 +716,14 @@ export function NicoIAChat() {
             ? 'h-12 w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'
             : 'rounded-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 pl-3 pr-4 py-2.5'
         )}
-        title="Alba Asistente (Alt+N)"
+        title="BogaBot Asistente (Alt+N)"
       >
         {isOpen ? (
           <X className="h-5 w-5 text-white" />
         ) : (
           <>
             <BrainCircuit className="h-5 w-5 text-white" />
-            <span className="text-sm font-semibold text-white hidden sm:inline">Alba IA</span>
+            <span className="text-sm font-semibold text-white hidden sm:inline">BogaBot</span>
           </>
         )}
       </button>
@@ -738,7 +738,7 @@ export function NicoIAChat() {
                 <BrainCircuit className="h-4 w-4 text-amber-600 dark:text-white" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Alba Asistente</h3>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">BogaBot</h3>
                 <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   Asistente del CRM
                 </p>
@@ -823,10 +823,10 @@ export function NicoIAChat() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Hola, soy Alba Asistente
+                    Hola, soy BogaBot
                   </p>
                   <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 max-w-[260px]">
-                    Consultame sobre expedientes, clientes, tareas, turnos o el estado general del estudio.
+                    Consultame sobre expedientes, clientes, tareas, audiencias o el estado general del estudio.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 w-full px-2">

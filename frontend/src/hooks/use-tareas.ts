@@ -40,7 +40,6 @@ export type TareaClienteInfo = Pick<
   Tables<'clientes'>,
   'id' | 'nombre' | 'apellido' | 'dni' | 'cuil'
 > & {
-  clave_anses?: string | null
   clave_arca?: string | null
 }
 

@@ -19,7 +19,7 @@ const SEMAFORO_CONFIG: Record<
   verde: {
     color: 'bg-emerald-500',
     glow: 'shadow-[0_0_6px] shadow-emerald-500/40',
-    label: 'Con turno en ANSES',
+    label: 'Audiencia próxima',
     animate: true,
   },
   amarillo: {

@@ -231,8 +231,8 @@ export function useChatActionExecutor() {
               expediente_id: expedienteId,
               fecha_control: now.split('T')[0],
               canal,
-              estado_organismo_reportado: action.params.estado_anses || 'Sin cambios',
-              observacion: action.params.observacion || 'Seguimiento creado desde Alba Asistente',
+              estado_organismo_reportado: action.params.estado_organismo || 'Sin cambios',
+              observacion: action.params.observacion || 'Seguimiento creado desde el asistente',
               created_by: user?.id ?? '',
             })
           if (error) throw error

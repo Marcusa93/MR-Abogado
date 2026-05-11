@@ -5,11 +5,17 @@ import type { EstadoCount, TipoCount, ResumenFinanciero } from '@/hooks/use-info
 // ---------------------------------------------------------------------------
 
 const ESTADO_LABELS: Record<string, string> = {
-  EN_ANALISIS: 'En análisis',
-  LISTO_PARA_INICIAR: 'Listo para iniciar',
+  NUEVA_CONSULTA: 'Nueva consulta',
+  PARA_INICIAR: 'Para iniciar',
   INICIADO: 'Iniciado',
-  FINALIZADO_FAVORABLE: 'Finalizado favorable',
-  FINALIZADO_DESFAVORABLE: 'Finalizado desfavorable',
+  PRUEBA: 'Prueba',
+  ALEGATOS: 'Alegatos',
+  SENTENCIA: 'Sentencia',
+  APELACION: 'Apelación',
+  CORTE: 'Corte',
+  FINALIZADO: 'Finalizado',
+  NO_VIABLE_RECHAZADO: 'No viable / rechazado',
+  PAUSADO: 'Pausado',
 }
 
 function fmtMoney(n: number): string {
@@ -157,12 +163,12 @@ export async function exportInformePDF({ porEstado, porTipo, financiero }: Expor
   doc.setFontSize(8)
   doc.setTextColor(150, 150, 150)
   doc.text(
-    `Alba | CRM Previsional — Informe generado el ${today}`,
+    `Estudio Jurídico Marco Rossi — Informe generado el ${today}`,
     pageW / 2,
     doc.internal.pageSize.getHeight() - 10,
     { align: 'center' }
   )
 
   // ---- Save ----
-  doc.save(`informe_alba_${today.replace(/\//g, '-')}.pdf`)
+  doc.save(`informe_${today.replace(/\//g, '-')}.pdf`)
 }

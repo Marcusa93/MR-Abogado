@@ -27,7 +27,7 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
   // Find the primary responsible (first member with rol='abogado')
   const miembros = ((expediente as any).miembros ?? []) as { rol: string; perfil: { nombre: string; apellido: string } | null }[]
   const responsable = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
-  const fechaAlta = expediente.fecha_alta ?? (expediente as any).fecha_inicio ?? (expediente as any).fecha_inicio_anses
+  const fechaAlta = expediente.fecha_alta ?? (expediente as any).fecha_inicio_proceso
 
   return (
     <div className="space-y-4">

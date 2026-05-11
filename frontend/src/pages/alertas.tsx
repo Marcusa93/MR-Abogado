@@ -315,7 +315,7 @@ export default function AlertasPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                Se acerca un turno en ANSES
+                Se acerca una audiencia
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
@@ -323,7 +323,7 @@ export default function AlertasPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-                Se detectan cobros pendientes de honorarios
+                Se registran cambios de estado en expedientes
               </li>
             </ul>
           </div>

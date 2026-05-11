@@ -40,11 +40,20 @@ interface AgendaExpediente {
   numero_expediente: string
   caratula: string
   estado_interno: string
-  estado_anses: string | null
+  estado_organismo: string | null
   ultimo_seguimiento: string | null
   dias_sin_control: number
   clientes: { nombre: string; apellido: string } | null
 }
+
+const ESTADOS_EN_PROCESO = [
+  'INICIADO',
+  'PRUEBA',
+  'ALEGATOS',
+  'SENTENCIA',
+  'APELACION',
+  'CORTE',
+] as const
 
 interface AgendaTurno {
   id: string
@@ -80,27 +89,44 @@ function useAgendaSecretaria() {
       const { data: exps } = await supabase
         .from('expedientes')
         .select(
-          `id, numero, caratula, estado_interno, estado_anses, ultimo_seguimiento,
+          `id, numero, caratula, estado_interno, estado_organismo, updated_at,
            clientes!expedientes_cliente_id_fkey (nombre, apellido)`
         )
-        .in('estado_interno', ['INICIADO_EN_ANSES', 'EN_TRAMITE_ANSES'])
-        .order('ultimo_seguimiento', { ascending: true, nullsFirst: true })
-        .limit(30)
+        .in('estado_interno', ESTADOS_EN_PROCESO as unknown as string[])
+        .is('deleted_at', null)
+        .limit(60)
+
+      const expedienteIds = (exps ?? []).map((e: any) => e.id)
+      const ultimoPorExpediente = new Map<string, string>()
+
+      if (expedienteIds.length > 0) {
+        const { data: segs } = await supabase
+          .from('seguimientos')
+          .select('expediente_id, fecha_control')
+          .in('expediente_id', expedienteIds)
+          .order('fecha_control', { ascending: false })
+
+        for (const s of segs ?? []) {
+          if (!ultimoPorExpediente.has(s.expediente_id)) {
+            ultimoPorExpediente.set(s.expediente_id, s.fecha_control)
+          }
+        }
+      }
 
       const expedientes: AgendaExpediente[] = (exps ?? []).map((e: any) => {
-        const lastDate = e.ultimo_seguimiento
-          ? new Date(e.ultimo_seguimiento).getTime()
-          : 0
+        const ultimo = ultimoPorExpediente.get(e.id) ?? null
+        const referencia = ultimo ?? e.updated_at ?? null
+        const lastDate = referencia ? new Date(referencia).getTime() : 0
         const dias = lastDate
           ? Math.floor((Date.now() - lastDate) / 86400000)
           : 999
         return {
           id: e.id,
-          numero_expediente: (e as any).numero,
+          numero_expediente: e.numero,
           caratula: e.caratula,
           estado_interno: e.estado_interno,
-          estado_anses: e.estado_anses,
-          ultimo_seguimiento: e.ultimo_seguimiento,
+          estado_organismo: e.estado_organismo,
+          ultimo_seguimiento: ultimo,
           dias_sin_control: dias,
           clientes: e.clientes,
         }
@@ -125,7 +151,9 @@ function useAgendaSecretaria() {
         .limit(100)
 
       return {
-        expedientes: expedientes.sort((a, b) => b.dias_sin_control - a.dias_sin_control),
+        expedientes: expedientes
+          .sort((a, b) => b.dias_sin_control - a.dias_sin_control)
+          .slice(0, 30),
         turnos: (turnosData ?? []) as AgendaTurno[],
       }
     },
@@ -176,7 +204,7 @@ function SeguimientoForm({
             onChange={(e) => setCanal(e.target.value as CreateSeguimientoInput['canal'])}
             className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
           >
-            <option value="WEB">Web ANSES</option>
+            <option value="WEB">Web</option>
             <option value="TELEFONO">Tel{'\u00E9'}fono</option>
             <option value="PRESENCIAL">Presencial</option>
             <option value="EMAIL">Email</option>
@@ -204,13 +232,13 @@ function SeguimientoForm({
 
       <div>
         <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
-          Resultado / Estado ANSES
+          Resultado / Estado del organismo
         </label>
         <input
           type="text"
           value={resultado}
           onChange={(e) => setResultado(e.target.value)}
-          placeholder="Ej: En proceso, Expediente otorgado..."
+          placeholder="Ej: En proceso, Resolución dictada..."
           className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
         />
       </div>

@@ -11,7 +11,6 @@ export function useTeamMembers() {
         .from('profiles')
         .select('id, email, nombre, apellido, rol')
         .eq('activo', true)
-        .neq('email', 'admin@alba.com')
         .order('apellido')
 
       if (error) throw error

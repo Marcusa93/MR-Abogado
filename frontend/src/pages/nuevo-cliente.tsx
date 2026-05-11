@@ -51,9 +51,7 @@ export default function NuevoClientePage() {
 
   // Claves
   const [claveArca, setClaveArca] = useState('')
-  const [claveAnses, setClaveAnses] = useState('')
   const [showClaveArca, setShowClaveArca] = useState(false)
-  const [showClaveAnses, setShowClaveAnses] = useState(false)
 
   // Notes
   const [notas, setNotas] = useState('')
@@ -361,25 +359,6 @@ export default function NuevoClientePage() {
                     tabIndex={-1}
                   >
                     {showClaveArca ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Clave ANSES</label>
-                <div className="relative">
-                  <input
-                    type={showClaveAnses ? 'text' : 'password'}
-                    value={claveAnses}
-                    onChange={(e) => setClaveAnses(e.target.value)}
-                    className={inputClass}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowClaveAnses(!showClaveAnses)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showClaveAnses ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>

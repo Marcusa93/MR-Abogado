@@ -34,12 +34,12 @@ describe('WhatsApp contextual messages', () => {
   // Test the message builder logic
   function buildMessage(tipo: string, nombre?: string): string {
     const saludo = nombre
-      ? `Hola ${nombre}! Nos comunicamos del estudio Alba Guerra`
-      : 'Hola! Nos comunicamos del estudio Alba Guerra'
+      ? `Hola ${nombre}! Nos comunicamos del Estudio Jurídico Marco Rossi`
+      : 'Hola! Nos comunicamos del Estudio Jurídico Marco Rossi'
 
     switch (tipo) {
-      case 'turno':
-        return `${saludo} para recordarle que tiene un turno en ANSES.`
+      case 'audiencia':
+        return `${saludo} para recordarle que tiene una audiencia próxima.`
       case 'resolucion':
         return `${saludo}. Nos complace informarle que su trámite ha sido resuelto favorablemente.`
       case 'documentacion':
@@ -52,7 +52,7 @@ describe('WhatsApp contextual messages', () => {
   it('includes client name when provided', () => {
     const msg = buildMessage('general', 'María')
     expect(msg).toContain('Hola María!')
-    expect(msg).toContain('estudio Alba Guerra')
+    expect(msg).toContain('Estudio Jurídico Marco Rossi')
   })
 
   it('works without client name', () => {
@@ -61,9 +61,9 @@ describe('WhatsApp contextual messages', () => {
     expect(msg).not.toContain('undefined')
   })
 
-  it('turno message mentions ANSES', () => {
-    const msg = buildMessage('turno', 'Juan')
-    expect(msg).toContain('turno en ANSES')
+  it('audiencia message mentions audiencia', () => {
+    const msg = buildMessage('audiencia', 'Juan')
+    expect(msg).toContain('audiencia')
   })
 
   it('resolucion message is positive', () => {

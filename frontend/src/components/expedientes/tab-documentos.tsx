@@ -39,13 +39,14 @@ function getFileIcon(type: string) {
 const CATEGORIAS: { value: string; label: string }[] = [
   { value: 'dni', label: 'DNI' },
   { value: 'cuil', label: 'CUIL' },
-  { value: 'certificado_servicios', label: 'Certificado de servicios' },
-  { value: 'historia_laboral', label: 'Historia laboral' },
+  { value: 'demanda', label: 'Demanda' },
+  { value: 'contestacion', label: 'Contestación' },
+  { value: 'prueba', label: 'Prueba' },
   { value: 'poder', label: 'Poder' },
-  { value: 'resolucion', label: 'Resolución ANSES' },
+  { value: 'resolucion', label: 'Resolución / Auto' },
   { value: 'sentencia', label: 'Sentencia' },
-  { value: 'informe_medico', label: 'Informe médico' },
-  { value: 'recibo_haberes', label: 'Recibo de haberes' },
+  { value: 'cedula', label: 'Cédula / Notificación' },
+  { value: 'escrito', label: 'Escrito presentado' },
   { value: 'otro', label: 'Otro' },
 ]
 

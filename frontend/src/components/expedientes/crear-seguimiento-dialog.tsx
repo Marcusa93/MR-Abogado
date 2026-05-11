@@ -110,7 +110,7 @@ export function CrearSeguimientoDialog({
               Nuevo seguimiento
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-              Registra un seguimiento del estado ANSES.
+              Registra un seguimiento del estado del expediente.
             </p>
           </div>
           <button
@@ -175,7 +175,7 @@ export function CrearSeguimientoDialog({
             <input
               value={resultado}
               onChange={(e) => setResultado(e.target.value)}
-              placeholder="Estado reportado por ANSES..."
+              placeholder="Estado reportado por el organismo..."
               className={inputClass}
             />
           </div>

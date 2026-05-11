@@ -125,7 +125,7 @@ export const FUERO_LABELS: Record<Fuero, string> = {
   familia: 'Familia',
   administrativo: 'Administrativo',
   comercial: 'Comercial',
-  previsional: 'Previsional / ANSES',
+  previsional: 'Previsional',
   otro: 'Otro',
 }
 

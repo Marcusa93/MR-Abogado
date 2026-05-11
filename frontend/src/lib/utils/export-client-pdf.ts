@@ -1,11 +1,17 @@
 import type { ClienteListItem } from '@/hooks/use-clientes'
 
 const ESTADO_LABELS: Record<string, string> = {
-  EN_ANALISIS: 'En análisis',
-  LISTO_PARA_INICIAR: 'Listo para iniciar',
+  NUEVA_CONSULTA: 'Nueva consulta',
+  PARA_INICIAR: 'Para iniciar',
   INICIADO: 'Iniciado',
-  FINALIZADO_FAVORABLE: 'Finalizado favorable',
-  FINALIZADO_DESFAVORABLE: 'Finalizado desfavorable',
+  PRUEBA: 'Prueba',
+  ALEGATOS: 'Alegatos',
+  SENTENCIA: 'Sentencia',
+  APELACION: 'Apelación',
+  CORTE: 'Corte',
+  FINALIZADO: 'Finalizado',
+  NO_VIABLE_RECHAZADO: 'No viable / rechazado',
+  PAUSADO: 'Pausado',
 }
 
 export async function exportClientePDF(cliente: ClienteListItem) {

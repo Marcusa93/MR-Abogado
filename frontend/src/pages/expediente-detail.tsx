@@ -155,9 +155,9 @@ export default function ExpedienteDetailPage() {
               </h1>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-zinc-500 font-mono">{(expediente as any).numero}</span>
-                {(expediente as any).numero_expediente_anses && (
+                {(expediente as any).numero_sae && (
                   <span className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold">
-                    ANSES: {(expediente as any).numero_expediente_anses}
+                    SAE: {(expediente as any).numero_sae}
                   </span>
                 )}
               </div>
@@ -414,7 +414,7 @@ export default function ExpedienteDetailPage() {
         expedienteId={id!}
       />
 
-      {/* Quick Actions FAB — positioned left of Alba IA button */}
+      {/* Quick Actions FAB — positioned left of BogaBot button */}
       <div className="fixed bottom-6 right-24 z-40 flex flex-col-reverse items-end gap-2 max-sm:right-20">
         {quickActionsOpen && (
           <div className="mb-2 flex flex-col gap-2 animate-fade-in">

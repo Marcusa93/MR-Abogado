@@ -11,7 +11,7 @@ export interface EstadoConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Colores intensos y legibles — fondo 20-25%, texto brillante, borde visible
+// Estados del workflow judicial — schema MR Estudio Jurídico
 // ---------------------------------------------------------------------------
 
 const ESTADO_CONFIG: Record<string, EstadoConfig> = {
@@ -23,77 +23,69 @@ const ESTADO_CONFIG: Record<string, EstadoConfig> = {
     gradient: 'from-slate-500 to-slate-400',
     bgTint: 'bg-slate-500/10 border-slate-500/20',
   },
-  EN_ANALISIS: {
-    label: 'En análisis',
+  PARA_INICIAR: {
+    label: 'Para iniciar',
     bg: 'bg-violet-500/25 border border-violet-400/50',
     text: 'text-violet-300',
     dot: 'bg-violet-400',
-    gradient: 'from-amber-500 to-amber-400',
+    gradient: 'from-violet-500 to-purple-400',
     bgTint: 'bg-violet-500/10 border-violet-500/20',
   },
-  A_LA_ESPERA_DE_DOCUMENTACION: {
-    label: 'A la espera de documentación',
-    bg: 'bg-amber-500/25 border border-amber-400/50',
-    text: 'text-amber-300',
-    dot: 'bg-amber-400',
-    gradient: 'from-amber-500 to-yellow-400',
-    bgTint: 'bg-amber-500/10 border-amber-500/20',
-  },
-  TOMADO: {
-    label: 'Tomado',
-    bg: 'bg-teal-500/25 border border-teal-400/50',
-    text: 'text-teal-300',
-    dot: 'bg-teal-400',
-    gradient: 'from-teal-500 to-cyan-400',
-    bgTint: 'bg-teal-500/10 border-teal-500/20',
-  },
-  TOMADO_LISTO_PARA_INICIAR: {
-    label: 'Listo para iniciar',
+  INICIADO: {
+    label: 'Iniciado',
     bg: 'bg-blue-500/25 border border-blue-400/50',
     text: 'text-blue-300',
     dot: 'bg-blue-400',
     gradient: 'from-blue-500 to-cyan-400',
     bgTint: 'bg-blue-500/10 border-blue-500/20',
   },
-  PRODUCCION_TAREAS_INTERNAS: {
-    label: 'Producción interna',
+  PRUEBA: {
+    label: 'Prueba',
     bg: 'bg-cyan-500/25 border border-cyan-400/50',
     text: 'text-cyan-300',
     dot: 'bg-cyan-400',
     gradient: 'from-cyan-500 to-sky-400',
     bgTint: 'bg-cyan-500/10 border-cyan-500/20',
   },
-  INICIADO_EN_ANSES: {
-    label: 'Iniciado en ANSES',
-    bg: 'bg-sky-500/25 border border-sky-400/50',
-    text: 'text-sky-300',
-    dot: 'bg-sky-400',
-    gradient: 'from-sky-500 to-sky-400',
-    bgTint: 'bg-sky-500/10 border-sky-500/20',
+  ALEGATOS: {
+    label: 'Alegatos',
+    bg: 'bg-amber-500/25 border border-amber-400/50',
+    text: 'text-amber-300',
+    dot: 'bg-amber-400',
+    gradient: 'from-amber-500 to-yellow-400',
+    bgTint: 'bg-amber-500/10 border-amber-500/20',
   },
-  EN_TRAMITE_ANSES: {
-    label: 'En trámite ANSES',
+  SENTENCIA: {
+    label: 'Sentencia',
+    bg: 'bg-orange-500/25 border border-orange-400/50',
+    text: 'text-orange-300',
+    dot: 'bg-orange-400',
+    gradient: 'from-orange-500 to-amber-400',
+    bgTint: 'bg-orange-500/10 border-orange-500/20',
+  },
+  APELACION: {
+    label: 'Apelación',
+    bg: 'bg-purple-500/25 border border-purple-400/50',
+    text: 'text-purple-300',
+    dot: 'bg-purple-400',
+    gradient: 'from-purple-500 to-fuchsia-400',
+    bgTint: 'bg-purple-500/10 border-purple-500/20',
+  },
+  CORTE: {
+    label: 'Corte',
     bg: 'bg-indigo-500/25 border border-indigo-400/50',
     text: 'text-indigo-300',
     dot: 'bg-indigo-400',
     gradient: 'from-indigo-500 to-blue-400',
     bgTint: 'bg-indigo-500/10 border-indigo-500/20',
   },
-  RESUELTO_FAVORABLEMENTE: {
-    label: 'Resuelto favorablemente',
+  FINALIZADO: {
+    label: 'Finalizado',
     bg: 'bg-emerald-500/25 border border-emerald-400/50',
     text: 'text-emerald-300',
     dot: 'bg-emerald-400',
-    gradient: 'from-emerald-500 to-emerald-400',
+    gradient: 'from-emerald-500 to-green-400',
     bgTint: 'bg-emerald-500/10 border-emerald-500/20',
-  },
-  FINALIZADO: {
-    label: 'Finalizado',
-    bg: 'bg-green-500/25 border border-green-400/50',
-    text: 'text-green-300',
-    dot: 'bg-green-400',
-    gradient: 'from-green-500 to-emerald-400',
-    bgTint: 'bg-green-500/10 border-green-500/20',
   },
   NO_VIABLE_RECHAZADO: {
     label: 'No viable / rechazado',
@@ -103,13 +95,13 @@ const ESTADO_CONFIG: Record<string, EstadoConfig> = {
     gradient: 'from-rose-500 to-rose-400',
     bgTint: 'bg-rose-500/10 border-rose-500/20',
   },
-  PAUSADO_POR_CLIENTE: {
-    label: 'Pausado por cliente',
-    bg: 'bg-orange-500/25 border border-orange-400/50',
-    text: 'text-orange-300',
-    dot: 'bg-orange-400',
-    gradient: 'from-orange-500 to-amber-400',
-    bgTint: 'bg-orange-500/10 border-orange-500/20',
+  PAUSADO: {
+    label: 'Pausado',
+    bg: 'bg-zinc-500/25 border border-zinc-400/50',
+    text: 'text-zinc-300',
+    dot: 'bg-zinc-400',
+    gradient: 'from-zinc-500 to-zinc-400',
+    bgTint: 'bg-zinc-500/10 border-zinc-500/20',
   },
 }
 

@@ -272,7 +272,7 @@ function parseIniciados(ws: XLSX.WorkSheet): { clientes: ImportedCliente[]; expe
   const clientes: ImportedCliente[] = []
   const expedientes: ImportedExpediente[] = []
 
-  // Columns: 0=fecha/mes, 1=Apellido, 2=Nombre, 3=DNI, 4=CUIL, 5=Telefono, 6=Tramite, 7=ClaveANSES, 8=Obs, 9=Abogado, 10=?, 11=NroExpediente
+  // Columns: 0=fecha/mes, 1=Apellido, 2=Nombre, 3=DNI, 4=CUIL, 5=Telefono, 6=Tramite, 7=Clave, 8=Obs, 9=Abogado, 10=?, 11=NroExpediente
   for (const row of rows) {
     if (!Array.isArray(row) || isRowEmpty(row)) continue
     const dni = cleanDni(row[3])

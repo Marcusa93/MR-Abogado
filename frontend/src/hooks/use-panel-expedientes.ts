@@ -59,7 +59,7 @@ export const COLOR_CONFIG: Record<
   }
 > = {
   analisis: {
-    label: 'En análisis',
+    label: 'Consultas',
     borderClass: 'border-l-slate-400',
     bgClass: 'bg-slate-500/[0.04]',
     dotClass: 'bg-slate-400',

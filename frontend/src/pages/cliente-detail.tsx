@@ -287,13 +287,12 @@ export default function ClienteDetailPage() {
       </div>
 
       {/* Claves de acceso — siempre enmascaradas, show/hide por item */}
-      {((cliente as any).clave_arca || (cliente as any).clave_anses) && (
+      {(cliente as any).clave_arca && (
         <div className="glass-card rounded-xl p-4 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
             Claves de acceso
           </h3>
           <MaskedInfoItem icon={Key} label="Clave ARCA" value={(cliente as any).clave_arca} />
-          <MaskedInfoItem icon={Key} label="Clave ANSES" value={(cliente as any).clave_anses} />
         </div>
       )}
 

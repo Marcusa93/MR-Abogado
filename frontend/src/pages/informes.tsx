@@ -33,18 +33,17 @@ import {
 // ---------------------------------------------------------------------------
 
 const ESTADO_HEX: Record<string, string> = {
-  NUEVA_CONSULTA: '#94a3b8',            // slate-400
-  EN_ANALISIS: '#a78bfa',              // violet-400
-  A_LA_ESPERA_DE_DOCUMENTACION: '#fbbf24', // amber-400
-  TOMADO: '#2dd4bf',                   // teal-400
-  TOMADO_LISTO_PARA_INICIAR: '#60a5fa', // blue-400
-  PRODUCCION_TAREAS_INTERNAS: '#38bdf8', // sky-400
-  INICIADO_EN_ANSES: '#60a5fa',       // blue-400
-  EN_TRAMITE_ANSES: '#818cf8',        // indigo-400
-  RESUELTO_FAVORABLEMENTE: '#34d399', // emerald-400
+  NUEVA_CONSULTA: '#94a3b8',          // slate-400
+  PARA_INICIAR: '#a78bfa',            // violet-400
+  INICIADO: '#60a5fa',                // blue-400
+  PRUEBA: '#22d3ee',                  // cyan-400
+  ALEGATOS: '#fbbf24',                // amber-400
+  SENTENCIA: '#fb923c',               // orange-400
+  APELACION: '#c084fc',               // purple-400
+  CORTE: '#818cf8',                   // indigo-400
   FINALIZADO: '#22c55e',              // green-500
   NO_VIABLE_RECHAZADO: '#fb7185',     // rose-400
-  PAUSADO_POR_CLIENTE: '#fb923c',     // orange-400
+  PAUSADO: '#a1a1aa',                 // zinc-400
 }
 
 // ---------------------------------------------------------------------------
@@ -399,7 +398,7 @@ export default function InformesPage() {
             <div className="glass-card rounded-xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CalendarDays className="h-4 w-4 text-blue-500" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Informe de Turnos ANSES</h3>
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Informe de Audiencias</h3>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="rounded-lg bg-zinc-100 dark:bg-white/5 p-3 text-center">

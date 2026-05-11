@@ -9,21 +9,20 @@ import { ESTADO_INTERNO_LABELS } from '@/types/enums'
 
 const ESTADO_PROGRESS: Record<string, number> = {
   NUEVA_CONSULTA: 1,
-  EN_ANALISIS: 1,
-  A_LA_ESPERA_DE_DOCUMENTACION: 2,
-  TOMADO: 2,
-  TOMADO_LISTO_PARA_INICIAR: 2,
-  PRODUCCION_TAREAS_INTERNAS: 3,
-  INICIADO_EN_ANSES: 4,
-  EN_TRAMITE_ANSES: 5,
-  RESUELTO_FAVORABLEMENTE: 6,
-  FINALIZADO: 6,
-  NO_VIABLE_RECHAZADO: 6,
-  PAUSADO_POR_CLIENTE: 3,
+  PARA_INICIAR: 2,
+  INICIADO: 3,
+  PRUEBA: 4,
+  ALEGATOS: 5,
+  SENTENCIA: 6,
+  APELACION: 6,
+  CORTE: 6,
+  FINALIZADO: 7,
+  NO_VIABLE_RECHAZADO: 7,
+  PAUSADO: 3,
 }
 
 const CANAL_LABELS: Record<string, string> = {
-  WEB: 'Web ANSES',
+  WEB: 'Web / Portal',
   TELEFONO: 'Teléfono',
   PRESENCIAL: 'Presencial',
   EMAIL: 'Email',
@@ -127,10 +126,10 @@ export async function exportTramitePDF(expediente: ExpedienteDetail) {
     ['Carátula', expediente.caratula],
     ['Expediente N°', (expediente as any).numero],
   ]
-  if ((expediente as any).numero_expediente_anses) {
-    infoRows.push(['N° Expediente ANSES', (expediente as any).numero_expediente_anses])
+  if ((expediente as any).numero_sae) {
+    infoRows.push(['N° SAE', (expediente as any).numero_sae])
   }
-  const fechaInicio = (expediente as any).fecha_inicio ?? expediente.fecha_alta
+  const fechaInicio = (expediente as any).fecha_inicio_proceso ?? expediente.fecha_alta
   if (fechaInicio) {
     infoRows.push(['Fecha de inicio', fmtDate(fechaInicio)])
   }

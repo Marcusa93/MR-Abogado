@@ -24,7 +24,7 @@ describe('exportInformePDF', () => {
       exportInformePDF({
         porEstado: [
           { estado_interno: 'INICIADO', count: 52 },
-          { estado_interno: 'EN_ANALISIS', count: 6 },
+          { estado_interno: 'NUEVA_CONSULTA', count: 6 },
         ],
         porTipo: [
           { id: 'tipo-1', nombre: 'Jubilación Ordinaria', count: 30 },

@@ -495,10 +495,10 @@ export default function ExpedientesPage() {
                               {tipo && (
                                 <span className="truncate">{tipo.nombre}</span>
                               )}
-                              {(expediente as any).numero_expediente_anses && (
+                              {(expediente as any).numero_sae && (
                                 <>
                                   <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">ANSES: {(expediente as any).numero_expediente_anses}</span>
+                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">SAE: {(expediente as any).numero_sae}</span>
                                 </>
                               )}
                               {tipo && (expediente as any).numero && (

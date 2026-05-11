@@ -147,14 +147,6 @@ export const clienteSchema = z.object({
     .optional()
     .transform((val) => (val === '' ? undefined : val || undefined)),
 
-  clave_anses: z
-    .union([
-      z.literal(''),
-      z.string().max(100, 'La clave ANSES no puede superar los 100 caracteres'),
-    ])
-    .optional()
-    .transform((val) => (val === '' ? undefined : val || undefined)),
-
   notas: z
     .union([
       z.literal(''),
