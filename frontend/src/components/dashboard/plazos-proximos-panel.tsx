@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePlazosProximos, type PlazoProximo } from '@/hooks/use-sae-dashboard'
-import { Clock, Sparkles, ArrowRight, AlertTriangle } from 'lucide-react'
+import { Clock, Sparkles, ArrowRight, AlertTriangle, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils/date-helpers'
+import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 
 const PRIORIDAD_STYLES: Record<PlazoProximo['prioridad'], { dot: string; text: string; pill: string }> = {
   URGENTE: { dot: 'bg-red-500', text: 'text-red-300', pill: 'bg-red-500/15 text-red-300 border-red-500/30' },
@@ -11,16 +13,13 @@ const PRIORIDAD_STYLES: Record<PlazoProximo['prioridad'], { dot: string; text: s
   BAJA: { dot: 'bg-zinc-500', text: 'text-zinc-300', pill: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30' },
 }
 
-function PlazoRow({ plazo }: { plazo: PlazoProximo }) {
+function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea: (p: PlazoProximo) => void }) {
   const style = PRIORIDAD_STYLES[plazo.prioridad]
   const restantes = plazo.diasRestantes
   const restantesLabel = restantes === 0 ? 'hoy' : restantes === 1 ? 'mañana' : `en ${restantes} días`
 
   return (
-    <Link
-      to={`/expedientes/${plazo.expediente_id}`}
-      className="group flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-colors hover:bg-white/5 hover:border-white/10"
-    >
+    <div className="group flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-colors hover:bg-white/5 hover:border-white/10">
       <div className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', style.dot)} />
 
       <div className="min-w-0 flex-1">
@@ -38,15 +37,51 @@ function PlazoRow({ plazo }: { plazo: PlazoProximo }) {
           {plazo.expediente_numero ? `${plazo.expediente_numero} · ` : ''}
           {plazo.expediente_caratula ?? 'Sin carátula'}
         </p>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={(e) => { e.preventDefault(); onCreateTarea(plazo) }}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors hover:brightness-125',
+              style.pill,
+            )}
+            title="Crear una tarea con esta fecha de vencimiento"
+          >
+            <Plus className="h-2.5 w-2.5" />
+            Crear tarea
+          </button>
+          <Link
+            to={`/expedientes/${plazo.expediente_id}`}
+            className="inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-cyan-400 transition-colors"
+          >
+            Ver expediente
+            <ArrowRight className="h-2.5 w-2.5" />
+          </Link>
+        </div>
       </div>
-
-      <ArrowRight className="h-3.5 w-3.5 shrink-0 mt-1 text-zinc-600 transition-colors group-hover:text-cyan-400" />
-    </Link>
+    </div>
   )
 }
 
 export function PlazosProximosPanel() {
   const { data: plazos = [], isLoading } = usePlazosProximos()
+  const [tareaPrefill, setTareaPrefill] = useState<{
+    open: boolean
+    expedienteId?: string
+    values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: PlazoProximo['prioridad'] }
+  }>({ open: false })
+
+  const handleCreateTarea = (p: PlazoProximo) => {
+    setTareaPrefill({
+      open: true,
+      expedienteId: p.expediente_id,
+      values: {
+        titulo: `Plazo: ${p.plazo.descripcion.slice(0, 80)}`,
+        descripcion: `Plazo extraído por IA de la actuación "${p.movimiento_titulo}".\n\nDescripción: ${p.plazo.descripcion}\nDías: ${p.plazo.dias} ${p.plazo.habiles ? 'hábiles' : 'corridos'}\nVence: ${p.plazo.vence_aprox}`,
+        fechaVencimiento: p.plazo.vence_aprox,
+        prioridad: p.prioridad,
+      },
+    })
+  }
 
   return (
     <div className="glass-card rounded-xl p-4 flex flex-col">
@@ -78,9 +113,18 @@ export function PlazosProximosPanel() {
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
           {plazos.map((p) => (
-            <PlazoRow key={`${p.movement_id}-${p.plazo.vence_aprox}`} plazo={p} />
+            <PlazoRow key={`${p.movement_id}-${p.plazo.vence_aprox}`} plazo={p} onCreateTarea={handleCreateTarea} />
           ))}
         </div>
+      )}
+
+      {tareaPrefill.expedienteId && (
+        <CrearTareaDialog
+          open={tareaPrefill.open}
+          onClose={() => setTareaPrefill({ open: false })}
+          expedienteId={tareaPrefill.expedienteId}
+          initialValues={tareaPrefill.values}
+        />
       )}
     </div>
   )
