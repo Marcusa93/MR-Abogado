@@ -155,7 +155,7 @@ function ActuacionRow({
 }: {
   movement: SaeMovement
   isNew: boolean
-  onOpenPdf: (att: SaeAttachment, movement: SaeMovement) => void
+  onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -223,7 +223,7 @@ function ActuacionRow({
               {attachments.map((att, idx) => (
                 <button
                   key={`${att.fileName}-${idx}`}
-                  onClick={(e) => { e.stopPropagation(); onOpenPdf(att, movement) }}
+                  onClick={(e) => { e.stopPropagation(); onOpenPdf(attachments, idx, movement) }}
                   className="group flex w-full items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/5 hover:border-sky-500/30"
                 >
                   <FileText className="h-4 w-4 shrink-0 text-sky-400" />
@@ -251,9 +251,20 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
   const document = useSaeDocument()
-  const [viewer, setViewer] = useState<{ open: boolean; fileName: string; objectUrl?: string | null; error?: string | null }>({
+  const [viewer, setViewer] = useState<{
+    open: boolean
+    attachments: SaeAttachment[]
+    movement: SaeMovement | null
+    index: number
+    objectUrl: string | null
+    error: string | null
+  }>({
     open: false,
-    fileName: '',
+    attachments: [],
+    movement: null,
+    index: 0,
+    objectUrl: null,
+    error: null,
   })
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<MovementType | 'all'>('all')
@@ -320,7 +331,9 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleOpenPdf = (att: SaeAttachment, m: SaeMovement) => {
+  const fetchAttachmentAt = (atts: SaeAttachment[], index: number, m: SaeMovement) => {
+    const att = atts[index]
+    if (!att) return
     const rp = m.raw_payload as Record<string, unknown> | null
     const jurisdictionId = typeof rp?.jurisdiction_id === 'number' ? rp.jurisdiction_id : null
     const procid = m.sae_case_id
@@ -329,8 +342,6 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       toast.error('Falta información de la actuación para descargar el archivo.')
       return
     }
-    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
-    setViewer({ open: true, fileName: att.fileName, objectUrl: null, error: null })
     document.mutate(
       { procid, jurisdictionId, histid, fileName: att.fileName },
       {
@@ -340,9 +351,23 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     )
   }
 
+  const handleOpenPdf = (atts: SaeAttachment[], startIndex: number, m: SaeMovement) => {
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer({ open: true, attachments: atts, movement: m, index: startIndex, objectUrl: null, error: null })
+    fetchAttachmentAt(atts, startIndex, m)
+  }
+
+  const handleNavigatePdf = (delta: -1 | 1) => {
+    const next = viewer.index + delta
+    if (next < 0 || next >= viewer.attachments.length || !viewer.movement) return
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer((v) => ({ ...v, index: next, objectUrl: null, error: null }))
+    fetchAttachmentAt(viewer.attachments, next, viewer.movement)
+  }
+
   const handleCloseViewer = () => {
     if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
-    setViewer({ open: false, fileName: '', objectUrl: null, error: null })
+    setViewer({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
   }
 
   const handleSync = () => {
@@ -546,10 +571,14 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       <SaePdfViewerDialog
         open={viewer.open}
         onClose={handleCloseViewer}
-        fileName={viewer.fileName}
+        fileName={viewer.attachments[viewer.index]?.fileName ?? ''}
         isLoading={document.isPending}
-        objectUrl={viewer.objectUrl ?? null}
-        error={viewer.error ?? null}
+        objectUrl={viewer.objectUrl}
+        error={viewer.error}
+        totalFiles={viewer.attachments.length}
+        currentIndex={viewer.index}
+        onPrev={() => handleNavigatePdf(-1)}
+        onNext={() => handleNavigatePdf(1)}
       />
     </Card>
   )

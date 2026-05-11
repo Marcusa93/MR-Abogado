@@ -6,6 +6,7 @@ import { NotificationDropdown } from './notification-dropdown'
 import { ThemeToggle } from './theme-toggle'
 import { HelpButton } from './help-button'
 import { PushToggle } from './push-toggle'
+import { SaeHealthBadge } from './sae-health-badge'
 import { CommandPalette } from '@/components/shared/command-palette'
 
 const pageTitles: Record<string, string> = {
@@ -88,6 +89,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
 
         {/* Right: Notifications + User menu */}
         <div className="flex items-center gap-1.5">
+          <SaeHealthBadge />
           <ThemeToggle />
           <HelpButton />
           <PushToggle />
