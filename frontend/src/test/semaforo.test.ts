@@ -12,8 +12,8 @@ describe('calcularSemaforo', () => {
     expect(calcularSemaforo({ ...base, estado_interno: 'NO_VIABLE_RECHAZADO' })).toBe('rojo')
   })
 
-  it('returns rojo for FINALIZADO', () => {
-    expect(calcularSemaforo({ ...base, estado_interno: 'FINALIZADO' })).toBe('rojo')
+  it('returns verde_terminal for FINALIZADO (caso ganado)', () => {
+    expect(calcularSemaforo({ ...base, estado_interno: 'FINALIZADO' })).toBe('verde_terminal')
   })
 
   it('returns verde when there is an active audiencia', () => {

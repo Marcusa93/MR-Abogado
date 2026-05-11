@@ -1,8 +1,9 @@
-export type SemaforoColor = 'rojo' | 'amarillo' | 'verde' | 'gris'
+export type SemaforoColor = 'rojo' | 'amarillo' | 'verde' | 'verde_terminal' | 'gris'
 
 const AUDIENCIAS_ACTIVAS = new Set(['PENDIENTE', 'CONFIRMADA', 'pendiente', 'confirmada'])
 const TAREAS_PENDIENTES = new Set(['PENDIENTE', 'EN_PROGRESO', 'pendiente', 'en_progreso'])
-const ESTADOS_ROJOS = new Set(['NO_VIABLE_RECHAZADO', 'FINALIZADO'])
+const ESTADOS_FAVORABLES_TERMINALES = new Set(['FINALIZADO'])
+const ESTADOS_NEGATIVOS_TERMINALES = new Set(['NO_VIABLE_RECHAZADO'])
 
 interface SemaforoInput {
   estado_interno: string
@@ -14,14 +15,20 @@ interface SemaforoInput {
  * Calcula el color del semáforo para un expediente.
  *
  * Prioridad (gana la primera regla que matchea):
- * 1. Rojo   → no viable / rechazado / archivado / finalizado
- * 2. Verde  → tiene audiencia activa (pendiente/confirmada con fecha >= hoy)
- * 3. Amarillo → tiene tarea pendiente o en progreso
- * 4. Gris   → sin acción inmediata
+ * 1. Verde terminal → cerrado favorablemente (FINALIZADO)
+ * 2. Rojo           → cerrado negativamente (NO_VIABLE_RECHAZADO)
+ * 3. Verde          → tiene audiencia activa (pendiente/confirmada con fecha >= hoy)
+ * 4. Amarillo       → tiene tarea pendiente o en progreso
+ * 5. Gris           → sin acción inmediata
  */
 export function calcularSemaforo(exp: SemaforoInput): SemaforoColor {
-  // Rojo: cancelado/rechazado o finalizado
-  if (ESTADOS_ROJOS.has(exp.estado_interno)) {
+  // Verde terminal: caso ganado / cerrado favorablemente
+  if (ESTADOS_FAVORABLES_TERMINALES.has(exp.estado_interno)) {
+    return 'verde_terminal'
+  }
+
+  // Rojo: caso rechazado / no viable
+  if (ESTADOS_NEGATIVOS_TERMINALES.has(exp.estado_interno)) {
     return 'rojo'
   }
 
@@ -53,7 +60,11 @@ export function calcularSemaforoKanban(card: {
   tareas_pendientes_count?: number
   proxima_fecha_audiencia?: string | null
 }): SemaforoColor {
-  if (ESTADOS_ROJOS.has(card.estado_interno)) {
+  if (ESTADOS_FAVORABLES_TERMINALES.has(card.estado_interno)) {
+    return 'verde_terminal'
+  }
+
+  if (ESTADOS_NEGATIVOS_TERMINALES.has(card.estado_interno)) {
     return 'rojo'
   }
 

@@ -83,7 +83,8 @@ function useAgendaSecretaria() {
           `id, numero, caratula, estado_interno, estado_anses, ultimo_seguimiento,
            clientes!expedientes_cliente_id_fkey (nombre, apellido)`
         )
-        .in('estado_interno', ['INICIADO_EN_ANSES', 'EN_TRAMITE_ANSES'])
+        // Expedientes en proceso activo (todas las etapas judiciales no terminales)
+        .in('estado_interno', ['INICIADO', 'PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE'])
         .order('ultimo_seguimiento', { ascending: true, nullsFirst: true })
         .limit(30)
 

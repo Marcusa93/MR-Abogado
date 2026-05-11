@@ -16,7 +16,6 @@ import { TabSeguimientos } from '@/components/expedientes/tab-seguimientos'
 import { TabTurnos } from '@/components/expedientes/tab-turnos'
 import { TabTareas } from '@/components/expedientes/tab-tareas'
 import { TabDocumentos } from '@/components/expedientes/tab-documentos'
-import { TabHonorarios } from '@/components/expedientes/tab-honorarios'
 import { TabActuaciones } from '@/components/expedientes/tab-actuaciones'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
@@ -36,7 +35,6 @@ import {
   CalendarClock,
   CheckSquare,
   Paperclip,
-  DollarSign,
   Clock,
   Loader2,
   AlertCircle,
@@ -61,7 +59,6 @@ const TABS = [
   { id: 'turnos', label: 'Turnos', icon: CalendarClock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
   { id: 'tareas', label: 'Tareas', icon: CheckSquare, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
   { id: 'documentos', label: 'Documentos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
-  { id: 'honorarios', label: 'Honorarios', icon: DollarSign, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
   { id: 'actuaciones', label: 'SAE', icon: Database, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
   { id: 'notas', label: 'Notas', icon: MessageSquareText, activeClasses: 'border-pink-400 text-pink-400', badgeClasses: 'bg-pink-500/15 text-pink-400' },
   { id: 'timeline', label: 'Timeline', icon: Clock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
@@ -172,7 +169,7 @@ export default function ExpedienteDetailPage() {
                 telefonoAlt={(expediente.clientes as any).telefono_alternativo}
                 clienteNombre={`${(expediente.clientes as any).nombre} ${(expediente.clientes as any).apellido}`}
                 context={{
-                  tipo: expediente.estado_interno === 'FINALIZADO_FAVORABLE' ? 'resolucion'
+                  tipo: expediente.estado_interno === 'FINALIZADO' ? 'resolucion'
                     : 'seguimiento',
                   tipoTramite: (expediente.tipos_tramite as any)?.nombre,
                   estado: expediente.estado_interno.replace(/_/g, ' ').toLowerCase(),
@@ -230,9 +227,10 @@ export default function ExpedienteDetailPage() {
           const proximaAudiencia = audiencias
             .filter((t) => t.estado !== 'CANCELADA' && new Date(t.fecha) >= new Date(new Date().toISOString().slice(0, 10)))
             .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0]
-          // Use the last real state-change event from timeline (more accurate than updated_at)
+          // Use the last real state-change event from historial; fall back to fecha_alta
+          // (NOT updated_at — that changes on any UPDATE like editing carátula or asignar miembro).
           const lastEstadoEvent = (timeline ?? []).find((e) => e.tipo === 'estado')
-          const lastEstadoDate = lastEstadoEvent?.fecha ?? expediente.updated_at
+          const lastEstadoDate = lastEstadoEvent?.fecha ?? expediente.fecha_alta
           const diasEnEstado = lastEstadoDate
             ? Math.floor((Date.now() - new Date(lastEstadoDate).getTime()) / 86400000)
             : 0
@@ -360,7 +358,6 @@ export default function ExpedienteDetailPage() {
           />
         )}
         {activeTab === 'documentos' && <TabDocumentos expedienteId={id!} />}
-        {activeTab === 'honorarios' && <TabHonorarios expedienteId={id!} />}
         {activeTab === 'actuaciones' && (
           <TabActuaciones
             expedienteId={id!}

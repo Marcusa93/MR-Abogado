@@ -45,6 +45,7 @@ import {
   X,
   ClipboardList,
   CalendarDays,
+  Database,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { VALID_ESTADO_TRANSITIONS } from '@/types/enums'
@@ -618,7 +619,7 @@ export default function KanbanPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Tablero de Estados
@@ -627,12 +628,21 @@ export default function KanbanPage() {
             Arrastrá los expedientes entre columnas para cambiar su estado.
           </p>
         </div>
-        {cambiarEstado.isPending && (
-          <div className="flex items-center gap-2 text-xs text-amber-400">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Actualizando estado...
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {cambiarEstado.isPending && (
+            <div className="flex items-center gap-2 text-xs text-amber-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Actualizando estado...
+            </div>
+          )}
+          <button
+            onClick={() => navigate('/importar-sae')}
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+          >
+            <Database className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar SAE</span>
+          </button>
+        </div>
       </div>
 
       {/* Board */}

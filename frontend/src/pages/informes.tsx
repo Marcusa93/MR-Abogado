@@ -33,18 +33,17 @@ import {
 // ---------------------------------------------------------------------------
 
 const ESTADO_HEX: Record<string, string> = {
-  NUEVA_CONSULTA: '#94a3b8',            // slate-400
-  EN_ANALISIS: '#a78bfa',              // violet-400
-  A_LA_ESPERA_DE_DOCUMENTACION: '#fbbf24', // amber-400
-  TOMADO: '#2dd4bf',                   // teal-400
-  TOMADO_LISTO_PARA_INICIAR: '#60a5fa', // blue-400
-  PRODUCCION_TAREAS_INTERNAS: '#38bdf8', // sky-400
-  INICIADO_EN_ANSES: '#60a5fa',       // blue-400
-  EN_TRAMITE_ANSES: '#818cf8',        // indigo-400
-  RESUELTO_FAVORABLEMENTE: '#34d399', // emerald-400
-  FINALIZADO: '#22c55e',              // green-500
-  NO_VIABLE_RECHAZADO: '#fb7185',     // rose-400
-  PAUSADO_POR_CLIENTE: '#fb923c',     // orange-400
+  NUEVA_CONSULTA: '#94a3b8',      // slate-400
+  PARA_INICIAR: '#fbbf24',        // amber-400
+  INICIADO: '#60a5fa',            // blue-400
+  PRUEBA: '#818cf8',              // indigo-400
+  ALEGATOS: '#a78bfa',            // violet-400
+  SENTENCIA: '#22d3ee',           // cyan-400
+  APELACION: '#fb923c',           // orange-400
+  CORTE: '#fb7185',               // rose-400
+  FINALIZADO: '#34d399',          // emerald-400
+  NO_VIABLE_RECHAZADO: '#f87171', // red-400
+  PAUSADO: '#a1a1aa',             // zinc-400
 }
 
 // ---------------------------------------------------------------------------

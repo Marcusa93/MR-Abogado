@@ -33,6 +33,8 @@ describe('getSemaforoRowClass', () => {
   it('returns correct styles for each color', () => {
     expect(getSemaforoRowClass('rojo')).toContain('bg-red-500')
     expect(getSemaforoRowClass('verde')).toContain('bg-emerald-500')
+    expect(getSemaforoRowClass('verde_terminal')).toContain('bg-emerald-500')
+    expect(getSemaforoRowClass('verde_terminal')).toContain('border-l-emerald-400')
     expect(getSemaforoRowClass('amarillo')).toContain('bg-amber')
     expect(getSemaforoRowClass('gris')).toContain('bg-slate')
   })

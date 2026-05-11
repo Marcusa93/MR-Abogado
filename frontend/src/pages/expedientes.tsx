@@ -116,7 +116,9 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
           {tipo && <p className="text-[11px] text-zinc-900 dark:text-zinc-500 mt-1">{tipo.nombre}</p>}
         </div>
         {cliente?.telefono && (
-          <WhatsAppButton phone={cliente.telefono} variant="icon" />
+          <div onClick={(e) => e.stopPropagation()}>
+            <WhatsAppButton phone={cliente.telefono} variant="icon" />
+          </div>
         )}
       </div>
     </div>
@@ -508,7 +510,9 @@ export default function ExpedientesPage() {
                             </div>
                           </div>
                           {cliente?.telefono && (
-                            <WhatsAppButton phone={cliente.telefono} variant="icon" />
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <WhatsAppButton phone={cliente.telefono} variant="icon" />
+                            </div>
                           )}
                         </div>
                       </td>

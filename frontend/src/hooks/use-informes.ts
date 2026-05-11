@@ -208,7 +208,9 @@ export function useConsultasVsTomados() {
   return useQuery<ConsultasVsTomados[]>({
     queryKey: ['informes', 'consultas-vs-tomados'],
     queryFn: async () => {
-      const CONSULTAS = ['NUEVA_CONSULTA', 'EN_ANALISIS', 'A_LA_ESPERA_DE_DOCUMENTACION', 'PAUSADO_POR_CLIENTE']
+      // "Consultas" = expedientes aún no iniciados activamente (NUEVA_CONSULTA, PARA_INICIAR, PAUSADO).
+      // "Tomados" = todo lo demás (en proceso o terminal).
+      const CONSULTAS = ['NUEVA_CONSULTA', 'PARA_INICIAR', 'PAUSADO']
       const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
       const { data, error } = await supabase

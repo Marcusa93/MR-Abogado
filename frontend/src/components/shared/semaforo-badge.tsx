@@ -19,8 +19,14 @@ const SEMAFORO_CONFIG: Record<
   verde: {
     color: 'bg-emerald-500',
     glow: 'shadow-[0_0_6px] shadow-emerald-500/40',
-    label: 'Con turno en ANSES',
+    label: 'Con turno próximo',
     animate: true,
+  },
+  verde_terminal: {
+    color: 'bg-emerald-400',
+    glow: 'shadow-[0_0_10px] shadow-emerald-400/70 ring-emerald-300/30',
+    label: 'Finalizado favorablemente',
+    animate: false,
   },
   amarillo: {
     color: 'bg-amber-400',

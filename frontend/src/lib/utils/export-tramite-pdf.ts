@@ -7,19 +7,19 @@
 import type { ExpedienteDetail } from '@/hooks/use-expedientes'
 import { ESTADO_INTERNO_LABELS } from '@/types/enums'
 
+// Pasos visibles para el cliente: 1=consulta, 2=para iniciar, 3=iniciado, 4=prueba/alegatos, 5=sentencia/apelación/corte, 6=cerrado
 const ESTADO_PROGRESS: Record<string, number> = {
   NUEVA_CONSULTA: 1,
-  EN_ANALISIS: 1,
-  A_LA_ESPERA_DE_DOCUMENTACION: 2,
-  TOMADO: 2,
-  TOMADO_LISTO_PARA_INICIAR: 2,
-  PRODUCCION_TAREAS_INTERNAS: 3,
-  INICIADO_EN_ANSES: 4,
-  EN_TRAMITE_ANSES: 5,
-  RESUELTO_FAVORABLEMENTE: 6,
+  PARA_INICIAR: 2,
+  INICIADO: 3,
+  PRUEBA: 4,
+  ALEGATOS: 4,
+  SENTENCIA: 5,
+  APELACION: 5,
+  CORTE: 5,
   FINALIZADO: 6,
   NO_VIABLE_RECHAZADO: 6,
-  PAUSADO_POR_CLIENTE: 3,
+  PAUSADO: 2,
 }
 
 const CANAL_LABELS: Record<string, string> = {

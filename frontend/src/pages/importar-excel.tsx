@@ -179,18 +179,20 @@ export default function ImportarExcelPage() {
                 }, {} as Record<string, number>)
               ).map(([estado, count]) => {
                 const labels: Record<string, string> = {
-                  'EN_ANALISIS': 'En análisis',
-                  'LISTO_PARA_INICIAR': 'Tareas pendientes',
+                  'NUEVA_CONSULTA': 'Nueva consulta',
+                  'PARA_INICIAR': 'Para iniciar (tareas pendientes)',
                   'INICIADO': 'Iniciados',
-                  'FINALIZADO_FAVORABLE': 'Resueltos',
-                  'FINALIZADO_DESFAVORABLE': 'Finalizado desfavorable',
+                  'FINALIZADO': 'Finalizados',
+                  'NO_VIABLE_RECHAZADO': 'No viable / rechazado',
+                  'PAUSADO': 'Pausados',
                 }
                 const colors: Record<string, string> = {
-                  'EN_ANALISIS': 'bg-violet-400',
-                  'LISTO_PARA_INICIAR': 'bg-amber-400',
-                  'INICIADO': 'bg-amber-400',
-                  'FINALIZADO_FAVORABLE': 'bg-emerald-400',
-                  'FINALIZADO_DESFAVORABLE': 'bg-rose-400',
+                  'NUEVA_CONSULTA': 'bg-slate-400',
+                  'PARA_INICIAR': 'bg-amber-400',
+                  'INICIADO': 'bg-blue-400',
+                  'FINALIZADO': 'bg-emerald-400',
+                  'NO_VIABLE_RECHAZADO': 'bg-red-400',
+                  'PAUSADO': 'bg-zinc-400',
                 }
                 return (
                   <div key={estado} className="flex items-center justify-between">
