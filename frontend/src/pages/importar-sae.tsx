@@ -18,6 +18,8 @@ import {
   RefreshCw,
   AlertCircle,
   ExternalLink,
+  Search,
+  X,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,10 +30,14 @@ interface CaseRow extends SaeCaseItem {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type StatusFilter = 'all' | 'new' | 'imported' | 'error'
+
 export default function ImportarSaePage() {
   const navigate = useNavigate()
   const [rows, setRows] = useState<CaseRow[]>([])
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const listMutation = useSaeListProceedings()
   const importMutation = useSaeImport()
@@ -40,10 +46,34 @@ export default function ImportarSaePage() {
 
   const selectableRows = rows.filter(r => !r.ya_importado)
   const selectedRows = selectableRows.filter(r => r.selected)
-  const allSelected = selectableRows.length > 0 && selectableRows.every(r => r.selected)
   const someSelected = selectedRows.length > 0
   const alreadyImportedCount = rows.filter(r => r.ya_importado).length
   const newCount = selectableRows.length
+  const errorCount = importMutation.data?.results.filter(r => !r.success).length ?? 0
+
+  // Note: visibleRows is computed below; visibleNewSelected/visibleNewCount
+  // are derived after it so the toggleAll button reflects the active filter.
+
+  const visibleRows = (() => {
+    const q = search.trim().toLowerCase()
+    return rows.filter(r => {
+      if (q) {
+        const inNumero = r.numero_sae.toLowerCase().includes(q)
+        const inCaratula = r.caratula.toLowerCase().includes(q)
+        if (!inNumero && !inCaratula) return false
+      }
+      if (statusFilter === 'new' && r.ya_importado) return false
+      if (statusFilter === 'imported' && !r.ya_importado) return false
+      if (statusFilter === 'error') {
+        const result = importMutation.data?.results.find(res => res.numero_sae === r.numero_sae)
+        if (!result || result.success) return false
+      }
+      return true
+    })
+  })()
+  const filtersActive = search.trim() !== '' || statusFilter !== 'all'
+  const visibleNewRows = visibleRows.filter(r => !r.ya_importado)
+  const visibleAllSelected = visibleNewRows.length > 0 && visibleNewRows.every(r => r.selected)
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -65,11 +95,18 @@ export default function ImportarSaePage() {
   }
 
   function toggleAll() {
-    if (allSelected) {
-      setRows(prev => prev.map(r => r.ya_importado ? r : { ...r, selected: false }))
-    } else {
-      setRows(prev => prev.map(r => r.ya_importado ? r : { ...r, selected: true }))
-    }
+    // Operate only on currently-visible new rows (respects search + status filter)
+    const targetProcids = new Set(
+      visibleRows.filter(r => !r.ya_importado).map(r => r.procid)
+    )
+    if (targetProcids.size === 0) return
+    const allTargetsSelected = visibleRows
+      .filter(r => !r.ya_importado)
+      .every(r => r.selected)
+    setRows(prev => prev.map(r => {
+      if (!targetProcids.has(r.procid) || r.ya_importado) return r
+      return { ...r, selected: !allTargetsSelected }
+    }))
   }
 
   function toggleRow(procid: string) {
@@ -260,11 +297,14 @@ export default function ImportarSaePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleAll}
-                disabled={newCount === 0 || isImporting}
+                disabled={visibleNewRows.length === 0 || isImporting}
                 className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <CheckSquare className={cn('h-4 w-4', allSelected ? 'text-cyan-400' : 'text-zinc-500')} />
-                {allSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-cyan-400' : 'text-zinc-500')} />
+                {visibleAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                {filtersActive && visibleNewRows.length > 0 && (
+                  <span className="text-xs text-zinc-600">({visibleNewRows.length})</span>
+                )}
               </button>
               <span className="text-xs text-zinc-600">·</span>
               <span className="text-sm text-zinc-400">
@@ -304,6 +344,52 @@ export default function ImportarSaePage() {
             </div>
           </div>
 
+          {/* Search + status filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por número o carátula..."
+                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 hover:text-zinc-300"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([
+                ['all', 'Todos', rows.length],
+                ['new', 'Nuevos', newCount],
+                ['imported', 'Ya importados', alreadyImportedCount],
+                ...(errorCount > 0 ? [['error', 'Con error', errorCount] as [StatusFilter, string, number]] : []),
+              ] as [StatusFilter, string, number][]).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                    statusFilter === key
+                      ? key === 'error'
+                        ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'
+                        : 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30'
+                      : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  )}
+                >
+                  {label} ({count})
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Table */}
           <div className="overflow-hidden rounded-xl border border-white/10">
             <div className="overflow-x-auto">
@@ -325,82 +411,110 @@ export default function ImportarSaePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.05]">
-                  {rows.map(row => {
-                    const importResult = importMutation.data?.results.find(r => r.numero_sae === row.numero_sae)
-                    const hasImportError = importResult && !importResult.success
-
-                    return (
-                      <tr
-                        key={row.procid}
-                        onClick={() => !row.ya_importado && !isImporting && toggleRow(row.procid)}
-                        className={cn(
-                          'transition-colors',
-                          row.ya_importado
-                            ? 'opacity-40 cursor-default'
-                            : isImporting
-                            ? 'cursor-default'
-                            : 'cursor-pointer hover:bg-white/[0.03]',
-                          row.selected && !row.ya_importado && 'bg-cyan-500/[0.04]'
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={row.selected}
-                            disabled={row.ya_importado || isImporting}
-                            onChange={() => toggleRow(row.procid)}
-                            onClick={e => e.stopPropagation()}
-                            className="h-4 w-4 rounded border-white/20 bg-white/5 accent-cyan-500 cursor-pointer disabled:cursor-default"
-                          />
-                        </td>
-
-                        {/* Número SAE */}
-                        <td className="px-4 py-3 font-mono text-xs text-zinc-300 whitespace-nowrap">
-                          {row.numero_sae || <span className="text-zinc-600 italic">—</span>}
-                        </td>
-
-                        {/* Carátula */}
-                        <td className="px-4 py-3 text-zinc-300 max-w-xs">
-                          <span className="line-clamp-2 leading-snug">
-                            {row.caratula || <span className="text-zinc-600 italic">Sin carátula</span>}
-                          </span>
-                        </td>
-
-                        {/* Estado */}
-                        <td className="px-4 py-3">
-                          {hasImportError ? (
-                            <div className="flex flex-col gap-1 max-w-xs">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[11px] font-medium text-red-400 self-start">
-                                <AlertCircle className="h-3 w-3" />
-                                Error
-                              </span>
-                              {importResult?.error && (
-                                <span className="text-[11px] text-red-400/80 break-words leading-snug">
-                                  {importResult.error}
-                                </span>
-                              )}
-                            </div>
-                          ) : row.ya_importado ? (
-                            <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
-                              Ya importado
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-400">
-                              Nuevo
-                            </span>
+                  {visibleRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-10">
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <Search className="h-7 w-7 text-zinc-600" />
+                          <p className="text-sm text-zinc-400">Ningún expediente coincide con el filtro.</p>
+                          {filtersActive && (
+                            <button
+                              onClick={() => { setSearch(''); setStatusFilter('all') }}
+                              className="text-xs text-cyan-400 hover:text-cyan-300"
+                            >
+                              Limpiar filtros
+                            </button>
                           )}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleRows.map(row => {
+                      const importResult = importMutation.data?.results.find(r => r.numero_sae === row.numero_sae)
+                      const hasImportError = importResult && !importResult.success
+
+                      return (
+                        <tr
+                          key={row.procid}
+                          onClick={() => !row.ya_importado && !isImporting && toggleRow(row.procid)}
+                          className={cn(
+                            'transition-colors',
+                            row.ya_importado
+                              ? 'cursor-default'
+                              : isImporting
+                              ? 'cursor-default'
+                              : 'cursor-pointer hover:bg-white/[0.03]',
+                            row.selected && !row.ya_importado && 'bg-cyan-500/[0.04]'
+                          )}
+                        >
+                          {/* Checkbox */}
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={row.selected}
+                              disabled={row.ya_importado || isImporting}
+                              onChange={() => toggleRow(row.procid)}
+                              onClick={e => e.stopPropagation()}
+                              className="h-4 w-4 rounded border-white/20 bg-white/5 accent-cyan-500 cursor-pointer disabled:cursor-default"
+                            />
+                          </td>
+
+                          {/* Número SAE */}
+                          <td className={cn('px-4 py-3 font-mono text-xs whitespace-nowrap', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
+                            {row.numero_sae || <span className="text-zinc-600 italic">—</span>}
+                          </td>
+
+                          {/* Carátula */}
+                          <td className={cn('px-4 py-3 max-w-xs', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
+                            <span className="line-clamp-2 leading-snug">
+                              {row.caratula || <span className="text-zinc-600 italic">Sin carátula</span>}
+                            </span>
+                          </td>
+
+                          {/* Estado */}
+                          <td className="px-4 py-3">
+                            {hasImportError ? (
+                              <div className="flex flex-col gap-1 max-w-xs">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[11px] font-medium text-red-400 self-start">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Error
+                                </span>
+                                {importResult?.error && (
+                                  <span className="text-[11px] text-red-400/80 break-words leading-snug">
+                                    {importResult.error}
+                                  </span>
+                                )}
+                              </div>
+                            ) : row.ya_importado && row.expediente_id ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/expedientes/${row.expediente_id}`) }}
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400 transition-colors"
+                                title="Ir al expediente importado"
+                              >
+                                Ver expediente
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            ) : row.ya_importado ? (
+                              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
+                                Ya importado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-400">
+                                Nuevo
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
           {/* Footer hint */}
-          {newCount === 0 && (
+          {newCount === 0 && !filtersActive && (
             <p className="text-center text-sm text-zinc-500">
               Todos tus expedientes SAE ya están importados.
             </p>
