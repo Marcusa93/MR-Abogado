@@ -74,16 +74,19 @@ Deno.serve(async (req) => {
     const auth = req.headers.get('x-cron-secret') ?? ''
     if (auth !== cronSecret) return json({ error: 'No autorizado' }, 401)
 
-    const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-    const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-    const subject = Deno.env.get('VAPID_SUBJECT')
-    if (!publicKey || !privateKey || !subject) {
-      return json({ error: 'VAPID no configurado' }, 500)
-    }
-    webpush.setVapidDetails(subject, publicKey, privateKey)
-
     const body = await req.json().catch(() => ({})) as { dry_run?: boolean }
     const dryRun = body?.dry_run === true
+
+    // VAPID solo es necesario para enviar real (no para dry-run)
+    if (!dryRun) {
+      const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+      const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+      const subject = Deno.env.get('VAPID_SUBJECT')
+      if (!publicKey || !privateKey || !subject) {
+        return json({ error: 'VAPID no configurado' }, 500)
+      }
+      webpush.setVapidDetails(subject, publicKey, privateKey)
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
