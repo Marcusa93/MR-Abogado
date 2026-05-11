@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, type SaeMovement } from '@/hooks/use-sae'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -24,6 +24,7 @@ import {
   Clock,
   Plus,
   Users,
+  Star,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
@@ -169,6 +170,7 @@ function ActuacionRow({
   onCreateFromSuggestion,
   onAnalyze,
   isAnalyzing,
+  onToggleKey,
 }: {
   movement: SaeMovement
   isNew: boolean
@@ -176,6 +178,7 @@ function ActuacionRow({
   onCreateFromSuggestion: (action: AiSuggestedAction) => void
   onAnalyze: (movementId: string) => void
   isAnalyzing: boolean
+  onToggleKey: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -206,6 +209,30 @@ function ActuacionRow({
           canExpand ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
         )}
       >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleKey(movement) }}
+          className="shrink-0 mt-0.5 p-1 -ml-1 rounded hover:bg-white/10 transition-colors"
+          title={
+            movement.is_key === true
+              ? 'Marcada como clave (click para desmarcar)'
+              : movement.is_key === false
+                ? 'Excluida de claves (click para marcar)'
+                : 'Marcar como clave'
+          }
+        >
+          <Star
+            className={cn(
+              'h-4 w-4 transition-colors',
+              movement.is_key === true
+                ? 'fill-amber-400 text-amber-400'
+                : movement.is_key === false
+                  ? 'text-zinc-700'
+                  : 'text-zinc-600 hover:text-amber-400'
+            )}
+          />
+        </button>
+
         <div className="shrink-0 mt-0.5">
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
             <MovementIcon tipo={movement.tipo_movimiento} />
@@ -369,7 +396,22 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const sync = useTriggerSaeSync()
   const document = useSaeDocument()
   const analyze = useAnalyzeMovements()
+  const setMovementKey = useSetMovementKey()
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
+
+  const handleToggleKey = (movement: SaeMovement) => {
+    // Tri-state: null → true → false → null
+    let next: boolean | null
+    if (movement.is_key === true) next = false
+    else if (movement.is_key === false) next = null
+    else next = true
+    setMovementKey.mutate(
+      { movementId: movement.id, isKey: next, expedienteId },
+      {
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar'),
+      },
+    )
+  }
   const [viewer, setViewer] = useState<{
     open: boolean
     attachments: SaeAttachment[]
@@ -798,6 +840,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       onCreateFromSuggestion={handleCreateFromSuggestion}
                       onAnalyze={(id) => handleAnalyzeIds([id], false)}
                       isAnalyzing={analyzingIds.has(m.id)}
+                      onToggleKey={handleToggleKey}
                     />
                   ))}
                 </div>

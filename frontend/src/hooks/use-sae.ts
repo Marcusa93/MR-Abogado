@@ -23,6 +23,7 @@ export type SaeMovement = Tables<'sae_movements'> & {
   ai_analyzed_at?: string | null
   ai_model?: string | null
   ai_error?: string | null
+  is_key?: boolean | null
 }
 
 // When an edge function returns non-2xx, supabase-js sets data=null and puts the
@@ -179,6 +180,38 @@ export function useAnalyzeMovements() {
       if (vars.expediente_id) {
         queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
       }
+    },
+  })
+}
+
+// ─── Marcado manual de actuación clave ──────────────────────────────────────
+
+export function useSetMovementKey() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movementId: string; isKey: boolean | null; expedienteId: string }) => {
+      const { error } = await supabase.rpc('set_sae_movement_key' as any, {
+        p_movement_id: input.movementId,
+        p_is_key: input.isKey,
+      })
+      if (error) throw error
+    },
+    onMutate: async ({ movementId, isKey, expedienteId }) => {
+      // Optimistic update
+      await queryClient.cancelQueries({ queryKey: ['sae-movements', expedienteId] })
+      const prev = queryClient.getQueryData<SaeMovement[]>(['sae-movements', expedienteId])
+      if (prev) {
+        queryClient.setQueryData<SaeMovement[]>(['sae-movements', expedienteId],
+          prev.map(m => m.id === movementId ? { ...m, is_key: isKey } : m))
+      }
+      return { prev }
+    },
+    onError: (_err, vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['sae-movements', vars.expedienteId], ctx.prev)
+    },
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expedienteId] })
     },
   })
 }

@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useSetMovementKey, type SaeMovement } from '@/hooks/use-sae'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import {
   Star, Gavel, Calendar, FileText, Sparkles,
   Loader2, Clock, Users, AlertCircle, ArrowRight,
 } from 'lucide-react'
+import { toast } from '@/stores/toast-store'
 
 const KEY_TYPES = new Set([
   'sentencia',
@@ -45,7 +46,7 @@ function TipoIcon({ tipo, className }: { tipo: string; className?: string }) {
   return <FileText className={className} />
 }
 
-function ClaveRow({ movement }: { movement: SaeMovement }) {
+function ClaveRow({ movement, onUnstar, manuallyMarked }: { movement: SaeMovement; onUnstar: (m: SaeMovement) => void; manuallyMarked: boolean }) {
   const aiAction = movement.ai_suggested_action
   const aiSummary = movement.ai_summary?.trim()
   const aiExtracted = movement.ai_extracted
@@ -53,6 +54,13 @@ function ClaveRow({ movement }: { movement: SaeMovement }) {
   return (
     <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.03] transition-colors">
       <div className="flex items-start gap-3">
+        <button
+          onClick={() => onUnstar(movement)}
+          className="shrink-0 mt-0.5 p-1 -ml-1 rounded hover:bg-white/10 transition-colors"
+          title={manuallyMarked ? 'Desmarcar (sacar de claves)' : 'Excluir de claves'}
+        >
+          <Star className={cn('h-4 w-4', manuallyMarked ? 'fill-amber-400 text-amber-400' : 'text-amber-400/60')} />
+        </button>
         <span className={cn('shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento] ?? 'bg-zinc-500/15 text-zinc-400')}>
           <TipoIcon tipo={movement.tipo_movimiento} className="h-3 w-3" />
           {TIPO_LABELS[movement.tipo_movimiento] ?? movement.tipo_movimiento}
@@ -112,12 +120,34 @@ interface Props {
 
 export function TabActuacionesClaves({ expedienteId }: Props) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
+  const setMovementKey = useSetMovementKey()
 
-  const claves = useMemo(() => {
-    return movements.filter(m =>
-      KEY_TYPES.has(m.tipo_movimiento) || Boolean(m.ai_suggested_action)
-    )
+  // Reglas:
+  //   is_key === true  → siempre clave (manual)
+  //   is_key === false → nunca clave (manual override)
+  //   is_key === null  → cae en el filtro automático
+  const { claves, manuallyMarkedSet } = useMemo(() => {
+    const manualSet = new Set<string>()
+    const result = movements.filter(m => {
+      if (m.is_key === true) {
+        manualSet.add(m.id)
+        return true
+      }
+      if (m.is_key === false) return false
+      // null → automático
+      return KEY_TYPES.has(m.tipo_movimiento) || Boolean(m.ai_suggested_action)
+    })
+    return { claves: result, manuallyMarkedSet: manualSet }
   }, [movements])
+
+  const handleUnstar = (m: SaeMovement) => {
+    // Si estaba en true (manual) → la pasamos a false (excluir explícito)
+    // Si estaba en null (auto) → la pasamos a false (excluir explícito)
+    setMovementKey.mutate(
+      { movementId: m.id, isKey: false, expedienteId },
+      { onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar') },
+    )
+  }
 
   return (
     <Card
@@ -125,6 +155,9 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
       headerRight={
         <span className="text-xs text-zinc-500">
           {claves.length} de {movements.length}
+          {manuallyMarkedSet.size > 0 && (
+            <span className="ml-2 text-amber-400/80">· {manuallyMarkedSet.size} marcadas por vos</span>
+          )}
         </span>
       }
     >
@@ -136,12 +169,17 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
         <EmptyState
           icon={Star}
           title="Sin actuaciones claves todavía"
-          description="Acá aparecen sentencias, audiencias, traslados, intimaciones, decretos, cédulas y embargos. También las actuaciones con acción sugerida por IA. Sincronizá o analizá actuaciones desde el tab SAE."
+          description="Marcá una actuación con la estrella desde el tab SAE para que aparezca acá. También se incluyen automáticamente sentencias, audiencias, traslados, intimaciones, decretos, cédulas y embargos."
         />
       ) : (
         <div className="space-y-2">
           {claves.map(m => (
-            <ClaveRow key={m.id} movement={m} />
+            <ClaveRow
+              key={m.id}
+              movement={m}
+              onUnstar={handleUnstar}
+              manuallyMarked={manuallyMarkedSet.has(m.id)}
+            />
           ))}
         </div>
       )}
@@ -152,6 +190,10 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
           Algunas claves todavía no fueron analizadas con IA. Andá al tab SAE y usá "Analizar pendientes" para enriquecerlas.
         </p>
       )}
+
+      <p className="mt-3 text-[10px] text-zinc-600">
+        Tip: en el tab SAE, click en la estrella para marcar/desmarcar. Acá podés sacar una con click en la estrella amarilla.
+      </p>
     </Card>
   )
 }
