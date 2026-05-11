@@ -40,6 +40,58 @@ export interface ProgressUpdate {
   message: string
 }
 
+export interface GenerateOptions {
+  /** Si true, solo incluye actuaciones claves (is_key=true o auto-detectadas no excluidas). */
+  onlyKeys?: boolean
+}
+
+const KEY_TYPES = new Set(['sentencia', 'audiencia', 'intimacion', 'embargo', 'traslado', 'decreto', 'cedula'])
+
+function isAutoKey(m: MovementRow): boolean {
+  return KEY_TYPES.has(m.tipo_movimiento)
+}
+
+function passesKeyFilter(m: MovementRow): boolean {
+  if (m.is_key === true) return true
+  if (m.is_key === false) return false
+  return isAutoKey(m)
+}
+
+// ─── Logo loader ──────────────────────────────────────────────────────────
+// SVG → PNG via canvas. Cacheado en memoria para no re-renderizar.
+let cachedLogoDataUrl: string | null = null
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (cachedLogoDataUrl) return cachedLogoDataUrl
+  try {
+    const res = await fetch('/logo/mr-logo-azul.svg')
+    if (!res.ok) return null
+    const svgText = await res.text()
+    const blob = new Blob([svgText], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = reject
+      img.src = url
+    })
+    const w = 600
+    const ratio = img.naturalHeight && img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0.4
+    const h = Math.round(w * ratio)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { URL.revokeObjectURL(url); return null }
+    ctx.drawImage(img, 0, 0, w, h)
+    const dataUrl = canvas.toDataURL('image/png')
+    URL.revokeObjectURL(url)
+    cachedLogoDataUrl = dataUrl
+    return dataUrl
+  } catch {
+    return null
+  }
+}
+
 interface AttachmentRef {
   movementId: string
   movementTitle: string
@@ -107,6 +159,7 @@ async function downloadAttachmentPdf(att: AttachmentRef, accessToken: string): P
 export async function generateExpedientePdf(
   expedienteId: string,
   onProgress: (update: ProgressUpdate) => void,
+  options: GenerateOptions = {},
 ): Promise<Blob> {
   // ── 1. Fetch data ─────────────────────────────────────────────────────
   onProgress({ stage: 'fetching', message: 'Obteniendo datos del expediente…' })
@@ -143,10 +196,16 @@ export async function generateExpedientePdf(
     .from('sae_movements')
     .select('id, external_id, sae_case_id, fecha, titulo, cuerpo, tipo_movimiento, ai_summary, raw_payload, is_key')
     .eq('expediente_id', expedienteId)
-    .order('fecha', { ascending: false })
+    .order('fecha', { ascending: true }) // chronological: from first onwards
   if (movsError) throw movsError
 
-  const movements = (movsRaw ?? []) as unknown as MovementRow[]
+  const allMovements = (movsRaw ?? []) as unknown as MovementRow[]
+  const movements = options.onlyKeys
+    ? allMovements.filter(passesKeyFilter)
+    : allMovements
+
+  // Pre-load logo (in parallel with cover building)
+  const logoDataUrlPromise = loadLogoDataUrl()
 
   // ── 2. Build cover with jspdf ──────────────────────────────────────────
   onProgress({ stage: 'cover', message: 'Generando portada e índice…' })
@@ -158,27 +217,66 @@ export async function generateExpedientePdf(
   const contentW = pageW - margin * 2
 
   // ── PORTADA ──
+  // Brand color (azul Marco Rossi)
+  const BRAND_R = 30, BRAND_G = 58, BRAND_B = 138 // ~#1e3a8a (deep blue)
+  const ACCENT_R = 14, ACCENT_G = 165, ACCENT_B = 233 // ~#0ea5e9 (cyan)
+
+  // Header band con logo + nombre estudio
+  const logoDataUrl = await logoDataUrlPromise
+  if (logoDataUrl) {
+    try {
+      const logoMaxW = 110
+      const logoMaxH = 50
+      pdf.addImage(logoDataUrl, 'PNG', margin, 50, logoMaxW, logoMaxH, undefined, 'FAST')
+    } catch { /* if logo fails, just skip */ }
+  }
+  // Nombre del estudio a la derecha
   pdf.setFont('helvetica', 'bold')
-  pdf.setFontSize(20)
-  pdf.text('Expediente', margin, 80)
-
-  pdf.setFontSize(14)
-  pdf.setFont('helvetica', 'normal')
-  pdf.text(expediente.numero ?? 'Sin número', margin, 105)
-
   pdf.setFontSize(11)
-  pdf.setFont('helvetica', 'bold')
-  pdf.text('Carátula', margin, 145)
+  pdf.setTextColor(BRAND_R, BRAND_G, BRAND_B)
+  pdf.text('Marco Rossi', pageW - margin, 70, { align: 'right' })
   pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(120)
+  pdf.text('Estudio Jurídico', pageW - margin, 84, { align: 'right' })
+
+  // Línea horizontal accent
+  pdf.setDrawColor(BRAND_R, BRAND_G, BRAND_B)
+  pdf.setLineWidth(1.5)
+  pdf.line(margin, 120, pageW - margin, 120)
+
+  // Tipo de documento (eyebrow)
+  pdf.setTextColor(120)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(8)
+  pdf.text(options.onlyKeys ? 'EXPEDIENTE · ACTUACIONES CLAVES' : 'EXPEDIENTE COMPLETO', margin, 145)
+
+  // Título principal: número
+  pdf.setTextColor(0)
+  pdf.setFont('helvetica', 'bold')
+  pdf.setFontSize(28)
+  pdf.text(expediente.numero ?? 'Sin número', margin, 178)
+
+  // Carátula (subtítulo grande)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(13)
+  pdf.setTextColor(70)
   const caratulaLines = pdf.splitTextToSize(expediente.caratula ?? 'Sin carátula', contentW)
-  pdf.text(caratulaLines, margin, 162)
+  pdf.text(caratulaLines, margin, 205)
+  let y = 205 + caratulaLines.length * 16 + 20
 
-  let y = 162 + caratulaLines.length * 14 + 25
+  // Línea separadora suave
+  pdf.setDrawColor(220)
+  pdf.setLineWidth(0.5)
+  pdf.line(margin, y, pageW - margin, y)
+  y += 25
 
+  // Meta en grid de 2 columnas
+  pdf.setTextColor(0)
   const metaItems: { label: string; value: string }[] = [
     { label: 'Número SAE', value: expediente.numero_sae ?? '—' },
     { label: 'Fuero', value: expediente.fuero ?? '—' },
-    { label: 'Estado', value: expediente.estado_interno ?? '—' },
+    { label: 'Estado interno', value: expediente.estado_interno?.replace(/_/g, ' ') ?? '—' },
   ]
   if (expediente.cliente) {
     metaItems.push({
@@ -187,47 +285,81 @@ export async function generateExpedientePdf(
     })
     if (expediente.cliente.dni) metaItems.push({ label: 'DNI', value: expediente.cliente.dni })
   }
-  for (const item of metaItems) {
-    pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(10)
-    pdf.text(item.label, margin, y)
-    pdf.setFont('helvetica', 'normal')
-    pdf.text(item.value, margin + 110, y)
-    y += 16
-  }
+  metaItems.push({ label: 'Actuaciones', value: `${movements.length}${options.onlyKeys ? ' (claves)' : ''}` })
+  metaItems.push({ label: 'Generado', value: new Date().toLocaleString('es-AR') })
 
-  if (expediente.observaciones?.trim()) {
-    y += 10
+  const colW = (contentW - 30) / 2
+  for (let i = 0; i < metaItems.length; i++) {
+    const item = metaItems[i]
+    const col = i % 2
+    const row = Math.floor(i / 2)
+    const x = margin + col * (colW + 30)
+    const yItem = y + row * 38
+    // Label
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(10)
-    pdf.text('Observaciones', margin, y)
+    pdf.setFontSize(7)
+    pdf.setTextColor(140)
+    pdf.text(item.label.toUpperCase(), x, yItem)
+    // Value
+    pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(11)
+    pdf.setTextColor(0)
+    const valueLines = pdf.splitTextToSize(item.value, colW)
+    pdf.text(valueLines.slice(0, 2), x, yItem + 14)
+  }
+  y += Math.ceil(metaItems.length / 2) * 38 + 15
+
+  // Observaciones
+  if (expediente.observaciones?.trim()) {
+    pdf.setDrawColor(220)
+    pdf.setLineWidth(0.5)
+    pdf.line(margin, y, pageW - margin, y)
+    y += 18
+    pdf.setFont('helvetica', 'bold')
+    pdf.setFontSize(7)
+    pdf.setTextColor(140)
+    pdf.text('OBSERVACIONES', margin, y)
     y += 14
     pdf.setFont('helvetica', 'normal')
+    pdf.setFontSize(10)
+    pdf.setTextColor(60)
     const obsLines = pdf.splitTextToSize(expediente.observaciones, contentW)
     pdf.text(obsLines, margin, y)
-    y += obsLines.length * 12
+    y += obsLines.length * 12 + 10
   }
 
+  // AI brief
   if (expediente.ai_brief?.trim()) {
     if (y > pageH - 200) { pdf.addPage(); y = 80 }
-    y += 20
+    pdf.setDrawColor(ACCENT_R, ACCENT_G, ACCENT_B)
+    pdf.setLineWidth(2.5)
+    pdf.line(margin, y, margin + 30, y)
+    y += 16
     pdf.setFont('helvetica', 'bold')
-    pdf.setFontSize(11)
-    pdf.text('Resumen del expediente (generado por IA)', margin, y)
+    pdf.setFontSize(7)
+    pdf.setTextColor(ACCENT_R, ACCENT_G, ACCENT_B)
+    pdf.text('RESUMEN DEL EXPEDIENTE · GENERADO POR IA', margin, y)
     y += 16
     pdf.setFont('helvetica', 'normal')
     pdf.setFontSize(10)
+    pdf.setTextColor(40)
     const briefLines = pdf.splitTextToSize(expediente.ai_brief, contentW)
     for (const line of briefLines) {
-      if (y > pageH - margin) { pdf.addPage(); y = 80 }
+      if (y > pageH - margin - 30) { pdf.addPage(); y = 80 }
       pdf.text(line, margin, y)
-      y += 12
+      y += 13
     }
   }
 
-  pdf.setFontSize(8)
-  pdf.setTextColor(150)
-  pdf.text(`Generado ${new Date().toLocaleString('es-AR')}`, margin, pageH - 25)
+  // Footer brand bar
+  pdf.setDrawColor(BRAND_R, BRAND_G, BRAND_B)
+  pdf.setLineWidth(0.8)
+  pdf.line(margin, pageH - 35, pageW - margin, pageH - 35)
+  pdf.setFontSize(7)
+  pdf.setTextColor(140)
+  pdf.setFont('helvetica', 'normal')
+  pdf.text('Marco Rossi · Estudio Jurídico', margin, pageH - 22)
+  pdf.text(`Documento generado por el sistema · ${new Date().toLocaleDateString('es-AR')}`, pageW - margin, pageH - 22, { align: 'right' })
   pdf.setTextColor(0)
 
   // ── ÍNDICE ──
@@ -235,8 +367,13 @@ export async function generateExpedientePdf(
   y = 80
   pdf.setFont('helvetica', 'bold')
   pdf.setFontSize(16)
-  pdf.text('Índice de actuaciones', margin, y)
-  y += 30
+  pdf.text(options.onlyKeys ? 'Índice · actuaciones claves' : 'Índice de actuaciones', margin, y)
+  pdf.setFont('helvetica', 'normal')
+  pdf.setFontSize(8)
+  pdf.setTextColor(140)
+  pdf.text(`${movements.length} actuación${movements.length !== 1 ? 'es' : ''} · orden cronológico`, margin, y + 14)
+  pdf.setTextColor(0)
+  y += 40
 
   pdf.setFontSize(9)
   pdf.setFont('helvetica', 'normal')

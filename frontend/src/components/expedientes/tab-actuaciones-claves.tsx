@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { useSaeMovements, useSetMovementKey, type SaeMovement } from '@/hooks/use-sae'
@@ -6,9 +6,10 @@ import { formatDate } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import {
   Star, Gavel, Calendar, FileText, Sparkles,
-  Loader2, Clock, Users, AlertCircle, ArrowRight,
+  Loader2, Clock, Users, AlertCircle, ArrowRight, Download,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
+import { DescargarExpedienteDialog } from './descargar-expediente-dialog'
 
 const KEY_TYPES = new Set([
   'sentencia',
@@ -121,6 +122,7 @@ interface Props {
 export function TabActuacionesClaves({ expedienteId }: Props) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const setMovementKey = useSetMovementKey()
+  const [downloadOpen, setDownloadOpen] = useState(false)
 
   // Reglas:
   //   is_key === true  → siempre clave (manual)
@@ -153,12 +155,24 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
     <Card
       title="Actuaciones claves"
       headerRight={
-        <span className="text-xs text-zinc-500">
-          {claves.length} de {movements.length}
-          {manuallyMarkedSet.size > 0 && (
-            <span className="ml-2 text-amber-400/80">· {manuallyMarkedSet.size} marcadas por vos</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-zinc-500">
+            {claves.length} de {movements.length}
+            {manuallyMarkedSet.size > 0 && (
+              <span className="ml-2 text-amber-400/80">· {manuallyMarkedSet.size} marcadas por vos</span>
+            )}
+          </span>
+          {claves.length > 0 && (
+            <button
+              onClick={() => setDownloadOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+              title="Descargar las actuaciones claves como un PDF (incluye PDFs adjuntos)"
+            >
+              <Download className="h-3 w-3" />
+              Descargar PDF
+            </button>
           )}
-        </span>
+        </div>
       }
     >
       {isLoading ? (
@@ -194,6 +208,13 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
       <p className="mt-3 text-[10px] text-zinc-600">
         Tip: en el tab SAE, click en la estrella para marcar/desmarcar. Acá podés sacar una con click en la estrella amarilla.
       </p>
+
+      <DescargarExpedienteDialog
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
+        expedienteId={expedienteId}
+        onlyKeys
+      />
     </Card>
   )
 }

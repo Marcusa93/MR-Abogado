@@ -8,9 +8,10 @@ interface Props {
   onClose: () => void
   expedienteId: string
   expedienteNumero?: string | null
+  onlyKeys?: boolean
 }
 
-export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedienteNumero }: Props) {
+export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedienteNumero, onlyKeys = false }: Props) {
   const [progress, setProgress] = useState<ProgressUpdate | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -32,13 +33,13 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
 
     void (async () => {
       try {
-        const blob = await generateExpedientePdf(expedienteId, (u) => setProgress(u))
+        const blob = await generateExpedientePdf(expedienteId, (u) => setProgress(u), { onlyKeys })
         // Trigger download
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
         const safeNum = (expedienteNumero ?? expedienteId).replace(/[^a-z0-9-_]/gi, '-')
-        a.download = `expediente-${safeNum}.pdf`
+        a.download = `expediente-${safeNum}${onlyKeys ? '-claves' : ''}.pdf`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -48,7 +49,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
         setError(err instanceof Error ? err.message : 'Error al generar el PDF')
       }
     })()
-  }, [open, expedienteId, expedienteNumero])
+  }, [open, expedienteId, expedienteNumero, onlyKeys])
 
   if (!open) return null
 
@@ -62,7 +63,9 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <Download className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-zinc-100">Descargar expediente</h3>
+            <h3 className="text-sm font-semibold text-zinc-100">
+              {onlyKeys ? 'Descargar actuaciones claves' : 'Descargar expediente'}
+            </h3>
           </div>
           <button
             onClick={onClose}
