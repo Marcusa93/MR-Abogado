@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, type SaeMovement } from '@/hooks/use-sae'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -30,30 +30,8 @@ import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 
-// Local extension of the generated row type to surface the AI columns added
-// in migration 00028 (database.types.ts is regenerated separately).
-type SaeMovement = Tables<'sae_movements'> & {
-  ai_summary?: string | null
-  ai_extracted?: AiExtracted | null
-  ai_suggested_action?: AiSuggestedAction | null
-  ai_analyzed_at?: string | null
-  ai_error?: string | null
-}
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
-
-interface AiExtracted {
-  partes?: string[]
-  fechas?: { tipo: string; fecha_iso: string; descripcion: string }[]
-  plazos?: { dias: number; habiles: boolean; vence_aprox: string | null; descripcion: string }[]
-}
-
-interface AiSuggestedAction {
-  tipo: 'tarea' | 'turno'
-  titulo: string
-  fecha: string | null
-  prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
-  descripcion: string
-}
+type AiSuggestedAction = NonNullable<SaeMovement['ai_suggested_action']>
 
 const PRIORIDAD_COLORS: Record<AiSuggestedAction['prioridad'], string> = {
   URGENTE: 'bg-red-500/15 text-red-300 border-red-500/30',
@@ -187,11 +165,15 @@ function ActuacionRow({
   isNew,
   onOpenPdf,
   onCreateFromSuggestion,
+  onAnalyze,
+  isAnalyzing,
 }: {
   movement: SaeMovement
   isNew: boolean
   onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
   onCreateFromSuggestion: (action: AiSuggestedAction) => void
+  onAnalyze: (movementId: string) => void
+  isAnalyzing: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -201,6 +183,8 @@ function ActuacionRow({
   const aiSummary = movement.ai_summary?.trim() || null
   const aiExtracted = movement.ai_extracted ?? null
   const aiAction = movement.ai_suggested_action ?? null
+  const aiError = movement.ai_error?.trim() || null
+  const wasAnalyzed = Boolean(movement.ai_analyzed_at)
   const hasAi = Boolean(aiSummary || aiExtracted || aiAction)
   const hasActionableHighlight = Boolean(aiAction)
 
@@ -299,6 +283,40 @@ function ActuacionRow({
               </button>
             </div>
           )}
+
+          {/* Analyze with AI button (only when not yet analyzed) */}
+          {!wasAnalyzed && hasCuerpo && (
+            <div className="mt-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); onAnalyze(movement.id) }}
+                disabled={isAnalyzing}
+                className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/5 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/10 transition-colors disabled:opacity-50"
+                title="Resumir y extraer datos clave con IA"
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                {isAnalyzing ? 'Analizando…' : 'Analizar con IA'}
+              </button>
+            </div>
+          )}
+
+          {/* AI error feedback (lets the user retry) */}
+          {wasAnalyzed && aiError && !hasAi && (
+            <div className="mt-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); onAnalyze(movement.id) }}
+                disabled={isAnalyzing}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-500/20 bg-red-500/5 px-2.5 py-1 text-[11px] font-medium text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                title={aiError}
+              >
+                <AlertCircle className="h-3 w-3" />
+                Reintentar análisis IA
+              </button>
+            </div>
+          )}
         </div>
 
         {canExpand && (
@@ -348,6 +366,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
   const document = useSaeDocument()
+  const analyze = useAnalyzeMovements()
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
   const [viewer, setViewer] = useState<{
     open: boolean
     attachments: SaeAttachment[]
@@ -469,6 +489,49 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     setViewer({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
   }
 
+  const handleAnalyzeIds = (ids: string[], confirmIfMany = true) => {
+    if (ids.length === 0) {
+      toast.info('No hay actuaciones pendientes de análisis.')
+      return
+    }
+    if (confirmIfMany && ids.length > 5) {
+      const ok = window.confirm(`Vas a analizar ${ids.length} actuaciones con IA. Costo aproximado: ${(ids.length * 0.015).toFixed(2)} USD. ¿Continuar?`)
+      if (!ok) return
+    }
+    setAnalyzingIds((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.add(id))
+      return next
+    })
+    analyze.mutate(
+      { movement_ids: ids, expediente_id: expedienteId },
+      {
+        onSuccess: (data) => {
+          if (data.failed > 0) {
+            toast.error(`${data.analyzed} analizadas · ${data.failed} con error`)
+          } else if (data.skipped > 0 && data.analyzed === 0) {
+            toast.info('La actuación es trámite administrativo, no se analiza con IA.')
+          } else {
+            toast.success(`${data.analyzed} actuación${data.analyzed !== 1 ? 'es' : ''} analizada${data.analyzed !== 1 ? 's' : ''}`)
+          }
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al analizar'),
+        onSettled: () => {
+          setAnalyzingIds((prev) => {
+            const next = new Set(prev)
+            ids.forEach((id) => next.delete(id))
+            return next
+          })
+        },
+      },
+    )
+  }
+
+  const pendingAnalysisIds = useMemo(
+    () => movements.filter((m) => !m.ai_analyzed_at && (m.cuerpo?.trim() || (m.titulo?.length ?? 0) >= 10)).map((m) => m.id),
+    [movements],
+  )
+
   const handleCreateFromSuggestion = (action: AiSuggestedAction) => {
     if (action.tipo === 'turno') {
       setTurnoPrefill({
@@ -521,11 +584,26 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     <Card
       title="Actuaciones SAE"
       headerRight={
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {ultimaSincronizacion && (
-            <span className="hidden sm:block text-xs text-zinc-500">
+            <span className="hidden sm:block text-xs text-zinc-500 mr-1">
               Última sync: {formatDateTime(ultimaSincronizacion)}
             </span>
+          )}
+          {pendingAnalysisIds.length > 0 && (
+            <button
+              onClick={() => handleAnalyzeIds(pendingAnalysisIds)}
+              disabled={analyze.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+              title={`Analizar las ${pendingAnalysisIds.length} actuaciones sin IA del expediente`}
+            >
+              {analyze.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              Analizar pendientes ({pendingAnalysisIds.length})
+            </button>
           )}
           <button
             onClick={handleSync}
@@ -678,6 +756,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       isNew={isMovementNew(m)}
                       onOpenPdf={handleOpenPdf}
                       onCreateFromSuggestion={handleCreateFromSuggestion}
+                      onAnalyze={(id) => handleAnalyzeIds([id], false)}
+                      isAnalyzing={analyzingIds.has(m.id)}
                     />
                   ))}
                 </div>

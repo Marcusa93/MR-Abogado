@@ -8,7 +8,6 @@ import {
   SaeError,
   type SaeSession,
 } from '../_shared/sae-request-connector.ts'
-import { analyzeMovementWithAI, shouldAnalyzeMovement } from '../_shared/sae-ai-analyzer.ts'
 
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -296,90 +295,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── Análisis IA en paralelo (sólo nuevas e importantes) ─────────────
-      const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-      if (apiKey && insertedRows.length > 0) {
-        const toAnalyze = insertedRows.filter(({ movement: m }) =>
-          shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)
-        )
-        await Promise.all(toAnalyze.map(async ({ id, movement: m }) => {
-          try {
-            const analysis = await analyzeMovementWithAI({
-              titulo: m.titulo,
-              cuerpo: m.cuerpo,
-              tipo_movimiento: m.tipo_movimiento,
-              fecha: m.fecha,
-              apiKey,
-            })
-            await serviceClient
-              .from('sae_movements')
-              .update({
-                ai_summary: analysis.summary,
-                ai_extracted: analysis.extracted,
-                ai_suggested_action: analysis.suggested_action,
-                ai_model: analysis.model,
-                ai_analyzed_at: new Date().toISOString(),
-                ai_error: null,
-              })
-              .eq('id', id)
-          } catch (aiErr) {
-            const msg = aiErr instanceof Error ? aiErr.message : 'Error IA desconocido'
-            console.error('[sae-sync][ai]', id, msg)
-            await serviceClient
-              .from('sae_movements')
-              .update({ ai_error: msg.slice(0, 500), ai_analyzed_at: new Date().toISOString() })
-              .eq('id', id)
-          }
-        }))
-      }
-
-      // ── Backfill IA: analizar hasta 5 actuaciones viejas sin análisis ────
-      // Permite que actuaciones pre-existentes a esta feature también ganen
-      // resumen + acción sugerida sin que el usuario tenga que esperar
-      // a que llegue una nueva.
-      if (apiKey) {
-        const { data: pending } = await serviceClient
-          .from('sae_movements')
-          .select('id, titulo, cuerpo, tipo_movimiento, fecha')
-          .eq('expediente_id', expediente_id)
-          .is('ai_analyzed_at', null)
-          .order('fecha', { ascending: false })
-          .limit(5)
-
-        const pendingImportant = (pending ?? []).filter((m: { titulo: string; cuerpo: string | null; tipo_movimiento: string }) =>
-          shouldAnalyzeMovement(m.tipo_movimiento, m.titulo, m.cuerpo)
-        ) as { id: string; titulo: string; cuerpo: string | null; tipo_movimiento: string; fecha: string }[]
-
-        await Promise.all(pendingImportant.map(async (m) => {
-          try {
-            const analysis = await analyzeMovementWithAI({
-              titulo: m.titulo,
-              cuerpo: m.cuerpo,
-              tipo_movimiento: m.tipo_movimiento,
-              fecha: m.fecha,
-              apiKey,
-            })
-            await serviceClient
-              .from('sae_movements')
-              .update({
-                ai_summary: analysis.summary,
-                ai_extracted: analysis.extracted,
-                ai_suggested_action: analysis.suggested_action,
-                ai_model: analysis.model,
-                ai_analyzed_at: new Date().toISOString(),
-                ai_error: null,
-              })
-              .eq('id', m.id)
-          } catch (aiErr) {
-            const msg = aiErr instanceof Error ? aiErr.message : 'Error IA desconocido'
-            console.error('[sae-sync][ai-backfill]', m.id, msg)
-            await serviceClient
-              .from('sae_movements')
-              .update({ ai_error: msg.slice(0, 500), ai_analyzed_at: new Date().toISOString() })
-              .eq('id', m.id)
-          }
-        }))
-      }
+      // (El análisis IA es on-demand vía la edge function sae-analyze-movement
+      //  para no quemar tokens en cada sync. El usuario decide qué analizar.)
 
       // ── Actualizar expediente ─────────────────────────────────────────────
       await serviceClient

@@ -3,7 +3,27 @@ import { createClient } from '@/lib/supabase/client'
 import type { Tables } from '@/types/database.types'
 
 export type SaeCredential = Omit<Tables<'sae_credentials'>, 'encrypted_secret'>
-export type SaeMovement = Tables<'sae_movements'>
+
+// Extends the generated row with the AI columns added in migration 00028.
+// Once database.types.ts is regenerated this can revert to a plain alias.
+export type SaeMovement = Tables<'sae_movements'> & {
+  ai_summary?: string | null
+  ai_extracted?: {
+    partes?: string[]
+    fechas?: { tipo: string; fecha_iso: string; descripcion: string }[]
+    plazos?: { dias: number; habiles: boolean; vence_aprox: string | null; descripcion: string }[]
+  } | null
+  ai_suggested_action?: {
+    tipo: 'tarea' | 'turno'
+    titulo: string
+    fecha: string | null
+    prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
+    descripcion: string
+  } | null
+  ai_analyzed_at?: string | null
+  ai_model?: string | null
+  ai_error?: string | null
+}
 
 // When an edge function returns non-2xx, supabase-js sets data=null and puts the
 // Response in error.context. We must read it to get the specific error message.
@@ -122,6 +142,35 @@ export function useTriggerSaeSync() {
     onSuccess: (_data, { expedienteId }) => {
       queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
       queryClient.invalidateQueries({ queryKey: ['expediente', expedienteId] })
+    },
+  })
+}
+
+// ─── Analyze movement hook (on-demand AI) ────────────────────────────────────
+
+export interface SaeAnalyzeResult {
+  results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean }[]
+  analyzed: number
+  failed: number
+  skipped: number
+}
+
+export function useAnalyzeMovements() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movement_ids: string[]; expediente_id?: string }) => {
+      const { data, error } = await supabase.functions.invoke('sae-analyze-movement', {
+        body: { movement_ids: input.movement_ids },
+      })
+      if (error) throw await extractFnError(error)
+      if (data?.error) throw new Error(data.error)
+      return data as SaeAnalyzeResult
+    },
+    onSuccess: (_data, vars) => {
+      if (vars.expediente_id) {
+        queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
+      }
     },
   })
 }
