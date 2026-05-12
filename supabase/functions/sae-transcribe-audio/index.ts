@@ -83,20 +83,24 @@ async function downloadFromSae(
 
   if (!fileRes.ok) throw new Error(`SAE rechazó la descarga (${fileRes.status})`)
 
-  const contentType = fileRes.headers.get('content-type') ?? ''
-  if (contentType.includes('audio') || contentType.includes('octet-stream')) {
+  const contentType = (fileRes.headers.get('content-type') ?? '').toLowerCase()
+
+  // Si NO es JSON → asumimos binario (audio/video/octet-stream/etc.)
+  const isJson = contentType.includes('application/json') || contentType.includes('text/json')
+  if (!isJson) {
     return { bytes: await fileRes.arrayBuffer(), expedienteId: movement.expediente_id }
   }
 
-  // SAE devolvió JSON con la URL real
-  const payload = await fileRes.json().catch(() => null) as { url?: string; data?: { url?: string } } | null
-  const url = payload?.url ?? payload?.data?.url
-  if (!url) throw new Error('SAE no devolvió URL del audio')
-  const absUrl = url.startsWith('http') ? url : `https://consultaexpedientes.justucuman.gov.ar${url}`
+  // Es JSON: SAE devolvió un payload con la URL real del archivo
+  const payload = await fileRes.json().catch(() => null) as { url?: string; data?: { url?: string } | string } | null
+  const candidateUrl = payload?.url
+    ?? (typeof payload?.data === 'string' ? payload.data : payload?.data?.url)
+  if (!candidateUrl) throw new Error('SAE no devolvió URL del audio')
+  const absUrl = candidateUrl.startsWith('http') ? candidateUrl : `https://consultaexpedientes.justucuman.gov.ar${candidateUrl}`
 
   const binRes = await fetch(absUrl, {
     method: 'GET',
-    headers: apiHeaders(session, 'audio/*, application/octet-stream, */*'),
+    headers: apiHeaders(session, 'audio/*, video/*, application/octet-stream, */*'),
   })
   if (!binRes.ok) throw new Error(`No se pudo descargar el audio (${binRes.status})`)
   return { bytes: await binRes.arrayBuffer(), expedienteId: movement.expediente_id }
