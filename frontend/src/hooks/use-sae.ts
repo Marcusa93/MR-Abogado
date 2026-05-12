@@ -248,9 +248,17 @@ export function useSetMovementAudiencia() {
   })
 }
 
-// ─── Helpers de detección de adjuntos de audio ─────────────────────────────
+// ─── Helpers de detección de adjuntos de audio/video ────────────────────────
+// Whisper acepta tanto audio como video (extrae el audio del contenedor).
+// Formatos soportados oficialmente: mp3, mp4, mpeg, mpga, m4a, wav, webm.
+// Aceptamos también extensiones comunes que el browser puede enviar al server.
 
-const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
+const TRANSCRIBABLE_EXTENSIONS = [
+  // audio
+  '.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma',
+  // video / contenedores con audio (Whisper soporta)
+  '.mp4', '.mpeg', '.mpga', '.webm', '.mov', '.avi', '.mkv', '.flv', '.3gp',
+]
 
 export function hasAudioAttachment(movement: SaeMovement): boolean {
   const rp = movement.raw_payload as { archivos?: Array<Record<string, unknown>>; vinculos?: Array<Record<string, unknown>> } | null
@@ -262,7 +270,7 @@ export function hasAudioAttachment(movement: SaeMovement): boolean {
     for (const c of candidates) {
       if (typeof c !== 'string') continue
       const lower = c.toLowerCase()
-      if (AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext))) return true
+      if (TRANSCRIBABLE_EXTENSIONS.some(ext => lower.endsWith(ext))) return true
     }
   }
   return false

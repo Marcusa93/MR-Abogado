@@ -26,13 +26,16 @@ function detectAudioFileName(movement: SaeMovement): string | null {
   const rp = movement.raw_payload as { archivos?: Array<Record<string, unknown>>; vinculos?: Array<Record<string, unknown>> } | null
   if (!rp) return null
   const items = [...(Array.isArray(rp.archivos) ? rp.archivos : []), ...(Array.isArray(rp.vinculos) ? rp.vinculos : [])]
-  const audioExt = ['.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma', '.webm']
+  const exts = [
+    '.mp3', '.m4a', '.wav', '.ogg', '.opus', '.flac', '.aac', '.wma',
+    '.mp4', '.mpeg', '.mpga', '.webm', '.mov', '.avi', '.mkv', '.flv', '.3gp',
+  ]
   for (const item of items) {
     if (!item || typeof item !== 'object') continue
     const candidates = [item.nombre, item.name, item.filename, item.fileName, item.label]
     for (const c of candidates) {
       if (typeof c !== 'string') continue
-      if (audioExt.some(ext => c.toLowerCase().endsWith(ext))) return c
+      if (exts.some(ext => c.toLowerCase().endsWith(ext))) return c
     }
   }
   return null
