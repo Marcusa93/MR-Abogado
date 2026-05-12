@@ -70,8 +70,8 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
     transcribeSae.mutate(
       { movement_id: movementId, file_name: audioFileName },
       {
-        onSuccess: () => toast.success('Transcripción completada'),
-        onError: (err) => toast.error(err instanceof Error ? err.message : 'Error en transcripción'),
+        onSuccess: () => toast.info('Transcripción en proceso. Te avisamos cuando termine.'),
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Error iniciando transcripción'),
       },
     )
   }
@@ -90,8 +90,8 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
               audiencia_id: audienciaId,
             },
             {
-              onSuccess: () => toast.success('Transcripción completada'),
-              onError: (err) => toast.error(err instanceof Error ? err.message : 'Error en transcripción'),
+              onSuccess: () => toast.info('Audio subido. Transcripción en proceso, te avisamos cuando termine.'),
+              onError: (err) => toast.error(err instanceof Error ? err.message : 'Error iniciando transcripción'),
             },
           )
         },
@@ -148,7 +148,7 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
             <input
               ref={fileInputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,video/*"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0]
@@ -160,13 +160,13 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
               onClick={() => fileInputRef.current?.click()}
               disabled={isBusyTranscribing}
               className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
-              title="Subir un archivo de audio (MP3, M4A, WAV, etc.). Máx 25 MB."
+              title="Subir un archivo de audio o video (MP3, MP4, WAV, etc.). Máx 25 MB."
             >
               {(uploadAudio.isPending || transcribeUpload.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-              Subir audio
+              Subir audio/video
             </button>
             <span className="text-[10px] text-zinc-600">
-              ~$0.36 USD por hora · máx 25 MB por archivo
+              Groq (gratis) → fallback OpenAI · máx 25 MB
             </span>
           </div>
 
@@ -216,8 +216,11 @@ function TranscriptCard({ transcript, onAnalyze, isAnalyzing }: { transcript: Au
         {t.status === 'transcribing' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-300">
             <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            Transcribiendo
+            Transcribiendo en background…
           </span>
+        )}
+        {t.status === 'completed' && t.transcript_model && (
+          <ProviderBadge model={t.transcript_model} />
         )}
         {t.status === 'error' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300" title={t.error_message ?? ''}>
@@ -317,3 +320,28 @@ function TranscriptCard({ transcript, onAnalyze, isAnalyzing }: { transcript: Au
     </div>
   )
 }
+
+function ProviderBadge({ model }: { model: string }) {
+  const isGroq = model.startsWith("groq:")
+  const isOpenAI = model.startsWith("openai:")
+  if (isGroq) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300" title={`Transcripto con ${model} (gratis vía Groq)`}>
+        ⚡ Groq · gratis
+      </span>
+    )
+  }
+  if (isOpenAI) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-300" title={`Transcripto con ${model} (~$0.36 USD/h)`}>
+        🤖 OpenAI Whisper
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 text-[10px] text-zinc-400">
+      {model}
+    </span>
+  )
+}
+

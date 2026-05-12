@@ -294,40 +294,46 @@ Deno.serve(async (req) => {
     if (insertErr || !row) throw new Error(`No se pudo crear transcript row: ${insertErr?.message}`)
     const transcriptId = (row as unknown as { id: string }).id
 
-    try {
-      const { text, duration, provider, model } = await transcribe(audioBytes, body.file_name, { groqKey, openaiKey })
+    // ── Background: la transcripción puede tardar 30s-2min, devolvemos al
+    //    instante y el cliente hace polling para ver cuándo termina.
+    const backgroundWork = (async () => {
+      try {
+        const { text, duration, provider, model } = await transcribe(audioBytes, body.file_name, { groqKey, openaiKey })
+        await serviceClient
+          .from('audiencia_transcripts')
+          .update({
+            status: 'completed',
+            transcript: text,
+            transcript_model: `${provider}:${model}`,
+            transcript_at: new Date().toISOString(),
+            audio_duration_seconds: duration ? Math.round(duration) : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', transcriptId)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error en transcripción'
+        console.error('[sae-transcribe-audio][bg]', transcriptId, msg)
+        await serviceClient
+          .from('audiencia_transcripts')
+          .update({
+            status: 'error',
+            error_message: msg.slice(0, 500),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', transcriptId)
+      }
+    })()
 
-      await serviceClient
-        .from('audiencia_transcripts')
-        .update({
-          status: 'completed',
-          transcript: text,
-          transcript_model: `${provider}:${model}`,
-          transcript_at: new Date().toISOString(),
-          audio_duration_seconds: duration ? Math.round(duration) : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transcriptId)
+    // EdgeRuntime.waitUntil mantiene la función corriendo después de la respuesta.
+    // @ts-expect-error EdgeRuntime es global en Supabase Edge Functions
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(backgroundWork)
+    else void backgroundWork // fallback para devs locales
 
-      return json({
-        transcript_id: transcriptId,
-        transcript: text,
-        duration_seconds: duration ? Math.round(duration) : null,
-        provider,
-        model,
-      })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error en transcripción'
-      await serviceClient
-        .from('audiencia_transcripts')
-        .update({
-          status: 'error',
-          error_message: msg.slice(0, 500),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transcriptId)
-      throw err
-    }
+    return json({
+      transcript_id: transcriptId,
+      status: 'transcribing',
+      message: 'Transcripción en proceso. Vas a verla cuando termine (~30s-2min).',
+    }, 202)
 
   } catch (err) {
     console.error('[sae-transcribe-audio]', err)

@@ -307,6 +307,7 @@ export interface AudienciaTranscript {
   audio_filename: string | null
   audio_duration_seconds: number | null
   transcript: string | null
+  transcript_model: string | null
   transcript_at: string | null
   ai_analysis: AiTranscriptAnalysis | null
   ai_analyzed_at: string | null
@@ -330,6 +331,11 @@ export function useAudienciaTranscripts(input: { movement_id?: string; audiencia
       return (data ?? []) as unknown as AudienciaTranscript[]
     },
     enabled,
+    // Polling automático cuando hay transcripciones en proceso
+    refetchInterval: (query) => {
+      const data = query.state.data as AudienciaTranscript[] | undefined
+      return data?.some(t => t.status === 'transcribing' || t.status === 'pending') ? 4000 : false
+    },
   })
 }
 
