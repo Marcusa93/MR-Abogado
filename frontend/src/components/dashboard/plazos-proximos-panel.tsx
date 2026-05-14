@@ -7,10 +7,10 @@ import { formatDate } from '@/lib/utils/date-helpers'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 
 const PRIORIDAD_STYLES: Record<PlazoProximo['prioridad'], { dot: string; text: string; pill: string }> = {
-  URGENTE: { dot: 'bg-red-500', text: 'text-red-300', pill: 'bg-red-500/15 text-red-300 border-red-500/30' },
-  ALTA: { dot: 'bg-amber-500', text: 'text-amber-300', pill: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
-  MEDIA: { dot: 'bg-cyan-500', text: 'text-cyan-300', pill: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' },
-  BAJA: { dot: 'bg-zinc-500', text: 'text-zinc-300', pill: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30' },
+  URGENTE: { dot: 'bg-red-500', text: 'text-red-700 dark:text-red-300', pill: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30' },
+  ALTA: { dot: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', pill: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30' },
+  MEDIA: { dot: 'bg-cyan-500', text: 'text-cyan-700 dark:text-cyan-300', pill: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30' },
+  BAJA: { dot: 'bg-zinc-500', text: 'text-zinc-700 dark:text-zinc-300', pill: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30' },
 }
 
 function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea: (p: PlazoProximo) => void }) {
@@ -19,7 +19,7 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
   const restantesLabel = restantes === 0 ? 'hoy' : restantes === 1 ? 'mañana' : `en ${restantes} días`
 
   return (
-    <div className="group flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-colors hover:bg-white/5 hover:border-white/10">
+    <div className="group flex items-start gap-3 rounded-xl border border-[rgb(87_124_142_/_10%)] bg-white/65 px-3.5 py-3 transition-colors hover:bg-[rgb(87_124_142_/_7%)] dark:border-white/6 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]">
       <div className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', style.dot)} />
 
       <div className="min-w-0 flex-1">
@@ -30,7 +30,7 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
           </span>
           <span className="text-[10px] text-zinc-500">{formatDate(plazo.plazo.vence_aprox)}</span>
         </div>
-        <p className="mt-1 text-xs text-zinc-200 line-clamp-2 leading-snug">
+        <p className="mt-1 text-xs leading-snug text-zinc-800 line-clamp-2 dark:text-zinc-100">
           {plazo.plazo.descripcion}
         </p>
         <p className="mt-0.5 text-[11px] text-zinc-500 truncate">
@@ -51,7 +51,7 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
           </button>
           <Link
             to={`/expedientes/${plazo.expediente_id}`}
-            className="inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-cyan-400 transition-colors"
+            className="dashboard-link inline-flex items-center gap-1 text-[10px] font-semibold"
           >
             Ver expediente
             <ArrowRight className="h-2.5 w-2.5" />
@@ -62,8 +62,13 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
   )
 }
 
-export function PlazosProximosPanel() {
-  const { data: plazos = [], isLoading } = usePlazosProximos()
+function PlazosProximosPanelView({
+  plazos,
+  isLoading,
+}: {
+  plazos: PlazoProximo[]
+  isLoading: boolean
+}) {
   const [tareaPrefill, setTareaPrefill] = useState<{
     open: boolean
     expedienteId?: string
@@ -84,29 +89,34 @@ export function PlazosProximosPanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-4 flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Plazos por vencer</h3>
-          {plazos.length > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-violet-500/15 text-violet-300 text-[10px] px-1.5 py-0 min-w-[1.25rem] h-5 font-medium">
-              {plazos.length}
-            </span>
-          )}
+    <div className="dashboard-panel rounded-[1.5rem] p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="dashboard-eyebrow text-[10px]">sae intelligence</p>
+          <div className="mt-1 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Plazos por vencer</h3>
+            {plazos.length > 0 && (
+              <span className="dashboard-chip dashboard-chip-accent">
+                {plazos.length}
+              </span>
+            )}
+          </div>
         </div>
-        <span className="text-[10px] text-zinc-500">próximos 7 días · IA</span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">7 días</span>
       </div>
 
       {isLoading ? (
         <div className="space-y-2">
           {[0, 1, 2].map(i => (
-            <div key={i} className="h-14 rounded-lg bg-white/[0.02] animate-pulse" />
+            <div key={i} className="h-14 rounded-xl bg-zinc-100 dark:bg-white/[0.03] animate-pulse" />
           ))}
         </div>
       ) : plazos.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
-          <AlertTriangle className="h-7 w-7 text-zinc-700 mb-2" />
+          <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
           <p className="text-xs text-zinc-500">No hay plazos detectados por IA en los próximos 7 días.</p>
           <p className="text-[10px] text-zinc-600 mt-1">Analizá actuaciones desde el tab SAE de un expediente.</p>
         </div>
@@ -128,4 +138,13 @@ export function PlazosProximosPanel() {
       )}
     </div>
   )
+}
+
+export function PlazosProximosPanel({ previewData }: { previewData?: PlazoProximo[] }) {
+  if (previewData) {
+    return <PlazosProximosPanelView plazos={previewData} isLoading={false} />
+  }
+
+  const { data: plazos = [], isLoading } = usePlazosProximos()
+  return <PlazosProximosPanelView plazos={plazos} isLoading={isLoading} />
 }

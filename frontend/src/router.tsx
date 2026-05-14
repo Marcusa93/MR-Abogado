@@ -25,6 +25,7 @@ function lazyWithRetry(importFn: () => Promise<{ default: ComponentType<any> }>)
 
 const LoginPage = lazyWithRetry(() => import('@/pages/login'))
 const DashboardPage = lazyWithRetry(() => import('@/pages/dashboard'))
+const DashboardPreviewPage = lazyWithRetry(() => import('@/pages/dashboard-preview'))
 const ExpedientesPage = lazyWithRetry(() => import('@/pages/expedientes'))
 const ExpedienteDetailPage = lazyWithRetry(() => import('@/pages/expediente-detail'))
 const NuevoExpedientePage = lazyWithRetry(() => import('@/pages/nuevo-expediente'))
@@ -57,6 +58,14 @@ function SuspenseWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
+  ...(import.meta.env.DEV ? [{
+    path: '/dashboard-preview',
+    element: (
+      <SuspenseWrapper>
+        <DashboardPreviewPage />
+      </SuspenseWrapper>
+    ),
+  }] : []),
   {
     path: '/login',
     element: (

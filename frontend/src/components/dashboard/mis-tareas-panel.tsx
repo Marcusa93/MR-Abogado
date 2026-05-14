@@ -56,7 +56,15 @@ const PRIORIDAD_DOT: Record<string, string> = {
 // Task row component
 // ---------------------------------------------------------------------------
 
-function TareaRow({ tarea, onOpen }: { tarea: TareaWithRelations; onOpen: (t: TareaWithRelations) => void }) {
+function TareaRow({
+  tarea,
+  onOpen,
+  previewMode = false,
+}: {
+  tarea: TareaWithRelations
+  onOpen: (t: TareaWithRelations) => void
+  previewMode?: boolean
+}) {
   const completar = useCompletarTarea()
   const dateInfo = getDateLabel(tarea.fecha_vencimiento)
   const expLabel = expedienteLabel(tarea.expediente)
@@ -64,16 +72,17 @@ function TareaRow({ tarea, onOpen }: { tarea: TareaWithRelations; onOpen: (t: Ta
   return (
     <div
       onClick={() => onOpen(tarea)}
-      className="flex items-start gap-3 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.06] dark:bg-white/[0.03] transition-colors group"
+      className="group flex cursor-pointer items-start gap-3 rounded-xl px-3.5 py-3 transition-colors hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.06]"
     >
       {/* Checkbox */}
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          if (previewMode) return
           completar.mutate(tarea.id)
         }}
-        disabled={completar.isPending}
+        disabled={previewMode || completar.isPending}
         className="mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
         title="Completar tarea"
       >
@@ -101,7 +110,7 @@ function TareaRow({ tarea, onOpen }: { tarea: TareaWithRelations; onOpen: (t: Ta
           {tarea.expediente && (
             <Link
               to={`/expedientes/${tarea.expediente.id}`}
-              className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/50 transition-colors truncate max-w-[240px]"
+              className="dashboard-chip dashboard-chip-accent max-w-[240px] truncate"
               onClick={(e) => e.stopPropagation()}
               title={expLabel || 'Ir al expediente'}
             >
@@ -116,13 +125,118 @@ function TareaRow({ tarea, onOpen }: { tarea: TareaWithRelations; onOpen: (t: Ta
 }
 
 // ---------------------------------------------------------------------------
+// Shared panel view
+// ---------------------------------------------------------------------------
+
+function MisTareasPanelView({
+  pendientes,
+  isLoading,
+  isAdmin,
+  profileId,
+  verTarea,
+  setVerTarea,
+  previewMode = false,
+}: {
+  pendientes: TareaWithRelations[]
+  isLoading: boolean
+  isAdmin: boolean
+  profileId?: string
+  verTarea: TareaWithRelations | null
+  setVerTarea: (tarea: TareaWithRelations | null) => void
+  previewMode?: boolean
+}) {
+  const vencidasCount = pendientes.filter((t) => {
+    const d = getDaysUntil(t.fecha_vencimiento)
+    return d !== null && d < 0
+  }).length
+
+  const tareasLink = previewMode
+    ? '/dashboard-preview'
+    : isAdmin
+    ? '/tareas'
+    : `/tareas?asignado_a=${profileId}`
+
+  return (
+    <div className="dashboard-panel rounded-[1.5rem] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 border-b border-[rgb(87_124_142_/_14%)] px-5 py-4 dark:border-white/8">
+        <div className="min-w-0">
+          <p className="dashboard-eyebrow text-[10px]">agenda interna</p>
+          <div className="mt-1 flex items-center gap-2">
+            <CheckSquare className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              {isAdmin ? 'Tareas Pendientes' : 'Mis Tareas'}
+            </h3>
+            {vencidasCount > 0 && (
+              <span className="dashboard-chip dashboard-chip-danger">
+                {vencidasCount} vencida{vencidasCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+        <Link
+          to={tareasLink}
+          className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold"
+        >
+          Ver todas <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {/* Content */}
+      <div className="max-h-[320px] overflow-y-auto">
+        {isLoading ? (
+          <div className="space-y-2 p-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-12 rounded-xl bg-zinc-100 dark:bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        ) : pendientes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+            <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {isAdmin ? 'No hay tareas pendientes' : '¡No tenés tareas pendientes!'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[rgb(87_124_142_/_10%)] dark:divide-white/6 px-1 py-1">
+            {pendientes.map((t) => (
+              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} previewMode={previewMode} />
+            ))}
+          </div>
+        )}
+      </div>
+      <VerTareaDialog
+        open={!previewMode && verTarea !== null}
+        onClose={() => setVerTarea(null)}
+        tarea={verTarea as any}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function MisTareasPanel() {
+export function MisTareasPanel({ previewData }: { previewData?: TareaWithRelations[] }) {
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN'
   const [verTarea, setVerTarea] = useState<TareaWithRelations | null>(null)
+
+  if (previewData) {
+    return (
+      <MisTareasPanelView
+        pendientes={previewData}
+        isLoading={false}
+        isAdmin={false}
+        verTarea={verTarea}
+        setVerTarea={setVerTarea}
+        previewMode
+      />
+    )
+  }
 
   const { data, isLoading } = useTareas({
     asignado_a: isAdmin ? undefined : profile?.id,
@@ -135,62 +249,14 @@ export function MisTareasPanel() {
   // Only show pending/in-progress
   const pendientes = tareas.filter((t) => t.estado === 'PENDIENTE' || t.estado === 'EN_PROGRESO')
 
-  const vencidasCount = pendientes.filter((t) => {
-    const d = getDaysUntil(t.fecha_vencimiento)
-    return d !== null && d < 0
-  }).length
-
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/5 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <CheckSquare className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            {isAdmin ? 'Tareas Pendientes' : 'Mis Tareas'}
-          </h3>
-          {vencidasCount > 0 && (
-            <span className="flex h-5 items-center rounded-full bg-rose-500/15 px-2 text-[10px] font-bold text-rose-600 dark:text-rose-400">
-              {vencidasCount} vencida{vencidasCount > 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <Link
-          to={isAdmin ? '/tareas' : `/tareas?asignado_a=${profile?.id}`}
-          className="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors flex items-center gap-1"
-        >
-          Ver todas <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-
-      {/* Content */}
-      <div className="max-h-[320px] overflow-y-auto">
-        {isLoading ? (
-          <div className="space-y-2 p-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-12 rounded-lg bg-zinc-100 dark:bg-white/5 animate-pulse" />
-            ))}
-          </div>
-        ) : pendientes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 px-4">
-            <CheckCircle2 className="h-8 w-8 text-emerald-400 mb-2" />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              {isAdmin ? 'No hay tareas pendientes' : '¡No tenés tareas pendientes!'}
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-zinc-100 dark:divide-white/5">
-            {pendientes.map((t) => (
-              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} />
-            ))}
-          </div>
-        )}
-      </div>
-      <VerTareaDialog
-        open={verTarea !== null}
-        onClose={() => setVerTarea(null)}
-        tarea={verTarea as any}
-      />
-    </div>
+    <MisTareasPanelView
+      pendientes={pendientes}
+      isLoading={isLoading}
+      isAdmin={isAdmin}
+      profileId={profile?.id}
+      verTarea={verTarea}
+      setVerTarea={setVerTarea}
+    />
   )
 }

@@ -39,10 +39,10 @@ function CounterCard({
     <button
       onClick={onClick}
       className={cn(
-        'flex flex-col items-center gap-1 rounded-xl border-2 px-4 py-2.5 transition-all',
+        'dashboard-panel-muted flex flex-col items-center gap-1 rounded-2xl border px-4 py-3 transition-all',
         isActive
-          ? `${cfg.counterBg} ${cfg.counterBorder} shadow-sm scale-[1.02]`
-          : 'border-white/5 bg-zinc-50 dark:bg-white/[0.02] hover:bg-zinc-100 dark:bg-white/[0.04] hover:border-white/10'
+          ? `${cfg.counterBg} ${cfg.counterBorder} shadow-[0_18px_40px_rgb(87_124_142_/_10%)] -translate-y-0.5`
+          : 'hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.07]'
       )}
     >
       <div className="flex items-center gap-2">
@@ -145,16 +145,16 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
         <button
           onClick={() => handleFilterClick('todos')}
           className={cn(
-            'flex flex-col items-center gap-1 rounded-xl border-2 px-4 py-2.5 transition-all',
+            'dashboard-panel-muted flex flex-col items-center gap-1 rounded-2xl border px-4 py-3 transition-all',
             activeFilter === 'todos'
-              ? 'border-amber-500/30 bg-amber-500/10 shadow-sm scale-[1.02]'
-              : 'border-white/5 bg-zinc-50 dark:bg-white/[0.02] hover:bg-zinc-100 dark:bg-white/[0.04] hover:border-white/10'
+              ? 'border-[rgb(87_124_142_/_22%)] bg-[rgb(87_124_142_/_10%)] text-[rgb(48_86_104)] shadow-[0_18px_40px_rgb(87_124_142_/_10%)] -translate-y-0.5 dark:text-[rgb(221_232_238)]'
+              : 'hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.07]'
           )}
         >
           <span
             className={cn(
               'text-xl font-bold tabular-nums',
-              activeFilter === 'todos' ? 'text-amber-400' : 'text-zinc-900 dark:text-zinc-50'
+              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-900 dark:text-zinc-50'
             )}
           >
             {counts.todos}
@@ -162,7 +162,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
           <span
             className={cn(
               'text-[11px] font-medium',
-              activeFilter === 'todos' ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-400'
+              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-600 dark:text-zinc-400'
             )}
           >
             Total
@@ -183,13 +183,13 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
 
         {/* Search */}
         <div className="relative ml-auto">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-900 dark:text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-500" />
           <input
             type="text"
             placeholder="Buscar expediente, cliente..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE) }}
-            className="h-9 w-56 rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            className="dashboard-input h-10 w-64 rounded-xl pl-9 pr-3 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
         </div>
       </div>
@@ -206,29 +206,29 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
           }
         />
       ) : (<>
-        <div className="glass-card rounded-xl overflow-x-auto">
+        <div className="dashboard-panel rounded-[1.5rem] overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/5">
+              <tr className="border-b border-[rgb(87_124_142_/_12%)] dark:border-white/8">
                 <th className="w-1" />
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                <th className="px-3 py-3 text-left dashboard-eyebrow text-[10px]">
                   Expediente
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                <th className="px-3 py-3 text-left dashboard-eyebrow text-[10px]">
                   Prioridad
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hidden sm:table-cell">
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] sm:table-cell">
                   Responsable
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hidden md:table-cell">
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] md:table-cell">
                   Turno
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 hidden md:table-cell">
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] md:table-cell">
                   Tareas
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-[rgb(87_124_142_/_10%)] dark:divide-white/6">
               {visibleExpedientes.map((exp) => {
                 const cfg = COLOR_CONFIG[exp._color]
                 const nextTurno = getNextTurno(exp.audiencias ?? [])
@@ -242,7 +242,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     key={exp.id}
                     onClick={() => navigate(`/expedientes/${exp.id}`)}
                     className={cn(
-                      'cursor-pointer border-l-[3px] transition-all hover:bg-zinc-100 dark:hover:bg-white/[0.06] dark:bg-white/[0.03]',
+                      'cursor-pointer border-l-[3px] transition-all hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.08]',
                       cfg.borderClass,
                       cfg.bgClass,
                     )}
@@ -260,7 +260,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     {/* Expediente */}
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-[10px] font-bold text-amber-400">
+                        <div className="dashboard-stat-orb flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
                           {initials}
                         </div>
                         <div className="min-w-0">
@@ -295,7 +295,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                         const responsable = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
                         return responsable ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-zinc-600 dark:text-zinc-400">
+                            <div className="dashboard-stat-orb flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
                               {(responsable.nombre?.[0] ?? '').toUpperCase()}
                               {(responsable.apellido?.[0] ?? '').toUpperCase()}
                             </div>
@@ -304,7 +304,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-full border border-amber-400/20">⚠ Sin asignar</span>
+                          <span className="dashboard-chip dashboard-chip-warning">Sin asignar</span>
                         )
                       })()}
                     </td>
@@ -312,7 +312,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     {/* Turno */}
                     <td className="px-3 py-3 hidden md:table-cell">
                       {nextTurno ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                        <span className="dashboard-chip dashboard-chip-success">
                           <Calendar className="h-3 w-3" />
                           {formatDateCompact(nextTurno)}
                         </span>
@@ -324,7 +324,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     {/* Tareas pendientes */}
                     <td className="px-3 py-3 hidden md:table-cell">
                       {pendingTareas > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-400">
+                        <span className="dashboard-chip dashboard-chip-warning">
                           {pendingTareas}
                         </span>
                       ) : (
@@ -346,7 +346,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
             </span>
             <button
               onClick={handleShowMore}
-              className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+              className="dashboard-link text-xs font-semibold"
             >
               Ver más ({Math.min(PAGE_SIZE, filtered.length - visibleCount)} más)
             </button>
