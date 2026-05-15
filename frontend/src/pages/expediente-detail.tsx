@@ -368,7 +368,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'audiencias' && <TabTurnos audiencias={audiencias} expedienteId={id!} />}
         {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
         {activeTab === 'documentos' && <TabDocumentos expedienteId={id!} />}
-        {activeTab === 'escritos' && <TabEscritos />}
+        {activeTab === 'escritos' && <TabEscritos expedienteId={id!} />}
         {activeTab === 'notas' && <ComentariosPanel expedienteId={id!} />}
         {activeTab === 'timeline' && (
           <Card title="Línea de tiempo">

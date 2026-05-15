@@ -82,7 +82,7 @@ function MovementIcon({ tipo }: { tipo: MovementType }) {
   return <FileText className="h-3.5 w-3.5" />
 }
 
-interface SaeAttachment {
+export interface SaeAttachment {
   fileName: string
   raw: Record<string, unknown>
 }
@@ -95,7 +95,7 @@ function pickFileName(entry: Record<string, unknown>): string | null {
   return null
 }
 
-function extractAttachments(movement: SaeMovement): SaeAttachment[] {
+export function extractAttachments(movement: SaeMovement): SaeAttachment[] {
   const rp = movement.raw_payload as Record<string, unknown> | null
   if (!rp) return []
   const archivos = Array.isArray(rp.archivos) ? rp.archivos : []

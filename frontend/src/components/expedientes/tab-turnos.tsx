@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, StatusBadge, getTurnoColor } from './detail-helpers'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
 import { formatDate } from '@/lib/utils/date-helpers'
+import { cn } from '@/lib/utils'
 import {
   ESTADO_AUDIENCIA_LABELS,
   ESTADO_AUDIENCIA_VALUES,
@@ -11,9 +12,14 @@ import {
 import { useUpdateTurno, useDeleteTurno } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
-import { CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles, Paperclip, VideoOff } from 'lucide-react'
-import { useSaeMovements, useSetMovementAudiencia, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import {
+  CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles,
+  Paperclip, VideoOff, ChevronDown, ChevronUp, FileText, Eye,
+} from 'lucide-react'
+import { useSaeMovements, useSetMovementAudiencia, useSaeDocument, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { TranscriptionPanel } from './transcription-panel'
+import { extractAttachments, type SaeAttachment } from './tab-actuaciones'
+import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 
 interface TabTurnosProps {
   audiencias: Tables<'audiencias'>[]
@@ -31,6 +37,62 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
     () => movements.filter(passesAudienciaFilter).sort((a, b) => b.fecha.localeCompare(a.fecha)),
     [movements],
   )
+
+  // Visor de PDF para adjuntos de la actuación
+  const document = useSaeDocument()
+  const [viewer, setViewer] = useState<{
+    open: boolean
+    attachments: SaeAttachment[]
+    movement: SaeMovement | null
+    index: number
+    objectUrl: string | null
+    error: string | null
+  }>({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
+
+  useEffect(() => {
+    return () => {
+      if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    }
+  }, [viewer.objectUrl])
+
+  const fetchAttachmentAt = (atts: SaeAttachment[], index: number, m: SaeMovement) => {
+    const att = atts[index]
+    if (!att) return
+    const rp = m.raw_payload as Record<string, unknown> | null
+    const jurisdictionId = typeof rp?.jurisdiction_id === 'number' ? rp.jurisdiction_id : null
+    const procid = m.sae_case_id
+    const histid = m.external_id
+    if (!jurisdictionId || !procid || !histid) {
+      toast.error('Falta información de la actuación para descargar el archivo.')
+      return
+    }
+    document.mutate(
+      { procid, jurisdictionId, histid, fileName: att.fileName },
+      {
+        onSuccess: ({ objectUrl }) => setViewer((v) => ({ ...v, objectUrl, error: null })),
+        onError: (err) => setViewer((v) => ({ ...v, error: err instanceof Error ? err.message : 'No se pudo descargar el documento.' })),
+      },
+    )
+  }
+
+  const handleOpenPdf = (atts: SaeAttachment[], startIndex: number, m: SaeMovement) => {
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer({ open: true, attachments: atts, movement: m, index: startIndex, objectUrl: null, error: null })
+    fetchAttachmentAt(atts, startIndex, m)
+  }
+
+  const handleNavigatePdf = (delta: -1 | 1) => {
+    const next = viewer.index + delta
+    if (next < 0 || next >= viewer.attachments.length || !viewer.movement) return
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer((v) => ({ ...v, index: next, objectUrl: null, error: null }))
+    fetchAttachmentAt(viewer.attachments, next, viewer.movement)
+  }
+
+  const handleCloseViewer = () => {
+    if (viewer.objectUrl) URL.revokeObjectURL(viewer.objectUrl)
+    setViewer({ open: false, attachments: [], movement: null, index: 0, objectUrl: null, error: null })
+  }
 
   return (
     <>
@@ -56,7 +118,12 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
           </p>
           <div className="space-y-2">
             {audienciasFromActuaciones.map((m) => (
-              <ActuacionAudienciaRow key={m.id} movement={m} expedienteId={expedienteId} />
+              <ActuacionAudienciaRow
+                key={m.id}
+                movement={m}
+                expedienteId={expedienteId}
+                onOpenPdf={handleOpenPdf}
+              />
             ))}
           </div>
         </div>
@@ -99,6 +166,18 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
       open={dialogOpen}
       onClose={() => setDialogOpen(false)}
       expedienteId={expedienteId}
+    />
+    <SaePdfViewerDialog
+      open={viewer.open}
+      onClose={handleCloseViewer}
+      fileName={viewer.attachments[viewer.index]?.fileName ?? ''}
+      isLoading={document.isPending}
+      error={viewer.error}
+      objectUrl={viewer.objectUrl}
+      totalFiles={viewer.attachments.length}
+      currentIndex={viewer.index}
+      onPrev={() => handleNavigatePdf(-1)}
+      onNext={() => handleNavigatePdf(1)}
     />
     </>
   )
@@ -301,11 +380,23 @@ function TurnoEditRow({
 
 // ─── Audiencia desde actuación SAE ──────────────────────────────────────────
 
-function ActuacionAudienciaRow({ movement, expedienteId }: { movement: SaeMovement; expedienteId: string }) {
+function ActuacionAudienciaRow({
+  movement,
+  expedienteId,
+  onOpenPdf,
+}: {
+  movement: SaeMovement
+  expedienteId: string
+  onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
+}) {
   const audioOnly = !movement.is_audiencia && hasAudioAttachment(movement)
   const aiSummary = movement.ai_summary?.trim()
   const setMovementAudiencia = useSetMovementAudiencia()
   const manuallyMarked = movement.is_audiencia === true
+  const [expanded, setExpanded] = useState(false)
+  const hasCuerpo = !!movement.cuerpo?.trim()
+  const attachments = useMemo(() => extractAttachments(movement), [movement])
+  const canExpand = hasCuerpo || attachments.length > 0
 
   const handleExclude = () => {
     setMovementAudiencia.mutate(
@@ -317,8 +408,8 @@ function ActuacionAudienciaRow({ movement, expedienteId }: { movement: SaeMoveme
   }
 
   return (
-    <div className="group rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3">
-      <div className="flex items-start gap-3">
+    <div className="group rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] overflow-hidden">
+      <div className="flex items-start gap-3 p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-950/40">
           <Video className="h-4 w-4 text-cyan-400" />
         </div>
@@ -337,12 +428,30 @@ function ActuacionAudienciaRow({ movement, expedienteId }: { movement: SaeMoveme
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500">{formatDate(movement.fecha)}</p>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            {formatDate(movement.fecha)}
+            {attachments.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 text-sky-400">
+                <Paperclip className="h-3 w-3" />
+                {attachments.length} {attachments.length === 1 ? 'archivo' : 'archivos'}
+              </span>
+            )}
+          </p>
           {aiSummary && (
             <p className="mt-2 text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
               <Sparkles className="h-3 w-3 shrink-0 mt-[2px] text-violet-400" />
-              <span className="line-clamp-3">{aiSummary}</span>
+              <span className={cn(!expanded && 'line-clamp-3')}>{aiSummary}</span>
             </p>
+          )}
+          {canExpand && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-cyan-300 hover:text-cyan-200 transition-colors"
+            >
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {expanded ? 'Ocultar contenido' : 'Ver contenido'}
+            </button>
           )}
           <TranscriptionPanel movement={movement} />
         </div>
@@ -355,6 +464,31 @@ function ActuacionAudienciaRow({ movement, expedienteId }: { movement: SaeMoveme
           Excluir
         </button>
       </div>
+
+      {expanded && canExpand && (
+        <div className="border-t border-cyan-500/10 bg-black/10 px-4 py-3 space-y-3">
+          {hasCuerpo && (
+            <p className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+              {movement.cuerpo}
+            </p>
+          )}
+          {attachments.length > 0 && (
+            <div className="space-y-1.5">
+              {attachments.map((att, idx) => (
+                <button
+                  key={`${att.fileName}-${idx}`}
+                  onClick={() => onOpenPdf(attachments, idx, movement)}
+                  className="group/att flex w-full items-center gap-2 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/5 hover:border-sky-500/30"
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-sky-400" />
+                  <span className="min-w-0 flex-1 truncate text-xs text-zinc-300">{att.fileName}</span>
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 group-hover/att:text-sky-400" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

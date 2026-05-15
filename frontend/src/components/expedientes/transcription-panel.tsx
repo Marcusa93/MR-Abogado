@@ -5,13 +5,14 @@ import {
   useTranscribeUpload,
   useUploadAudienciaAudio,
   useAnalyzeTranscript,
+  useSetMovementKey,
   hasAudioAttachment,
   type SaeMovement,
   type AudienciaTranscript,
 } from '@/hooks/use-sae'
 import {
   Mic, Upload, Loader2, AlertCircle, Sparkles, Users, ListChecks, ArrowRight,
-  ChevronDown, ChevronUp, Headphones,
+  ChevronDown, ChevronUp, Headphones, Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
@@ -62,6 +63,7 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
   const transcribeUpload = useTranscribeUpload()
   const uploadAudio = useUploadAudienciaAudio()
   const analyze = useAnalyzeTranscript()
+  const setKey = useSetMovementKey()
   const [expanded, setExpanded] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -106,6 +108,18 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
       {
         onSuccess: () => toast.success('Análisis IA completado'),
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Error en análisis'),
+      },
+    )
+  }
+
+  const handleToggleKey = () => {
+    if (!movement) return
+    const nextIsKey = movement.is_key === true ? null : true
+    setKey.mutate(
+      { movementId: movement.id, isKey: nextIsKey, expedienteId: movement.expediente_id },
+      {
+        onSuccess: () => toast.success(nextIsKey === true ? 'Actuación marcada como clave' : 'Marca de clave eliminada'),
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Error marcando como clave'),
       },
     )
   }
@@ -187,6 +201,9 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
                   transcript={t}
                   onAnalyze={() => handleAnalyze(t)}
                   isAnalyzing={analyze.isPending}
+                  movement={movement}
+                  onToggleKey={handleToggleKey}
+                  isTogglingKey={setKey.isPending}
                 />
               ))}
             </div>
@@ -197,9 +214,24 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
   )
 }
 
-function TranscriptCard({ transcript, onAnalyze, isAnalyzing }: { transcript: AudienciaTranscript; onAnalyze: () => void; isAnalyzing: boolean }) {
+function TranscriptCard({
+  transcript,
+  onAnalyze,
+  isAnalyzing,
+  movement,
+  onToggleKey,
+  isTogglingKey,
+}: {
+  transcript: AudienciaTranscript
+  onAnalyze: () => void
+  isAnalyzing: boolean
+  movement?: SaeMovement
+  onToggleKey: () => void
+  isTogglingKey: boolean
+}) {
   const [textExpanded, setTextExpanded] = useState(false)
   const t = transcript
+  const showKeyButton = !!movement && t.status === 'completed'
 
   return (
     <div className="rounded-md border border-white/5 bg-white/[0.02] p-3 space-y-2">
@@ -213,6 +245,28 @@ function TranscriptCard({ transcript, onAnalyze, isAnalyzing }: { transcript: Au
           )}
           <span className="text-[10px] text-zinc-600">· {formatDate(t.created_at)}</span>
         </div>
+        {showKeyButton && (
+          <button
+            type="button"
+            onClick={onToggleKey}
+            disabled={isTogglingKey}
+            className="p-1 rounded hover:bg-white/10 transition-colors disabled:opacity-50"
+            title={
+              movement!.is_key === true
+                ? 'Marcada como clave (click para desmarcar)'
+                : 'Marcar actuación como clave'
+            }
+          >
+            <Star
+              className={cn(
+                'h-3.5 w-3.5 transition-colors',
+                movement!.is_key === true
+                  ? 'fill-amber-400 text-amber-400'
+                  : 'text-zinc-600 hover:text-amber-400',
+              )}
+            />
+          </button>
+        )}
         {t.status === 'transcribing' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-300">
             <Loader2 className="h-2.5 w-2.5 animate-spin" />

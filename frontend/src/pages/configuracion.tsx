@@ -52,27 +52,58 @@ function ProfileSection() {
   const [nombre, setNombre] = useState('')
   const [apellido, setApellido] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [matricula, setMatricula] = useState('')
+  const [matriculaLibro, setMatriculaLibro] = useState('')
+  const [matriculaFolio, setMatriculaFolio] = useState('')
+  const [domicilioLegal, setDomicilioLegal] = useState('')
+  const [casilleroNotif, setCasilleroNotif] = useState('')
+  const [cuit, setCuit] = useState('')
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     if (profile) {
-      setNombre(profile.nombre ?? '')
-      setApellido(profile.apellido ?? '')
-      setTelefono(profile.telefono ?? '')
+      const p = profile as typeof profile & {
+        matricula?: string | null
+        matricula_libro?: string | null
+        matricula_folio?: string | null
+        domicilio_legal?: string | null
+        casillero_notif?: string | null
+        cuit?: string | null
+      }
+      setNombre(p.nombre ?? '')
+      setApellido(p.apellido ?? '')
+      setTelefono(p.telefono ?? '')
+      setMatricula(p.matricula ?? '')
+      setMatriculaLibro(p.matricula_libro ?? '')
+      setMatriculaFolio(p.matricula_folio ?? '')
+      setDomicilioLegal(p.domicilio_legal ?? '')
+      setCasilleroNotif(p.casillero_notif ?? '')
+      setCuit(p.cuit ?? '')
     }
   }, [profile])
+
+  const cuitClean = cuit.replace(/\D/g, '')
+  const cuitInvalid = cuit.length > 0 && cuitClean.length !== 11
+  const datosEscritoFaltantes = !matricula.trim() || !domicilioLegal.trim() || !cuitClean
 
   const updateProfile = useMutation({
     mutationFn: async () => {
       if (!profile) throw new Error('No profile')
+      if (cuitInvalid) throw new Error('CUIT inv\u00E1lido (debe tener 11 d\u00EDgitos)')
       const { data, error } = await supabase
         .from('profiles')
         .update({
           nombre,
           apellido,
           telefono: telefono || null,
+          matricula: matricula.trim() || null,
+          matricula_libro: matriculaLibro.trim() || null,
+          matricula_folio: matriculaFolio.trim() || null,
+          domicilio_legal: domicilioLegal.trim() || null,
+          casillero_notif: casilleroNotif.trim() || null,
+          cuit: cuitClean || null,
           updated_at: new Date().toISOString(),
-        })
+        } as never)
         .eq('id', profile.id)
         .select()
         .single()
@@ -84,6 +115,9 @@ function ProfileSection() {
       queryClient.invalidateQueries({ queryKey: ['profile'] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
     },
   })
 
@@ -141,10 +175,100 @@ function ProfileSection() {
         </div>
       </div>
 
+      {/* Datos profesionales \u2014 usados en encabezado de escritos */}
+      <div className="mt-5 border-t border-white/10 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-400">
+            Datos profesionales
+          </h3>
+          {datosEscritoFaltantes ? (
+            <span className="text-[10px] text-amber-400">Requeridos para generar escritos</span>
+          ) : (
+            <span className="text-[10px] text-emerald-400">Listos para escritos</span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+              Matr{'\u00ED'}cula
+            </label>
+            <input
+              value={matricula}
+              onChange={(e) => setMatricula(e.target.value)}
+              placeholder="11604"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                Libro
+              </label>
+              <input
+                value={matriculaLibro}
+                onChange={(e) => setMatriculaLibro(e.target.value)}
+                placeholder="R"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                Folio
+              </label>
+              <input
+                value={matriculaFolio}
+                onChange={(e) => setMatriculaFolio(e.target.value)}
+                placeholder="106"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+              Domicilio legal
+            </label>
+            <input
+              value={domicilioLegal}
+              onChange={(e) => setDomicilioLegal(e.target.value)}
+              placeholder="25 de mayo 545, San Miguel de Tucum\u00E1n"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+              CUIT
+            </label>
+            <input
+              value={cuit}
+              onChange={(e) => setCuit(e.target.value)}
+              placeholder="20-37191810-9"
+              className={cn(
+                'h-9 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/15',
+                cuitInvalid ? 'border-rose-500/50 focus:border-rose-500/50' : 'border-white/10 focus:border-amber-500/40',
+              )}
+            />
+            {cuitInvalid && (
+              <p className="mt-1 text-[10px] text-rose-400">CUIT debe tener 11 d{'\u00ED'}gitos</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+              Casillero de notificaciones
+            </label>
+            <input
+              value={casilleroNotif}
+              onChange={(e) => setCasilleroNotif(e.target.value)}
+              placeholder="Opcional"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="mt-4 flex items-center gap-3">
         <button
           onClick={() => updateProfile.mutate()}
-          disabled={updateProfile.isPending}
+          disabled={updateProfile.isPending || cuitInvalid}
           className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50 transition-colors"
         >
           {updateProfile.isPending ? (
