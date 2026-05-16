@@ -269,7 +269,7 @@ async function createEmbeddings(inputs: string[], apiKey: string): Promise<numbe
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://mr-abogado-system.vercel.app',
+      'HTTP-Referer': 'https://app.marcorossi.com.ar',
       'X-Title': 'MR Abogado Normativa',
     },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: inputs }),

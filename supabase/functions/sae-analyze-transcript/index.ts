@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://mr-abogado-system.vercel.app',
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
         'X-Title': 'MR Abogado Audiencia Analyzer',
       },
       body: JSON.stringify({

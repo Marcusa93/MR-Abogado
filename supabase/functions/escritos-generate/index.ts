@@ -211,7 +211,7 @@ async function createQueryEmbedding(input: string, apiKey: string): Promise<numb
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://mr-abogado-system.vercel.app',
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
         'X-Title': 'MR Abogado Escritos RAG',
       },
       body: JSON.stringify({ model: EMBEDDING_MODEL, input }),
@@ -496,7 +496,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://mr-abogado-system.vercel.app',
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
         'X-Title': 'MR Abogado Escritos',
       },
       body: JSON.stringify({
