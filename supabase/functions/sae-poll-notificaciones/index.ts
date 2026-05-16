@@ -5,26 +5,49 @@
 // por header x-cron-secret. Sin JWT de usuario.
 //
 // Flujo por cada usuario con sae_notif_enabled=true:
-//   1. Login al SAE (reusa _shared/sae-request-connector).
-//   2. GET al endpoint de notificaciones digitales del portal.
-//      TODO(cURL): URL y formato del payload se ajustan con el cURL real.
-//   3. Diff contra sae_notificaciones por (profile_id, sae_notif_id).
-//   4. Inserta nuevas, intenta vincular con expedientes locales por
-//      numero_sae.
-//   5. Por cada nueva:
+//   1. Login SSO (reusa _shared/sae-request-connector → login.justucuman).
+//   2. Warm-up GET a /casillero para que SSO setee cookies de Laravel del portal.
+//   3. Por cada uno de los 29 slugs de fuero, paginar
+//      GET /casillero/fuero/{slug}?page=N hasta que no haya rel="next".
+//      El portal es Laravel SSR — parsing HTML con cheerio, no hay JSON.
+//      sae_notif_id = href del permalink encriptado (estable, único, opaco).
+//   4. Diff contra sae_notificaciones por (profile_id, sae_notif_id).
+//   5. Inserta nuevas; si vienen marcadas leídas en el portal (icono ausente
+//      en td[0]), se guardan como leídas y NO se renotifican.
+//   6. Intenta vincular cada nueva con expedientes locales por numero_sae.
+//   7. Por cada NO leída en portal:
 //      - Si profile.sae_notif_push: dispara push (difiere si quiet hours).
-//      - Si profile.sae_notif_email: manda email vía Resend.
+//      - Si profile.sae_notif_email: manda email vía Resend a todos los
+//        destinatarios en sae_notif_email_addresses.
 //
 // Body opcional: { dry_run?: boolean, only_profile_id?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import * as cheerio from 'npm:cheerio@1.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+// Listado completo de slugs de fueros del portal del SAE Tucumán.
+// Sufijos: -cjc (Concepción), -cjm (Monteros), -cje (Este), -brs (Banda Río Salí).
+const FUEROS_SLUGS = [
+  'apremios', 'apremios-cjc',
+  'civil', 'civil-cjc', 'civil-cjm',
+  'conclusional', 'conclusional-cjm',
+  'contencioso',
+  'documentos', 'documentos-cjc', 'documentos-cjm',
+  'familia', 'familia-cjc', 'familia-cje', 'familia-cjm',
+  'generico', 'justicia-paz',
+  'mediacion', 'mediacion-brs', 'mediacion-cjc', 'mediacion-cjm',
+  'oga', 'oga-cjc', 'oga-cjm',
+  'originarios', 'superintendencia',
+  'trabajo', 'trabajo-cjc', 'trabajo-cjm',
+]
+const MAX_PAGES_PER_FUERO = 20  // safety cap
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -60,92 +83,95 @@ interface PortalNotificacion {
 }
 
 // ─── Fetch de notificaciones del portal ─────────────────────────────────────
+//
+// El portal del SAE es Laravel SSR — no hay API JSON. La lista vive en
+//   GET /casillero/fuero/{slug}?page=N
+// Se renderiza como <table>. Iteramos los 29 fueros y parseamos con cheerio.
+// El `ver_url` (permalink encriptado de Laravel) es opaco pero único y estable:
+// lo usamos como sae_notif_id para dedup.
 
-async function fetchNotificacionesFromPortal(session: SaeSession): Promise<PortalNotificacion[]> {
-  // TODO(cURL): URL y headers reales se ajustan cuando tengamos el cURL del
-  // request que hace la página /inicializando?module=notificaciones-digitales.
-  // Las opciones más probables:
-  //   - GET https://portaldelsae.justucuman.gov.ar/api/notificaciones
-  //   - GET https://portaldelsae.justucuman.gov.ar/notificaciones-digitales/list
-  //   - POST /api/notificaciones con paginación
-  const candidateUrls = [
-    `${PORTAL_BASE}/notificaciones-digitales/data`,
-    `${PORTAL_BASE}/api/notificaciones-digitales`,
-    `${PORTAL_BASE}/api/notificaciones`,
-  ]
+function parseFechaDMY(s: string): string | null {
+  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!m) return null
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]))
+  return isNaN(d.getTime()) ? null : d.toISOString()
+}
 
-  const headers = new Headers({
-    Accept: 'application/json, text/plain, */*',
-    'User-Agent': BROWSER_UA,
-    Referer: `${PORTAL_BASE}/inicializando?module=notificaciones-digitales`,
-    Origin: PORTAL_BASE,
-    Cookie: session.cookies.join('; '),
-    ...(session.headers?.Authorization ? { Authorization: session.headers.Authorization } : {}),
+async function fetchPaginaFuero(
+  fueroSlug: string,
+  page: number,
+  session: SaeSession,
+): Promise<{ items: PortalNotificacion[]; hayMas: boolean }> {
+  const url = `${PORTAL_BASE}/casillero/fuero/${fueroSlug}?page=${page}`
+  const res = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-AR,es;q=0.9',
+      'User-Agent': BROWSER_UA,
+      Referer: `${PORTAL_BASE}/casillero`,
+      Cookie: session.cookies.join('; '),
+    },
+    redirect: 'manual',
   })
 
-  for (const url of candidateUrls) {
+  // 302 → bouncea al SSO → sesión expirada
+  if (res.status === 301 || res.status === 302) {
+    throw new SaeError('SESSION_EXPIRED', 'Sesión SAE expirada: el portal redirige al SSO')
+  }
+  if (!res.ok) return { items: [], hayMas: false }
+
+  const html = await res.text()
+  const $ = cheerio.load(html)
+
+  const items: PortalNotificacion[] = []
+  $('table.table tbody tr').each((_, tr) => {
+    const tds = $(tr).find('td')
+    if (tds.length < 7) return
+
+    const verHref = $(tds[6]).find('a').attr('href') ?? ''
+    if (!verHref) return  // sin permalink no podemos dedup, lo descartamos
+
+    const td3 = $(tds[3])
+    const smallText = td3.find('small').text().trim()
+    const tipo = td3.clone().children('small').remove().end().text().trim()
+
+    items.push({
+      sae_notif_id: verHref,  // permalink opaco — sirve como ID estable
+      numero_expediente: ($(tds[2]).find('strong').text() || $(tds[2]).text()).trim() || null,
+      caratula: null,  // no viene en la lista; lo podríamos pedir al detalle pero no hace falta hoy
+      oficina: $(tds[5]).text().trim() || null,
+      tipo: tipo || null,
+      titulo: smallText || null,
+      fecha_emision: parseFechaDMY($(tds[1]).text().trim()),
+      raw: {
+        fuero: fueroSlug,
+        destinatario: $(tds[4]).text().trim(),
+        ver_url: verHref.startsWith('http') ? verHref : `${PORTAL_BASE}${verHref}`,
+        leido_portal: $(tds[0]).find('i, svg, img').length === 0,
+      },
+    })
+  })
+
+  const hayMas = $('ul.pagination a[rel="next"]').length > 0
+  return { items, hayMas }
+}
+
+async function fetchNotificacionesFromPortal(session: SaeSession): Promise<PortalNotificacion[]> {
+  const all: PortalNotificacion[] = []
+  for (const slug of FUEROS_SLUGS) {
     try {
-      const res = await fetch(url, { headers })
-      if (!res.ok) continue
-      const payload = await res.json().catch(() => null)
-      const list = extractList(payload)
-      if (list.length > 0 || res.headers.get('content-type')?.includes('json')) {
-        return list.map(normalizeEntry).filter((n): n is PortalNotificacion => n !== null)
+      for (let page = 1; page <= MAX_PAGES_PER_FUERO; page++) {
+        const { items, hayMas } = await fetchPaginaFuero(slug, page, session)
+        all.push(...items)
+        if (!hayMas || items.length === 0) break
       }
-    } catch {
-      // siguiente candidato
+    } catch (e) {
+      // Si la sesión expiró, no tiene sentido seguir con los demás fueros.
+      if (e instanceof SaeError && e.code === 'SESSION_EXPIRED') throw e
+      console.error(`[sae-poll] fuero ${slug} error:`, e instanceof Error ? e.message : e)
     }
   }
-  return []
-}
-
-function extractList(payload: unknown): Record<string, unknown>[] {
-  if (Array.isArray(payload)) return payload as Record<string, unknown>[]
-  if (payload && typeof payload === 'object') {
-    const root = payload as Record<string, unknown>
-    for (const k of ['data', 'items', 'notificaciones', 'rows', 'list']) {
-      const v = root[k]
-      if (Array.isArray(v)) return v as Record<string, unknown>[]
-    }
-  }
-  return []
-}
-
-function normalizeEntry(raw: Record<string, unknown>): PortalNotificacion | null {
-  // TODO(cURL): nombres reales de los campos se completan con el payload concreto.
-  // Por ahora intentamos varias variantes comunes para que la primera prueba
-  // detecte la mayoría de las notificaciones aunque no sepamos el shape exacto.
-  const id = String(raw.id ?? raw.notif_id ?? raw.codigo ?? raw.uuid ?? '').trim()
-  if (!id) return null
-  return {
-    sae_notif_id: id,
-    numero_expediente: pickString(raw, ['numero_expediente', 'nro_expediente', 'expediente', 'numero']),
-    caratula: pickString(raw, ['caratula', 'caption', 'titulo_expediente']),
-    oficina: pickString(raw, ['oficina', 'office', 'dependencia']),
-    tipo: pickString(raw, ['tipo', 'tipo_notificacion', 'type', 'categoria']),
-    titulo: pickString(raw, ['titulo', 'asunto', 'description', 'descripcion']),
-    fecha_emision: pickIsoDate(raw, ['fecha_emision', 'fecha', 'emitted_at', 'created_at']),
-    raw,
-  }
-}
-
-function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
-  for (const k of keys) {
-    const v = obj[k]
-    if (typeof v === 'string' && v.trim()) return v.trim()
-  }
-  return null
-}
-
-function pickIsoDate(obj: Record<string, unknown>, keys: string[]): string | null {
-  for (const k of keys) {
-    const v = obj[k]
-    if (typeof v === 'string' && v.trim()) {
-      const d = new Date(v)
-      if (!isNaN(d.getTime())) return d.toISOString()
-    }
-  }
-  return null
+  return all
 }
 
 // ─── Quiet hours: ¿push ahora o diferido? ───────────────────────────────────
@@ -310,8 +336,46 @@ Deno.serve(async (req) => {
       continue
     }
 
+    // 3.5) Warm-up: visitamos el portal para que el SSO setee las cookies de Laravel
+    //      (las cookies del consultaexpedientes no alcanzan en portaldelsae).
+    try {
+      const warmupRes = await fetch(`${PORTAL_BASE}/casillero`, {
+        headers: {
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'User-Agent': BROWSER_UA,
+          Cookie: session.cookies.join('; '),
+        },
+        redirect: 'follow',  // dejamos que siga al SSO y vuelva con la cookie portal
+      })
+      // Capturamos cookies adicionales que setee el portal/SSO
+      const setCookies = warmupRes.headers.get('set-cookie')
+      if (setCookies) {
+        const lines = setCookies.split(/,(?=[^;,\s]+=)/g).map(s => s.trim()).filter(Boolean)
+        const existing = new Map(session.cookies.map(c => {
+          const eq = c.indexOf('=')
+          return [eq > 0 ? c.slice(0, eq) : c, c] as [string, string]
+        }))
+        for (const line of lines) {
+          const pair = line.split(';')[0]?.trim()
+          if (!pair) continue
+          const eq = pair.indexOf('=')
+          if (eq > 0) existing.set(pair.slice(0, eq), pair)
+        }
+        session = { ...session, cookies: [...existing.values()] }
+      }
+    } catch (e) {
+      console.error(`[sae-poll] warmup error for ${p.id}:`, e instanceof Error ? e.message : e)
+    }
+
     // 4) Fetch notificaciones del portal
-    const portalNotifs = await fetchNotificacionesFromPortal(session)
+    let portalNotifs: PortalNotificacion[] = []
+    try {
+      portalNotifs = await fetchNotificacionesFromPortal(session)
+    } catch (e) {
+      const code = e instanceof SaeError ? e.code : 'FETCH_UNKNOWN'
+      stats.errores.push({ profile_id: p.id, error: `Fetch: ${code}` })
+      continue
+    }
     if (portalNotifs.length === 0) continue
 
     // 5) Cargar las ya conocidas para diff
@@ -340,21 +404,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 7) Insertar nuevas
+    // 7) Insertar nuevas. Si vienen YA leídas del portal (el usuario las
+    //    abrió por su cuenta antes del primer poll), las guardamos pero
+    //    sin disparar push/email — la fila queda como histórico.
     const pushDelay = computePushDelay(p.sae_notif_push_quiet)
-    const insertRows = nuevas.map(n => ({
-      profile_id: p.id,
-      sae_notif_id: n.sae_notif_id,
-      expediente_id: n.numero_expediente ? expByNumero.get(n.numero_expediente) ?? null : null,
-      numero_expediente: n.numero_expediente,
-      caratula: n.caratula,
-      oficina: n.oficina,
-      tipo: n.tipo,
-      titulo: n.titulo,
-      fecha_emision: n.fecha_emision,
-      push_diferido_hasta: p.sae_notif_push ? pushDelay : null,
-      raw_payload: n.raw,
-    }))
+    const insertRows = nuevas.map(n => {
+      const yaLeidaEnPortal = Boolean((n.raw as { leido_portal?: boolean }).leido_portal)
+      return {
+        profile_id: p.id,
+        sae_notif_id: n.sae_notif_id,
+        expediente_id: n.numero_expediente ? expByNumero.get(n.numero_expediente) ?? null : null,
+        numero_expediente: n.numero_expediente,
+        caratula: n.caratula,
+        oficina: n.oficina,
+        tipo: n.tipo,
+        titulo: n.titulo,
+        fecha_emision: n.fecha_emision,
+        leida: yaLeidaEnPortal,
+        leida_at: yaLeidaEnPortal ? new Date().toISOString() : null,
+        push_diferido_hasta: !yaLeidaEnPortal && p.sae_notif_push ? pushDelay : null,
+        raw_payload: n.raw,
+      }
+    })
 
     if (!dryRun) {
       const { error: insErr } = await admin.from('sae_notificaciones').insert(insertRows)
@@ -367,8 +438,11 @@ Deno.serve(async (req) => {
 
     if (dryRun) continue
 
-    // 8) Disparar push + email por cada nueva
+    // 8) Disparar push + email solo por las NO leídas en el portal
     for (const n of nuevas) {
+      const yaLeida = Boolean((n.raw as { leido_portal?: boolean }).leido_portal)
+      if (yaLeida) continue  // ya la vio en el portal, no la renotifiquemos
+
       const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) : null
       const expedienteUrl = expedienteId ? `https://app.marcorossi.com.ar/expedientes/${expedienteId}` : null
 
