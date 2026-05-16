@@ -219,24 +219,48 @@ function NuevoEscritoDialog({
 // ────────────────────────────────────────────────────────────────────────────
 
 function EscritoEditorModal({
-  escrito, onClose, abogado,
+  escrito, onClose, abogado, onRequestDelete,
 }: {
   escrito: Escrito
   onClose: () => void
   abogado: EscritoEncabezadoAbogado
+  onRequestDelete: () => void
 }) {
   const update = useUpdateEscrito()
   const [contenido, setContenido] = useState<EscritoContenido>(escrito.contenido)
   const [titulo, setTitulo] = useState(escrito.titulo)
+  const [estado, setEstado] = useState<Escrito['estado']>(escrito.estado)
   const [dirty, setDirty] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
 
   const handleSave = () => {
     update.mutate(
-      { id: escrito.id, expediente_id: escrito.expediente_id, patch: { titulo, contenido } },
+      { id: escrito.id, expediente_id: escrito.expediente_id, patch: { titulo, contenido, estado } },
       {
         onSuccess: () => { setDirty(false); toast.success('Escrito guardado') },
         onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo guardar'),
+      }
+    )
+  }
+
+  // Cambio de estado: se guarda solo (no requiere apretar "Guardar")
+  const handleChangeEstado = (nuevo: Escrito['estado']) => {
+    setEstado(nuevo)
+    update.mutate(
+      { id: escrito.id, expediente_id: escrito.expediente_id, patch: { estado: nuevo } },
+      {
+        onSuccess: () => {
+          const labels: Record<Escrito['estado'], string> = {
+            borrador: 'Marcado como borrador',
+            final: 'Marcado como final',
+            presentado: 'Marcado como presentado',
+          }
+          toast.success(labels[nuevo])
+        },
+        onError: (err) => {
+          setEstado(escrito.estado) // rollback local
+          toast.error(err instanceof Error ? err.message : 'No se pudo cambiar el estado')
+        },
       }
     )
   }
@@ -304,6 +328,22 @@ function EscritoEditorModal({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {dirty && <span className="text-[10px] text-amber-400">cambios sin guardar</span>}
+          <select
+            value={estado}
+            onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
+            disabled={update.isPending}
+            className={cn(
+              'h-7 rounded-lg border bg-slate-900 px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-colors',
+              estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
+              estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
+              estado === 'presentado' && 'border-violet-500/40 text-violet-300',
+            )}
+            title="Estado del escrito"
+          >
+            <option value="borrador">Borrador</option>
+            <option value="final">Final</option>
+            <option value="presentado">Presentado</option>
+          </select>
           <button
             onClick={handleSave}
             disabled={!dirty || update.isPending}
@@ -318,6 +358,14 @@ function EscritoEditorModal({
           >
             <Printer className="h-3 w-3" />
             Imprimir / PDF
+          </button>
+          <button
+            onClick={onRequestDelete}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
+            title="Eliminar escrito"
+          >
+            <Trash2 className="h-3 w-3" />
+            Eliminar
           </button>
           <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5">
             <X className="h-4 w-4" />
@@ -482,7 +530,7 @@ export function TabEscritos({ expedienteId }: Props) {
                 </span>
                 <button
                   onClick={() => setConfirmDelete(esc)}
-                  className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-all"
+                  className="shrink-0 rounded p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-colors"
                   title="Eliminar"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -510,6 +558,7 @@ export function TabEscritos({ expedienteId }: Props) {
           escrito={editing}
           abogado={abogado}
           onClose={() => setEditingId(null)}
+          onRequestDelete={() => setConfirmDelete(editing)}
         />
       )}
 
@@ -521,7 +570,11 @@ export function TabEscritos({ expedienteId }: Props) {
           deleteMut.mutate(
             { id: confirmDelete.id, expediente_id: confirmDelete.expediente_id },
             {
-              onSuccess: () => { toast.success('Escrito eliminado'); setConfirmDelete(null) },
+              onSuccess: () => {
+                toast.success('Escrito eliminado')
+                setConfirmDelete(null)
+                if (editingId === confirmDelete.id) setEditingId(null)
+              },
               onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo eliminar'),
             }
           )
