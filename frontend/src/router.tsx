@@ -41,6 +41,8 @@ const ConfiguracionPage = lazyWithRetry(() => import('@/pages/configuracion'))
 const ActividadPage = lazyWithRetry(() => import('@/pages/actividad'))
 const ImportarExcelPage = lazyWithRetry(() => import('@/pages/importar-excel'))
 const ImportarSaePage = lazyWithRetry(() => import('@/pages/importar-sae'))
+const NormativaPage = lazyWithRetry(() => import('@/pages/normativa'))
+const NormativaDetailPage = lazyWithRetry(() => import('@/pages/normativa-detail'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -117,6 +119,8 @@ export const router = createBrowserRouter([
       { path: 'configuracion', element: <SuspenseWrapper><ConfiguracionPage /></SuspenseWrapper> },
       { path: 'importar', element: <SuspenseWrapper><ImportarExcelPage /></SuspenseWrapper> },
       { path: 'importar-sae', element: <SuspenseWrapper><ImportarSaePage /></SuspenseWrapper> },
+      { path: 'normativa', element: <SuspenseWrapper><NormativaPage /></SuspenseWrapper> },
+      { path: 'normativa/:id', element: <SuspenseWrapper><NormativaDetailPage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout
       { path: '*', element: <SuspenseWrapper><NotFoundPage /></SuspenseWrapper> },
     ],

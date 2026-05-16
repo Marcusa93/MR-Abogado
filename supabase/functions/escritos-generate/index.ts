@@ -18,7 +18,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_EMBEDDINGS_URL = 'https://openrouter.ai/api/v1/embeddings'
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4'
+const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
+
+// Umbrales calibrados sobre text-embedding-3-small (cosine similarity)
+const RAG_STRONG_THRESHOLD = 0.42
+const RAG_WEAK_THRESHOLD = 0.2
+const RAG_STRONG_TOPK = 3
+const RAG_WEAK_TOPK = 2
+const RAG_MATCH_COUNT = 8           // top-N que pide la RPC antes del filtro de score
+const RAG_MAX_PINNED_CHUNKS = 30    // sanity cap: si un user fija un doc gigante, no exploda el prompt
 
 // Mismas reglas que tab-actuaciones-claves.tsx
 const KEY_TYPES = new Set([
@@ -110,6 +120,9 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma (sin markdown, sin
       "titulo": "PERSONERÍA" | "OBJETO" | "HECHOS" | "DERECHO" | "PRUEBA" | "PETITORIO" | etc — en MAYÚSCULAS,
       "parrafos": ["string", "string", ...]
     }
+  ],
+  "citas": [
+    { "chunk_id": 12345, "cita_texto": "fragmento textual del chunk que usaste" }
   ]
 }
 
@@ -117,7 +130,13 @@ Reglas del JSON:
 - "secciones" SIEMPRE comienza con "PERSONERÍA" (acreditando poder), y SIEMPRE termina con "PETITORIO".
 - Cada "parrafos" es un array de strings sin saltos de línea internos. El renderer agrega sangría automáticamente.
 - No incluyas el encabezado del abogado en "secciones" — eso lo arma el renderer con los datos del perfil.
-- NO uses markdown adentro de los strings (nada de **negrita**, *cursiva*, listas con guiones).`
+- NO uses markdown adentro de los strings (nada de **negrita**, *cursiva*, listas con guiones).
+
+Reglas para "citas":
+- Si la sección "Normativa disponible" trae chunks, USALOS para fundar en derecho. Cada chunk citado va en "citas" con su chunk_id numérico exacto.
+- "cita_texto" es el fragmento literal o casi-literal que tomaste del chunk (máx 250 caracteres).
+- SOLO podés usar chunk_id que aparezcan en la sección "Normativa disponible". No inventes números.
+- Si no hay normativa disponible o no necesitás citar, devolvé "citas": [].`
 
 interface Profile {
   nombre: string | null
@@ -172,6 +191,148 @@ function filterClaves(movements: MovementRow[]): MovementRow[] {
     if (m.is_key === false) return false
     return KEY_TYPES.has(m.tipo_movimiento) || Boolean(m.ai_suggested_action)
   })
+}
+
+// ── RAG: recuperación de normativa ─────────────────────────────────────────
+
+interface NormativaChunk {
+  chunk_id: number
+  documento_id: string
+  contenido: string
+  metadata: Record<string, unknown>
+  score: number
+  was_pinned: boolean
+}
+
+async function createQueryEmbedding(input: string, apiKey: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(OPENROUTER_EMBEDDINGS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://mr-abogado-system.vercel.app',
+        'X-Title': 'MR Abogado Escritos RAG',
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input }),
+    })
+    if (!res.ok) {
+      console.error('[escritos-generate] embeddings error', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    const payload = await res.json() as { data?: { embedding?: number[] }[] }
+    return payload.data?.[0]?.embedding ?? null
+  } catch (e) {
+    console.error('[escritos-generate] embeddings throw', e)
+    return null
+  }
+}
+
+function selectRelevantMatches(matches: NormativaChunk[]): NormativaChunk[] {
+  const strong = matches.filter(m => m.score >= RAG_STRONG_THRESHOLD)
+  if (strong.length > 0) return strong.slice(0, RAG_STRONG_TOPK)
+  const fallback = matches.filter(m => m.score >= RAG_WEAK_THRESHOLD)
+  return fallback.slice(0, RAG_WEAK_TOPK)
+}
+
+interface RagBundle {
+  pinned: NormativaChunk[]
+  retrieved: NormativaChunk[]
+}
+
+async function getRelevantNormativa(
+  serviceClient: ReturnType<typeof createClient>,
+  expedienteId: string,
+  userId: string,
+  query: string,
+  apiKey: string,
+): Promise<RagBundle> {
+  // 1) Documentos fijados al expediente
+  const { data: pinned, error: pinnedErr } = await serviceClient
+    .from('expediente_normativa')
+    .select('documento_id')
+    .eq('expediente_id', expedienteId)
+  if (pinnedErr) {
+    console.error('[escritos-generate] pinned docs error', pinnedErr)
+  }
+  const pinnedDocIds = (pinned ?? []).map(p => (p as { documento_id: string }).documento_id)
+
+  // 2) Chunks de los documentos fijados (sin retrieval, van todos sí o sí)
+  let pinnedChunks: NormativaChunk[] = []
+  if (pinnedDocIds.length > 0) {
+    const { data: rows, error: chunksErr } = await serviceClient
+      .from('normativa_chunks')
+      .select('id, documento_id, contenido, metadata')
+      .in('documento_id', pinnedDocIds)
+      .order('documento_id')
+      .order('orden')
+      .limit(RAG_MAX_PINNED_CHUNKS)
+    if (chunksErr) {
+      console.error('[escritos-generate] pinned chunks error', chunksErr)
+    } else {
+      pinnedChunks = (rows ?? []).map(r => {
+        const row = r as { id: number; documento_id: string; contenido: string; metadata: Record<string, unknown> }
+        return {
+          chunk_id: row.id,
+          documento_id: row.documento_id,
+          contenido: row.contenido,
+          metadata: row.metadata ?? {},
+          score: 1,
+          was_pinned: true,
+        }
+      })
+    }
+  }
+
+  // 3) Retrieval por similarity sobre el resto del corpus
+  let retrievedChunks: NormativaChunk[] = []
+  const embedding = await createQueryEmbedding(query, apiKey)
+  if (embedding) {
+    const { data: matches, error: matchErr } = await serviceClient.rpc('match_normativa_chunks', {
+      query_embedding: embedding,
+      filter_user_id: userId,
+      match_count: RAG_MATCH_COUNT,
+      exclude_documento_ids: pinnedDocIds,
+    })
+    if (matchErr) {
+      console.error('[escritos-generate] match_normativa_chunks error', matchErr)
+    } else {
+      const all = (matches ?? []).map(m => {
+        const row = m as { chunk_id: number; documento_id: string; contenido: string; metadata: Record<string, unknown>; score: number }
+        return {
+          chunk_id: row.chunk_id,
+          documento_id: row.documento_id,
+          contenido: row.contenido,
+          metadata: row.metadata ?? {},
+          score: row.score,
+          was_pinned: false,
+        }
+      })
+      retrievedChunks = selectRelevantMatches(all)
+    }
+  }
+
+  return { pinned: pinnedChunks, retrieved: retrievedChunks }
+}
+
+function formatNormativaForPrompt(bundle: RagBundle): string {
+  const all = [...bundle.pinned, ...bundle.retrieved]
+  if (all.length === 0) return ''
+  const entries = all.map(c => {
+    const tag = c.was_pinned ? 'FIJADA' : `RECUPERADA (score ${c.score.toFixed(2)})`
+    const meta = []
+    if (c.metadata.titulo_documento) meta.push(String(c.metadata.titulo_documento))
+    if (c.metadata.articulo) meta.push(`Art. ${c.metadata.articulo}`)
+    if (c.metadata.seccion) meta.push(String(c.metadata.seccion))
+    if (c.metadata.jurisdiccion) meta.push(`jurisdicción ${c.metadata.jurisdiccion}`)
+    return `### chunk_id ${c.chunk_id} · ${tag} · ${meta.join(' — ') || 'sin metadata'}
+${c.contenido}`
+  }).join('\n\n')
+
+  return `\n## Normativa disponible
+Las siguientes piezas normativas son las ÚNICAS que podés citar. Cada una tiene un \`chunk_id\` numérico. Si una norma fundamenta un argumento, indicalo en el array "citas" del JSON de salida con su \`chunk_id\` y el fragmento que usaste.
+
+${entries}`
 }
 
 Deno.serve(async (req) => {
@@ -287,6 +448,19 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 - Teléfono: ${profile.telefono ?? ''}
 - Email: ${profile.email ?? ''}`
 
+    // 6.5) Retrieval de normativa: fijadas al expediente + top-k por similarity
+    const ragQuery = [
+      body.tipo,
+      exp.caratula ?? '',
+      exp.fuero ?? '',
+      body.instrucciones ?? '',
+      claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
+    ].filter(Boolean).join(' — ')
+
+    const rag = await getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey)
+    const validChunkIds = new Set<number>([...rag.pinned, ...rag.retrieved].map(c => c.chunk_id))
+    const normativaCtx = formatNormativaForPrompt(rag)
+
     // 7) Armar system prompt
     const systemPrompt = [
       'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
@@ -307,6 +481,8 @@ ${body.titulo ? `Título sugerido por el abogado: "${body.titulo}"` : 'Decidí v
 ${expedienteCtx}
 
 ${clavesCtx}
+
+${normativaCtx}
 
 ${abogadoCtx}
 
@@ -381,12 +557,56 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       return json({ error: `No se pudo guardar el escrito: ${insertError.message}` }, 500)
     }
 
+    const escritoId = (escrito as { id: string }).id
+
+    // 10) Validar y persistir citas (descarta chunk_ids inventados)
+    const rawCitas = (contenido as { citas?: unknown }).citas
+    const citas: { chunk_id: number; cita_texto: string }[] = Array.isArray(rawCitas)
+      ? rawCitas.filter((c): c is { chunk_id: number; cita_texto: string } => {
+          if (typeof c !== 'object' || c === null) return false
+          const obj = c as { chunk_id?: unknown; cita_texto?: unknown }
+          return typeof obj.chunk_id === 'number' && typeof obj.cita_texto === 'string'
+        })
+      : []
+
+    const chunksByPinned = new Map<number, boolean>(
+      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.was_pinned]),
+    )
+    const chunksByDoc = new Map<number, string>(
+      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.documento_id]),
+    )
+    const chunksByScore = new Map<number, number>(
+      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.score]),
+    )
+
+    const validCitas = citas
+      .filter(c => validChunkIds.has(c.chunk_id))
+      .slice(0, 30) // sanity cap
+
+    if (validCitas.length > 0) {
+      const citaRows = validCitas.map((c, i) => ({
+        escrito_id: escritoId,
+        chunk_id: c.chunk_id,
+        documento_id: chunksByDoc.get(c.chunk_id) ?? null,
+        cita_texto: c.cita_texto.slice(0, 1000),
+        score: chunksByScore.get(c.chunk_id) ?? null,
+        was_pinned: chunksByPinned.get(c.chunk_id) ?? false,
+        orden: i + 1,
+      }))
+      const { error: citaErr } = await serviceClient.from('escrito_citas').insert(citaRows)
+      if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
+    }
+
     return json({
-      escrito_id: (escrito as { id: string }).id,
+      escrito_id: escritoId,
       contenido,
       modelo: DEFAULT_MODEL,
       registro_tonal: registro.nombre,
       claves_usadas: claves.length,
+      normativa_disponible: rag.pinned.length + rag.retrieved.length,
+      normativa_fijada: rag.pinned.length,
+      citas_persistidas: validCitas.length,
+      citas_descartadas: citas.length - validCitas.length,
     })
 
   } catch (err) {

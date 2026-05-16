@@ -17,6 +17,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Activity,
+  BookMarked,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -43,6 +44,7 @@ const navItems: readonly NavItem[] = [
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, badgeKey: 'agenda' },
   { href: '/alertas', label: 'Alertas', icon: Bell, badgeKey: 'alertas' },
   { href: '/informes', label: 'Informes', icon: BarChart3 },
+  { href: '/normativa', label: 'Normativa', icon: BookMarked },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]
