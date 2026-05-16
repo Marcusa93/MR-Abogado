@@ -3,7 +3,9 @@
 // El "from" debe usar un dominio verificado en Resend.
 
 const RESEND_URL = 'https://api.resend.com/emails'
-const DEFAULT_FROM = 'MR Abogado <notificaciones@marcorossi.com.ar>'
+// Casilla institucional del estudio. Si responden al email, el reply
+// llega acá (que es una casilla real, no un alias).
+const DEFAULT_FROM = 'MR Abogado <estudio@marcorossi.com.ar>'
 
 export interface SendEmailInput {
   to: string | string[]
