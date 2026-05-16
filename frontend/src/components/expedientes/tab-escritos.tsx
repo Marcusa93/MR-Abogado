@@ -5,13 +5,14 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
   PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles,
-  AlertCircle, Pencil, Check,
+  AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
   useDeleteEscrito, useUpdateEscrito,
-  type Escrito, type EscritoContenido,
+  useAttachSignedPdf, usePresentarEscrito, useFetchPortalCategorias,
+  type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
@@ -215,6 +216,279 @@ function NuevoEscritoDialog({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Dialog: presentar al SAE
+// ────────────────────────────────────────────────────────────────────────────
+
+function PresentarSaeDialog({
+  escrito, onClose, onSuccess,
+}: {
+  escrito: Escrito
+  onClose: () => void
+  onSuccess: (nroComprobante: string | null | undefined) => void
+}) {
+  const fetchCategorias = useFetchPortalCategorias()
+  const presentar = usePresentarEscrito()
+  const [portalInfo, setPortalInfo] = useState<PortalFormInfo | null>(null)
+  const [categoria, setCategoria] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [presentaDoc, setPresentaDoc] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Al abrir, intenta traer categorías reales del portal
+  useMemo(() => {
+    fetchCategorias.mutate(escrito.id, {
+      onSuccess: (data) => setPortalInfo(data),
+      onError: (err) => setError(err.message),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const submit = () => {
+    setError(null)
+    presentar.mutate(
+      {
+        escrito_id: escrito.id,
+        expediente_id: escrito.expediente_id,
+        categoria: categoria.trim(),
+        descripcion: descripcion.trim(),
+        presenta_documentacion: presentaDoc,
+      },
+      {
+        onSuccess: (res) => onSuccess(res.nro_comprobante),
+        onError: (err) => setError(err instanceof Error ? err.message : 'No se pudo presentar'),
+      }
+    )
+  }
+
+  const isLoading = presentar.isPending || fetchCategorias.isPending
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={isLoading ? undefined : onClose} />
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
+          <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
+            <Send className="h-4 w-4 text-emerald-400" />
+            Presentar al portal del SAE
+          </h2>
+          <button onClick={onClose} disabled={isLoading} className="rounded-lg p-1 text-zinc-400 hover:bg-white/5 disabled:opacity-30">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          {fetchCategorias.isPending && (
+            <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Conectando con el portal del SAE…
+            </div>
+          )}
+
+          {portalInfo && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-3 text-xs">
+              <p className="text-emerald-300 font-medium">Conectado al portal</p>
+              {portalInfo.expediente.caratula && (
+                <p className="mt-1 text-zinc-400 truncate">{portalInfo.expediente.caratula}</p>
+              )}
+              {portalInfo.expediente.oficina && (
+                <p className="text-zinc-500 truncate">{portalInfo.expediente.oficina}</p>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Categoría *</label>
+            <input
+              list="categorias-portal"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              placeholder={portalInfo?.categorias.length ? 'Elegí una categoría' : 'Cargando…'}
+              disabled={isLoading || !portalInfo}
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+            />
+            <datalist id="categorias-portal">
+              {portalInfo?.categorias.map(c => <option key={c.id} value={c.nombre} />)}
+            </datalist>
+            {portalInfo && portalInfo.categorias.length === 0 && (
+              <p className="mt-1 text-[10px] text-amber-400">
+                No pude detectar categorías automáticamente. Escribí el nombre tal como aparece en el portal.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Descripción *</label>
+            <input
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Texto de referencia que aparece en el portal"
+              disabled={isLoading}
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-xs text-zinc-300">
+            <input
+              type="checkbox"
+              checked={presentaDoc}
+              onChange={(e) => setPresentaDoc(e.target.checked)}
+              disabled={isLoading}
+              className="rounded border-white/20 bg-white/5"
+            />
+            Presento documentación original junto con este escrito
+          </label>
+
+          {error && (
+            <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 flex items-start gap-2 text-xs text-rose-200">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-amber-500/20 bg-amber-950/10 p-3 text-[10px] text-amber-200/80">
+            ⚠ Esta acción presenta el escrito a la oficina judicial. Asegurate de que el PDF firmado sea el correcto. La presentación no se puede deshacer desde nuestra app.
+          </div>
+        </div>
+
+        <div className="border-t border-white/5 px-5 py-3 flex items-center justify-end gap-2">
+          <button onClick={onClose} disabled={isLoading} className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 disabled:opacity-30">
+            Cancelar
+          </button>
+          <button
+            onClick={submit}
+            disabled={isLoading || !categoria.trim() || !descripcion.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+          >
+            {presentar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            Presentar al SAE
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workflow bar: Firmar → Presentar → Comprobante
+// ────────────────────────────────────────────────────────────────────────────
+
+function WorkflowBar({ escrito }: { escrito: Escrito }) {
+  const attach = useAttachSignedPdf()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [openPresentar, setOpenPresentar] = useState(false)
+
+  const handleFile = (file: File) => {
+    attach.mutate(
+      { escrito_id: escrito.id, expediente_id: escrito.expediente_id, file },
+      {
+        onSuccess: ({ hasSignature }) => {
+          if (hasSignature) toast.success('PDF firmado adjuntado')
+          else toast.success('PDF adjuntado (no detecté firma embebida — verificá que esté correctamente firmado)')
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo adjuntar'),
+      }
+    )
+  }
+
+  const isFirmado = escrito.estado === 'firmado' || escrito.estado === 'presentado_sae'
+  const isPresentado = escrito.estado === 'presentado_sae'
+  const comprobante = escrito.presentacion_sae?.nro_comprobante
+
+  return (
+    <div className="border-b border-white/5 bg-white/[0.02] px-5 py-3 flex items-center gap-3 text-xs">
+      {/* Paso 1: Firmar */}
+      <div className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
+        isFirmado ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-300' : 'border-white/10 text-zinc-400'
+      )}>
+        <ShieldCheck className="h-3.5 w-3.5" />
+        <span className="font-medium">
+          {isFirmado ? 'Firmado' : '1. Firmar'}
+        </span>
+        {escrito.pdf_firmado_at && (
+          <span className="text-[10px] text-zinc-500">
+            · {new Date(escrito.pdf_firmado_at).toLocaleDateString('es-AR')}
+          </span>
+        )}
+      </div>
+
+      {!isFirmado && (
+        <a
+          href="https://firmar.gob.ar/firmador/"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300"
+        >
+          firmar.gob.ar <ExternalLink className="h-2.5 w-2.5" />
+        </a>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) handleFile(f)
+          e.target.value = ''
+        }}
+      />
+      {!isPresentado && (
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={attach.isPending}
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10 disabled:opacity-30"
+          title={isFirmado ? 'Reemplazar PDF firmado' : 'Adjuntar PDF firmado'}
+        >
+          {attach.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+          {isFirmado ? 'Reemplazar firmado' : 'Adjuntar firmado'}
+        </button>
+      )}
+
+      <span className="text-zinc-700">→</span>
+
+      {/* Paso 2: Presentar */}
+      <div className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
+        isPresentado ? 'border-violet-500/30 bg-violet-500/5 text-violet-300'
+                     : isFirmado ? 'border-white/10 text-zinc-300'
+                     : 'border-white/10 text-zinc-600',
+      )}>
+        <Send className="h-3.5 w-3.5" />
+        <span className="font-medium">
+          {isPresentado ? 'Presentado' : '2. Presentar al SAE'}
+        </span>
+        {isPresentado && comprobante && (
+          <span className="text-[10px] font-mono">· {comprobante}</span>
+        )}
+      </div>
+
+      {isFirmado && !isPresentado && (
+        <button
+          onClick={() => setOpenPresentar(true)}
+          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/25"
+        >
+          <Send className="h-3 w-3" />
+          Presentar ahora
+        </button>
+      )}
+
+      {openPresentar && (
+        <PresentarSaeDialog
+          escrito={escrito}
+          onClose={() => setOpenPresentar(false)}
+          onSuccess={(nro) => {
+            setOpenPresentar(false)
+            toast.success(nro ? `Presentado · Comprobante ${nro}` : 'Presentado al SAE')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Editor de escrito (full-screen modal)
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -253,6 +527,8 @@ function EscritoEditorModal({
           const labels: Record<Escrito['estado'], string> = {
             borrador: 'Marcado como borrador',
             final: 'Marcado como final',
+            firmado: 'Marcado como firmado',
+            presentado_sae: 'Marcado como presentado al SAE',
             presentado: 'Marcado como presentado',
           }
           toast.success(labels[nuevo])
@@ -331,18 +607,24 @@ function EscritoEditorModal({
           <select
             value={estado}
             onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
-            disabled={update.isPending}
+            disabled={update.isPending || estado === 'firmado' || estado === 'presentado_sae'}
             className={cn(
               'h-7 rounded-lg border bg-slate-900 px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-colors',
               estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
               estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
+              estado === 'firmado'   && 'border-cyan-500/40 text-cyan-300',
+              estado === 'presentado_sae' && 'border-violet-500/40 text-violet-300',
               estado === 'presentado' && 'border-violet-500/40 text-violet-300',
             )}
-            title="Estado del escrito"
+            title={estado === 'firmado' || estado === 'presentado_sae'
+              ? 'Estado controlado por el workflow de firma/presentación'
+              : 'Estado del escrito'}
           >
             <option value="borrador">Borrador</option>
             <option value="final">Final</option>
-            <option value="presentado">Presentado</option>
+            {estado === 'firmado' && <option value="firmado">Firmado</option>}
+            {estado === 'presentado_sae' && <option value="presentado_sae">Presentado al SAE</option>}
+            <option value="presentado">Presentado (manual)</option>
           </select>
           <button
             onClick={handleSave}
@@ -372,6 +654,9 @@ function EscritoEditorModal({
           </button>
         </div>
       </div>
+
+      {/* Workflow: Firmar → Presentar */}
+      <WorkflowBar escrito={escrito} />
 
       {/* Split: editor + preview */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2">
