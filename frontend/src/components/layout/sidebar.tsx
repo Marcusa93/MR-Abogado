@@ -24,7 +24,7 @@ interface SidebarProps {
   onToggle: () => void
 }
 
-type BadgeKey = 'tareas' | 'alertas' | 'agenda'
+type BadgeKey = 'tareas' | 'alertas' | 'agenda' | 'sae-notif'
 
 interface NavItem {
   href: string
@@ -42,6 +42,7 @@ const navItems: readonly NavItem[] = [
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, badgeKey: 'agenda' },
   { href: '/alertas', label: 'Alertas', icon: Bell, badgeKey: 'alertas' },
+  { href: '/notificaciones-sae', label: 'Notif. SAE', icon: Bell, badgeKey: 'sae-notif' },
   { href: '/informes', label: 'Informes', icon: BarChart3 },
   { href: '/normativa', label: 'Normativa', icon: BookMarked },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
@@ -57,12 +58,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     tareas: badges.tareasVencidas,
     alertas: badges.alertasPendientes,
     agenda: badges.turnosHoy,
+    'sae-notif': badges.saeNotifUnread,
   }
 
   const badgeColors: Record<BadgeKey, string> = {
     tareas: 'bg-rose-500 text-white',
     alertas: 'bg-[var(--brand-accent)] text-white',
     agenda: 'bg-[var(--brand-accent)] text-white',
+    'sae-notif': 'bg-cyan-500 text-white',
   }
 
   const getInitials = () => {

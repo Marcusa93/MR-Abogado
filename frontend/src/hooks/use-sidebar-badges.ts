@@ -6,6 +6,7 @@ export interface SidebarBadges {
   tareasVencidas: number
   alertasPendientes: number
   turnosHoy: number
+  saeNotifUnread: number
 }
 
 export function useSidebarBadges(): SidebarBadges {
@@ -64,5 +65,21 @@ export function useSidebarBadges(): SidebarBadges {
     refetchInterval: 300_000,
   })
 
-  return { tareasVencidas, alertasPendientes, turnosHoy }
+  const { data: saeNotifUnread = 0 } = useQuery({
+    queryKey: ['sidebar-badges', 'sae-notif-unread', userId],
+    queryFn: async () => {
+      if (!userId) return 0
+      const { count, error } = await supabase
+        .from('sae_notificaciones' as never)
+        .select('id', { count: 'exact', head: true })
+        .eq('leida', false)
+      if (error) return 0
+      return count ?? 0
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
+  return { tareasVencidas, alertasPendientes, turnosHoy, saeNotifUnread }
 }

@@ -1,0 +1,138 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+
+const supabase = createClient()
+
+export interface SaeNotificacion {
+  id: string
+  profile_id: string
+  sae_notif_id: string
+  expediente_id: string | null
+  numero_expediente: string | null
+  caratula: string | null
+  oficina: string | null
+  tipo: string | null
+  titulo: string | null
+  fecha_emision: string | null
+  fecha_captura: string
+  leida: boolean
+  leida_at: string | null
+  notified_push_at: string | null
+  notified_email_at: string | null
+  created_at: string
+}
+
+export interface SaeNotifPreferences {
+  sae_notif_enabled: boolean
+  sae_notif_push: boolean
+  sae_notif_email: boolean
+  sae_notif_email_addresses: string[]
+  sae_notif_push_quiet: boolean
+  sae_notif_weekend: boolean
+}
+
+// ── Lista ──────────────────────────────────────────────────────
+
+export function useSaeNotificaciones(opts: { unreadOnly?: boolean; limit?: number } = {}) {
+  return useQuery<SaeNotificacion[]>({
+    queryKey: ['sae-notificaciones', opts.unreadOnly ?? false, opts.limit ?? 50],
+    queryFn: async () => {
+      let q = supabase
+        .from('sae_notificaciones' as never)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(opts.limit ?? 50)
+      if (opts.unreadOnly) q = q.eq('leida', false)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as unknown as SaeNotificacion[]
+    },
+    refetchInterval: 60_000, // refresca cada minuto por si el cron metió cosas nuevas
+  })
+}
+
+export function useSaeNotifUnreadCount() {
+  return useQuery<number>({
+    queryKey: ['sae-notificaciones-unread-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('sae_notificaciones' as never)
+        .select('id', { count: 'exact', head: true })
+        .eq('leida', false)
+      if (error) throw error
+      return count ?? 0
+    },
+    refetchInterval: 60_000,
+  })
+}
+
+// ── Mark as read ──────────────────────────────────────────────
+
+export function useMarkSaeNotifAsRead() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      const { error } = await supabase
+        .from('sae_notificaciones' as never)
+        .update({ leida: true, leida_at: new Date().toISOString() } as never)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+    },
+  })
+}
+
+export function useMarkAllSaeNotifAsRead() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('sae_notificaciones' as never)
+        .update({ leida: true, leida_at: new Date().toISOString() } as never)
+        .eq('leida', false)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+    },
+  })
+}
+
+// ── Preferencias ───────────────────────────────────────────────
+
+export function useSaeNotifPreferences() {
+  return useQuery<SaeNotifPreferences | null>({
+    queryKey: ['sae-notif-preferences'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend' as never)
+        .eq('id', user.id)
+        .single()
+      if (error) throw error
+      return data as unknown as SaeNotifPreferences
+    },
+  })
+}
+
+export function useUpdateSaeNotifPreferences() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, Partial<SaeNotifPreferences>>({
+    mutationFn: async (patch) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+      const { error } = await supabase
+        .from('profiles')
+        .update(patch as never)
+        .eq('id', user.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sae-notif-preferences'] }),
+  })
+}

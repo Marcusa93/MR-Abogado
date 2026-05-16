@@ -38,6 +38,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { useSaeCredential, useSaveSaeCredential, useDeleteSaeCredential, useSaeVerify } from '@/hooks/use-sae'
+import { SaeNotifConfig } from '@/components/configuracion/sae-notif-config'
 
 // ---------------------------------------------------------------------------
 // Profile Section
@@ -439,6 +440,18 @@ function ChangePasswordSection() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SAE Notificaciones Section (preferences wrapper)
+// ---------------------------------------------------------------------------
+
+function SaeNotifSection() {
+  return (
+    <div className="glass-card rounded-xl border border-white/10 p-5">
+      <SaeNotifConfig />
     </div>
   )
 }
@@ -1393,6 +1406,8 @@ export default function ConfiguracionPage() {
       <ChangePasswordSection />
 
       <SaeCredentialsSection />
+
+      <SaeNotifSection />
 
       {/* Admin sections */}
       {isAdmin && (
