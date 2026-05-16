@@ -383,7 +383,6 @@ export function useCreateTarea() {
           expediente:expedientes!tareas_expediente_id_fkey (
             id,
             numero,
-            numero_expediente,
             caratula
           )
         `)
