@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
 import { displayRol } from '@/lib/utils/display-rol'
-import { ThemeToggle } from './theme-toggle'
 import {
   LayoutDashboard,
   FolderOpen,
@@ -192,8 +191,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <ThemeToggle />
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={onToggle}

@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom'
 import { Search, Menu } from 'lucide-react'
 import { UserMenu } from './user-menu'
 import { NotificationDropdown } from './notification-dropdown'
-import { ThemeToggle } from './theme-toggle'
 import { HelpButton } from './help-button'
 import { PushToggle } from './push-toggle'
 import { SaeHealthBadge } from './sae-health-badge'
@@ -90,7 +89,6 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         {/* Right: Notifications + User menu */}
         <div className="flex items-center gap-1.5">
           <SaeHealthBadge />
-          <ThemeToggle />
           <HelpButton />
           <PushToggle />
           <NotificationDropdown />
