@@ -125,10 +125,18 @@ export function useUploadNormativa() {
       const docId = crypto.randomUUID()
       const path = `${user.id}/${docId}.${ext}`
 
+      // Algunos browsers no setean type para .txt — inferimos por extensión.
+      const inferredType =
+        input.file.type
+        || (ext === 'txt' ? 'text/plain'
+          : ext === 'pdf' ? 'application/pdf'
+          : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : 'application/octet-stream')
+
       // 1) Subir el archivo
       const { error: upErr } = await supabase
         .storage.from('normativa-originales')
-        .upload(path, input.file, { contentType: input.file.type, upsert: false })
+        .upload(path, input.file, { contentType: inferredType, upsert: false })
       if (upErr) throw upErr
 
       // 2) Crear el documento con estado pendiente
@@ -145,7 +153,7 @@ export function useUploadNormativa() {
           fecha: input.fecha || null,
           source_file_path: path,
           source_file_name: input.file.name,
-          source_mime_type: input.file.type,
+          source_mime_type: inferredType,
           checksum,
           estado: 'pendiente',
         } as never)

@@ -242,17 +242,21 @@ async function extractFromDocx(buffer: Uint8Array): Promise<string> {
 }
 
 async function extractTextFromFile(buffer: Uint8Array, mime: string, fileName: string): Promise<string> {
-  if (mime === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')) {
+  const lower = fileName.toLowerCase()
+  if (mime === 'application/pdf' || lower.endsWith('.pdf')) {
     return extractFromPdf(buffer)
   }
   if (
     mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    fileName.toLowerCase().endsWith('.docx')
+    lower.endsWith('.docx')
   ) {
     return extractFromDocx(buffer)
   }
-  if (mime === 'application/msword' || fileName.toLowerCase().endsWith('.doc')) {
-    throw new Error('Formato .doc legacy no soportado: convertí a .docx o PDF nativo')
+  if (mime === 'text/plain' || lower.endsWith('.txt') || lower.endsWith('.md')) {
+    return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
+  }
+  if (mime === 'application/msword' || lower.endsWith('.doc')) {
+    throw new Error('Formato .doc legacy no soportado: convertí a .docx, PDF nativo o .txt')
   }
   throw new Error(`Mime type no soportado: ${mime}`)
 }

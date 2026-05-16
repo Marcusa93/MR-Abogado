@@ -80,17 +80,17 @@ function UploadForm({ onClose }: { onClose: () => void }) {
             <label className="mb-1 block text-xs font-medium text-zinc-300">Archivo *</label>
             <input
               type="file"
-              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 setFile(f ?? null)
-                if (f && !titulo) setTitulo(f.name.replace(/\.(pdf|docx?)$/i, ''))
+                if (f && !titulo) setTitulo(f.name.replace(/\.(pdf|docx?|txt)$/i, ''))
               }}
               disabled={upload.isPending}
               className="block w-full text-xs text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-500/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-cyan-300 hover:file:bg-cyan-500/20"
             />
             <p className="mt-1 text-[10px] text-zinc-500">
-              Solo PDF/DOCX nativamente digitales (no escaneados). Máx. 30 MB.
+              PDF/DOCX nativamente digitales (no escaneados) o texto plano UTF-8. Máx. 30 MB.
             </p>
           </div>
           <div>
