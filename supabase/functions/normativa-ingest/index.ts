@@ -323,44 +323,42 @@ async function processDocument(documentoId: string, apiKey: string): Promise<voi
       throw new Error('No se generaron chunks. El documento puede estar vacío o tener formato no soportado.')
     }
 
-    // 6) Embeddings en lotes
-    const rows: {
-      documento_id: string; user_id: string; chunk_uid: string; orden: number;
-      contenido: string; embedding: number[]; metadata: Record<string, unknown>;
-    }[] = []
+    // 6) Limpiar chunks previos antes de empezar (por reindex o reintento fallido)
+    await admin.from('normativa_chunks').delete().eq('documento_id', doc.id)
 
+    // 7) Embeddings + insert intercalados: cada lote se inserta apenas se
+    //    embebe, para que no caigamos en statement_timeout cuando son
+    //    cientos de chunks con vectors de 1536 floats.
+    let totalInsertados = 0
     for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
       const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
       const embeddings = await createEmbeddings(batch.map(c => c.contenido), apiKey)
-      for (let j = 0; j < batch.length; j++) {
+      const batchRows = batch.map((c, j) => {
         const idx = i + j
-        rows.push({
+        return {
           documento_id: doc.id,
           user_id: doc.user_id,
           chunk_uid: `${doc.id}:${idx + 1}:${crypto.randomUUID().slice(0, 8)}`,
           orden: idx + 1,
-          contenido: batch[j].contenido,
+          contenido: c.contenido,
           embedding: embeddings[j],
           metadata: {
-            ...batch[j].metadata,
+            ...c.metadata,
             tipo: doc.tipo,
             numero: doc.numero,
             jurisdiccion: doc.jurisdiccion,
             titulo_documento: doc.titulo,
           },
-        })
-      }
+        }
+      })
+      const { error: insErr } = await admin.from('normativa_chunks').insert(batchRows)
+      if (insErr) throw new Error(`Insert chunks (batch ${i / EMBEDDING_BATCH_SIZE + 1}): ${insErr.message}`)
+      totalInsertados += batchRows.length
     }
-
-    // 7) Insertar chunks (limpiar previos por si es reindexación)
-    await admin.from('normativa_chunks').delete().eq('documento_id', doc.id)
-    const { error: insErr } = await admin.from('normativa_chunks').insert(rows)
-    if (insErr) throw new Error(`Insert chunks: ${insErr.message}`)
-
     // 8) Marcar indexado
     await admin.from('normativa_documentos').update({
       estado: 'indexado',
-      chunk_count: rows.length,
+      chunk_count: totalInsertados,
       error_message: null,
       updated_at: new Date().toISOString(),
     }).eq('id', doc.id)
