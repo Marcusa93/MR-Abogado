@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
+  Building2, CalendarDays,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -10,96 +11,141 @@ import {
   useSaeNotifPreferences, useTriggerSaePoll,
   type SaeNotificacion, type PollResult,
 } from '@/hooks/use-sae-notificaciones'
+import { getFueroLabel } from '@/lib/sae-fueros'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
 const PORTAL_URL = 'https://portaldelsae.justucuman.gov.ar/inicializando?module=notificaciones-digitales'
 
-function formatFecha(iso: string | null): string {
+function formatFechaCompleta(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' })
+}
+
+function formatFechaRelativa(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso).getTime()
+  const now = Date.now()
+  const diffMin = Math.round((now - d) / 60_000)
+  if (diffMin < 1) return 'recién'
+  if (diffMin < 60) return `hace ${diffMin} min`
+  const diffH = Math.round(diffMin / 60)
+  if (diffH < 24) return `hace ${diffH} h`
+  const diffD = Math.round(diffH / 24)
+  if (diffD < 7) return `hace ${diffD} d`
+  return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
 }
 
 function NotifCard({ notif }: { notif: SaeNotificacion }) {
   const mark = useMarkSaeNotifAsRead()
   const unread = !notif.leida
+  const fueroSlug = notif.raw_payload?.fuero
+  const fueroLabel = getFueroLabel(fueroSlug)
+  const caratulaLocal = notif.expediente?.caratula
+  const fechaPortal = notif.fecha_emision ?? notif.created_at
 
   return (
     <div className={cn(
-      'group flex items-start gap-3 rounded-lg border p-4 transition-colors',
-      unread ? 'border-cyan-500/30 bg-cyan-500/5' : 'border-white/5 bg-white/[0.02]',
+      'rounded-xl border p-4 transition-colors',
+      unread
+        ? 'border-cyan-500/40 bg-cyan-500/[0.06] shadow-[0_0_0_1px_rgba(6,182,212,0.15)]'
+        : 'border-white/5 bg-white/[0.02]',
     )}>
-      <div className={cn(
-        'shrink-0 rounded-lg p-2',
-        unread ? 'bg-cyan-500/15 text-cyan-300' : 'bg-white/5 text-zinc-500',
-      )}>
-        <Bell className="h-4 w-4" />
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          {notif.tipo && (
-            <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-300">
-              {notif.tipo}
+      {/* Header: meta info (fuero · expediente · fecha) */}
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2 text-[11px]">
+          {fueroLabel && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 font-medium text-cyan-300">
+              <Building2 className="h-2.5 w-2.5" />
+              {fueroLabel}
             </span>
           )}
           {notif.numero_expediente && (
-            <span className="text-[11px] font-mono text-zinc-400">
+            <span className="font-mono text-zinc-300 bg-white/5 rounded px-1.5 py-0.5">
               Exp. {notif.numero_expediente}
             </span>
           )}
+          <span
+            className="text-zinc-500 inline-flex items-center gap-1"
+            title={formatFechaCompleta(fechaPortal)}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {formatFechaRelativa(fechaPortal)}
+          </span>
           {unread && (
-            <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+            <span className="rounded-full bg-cyan-500/25 px-2 py-0.5 font-semibold text-cyan-200">
               Nueva
             </span>
           )}
         </div>
-
-        {notif.titulo && (
-          <p className="mt-1.5 text-sm font-medium text-zinc-100">{notif.titulo}</p>
-        )}
-
-        {notif.caratula && (
-          <p className="mt-0.5 text-[12px] text-zinc-400 truncate">{notif.caratula}</p>
-        )}
-        {notif.oficina && (
-          <p className="text-[11px] text-zinc-500">{notif.oficina}</p>
-        )}
-
-        <p className="mt-2 text-[10px] text-zinc-600">
-          {formatFecha(notif.fecha_emision ?? notif.created_at)}
-        </p>
-
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
-          {notif.expediente_id && (
-            <Link
-              to={`/expedientes/${notif.expediente_id}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10"
-            >
-              <FileText className="h-3 w-3" />
-              Abrir expediente
-            </Link>
-          )}
-          <a
-            href={PORTAL_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10"
+        {/* Marcar leído rápido */}
+        {unread && (
+          <button
+            onClick={() => mark.mutate(notif.id)}
+            disabled={mark.isPending}
+            className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
+            title="Marcar como leída"
           >
-            <ExternalLink className="h-3 w-3" />
-            Ver en el portal
-          </a>
-          {unread && (
-            <button
-              onClick={() => mark.mutate(notif.id)}
-              disabled={mark.isPending}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
-            >
-              <Check className="h-3 w-3" />
-              Marcar como leída
-            </button>
-          )}
+            {mark.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            Leído
+          </button>
+        )}
+      </div>
+
+      {/* Tipo (chip violeta destacado) */}
+      {notif.tipo && (
+        <div className="mb-1.5">
+          <span className="inline-block rounded-md bg-violet-500/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-200">
+            {notif.tipo}
+          </span>
         </div>
+      )}
+
+      {/* Título de la actuación */}
+      {notif.titulo && (
+        <h3 className="text-sm font-semibold text-zinc-50 leading-snug">{notif.titulo}</h3>
+      )}
+
+      {/* Carátula del expediente (si está en cartera) o destinatario (sino) */}
+      {caratulaLocal ? (
+        <p className="mt-1 text-xs text-zinc-300 italic truncate" title={caratulaLocal}>
+          {caratulaLocal}
+        </p>
+      ) : notif.raw_payload?.destinatario && (
+        <p className="mt-1 text-xs text-zinc-400 truncate">
+          Destinatario: {notif.raw_payload.destinatario}
+        </p>
+      )}
+
+      {/* Oficina judicial */}
+      {notif.oficina && (
+        <p className="mt-0.5 text-[11px] text-zinc-500 truncate">{notif.oficina}</p>
+      )}
+
+      {/* Acciones */}
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
+        {notif.expediente_id ? (
+          <Link
+            to={`/expedientes/${notif.expediente_id}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/20"
+          >
+            <FileText className="h-3 w-3" />
+            Abrir expediente
+          </Link>
+        ) : notif.numero_expediente && (
+          <span className="text-[10px] text-zinc-500 italic">
+            Expediente no está en tu cartera
+          </span>
+        )}
+        <a
+          href={notif.raw_payload?.ver_url || PORTAL_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Ver en portal
+        </a>
       </div>
     </div>
   )

@@ -20,6 +20,9 @@ export interface SaeNotificacion {
   notified_push_at: string | null
   notified_email_at: string | null
   created_at: string
+  raw_payload?: { fuero?: string; ver_url?: string; leido_portal?: boolean; destinatario?: string } | null
+  // Join con expediente local (si está vinculado)
+  expediente?: { id: string; caratula: string | null; numero: string | null } | null
 }
 
 export interface SaeNotifPreferences {
@@ -40,13 +43,17 @@ export function useSaeNotificaciones(opts: { unreadOnly?: boolean; limit?: numbe
     queryFn: async () => {
       let q = supabase
         .from('sae_notificaciones' as never)
-        .select('*')
+        .select('*, raw_payload, expediente:expedientes(id, caratula, numero)')
         .order('created_at', { ascending: false })
         .limit(opts.limit ?? 50)
       if (opts.unreadOnly) q = q.eq('leida', false)
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as unknown as SaeNotificacion[]
+      return ((data ?? []) as unknown as (SaeNotificacion & { expediente: SaeNotificacion['expediente'] | SaeNotificacion['expediente'][] })[])
+        .map(r => ({
+          ...r,
+          expediente: Array.isArray(r.expediente) ? r.expediente[0] ?? null : r.expediente,
+        })) as SaeNotificacion[]
     },
     refetchInterval: 60_000, // refresca cada minuto por si el cron metió cosas nuevas
   })

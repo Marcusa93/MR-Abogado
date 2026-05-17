@@ -6,6 +6,11 @@ export interface FueroDef {
   label: string
 }
 
+export function getFueroLabel(slug: string | null | undefined): string {
+  if (!slug) return ''
+  return FUEROS_SAE.find(f => f.slug === slug)?.label ?? slug
+}
+
 export const FUEROS_SAE: FueroDef[] = [
   { slug: 'apremios',           label: 'Apremios' },
   { slug: 'apremios-cjc',       label: 'Apremios (Concepción)' },

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAlertas, useMarcarLeida, useMarcarTodasLeidas, type AlertaWithExpediente } from '@/hooks/use-alertas'
+import { useSaeNotifUnreadCount } from '@/hooks/use-sae-notificaciones'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import {
@@ -125,10 +126,12 @@ export function NotificationDropdown() {
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   const { data: alertas } = useAlertas()
+  const { data: saeUnread = 0 } = useSaeNotifUnreadCount()
   const marcarLeida = useMarcarLeida()
   const marcarTodasLeidas = useMarcarTodasLeidas()
 
   const alertCount = alertas?.length ?? 0
+  const totalCount = alertCount + saeUnread
   const displayAlerts = (alertas ?? []).slice(0, 8)
 
   // Close on click outside
@@ -179,9 +182,9 @@ export function NotificationDropdown() {
         aria-label="Notificaciones"
       >
         <Bell className="h-5 w-5" />
-        {alertCount > 0 && (
+        {totalCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-zinc-950 animate-pulse-subtle">
-            {alertCount > 99 ? '99+' : alertCount}
+            {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
       </button>
@@ -222,9 +225,30 @@ export function NotificationDropdown() {
               )}
             </div>
 
+            {/* SAE highlight: si hay notif SAE no leídas, mostrar shortcut */}
+            {saeUnread > 0 && (
+              <button
+                onClick={() => handleNavigate('/notificaciones-sae')}
+                className="w-full border-b border-white/10 px-4 py-3 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors text-left"
+              >
+                <div className="rounded-lg bg-cyan-500/15 p-2 shrink-0">
+                  <Bell className="h-4 w-4 text-cyan-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                    {saeUnread} {saeUnread === 1 ? 'notificación' : 'notificaciones'} del SAE
+                  </p>
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    Sin leer en el casillero digital · tocá para ver
+                  </p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-cyan-300 shrink-0" />
+              </button>
+            )}
+
             {/* Alert list */}
             <div className="flex-1 overflow-y-auto sm:max-h-[380px]">
-              {displayAlerts.length === 0 ? (
+              {displayAlerts.length === 0 && saeUnread === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4">
                   <BellOff className="h-8 w-8 text-zinc-600 mb-2" />
                   <p className="text-xs text-zinc-900 dark:text-zinc-500">Sin notificaciones pendientes</p>
@@ -235,7 +259,7 @@ export function NotificationDropdown() {
                     Configurar alertas →
                   </button>
                 </div>
-              ) : (
+              ) : displayAlerts.length === 0 ? null : (
                 displayAlerts.map((alerta) => (
                   <NotificationItem
                     key={alerta.id}
