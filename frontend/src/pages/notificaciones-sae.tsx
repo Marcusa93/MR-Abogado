@@ -173,7 +173,7 @@ export default function NotificacionesSaePage() {
         </div>
       </div>
 
-      {lastResult && lastResult.debug && (
+      {lastResult && (lastResult.debug || lastResult.errores.length > 0 || (lastResult.fueros_iterados ?? []).length > 0) && (
         <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.03] p-3">
           <button
             onClick={() => setDebugOpen(!debugOpen)}
