@@ -41,21 +41,23 @@ export function ConstanciaModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm print:bg-white print:p-0 print:items-start">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 print:bg-white print:text-black print:border-0 print:max-h-none print:max-w-none print:rounded-none print:shadow-none">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm print:bg-white print:p-0 print:items-start">
+      <div className="relative w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 print:bg-white print:text-black print:border-0 print:max-h-none print:max-w-none print:rounded-none print:shadow-none">
         {/* Header (oculto al imprimir) */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/95 backdrop-blur px-5 py-3 print:hidden">
-          <div className="flex items-center gap-2">
-            <FileCheck2 className="h-5 w-5 text-emerald-400" />
-            <h2 className="text-sm font-semibold text-zinc-100">Constancia de visualización</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/95 backdrop-blur px-3 sm:px-5 py-2.5 sm:py-3 print:hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileCheck2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 shrink-0" />
+            <h2 className="text-xs sm:text-sm font-semibold text-zinc-100 truncate">Constancia de visualización</h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={handlePrint}
               disabled={!data || isLoading}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-lg bg-emerald-500/15 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-emerald-400 hover:bg-emerald-500/25 transition-colors disabled:opacity-50 whitespace-nowrap"
             >
-              <Printer className="h-3 w-3" /> Imprimir / PDF
+              <Printer className="h-3 w-3" />
+              <span className="hidden sm:inline">Imprimir / PDF</span>
+              <span className="sm:hidden">PDF</span>
             </button>
             <button
               onClick={onClose}
@@ -68,7 +70,7 @@ export function ConstanciaModal({
         </div>
 
         {/* Contenido */}
-        <div className="px-6 py-5 print:px-12 print:py-10 text-sm text-zinc-200 print:text-zinc-900 leading-relaxed">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 print:px-12 print:py-10 text-sm text-zinc-200 print:text-zinc-900 leading-relaxed">
           <header className="mb-6 pb-4 border-b border-white/10 print:border-zinc-300">
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-500 print:text-zinc-600">MR Abogado System</p>
             <h1 className="mt-2 text-xl font-bold text-zinc-100 print:text-zinc-900">
@@ -116,12 +118,12 @@ export function ConstanciaModal({
                 )}
               </section>
 
-              <section className="mb-6 grid grid-cols-2 gap-4">
+              <section className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 print:grid-cols-2">
                 <div>
                   <h2 className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 print:text-zinc-700 mb-1">
                     IP de origen
                   </h2>
-                  <p className="font-mono text-xs text-zinc-100 print:text-zinc-900">
+                  <p className="font-mono text-xs text-zinc-100 print:text-zinc-900 break-all">
                     {data.ip ?? '—'}
                   </p>
                 </div>
@@ -155,37 +157,37 @@ export function ConstanciaModal({
                       <dl className="space-y-1.5 text-xs">
                         {snap.tipo && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Tipo:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Tipo:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900 font-medium">{snap.tipo}</dd>
                           </div>
                         )}
                         {snap.numero_expediente && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Expediente:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Expediente:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900 font-mono">{snap.numero_expediente}</dd>
                           </div>
                         )}
                         {snap.caratula && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Carátula:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Carátula:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900">{snap.caratula}</dd>
                           </div>
                         )}
                         {snap.titulo && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Asunto:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Asunto:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900">{snap.titulo}</dd>
                           </div>
                         )}
                         {snap.oficina && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Oficina:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Oficina:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900">{snap.oficina}</dd>
                           </div>
                         )}
                         {snap.fecha_emision && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Fecha emisión:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Fecha emisión:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900">
                               {new Date(snap.fecha_emision).toLocaleString('es-AR')}
                             </dd>
@@ -193,7 +195,7 @@ export function ConstanciaModal({
                         )}
                         {snap.fecha_captura && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-32 shrink-0">Captura del portal:</dt>
+                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Captura del portal:</dt>
                             <dd className="text-zinc-100 print:text-zinc-900">
                               {new Date(snap.fecha_captura).toLocaleString('es-AR')}
                             </dd>

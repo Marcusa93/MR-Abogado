@@ -83,50 +83,53 @@ function AlertaRow({
   const isMencion = alerta.tipo === 'MENCION'
   return (
     <div className={cn(
-      'group flex items-start gap-3 rounded-lg border px-4 py-3 transition-colors',
+      'group rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 transition-colors flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-3',
       selected
         ? 'border-amber-500/40 bg-amber-500/[0.06]'
         : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]',
     )}>
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggleSelect}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
-      />
-      <div className={cn('shrink-0 mt-0.5', meta.color)}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-        onClick={() => {
-          onMarkRead()
-          if (alerta.expediente_id) onNavigate(`/expedientes/${alerta.expediente_id}`)
-        }}
-      >
-        <p className="text-sm font-medium text-zinc-100 line-clamp-2">{alerta.titulo}</p>
-        {alerta.mensaje && (
-          <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{alerta.mensaje}</p>
-        )}
-        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-400">
-            {alerta.tipo.replace('_', ' ')}
-          </span>
-          {alerta.expediente && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-amber-300">
-              <FolderOpen className="h-3 w-3" />
-              {alerta.expediente.numero || alerta.expediente.caratula}
-            </span>
+      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
+        />
+        <div className={cn('shrink-0 mt-0.5', meta.color)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => {
+            onMarkRead()
+            if (alerta.expediente_id) onNavigate(`/expedientes/${alerta.expediente_id}`)
+          }}
+        >
+          <p className="text-sm font-medium text-zinc-100 line-clamp-2">{alerta.titulo}</p>
+          {alerta.mensaje && (
+            <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{alerta.mensaje}</p>
           )}
-          <span className="text-[10px] text-zinc-500">{timeAgo(alerta.created_at)}</span>
+          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-400">
+              {alerta.tipo.replace('_', ' ')}
+            </span>
+            {alerta.expediente && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-amber-300 max-w-full truncate">
+                <FolderOpen className="h-3 w-3 shrink-0" />
+                <span className="truncate">{alerta.expediente.numero || alerta.expediente.caratula}</span>
+              </span>
+            )}
+            <span className="text-[10px] text-zinc-500">{timeAgo(alerta.created_at)}</span>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      {/* Acciones: en mobile bajo el contenido (con sangría), en desktop al costado */}
+      <div className="flex items-center gap-1 flex-wrap pl-8 sm:pl-0 sm:shrink-0 sm:justify-end">
         {isTareaAlert && tareaId && (
           <button
             onClick={() => { onCompletarTarea(tareaId); onMarkRead() }}
-            className="rounded px-2 py-1 text-[10px] font-medium text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20"
+            className="rounded px-2 py-1 text-[10px] font-medium text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 whitespace-nowrap"
             title="Marcar tarea como completada"
           >
             Tarea hecha
@@ -135,7 +138,7 @@ function AlertaRow({
         {isMencion && alerta.expediente_id && (
           <button
             onClick={() => { onMarkRead(); onNavigate(`/expedientes/${alerta.expediente_id}?focus=notas`) }}
-            className="rounded px-2 py-1 text-[10px] font-medium text-pink-300 border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20"
+            className="rounded px-2 py-1 text-[10px] font-medium text-pink-300 border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 whitespace-nowrap"
             title="Ir a responder"
           >
             Responder
@@ -143,7 +146,7 @@ function AlertaRow({
         )}
         <button
           onClick={onMarkRead}
-          className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20"
+          className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
         >
           Leída
         </button>
@@ -169,67 +172,69 @@ function SaeRow({
   const isUrgente = notif.prioridad === 'urgente'
   return (
     <div className={cn(
-      'group flex items-start gap-3 rounded-lg border px-4 py-3 transition-colors',
+      'group rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 transition-colors flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-3',
       isUrgente && !notif.leida
         ? 'border-rose-500/50 bg-rose-500/[0.08]'
         : selected
           ? 'border-cyan-500/40 bg-cyan-500/[0.06]'
           : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]',
     )}>
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onToggleSelect}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
-      />
-      <div className="shrink-0 rounded-lg bg-cyan-500/15 p-1.5 text-cyan-300 mt-0.5">
-        <Bell className="h-4 w-4" />
-      </div>
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-        onClick={() => {
-          onMarkRead()
-          if (notif.expediente_id) onNavigate(`/expedientes/${notif.expediente_id}`)
-        }}
-      >
-        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-          {notif.tipo && (
-            <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">
-              {notif.tipo}
-            </span>
-          )}
-          {isUrgente && (
-            <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-200">
-              🚨 Urgente{notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
-            </span>
-          )}
-          {notif.numero_expediente && (
-            <span className="text-[11px] font-mono text-zinc-300">Exp. {notif.numero_expediente}</span>
-          )}
+      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
+        />
+        <div className="shrink-0 rounded-lg bg-cyan-500/15 p-1.5 text-cyan-300 mt-0.5">
+          <Bell className="h-4 w-4" />
         </div>
-        <p className="text-sm font-medium text-zinc-100 line-clamp-2">
-          {notif.titulo || notif.caratula || 'Notificación SAE'}
-        </p>
-        {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
-          <p className="mt-0.5 text-xs text-amber-200/80 italic line-clamp-2">{notif.ia_resumen}</p>
-        )}
-        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10px] text-zinc-500">
-          {fueroLabel && (
-            <span className="inline-flex items-center gap-1 text-cyan-300">
-              <Building2 className="h-3 w-3" />
-              {fueroLabel}
-            </span>
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => {
+            onMarkRead()
+            if (notif.expediente_id) onNavigate(`/expedientes/${notif.expediente_id}`)
+          }}
+        >
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            {notif.tipo && (
+              <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                {notif.tipo}
+              </span>
+            )}
+            {isUrgente && (
+              <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-200">
+                🚨 Urgente{notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
+              </span>
+            )}
+            {notif.numero_expediente && (
+              <span className="text-[11px] font-mono text-zinc-300 truncate max-w-[180px]">Exp. {notif.numero_expediente}</span>
+            )}
+          </div>
+          <p className="text-sm font-medium text-zinc-100 line-clamp-2">
+            {notif.titulo || notif.caratula || 'Notificación SAE'}
+          </p>
+          {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
+            <p className="mt-0.5 text-xs text-amber-200/80 italic line-clamp-2">{notif.ia_resumen}</p>
           )}
-          {notif.oficina && <span>{notif.oficina}</span>}
-          <span>{timeAgo(notif.fecha_emision ?? notif.created_at)}</span>
+          <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10px] text-zinc-500">
+            {fueroLabel && (
+              <span className="inline-flex items-center gap-1 text-cyan-300 max-w-full truncate">
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{fueroLabel}</span>
+              </span>
+            )}
+            {notif.oficina && <span className="truncate max-w-[160px]">{notif.oficina}</span>}
+            <span>{timeAgo(notif.fecha_emision ?? notif.created_at)}</span>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 flex-wrap pl-8 sm:pl-0 sm:shrink-0 sm:justify-end">
         {notif.expediente_id && (
           <button
             onClick={onCrearTarea}
-            className="rounded px-2 py-1 text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20"
+            className="rounded px-2 py-1 text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 whitespace-nowrap"
             title="Crear tarea desde esta notificación"
           >
             Crear tarea
@@ -238,7 +243,7 @@ function SaeRow({
         {!notif.leida && (
           <button
             onClick={onMarkRead}
-            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20"
+            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
           >
             Leída
           </button>
@@ -246,7 +251,7 @@ function SaeRow({
         {notif.leida && (
           <button
             onClick={onConstancia}
-            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-300 border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10"
+            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-300 border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 whitespace-nowrap"
             title="Constancia legal"
           >
             Constancia
@@ -348,25 +353,26 @@ export default function NotificacionesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
-            <Bell className="h-6 w-6 text-amber-400" />
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 flex items-center gap-2">
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-amber-400" />
             Notificaciones
           </h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Alertas internas y notificaciones del portal SAE en un solo lugar.
+          <p className="mt-1 text-xs sm:text-sm text-zinc-400">
+            Alertas internas y notificaciones SAE en un solo lugar.
           </p>
         </div>
         <button
           onClick={handleMarcarAllAll}
           disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium text-zinc-300 hover:bg-white/10 disabled:opacity-50 whitespace-nowrap"
         >
-          <CheckCheck className="h-4 w-4" />
-          Marcar todas leídas
+          <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">Marcar todas leídas</span>
+          <span className="sm:hidden">Marcar todas</span>
         </button>
       </div>
 
@@ -397,8 +403,8 @@ export default function NotificacionesPage() {
       </div>
 
       {/* Search + bulk */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
           <input
             type="search"
@@ -409,17 +415,17 @@ export default function NotificacionesPage() {
           />
         </div>
         {selected.size > 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-amber-300 font-medium">{selected.size} seleccionadas</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-amber-300 font-medium whitespace-nowrap">{selected.size} seleccionadas</span>
             <button
               onClick={handleBulkMarkRead}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25"
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 whitespace-nowrap"
             >
               <CheckCheck className="h-3 w-3" /> Marcar leídas
             </button>
             <button
               onClick={clearSelection}
-              className="text-xs text-zinc-500 hover:text-zinc-300"
+              className="text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-300 whitespace-nowrap"
             >
               Cancelar
             </button>
@@ -427,7 +433,7 @@ export default function NotificacionesPage() {
         ) : items.length > 0 && (
           <button
             onClick={selectAllVisible}
-            className="text-xs text-zinc-500 hover:text-zinc-300"
+            className="text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-300 whitespace-nowrap self-start sm:self-auto"
           >
             Seleccionar visibles ({items.length})
           </button>

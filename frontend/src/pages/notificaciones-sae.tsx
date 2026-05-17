@@ -51,7 +51,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
 
   return (
     <div className={cn(
-      'rounded-xl border p-4 transition-colors',
+      'rounded-xl border p-3 sm:p-4 transition-colors',
       isUrgente && unread
         ? 'border-rose-500/50 bg-rose-500/[0.08] shadow-[0_0_0_1px_rgba(244,63,94,0.2)]'
         : unread
@@ -240,7 +240,7 @@ export default function NotificacionesSaePage() {
   }
 
   return (
-    <div className="p-5 max-w-3xl mx-auto">
+    <div className="p-3 sm:p-5 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-cyan-500/10 p-2">

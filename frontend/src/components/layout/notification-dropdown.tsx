@@ -522,10 +522,12 @@ export function NotificationDropdown() {
                 <button
                   onClick={handleMarkAllAll}
                   disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                  title="Marcar todas leídas"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
-                  Marcar todas leídas
+                  <span className="hidden sm:inline">Marcar todas leídas</span>
+                  <span className="sm:hidden">Marcar todas</span>
                 </button>
               )}
             </div>
