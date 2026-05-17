@@ -55,7 +55,13 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--header-bg)] px-4 sm:px-6 backdrop-blur-md">
+      <header
+        className="flex shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--header-bg)] px-3 sm:px-6 backdrop-blur-md"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          height: 'calc(4rem + env(safe-area-inset-top, 0px))',
+        }}
+      >
         {/* Left: hamburger + title */}
         <div className="flex items-center gap-3">
           {onMobileMenuToggle && (
@@ -87,10 +93,12 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         </div>
 
         {/* Right: Notifications + User menu */}
-        <div className="flex items-center gap-1.5">
-          <SaeHealthBadge />
-          <HelpButton />
-          <PushToggle />
+        <div className="flex items-center gap-0.5 sm:gap-1.5">
+          <div className="hidden sm:flex items-center gap-1.5">
+            <SaeHealthBadge />
+            <HelpButton />
+            <PushToggle />
+          </div>
           <NotificationDropdown />
           <UserMenu />
         </div>
