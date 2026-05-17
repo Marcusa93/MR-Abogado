@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useAlertas, useMarcarLeida, useMarcarTodasLeidas, type AlertaWithExpediente } from '@/hooks/use-alertas'
+import { useAlertas, useMarcarLeida, useMarcarTodasLeidas, useSnoozeAlerta, type AlertaWithExpediente } from '@/hooks/use-alertas'
 import {
   useSaeNotifUnreadCount, useSaeNotificaciones,
-  useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead,
+  useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead, useSnoozeSaeNotif,
   type SaeNotificacion,
 } from '@/hooks/use-sae-notificaciones'
+import { useNotifLastSeen, useMarkNotifsAsSeen } from '@/hooks/use-notif-last-seen'
+import { SnoozeMenu } from './snooze-menu'
 import { getFueroLabel } from '@/lib/sae-fueros'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -25,6 +27,8 @@ import {
   Eye,
   AtSign,
   FolderOpen,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -45,16 +49,36 @@ const TIPO_ICON: Record<string, { icon: typeof Bell; color: string }> = {
 }
 
 // ---------------------------------------------------------------------------
+// Separador visual entre "Nuevas" y "Anteriores"
+// ---------------------------------------------------------------------------
+
+function SeenSeparator({ label, tone }: { label: string; tone: 'new' | 'old' }) {
+  const cls = tone === 'new'
+    ? 'text-emerald-400 bg-emerald-500/5'
+    : 'text-zinc-500 bg-zinc-500/5'
+  return (
+    <div className={cn('px-4 py-1 flex items-center gap-2 border-b border-white/5', cls)}>
+      <span className="text-[9px] uppercase tracking-wider font-semibold">{label}</span>
+      <div className="flex-1 h-px bg-current opacity-20" />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Single notification item
 // ---------------------------------------------------------------------------
 
 function NotificationItem({
   alerta,
+  isNew = false,
   onMarkRead,
+  onSnooze,
   onNavigate,
 }: {
   alerta: AlertaWithExpediente
+  isNew?: boolean
   onMarkRead: (id: string) => void
+  onSnooze?: (id: string, until: Date) => void
   onNavigate: (path: string) => void
 }) {
   const tipo = TIPO_ICON[alerta.tipo] ?? { icon: Bell, color: 'text-zinc-600 dark:text-zinc-400' }
@@ -70,10 +94,16 @@ function NotificationItem({
   return (
     <div
       onClick={handleClick}
-      className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-white/[0.06] transition-colors border-b border-white/5 last:border-0"
+      className={cn(
+        'flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors border-b border-white/5 last:border-0',
+        isNew ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08]' : 'hover:bg-white/[0.06]',
+      )}
     >
-      <div className={cn('mt-0.5 shrink-0', tipo.color)}>
+      <div className={cn('mt-0.5 shrink-0 relative', tipo.color)}>
         <Icon className="h-4 w-4" />
+        {isNew && (
+          <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-900" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-relaxed">
@@ -108,16 +138,21 @@ function NotificationItem({
           <span>{timeAgo(alerta.created_at)}</span>
         </div>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onMarkRead(alerta.id)
-        }}
-        className="mt-0.5 shrink-0 rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
-        title="Marcar como leída"
-      >
-        <Eye className="h-3 w-3" />
-      </button>
+      <div className="flex flex-col gap-0.5 mt-0.5 shrink-0">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onMarkRead(alerta.id)
+          }}
+          className="rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          title="Marcar como leída"
+        >
+          <Eye className="h-3 w-3" />
+        </button>
+        {onSnooze && (
+          <SnoozeMenu onSnooze={(until) => onSnooze(alerta.id, until)} />
+        )}
+      </div>
     </div>
   )
 }
@@ -128,11 +163,15 @@ function NotificationItem({
 
 function SaeNotifItem({
   notif,
+  isNew = false,
   onMarkRead,
+  onSnooze,
   onNavigate,
 }: {
   notif: SaeNotificacion
+  isNew?: boolean
   onMarkRead: (id: string) => void
+  onSnooze?: (id: string, until: Date) => void
   onNavigate: (path: string) => void
 }) {
   const fueroLabel = getFueroLabel(notif.raw_payload?.fuero)
@@ -146,10 +185,16 @@ function SaeNotifItem({
   return (
     <div
       onClick={handleClick}
-      className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-cyan-500/10 transition-colors border-b border-white/5 last:border-0"
+      className={cn(
+        'flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors border-b border-white/5 last:border-0',
+        isNew ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.1]' : 'hover:bg-cyan-500/10',
+      )}
     >
-      <div className="mt-0.5 shrink-0 rounded-lg bg-cyan-500/15 p-1 text-cyan-300">
+      <div className="mt-0.5 shrink-0 rounded-lg bg-cyan-500/15 p-1 text-cyan-300 relative">
         <Bell className="h-3.5 w-3.5" />
+        {isNew && (
+          <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-900" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[10px] mb-0.5 flex-wrap">
@@ -175,18 +220,159 @@ function SaeNotifItem({
           {timeAgo(notif.fecha_emision ?? notif.created_at)}
         </p>
       </div>
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onMarkRead(notif.id)
-        }}
-        className="mt-0.5 shrink-0 rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
-        title="Marcar como leída"
-      >
-        <Eye className="h-3 w-3" />
-      </button>
+      <div className="flex flex-col gap-0.5 mt-0.5 shrink-0">
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onMarkRead(notif.id)
+          }}
+          className="rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          title="Marcar como leída"
+        >
+          <Eye className="h-3 w-3" />
+        </button>
+        {onSnooze && (
+          <SnoozeMenu onSnooze={(until) => onSnooze(notif.id, until)} />
+        )}
+      </div>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Agrupación por expediente
+// ---------------------------------------------------------------------------
+
+function groupByExpediente<T extends { expediente_id?: string | null }>(items: T[]): T[][] {
+  const groups: T[][] = []
+  const indexById = new Map<string, number>()
+  for (const item of items) {
+    const id = item.expediente_id
+    if (!id) {
+      groups.push([item])
+      continue
+    }
+    const idx = indexById.get(id)
+    if (idx !== undefined) {
+      groups[idx].push(item)
+    } else {
+      indexById.set(id, groups.length)
+      groups.push([item])
+    }
+  }
+  return groups
+}
+
+function AlertasGroup({
+  group,
+  hasNew,
+  onMarkRead,
+  onSnooze,
+  onNavigate,
+}: {
+  group: AlertaWithExpediente[]
+  hasNew: boolean
+  onMarkRead: (id: string) => void
+  onSnooze: (id: string, until: Date) => void
+  onNavigate: (path: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const first = group[0]
+  const exp = first.expediente
+  const label = exp?.caratula || exp?.numero || 'Expediente'
+  const subtitle = exp?.caratula && exp?.numero ? exp.numero : null
+
+  return (
+    <div className={cn(
+      'border-b border-white/5 last:border-0',
+      hasNew && 'bg-emerald-500/[0.03]',
+    )}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className={cn(
+          'w-full flex items-center gap-2.5 px-3 py-2.5 cursor-pointer transition-colors text-left',
+          hasNew ? 'hover:bg-emerald-500/[0.08]' : 'hover:bg-white/[0.06]',
+        )}
+      >
+        <div className="mt-0.5 shrink-0 rounded-lg bg-amber-500/15 p-1 text-amber-400 relative">
+          <FolderOpen className="h-3.5 w-3.5" />
+          {hasNew && (
+            <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-900" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+            {label}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] font-medium text-amber-400">
+              {group.length} notificaciones
+            </span>
+            {subtitle && (
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-500 font-mono truncate">
+                · {subtitle}
+              </span>
+            )}
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronDown className="h-4 w-4 text-zinc-500 shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-zinc-500 shrink-0" />
+        )}
+      </button>
+      {expanded && (
+        <div className="bg-black/10 dark:bg-black/20 pl-3 border-l-2 border-amber-500/30 ml-3 mb-1 mr-1 rounded-r">
+          {group.map((alerta) => (
+            <NotificationItem
+              key={alerta.id}
+              alerta={alerta}
+              onMarkRead={onMarkRead}
+              onSnooze={onSnooze}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function renderAlertList(
+  items: AlertaWithExpediente[],
+  isNewFn: (a: AlertaWithExpediente) => boolean,
+  onMarkRead: (id: string) => void,
+  onSnooze: (id: string, until: Date) => void,
+  onNavigate: (path: string) => void,
+) {
+  const groups = groupByExpediente(items)
+  return groups.map((group, i) => {
+    if (group.length >= 2) {
+      const hasNew = group.some(isNewFn)
+      return (
+        <AlertasGroup
+          key={`g-${group[0].expediente_id}-${i}`}
+          group={group}
+          hasNew={hasNew}
+          onMarkRead={onMarkRead}
+          onSnooze={onSnooze}
+          onNavigate={onNavigate}
+        />
+      )
+    }
+    const a = group[0]
+    return (
+      <NotificationItem
+        key={a.id}
+        alerta={a}
+        isNew={isNewFn(a)}
+        onMarkRead={onMarkRead}
+        onSnooze={onSnooze}
+        onNavigate={onNavigate}
+      />
+    )
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -202,14 +388,46 @@ export function NotificationDropdown() {
   const { data: alertas } = useAlertas()
   const { data: saeUnread = 0 } = useSaeNotifUnreadCount()
   const { data: saeNotifs = [] } = useSaeNotificaciones({ unreadOnly: true, limit: 5 })
+  const { data: lastSeen } = useNotifLastSeen()
+  const markAsSeen = useMarkNotifsAsSeen()
   const marcarLeida = useMarcarLeida()
   const marcarTodasLeidas = useMarcarTodasLeidas()
+  const snoozeAlerta = useSnoozeAlerta()
   const markSaeRead = useMarkSaeNotifAsRead()
   const markAllSaeRead = useMarkAllSaeNotifAsRead()
+  const snoozeSae = useSnoozeSaeNotif()
+
+  // Snapshot del lastSeen al abrir: queda fijo mientras el dropdown está abierto,
+  // así el separador "Nuevas/Anteriores" no salta cuando se actualiza el ts.
+  const [seenSnapshot, setSeenSnapshot] = useState<string | null>(null)
+  useEffect(() => {
+    if (isOpen && seenSnapshot === null) {
+      setSeenSnapshot(lastSeen ?? new Date(0).toISOString())
+      markAsSeen.mutate()
+    }
+    if (!isOpen && seenSnapshot !== null) {
+      setSeenSnapshot(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, lastSeen])
 
   const alertCount = alertas?.length ?? 0
   const totalCount = alertCount + saeUnread
   const displayAlerts = (alertas ?? []).slice(0, 8)
+
+  // Split en "nuevas" vs "anteriores" según seenSnapshot
+  const isNewAlert = (a: AlertaWithExpediente) =>
+    seenSnapshot ? a.created_at > seenSnapshot : false
+  const isNewSae = (n: SaeNotificacion) => {
+    if (!seenSnapshot) return false
+    const ts = n.fecha_emision ?? n.created_at
+    return ts > seenSnapshot
+  }
+  const newAlerts = displayAlerts.filter(isNewAlert)
+  const oldAlerts = displayAlerts.filter((a) => !isNewAlert(a))
+  const newSae = saeNotifs.filter(isNewSae)
+  const oldSae = saeNotifs.filter((n) => !isNewSae(n))
+  const newCount = newAlerts.length + newSae.length
 
   const handleMarkAllAll = () => {
     if (alertCount > 0) marcarTodasLeidas.mutate()
@@ -294,6 +512,11 @@ export function NotificationDropdown() {
                     {totalCount}
                   </span>
                 )}
+                {newCount > 0 && (
+                  <span className="flex h-5 items-center justify-center rounded-full bg-emerald-500/15 px-2 text-[10px] font-bold text-emerald-400">
+                    {newCount} {newCount === 1 ? 'nueva' : 'nuevas'}
+                  </span>
+                )}
               </div>
               {totalCount > 0 && (
                 <button
@@ -338,11 +561,28 @@ export function NotificationDropdown() {
                           </button>
                         )}
                       </div>
-                      {saeNotifs.map((n) => (
+                      {newSae.length > 0 && oldSae.length > 0 && (
+                        <SeenSeparator label="Nuevas" tone="new" />
+                      )}
+                      {newSae.map((n) => (
+                        <SaeNotifItem
+                          key={n.id}
+                          notif={n}
+                          isNew
+                          onMarkRead={(id) => markSaeRead.mutate(id)}
+                          onSnooze={(id, until) => snoozeSae.mutate({ id, until })}
+                          onNavigate={handleNavigate}
+                        />
+                      ))}
+                      {newSae.length > 0 && oldSae.length > 0 && (
+                        <SeenSeparator label="Anteriores" tone="old" />
+                      )}
+                      {oldSae.map((n) => (
                         <SaeNotifItem
                           key={n.id}
                           notif={n}
                           onMarkRead={(id) => markSaeRead.mutate(id)}
+                          onSnooze={(id, until) => snoozeSae.mutate({ id, until })}
                           onNavigate={handleNavigate}
                         />
                       ))}
@@ -359,14 +599,26 @@ export function NotificationDropdown() {
                           </span>
                         </div>
                       )}
-                      {displayAlerts.map((alerta) => (
-                        <NotificationItem
-                          key={alerta.id}
-                          alerta={alerta}
-                          onMarkRead={(id) => marcarLeida.mutate(id)}
-                          onNavigate={handleNavigate}
-                        />
-                      ))}
+                      {newAlerts.length > 0 && oldAlerts.length > 0 && (
+                        <SeenSeparator label="Nuevas" tone="new" />
+                      )}
+                      {renderAlertList(
+                        newAlerts,
+                        isNewAlert,
+                        (id) => marcarLeida.mutate(id),
+                        (id, until) => snoozeAlerta.mutate({ id, until }),
+                        handleNavigate,
+                      )}
+                      {newAlerts.length > 0 && oldAlerts.length > 0 && (
+                        <SeenSeparator label="Anteriores" tone="old" />
+                      )}
+                      {renderAlertList(
+                        oldAlerts,
+                        isNewAlert,
+                        (id) => marcarLeida.mutate(id),
+                        (id, until) => snoozeAlerta.mutate({ id, until }),
+                        handleNavigate,
+                      )}
                     </div>
                   )}
                 </>

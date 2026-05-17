@@ -9,6 +9,12 @@ import type { Tables } from '@/types/database.types'
 // ---------------------------------------------------------------------------
 
 export type AlertaWithExpediente = Tables<'alertas'> & {
+  payload?: {
+    tarea_id?: string
+    nota_id?: string
+    audiencia_id?: string
+    [k: string]: unknown
+  } | null
   expediente: Pick<
     Tables<'expedientes'>,
     'id' | 'numero' | 'caratula'
@@ -37,6 +43,7 @@ export function useAlertas() {
     queryFn: async () => {
       if (!userId) return []
 
+      const nowIso = new Date().toISOString()
       const { data, error } = await supabase
         .from('alertas')
         .select(
@@ -51,6 +58,7 @@ export function useAlertas() {
         )
         .eq('destinatario_id', userId)
         .is('resuelta_at', null)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
         .order('created_at', { ascending: false })
         .limit(50)
 
@@ -159,6 +167,27 @@ export function usePosponerAlerta() {
 
       if (error) throw error
       return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: alertasKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
+    },
+  })
+}
+
+// Snooze con precisión horaria (vs posponer_alerta que es solo date).
+// Útil para "recordar en 1 hora" desde la campanita.
+export function useSnoozeAlerta() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation<void, Error, { id: string; until: Date }>({
+    mutationFn: async ({ id, until }) => {
+      const { error } = await (supabase.rpc as any)('posponer_alerta_ts', {
+        p_alerta_id: id,
+        p_hasta: until.toISOString(),
+      })
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: alertasKeys.all })

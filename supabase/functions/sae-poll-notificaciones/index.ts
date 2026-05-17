@@ -29,6 +29,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
+import { classifyNotifPriority } from '../_shared/notif-priority.ts'
 
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -660,6 +661,30 @@ Deno.serve(async (req) => {
 
     if (dryRun) continue
 
+    // 7.5) Clasificación IA de prioridad. Corre en paralelo para todas las
+    //      nuevas, con timeout por notif. Si falla, la notif queda sin clasificar.
+    const priorities = new Map<string, 'urgente' | 'normal' | 'info'>()
+    await Promise.all(nuevas.map(async (n) => {
+      const cls = await classifyNotifPriority({
+        tipo: n.tipo,
+        titulo: n.titulo,
+        caratula: n.caratula,
+        fuero: (n.raw as { fuero?: string }).fuero ?? null,
+        oficina: n.oficina,
+      })
+      if (!cls) return
+      priorities.set(n.sae_notif_id, cls.prioridad)
+      await admin.from('sae_notificaciones')
+        .update({
+          prioridad: cls.prioridad,
+          plazo_estimado_dias: cls.plazo_estimado_dias,
+          ia_resumen: cls.resumen,
+          ia_analyzed_at: new Date().toISOString(),
+        } as never)
+        .eq('profile_id', p.id)
+        .eq('sae_notif_id', n.sae_notif_id)
+    }))
+
     // 8) Disparar push + email solo por las NO leídas en el portal
     for (const n of nuevas) {
       const yaLeida = Boolean((n.raw as { leido_portal?: boolean }).leido_portal)
@@ -667,12 +692,16 @@ Deno.serve(async (req) => {
 
       const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) : null
       const expedienteUrl = expedienteId ? `https://app.marcorossi.com.ar/expedientes/${expedienteId}` : null
+      const prioridad = priorities.get(n.sae_notif_id)
+      const esUrgente = prioridad === 'urgente'
 
-      // Push (si habilitado y no diferido)
-      if (p.sae_notif_push && !pushDelay) {
+      // Push: si urgente, override del quiet hours y del pref off.
+      // Sino, respeta las prefs del user.
+      if ((p.sae_notif_push && !pushDelay) || esUrgente) {
+        const prefix = esUrgente ? '🚨 URGENTE · ' : '📬 '
         const ok = await triggerPush(
           p.id,
-          `📬 ${n.tipo ?? 'Notificación SAE'}`,
+          `${prefix}${n.tipo ?? 'Notificación SAE'}`,
           `${n.numero_expediente ? `Exp. ${n.numero_expediente} · ` : ''}${n.titulo ?? n.caratula ?? 'Nueva notificación'}`,
           expedienteUrl ?? '/notificaciones-sae',
         )

@@ -37,8 +37,11 @@ export function useUpdateNotifPrefs() {
   })
 }
 
-// Llama a la edge function que dispara push/email respetando las prefs
-// del destinatario. Usar después de insertar una alerta en DB.
+/**
+ * @deprecated Desde la migración 00045 el dispatch ocurre automáticamente vía
+ * trigger AFTER INSERT en `alertas`. Esta función queda solo para casos
+ * ad-hoc (ej. dispatch directo sin pasar por la tabla alertas).
+ */
 export async function dispatchAlertNotification(input: {
   alerta_id?: string
   tipo?: string

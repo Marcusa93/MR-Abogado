@@ -1,8 +1,59 @@
 import { useEffect, useState } from 'react'
-import { Check, Loader2, Bell, Mail, Smartphone } from 'lucide-react'
+import { Check, Loader2, Bell, Mail, Smartphone, CircleCheck, CircleX, CircleMinus } from 'lucide-react'
 import { useNotifPrefs, useUpdateNotifPrefs } from '@/hooks/use-notif-prefs'
+import { useLastDispatch, type DispatchSnapshot } from '@/hooks/use-notif-dispatches'
 import { NOTIF_EVENTS, type NotifPrefs } from '@/lib/notif-events'
+import { timeAgo } from '@/lib/utils/date-helpers'
 import { toast } from '@/stores/toast-store'
+
+function DispatchStatusPill({ snap, label }: { snap: DispatchSnapshot | null | undefined; label: string }) {
+  if (snap === undefined) {
+    return <span className="text-[10px] text-zinc-500">—</span>
+  }
+  if (snap === null) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500">
+        <CircleMinus className="h-3 w-3" /> Sin envíos
+      </span>
+    )
+  }
+  const tone =
+    snap.status === 'success'
+      ? 'text-emerald-400'
+      : snap.status === 'skipped'
+        ? 'text-zinc-500'
+        : 'text-rose-400'
+  const Icon = snap.status === 'success' ? CircleCheck : snap.status === 'skipped' ? CircleMinus : CircleX
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] ${tone}`} title={`${label}: ${snap.reason ?? snap.status}`}>
+      <Icon className="h-3 w-3" />
+      {timeAgo(snap.attempted_at)}
+      {snap.status === 'failed' && snap.reason && (
+        <span className="text-[10px] text-rose-400/80 truncate max-w-[120px]">· {snap.reason}</span>
+      )}
+    </span>
+  )
+}
+
+function DispatchTelemetry() {
+  const push = useLastDispatch('push')
+  const email = useLastDispatch('email')
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 flex flex-col gap-1.5">
+      <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Último envío</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-2">
+          <Smartphone className="h-3 w-3 text-zinc-500 shrink-0" />
+          <DispatchStatusPill snap={push.data} label="Push" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Mail className="h-3 w-3 text-zinc-500 shrink-0" />
+          <DispatchStatusPill snap={email.data} label="Email" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function NotifPrefsConfig() {
   const { data: storedPrefs, isLoading } = useNotifPrefs()
@@ -110,6 +161,8 @@ export function NotifPrefsConfig() {
         </button>
         {dirty && <span className="text-[10px] text-amber-400">cambios sin guardar</span>}
       </div>
+
+      <DispatchTelemetry />
 
       <p className="text-[10px] text-zinc-600">
         Las notificaciones del SAE tienen sus propias preferencias arriba (incluyendo horario silencioso y selector de fueros).

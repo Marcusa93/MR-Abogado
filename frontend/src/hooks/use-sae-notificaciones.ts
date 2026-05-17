@@ -21,6 +21,11 @@ export interface SaeNotificacion {
   notified_email_at: string | null
   created_at: string
   raw_payload?: { fuero?: string; ver_url?: string; leido_portal?: boolean; destinatario?: string } | null
+  // Clasificación IA de prioridad (migración 050)
+  prioridad?: 'urgente' | 'normal' | 'info' | null
+  plazo_estimado_dias?: number | null
+  ia_resumen?: string | null
+  ia_analyzed_at?: string | null
   // Join con expediente local (si está vinculado)
   expediente?: { id: string; caratula: string | null; numero: string | null } | null
 }
@@ -41,9 +46,12 @@ export function useSaeNotificaciones(opts: { unreadOnly?: boolean; limit?: numbe
   return useQuery<SaeNotificacion[]>({
     queryKey: ['sae-notificaciones', opts.unreadOnly ?? false, opts.limit ?? 50],
     queryFn: async () => {
+      const nowIso = new Date().toISOString()
       let q = supabase
         .from('sae_notificaciones' as never)
         .select('*, raw_payload, expediente:expedientes(id, caratula, numero)')
+        // Excluir items snoozed cuyo timeout aún no expiró
+        .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
         // Más reciente primero: por fecha del portal, con fallback al created_at local
         .order('fecha_emision', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
@@ -65,10 +73,12 @@ export function useSaeNotifUnreadCount() {
   return useQuery<number>({
     queryKey: ['sae-notificaciones-unread-count'],
     queryFn: async () => {
+      const nowIso = new Date().toISOString()
       const { count, error } = await supabase
         .from('sae_notificaciones' as never)
         .select('id', { count: 'exact', head: true })
         .eq('leida', false)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
       if (error) throw error
       return count ?? 0
     },
@@ -82,11 +92,21 @@ export function useMarkSaeNotifAsRead() {
   const qc = useQueryClient()
   return useMutation<void, Error, string>({
     mutationFn: async (id) => {
-      const { error } = await supabase
-        .from('sae_notificaciones' as never)
-        .update({ leida: true, leida_at: new Date().toISOString() } as never)
-        .eq('id', id)
-      if (error) throw error
+      // Vamos por la edge function para que capture IP/UA y registre la
+      // constancia legal de visualización (migración 00049). Si falla,
+      // hacemos fallback al update directo para no bloquear al usuario.
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const { error } = await supabase.functions.invoke('record-sae-notif-view', {
+        body: { notif_id: id, timezone: tz },
+      })
+      if (error) {
+        console.warn('record-sae-notif-view failed, fallback to direct update', error)
+        const { error: fbErr } = await supabase
+          .from('sae_notificaciones' as never)
+          .update({ leida: true, leida_at: new Date().toISOString() } as never)
+          .eq('id', id)
+        if (fbErr) throw fbErr
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
@@ -192,5 +212,52 @@ export function useUpdateSaeNotifPreferences() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sae-notif-preferences'] }),
+  })
+}
+
+// ── Constancia legal de visualización ──────────────────────────
+
+export interface SaeNotifConstancia {
+  view_id: string
+  viewed_at: string
+  ip: string | null
+  user_agent: string | null
+  timezone: string | null
+  notif_snapshot: Record<string, unknown>
+  total_views: number
+}
+
+export function useSaeNotifConstancia(notifId: string | null) {
+  return useQuery<SaeNotifConstancia | null>({
+    queryKey: ['sae-notif-constancia', notifId],
+    enabled: !!notifId,
+    queryFn: async () => {
+      if (!notifId) return null
+      const { data, error } = await (supabase.rpc as any)('get_sae_notif_constancia', {
+        p_notif_id: notifId,
+      })
+      if (error) throw error
+      const row = Array.isArray(data) ? data[0] : data
+      return row ?? null
+    },
+  })
+}
+
+// ── Snooze ─────────────────────────────────────────────────────
+
+export function useSnoozeSaeNotif() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { id: string; until: Date }>({
+    mutationFn: async ({ id, until }) => {
+      const { error } = await (supabase.rpc as any)('snooze_sae_notif', {
+        p_notif_id: id,
+        p_until: until.toISOString(),
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
+      qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+    },
   })
 }

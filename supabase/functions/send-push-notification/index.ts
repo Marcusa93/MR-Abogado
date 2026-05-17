@@ -58,13 +58,17 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Valida JWT del llamador (cualquier usuario autenticado puede disparar push;
-    // ajustá la lógica si querés restringir por rol).
-    const supabaseCaller = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user } } = await supabaseCaller.auth.getUser()
-    if (!user) return json({ error: 'Token inválido' }, 401)
+    // Aceptamos service_role (invocación inter-function desde dispatch-alert-notification)
+    // o JWT de usuario autenticado.
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const isServiceRole = token === serviceRoleKey
+    if (!isServiceRole) {
+      const supabaseCaller = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      })
+      const { data: { user } } = await supabaseCaller.auth.getUser()
+      if (!user) return json({ error: 'Token inválido' }, 401)
+    }
 
     const body = (await req.json()) as Body
     if (!body?.payload?.title) {
@@ -88,6 +92,7 @@ Deno.serve(async (req) => {
 
     const payloadStr = JSON.stringify(body.payload)
     const toRemove: string[] = []
+    const errors: { endpoint: string; statusCode?: number; reason: string }[] = []
     let sent = 0
 
     await Promise.all(
@@ -101,24 +106,40 @@ Deno.serve(async (req) => {
           sent++
         } catch (err: unknown) {
           const statusCode = (err as { statusCode?: number })?.statusCode
-          // 404/410 = suscripción vencida o endpoint inválido → purgar
+          const message = (err as { body?: string; message?: string })?.body
+            ?? (err as { message?: string })?.message
+            ?? 'unknown'
+          // 404/410 = suscripción vencida (browser desinstalado, cambio de device,
+          // permiso revocado) o endpoint inválido → purgar de la DB.
           if (statusCode === 404 || statusCode === 410) {
             toRemove.push(s.endpoint)
+            errors.push({ endpoint: s.endpoint, statusCode, reason: 'expired_subscription' })
           } else {
-            console.error('push error', statusCode, err)
+            console.error('push error', statusCode, message)
+            errors.push({ endpoint: s.endpoint, statusCode, reason: message.slice(0, 200) })
           }
         }
       })
     )
 
     if (toRemove.length) {
-      await supabaseAdmin
+      const { error: delErr } = await supabaseAdmin
         .from('push_subscriptions')
         .delete()
         .in('endpoint', toRemove)
+      if (delErr) {
+        console.error('purge expired subs failed:', delErr.message)
+      } else {
+        console.log(`purged ${toRemove.length} expired push subscriptions`)
+      }
     }
 
-    return json({ sent, removed: toRemove.length, subs: subs.length }, 200)
+    return json({
+      sent,
+      removed: toRemove.length,
+      subs: subs.length,
+      errors: errors.length ? errors : undefined,
+    }, 200)
   } catch (err) {
     return json(
       { error: err instanceof Error ? err.message : 'Error interno' },

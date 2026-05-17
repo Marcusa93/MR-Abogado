@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
 import {
   Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
-  Building2, CalendarDays, Search,
+  Building2, CalendarDays, Search, FileCheck2,
 } from 'lucide-react'
+import { ConstanciaModal } from '@/components/sae/constancia-modal'
 import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
@@ -39,18 +40,23 @@ function formatFechaRelativa(iso: string | null): string {
 
 function NotifCard({ notif }: { notif: SaeNotificacion }) {
   const mark = useMarkSaeNotifAsRead()
+  const [showConstancia, setShowConstancia] = useState(false)
   const unread = !notif.leida
   const fueroSlug = notif.raw_payload?.fuero
   const fueroLabel = getFueroLabel(fueroSlug)
   const caratulaLocal = notif.expediente?.caratula
   const fechaPortal = notif.fecha_emision ?? notif.created_at
 
+  const isUrgente = notif.prioridad === 'urgente'
+
   return (
     <div className={cn(
       'rounded-xl border p-4 transition-colors',
-      unread
-        ? 'border-cyan-500/40 bg-cyan-500/[0.06] shadow-[0_0_0_1px_rgba(6,182,212,0.15)]'
-        : 'border-white/5 bg-white/[0.02]',
+      isUrgente && unread
+        ? 'border-rose-500/50 bg-rose-500/[0.08] shadow-[0_0_0_1px_rgba(244,63,94,0.2)]'
+        : unread
+          ? 'border-cyan-500/40 bg-cyan-500/[0.06] shadow-[0_0_0_1px_rgba(6,182,212,0.15)]'
+          : 'border-white/5 bg-white/[0.02]',
     )}>
       {/* Header: meta info (fuero · expediente · fecha) */}
       <div className="flex items-start justify-between gap-3 mb-2">
@@ -93,18 +99,36 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
         )}
       </div>
 
-      {/* Tipo (chip violeta destacado) */}
-      {notif.tipo && (
-        <div className="mb-1.5">
+      {/* Chips: tipo + prioridad IA */}
+      <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
+        {notif.tipo && (
           <span className="inline-block rounded-md bg-violet-500/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-200">
             {notif.tipo}
           </span>
-        </div>
-      )}
+        )}
+        {notif.prioridad === 'urgente' && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/25 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-200">
+            🚨 Urgente
+            {notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
+          </span>
+        )}
+        {notif.prioridad === 'info' && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-500/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+            Info
+          </span>
+        )}
+      </div>
 
       {/* Título de la actuación */}
       {notif.titulo && (
         <h3 className="text-sm font-semibold text-zinc-50 leading-snug">{notif.titulo}</h3>
+      )}
+
+      {/* Resumen IA — si hay y agrega valor sobre el título */}
+      {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
+        <p className="mt-1 text-[11px] text-amber-200/80 italic">
+          {notif.ia_resumen}
+        </p>
       )}
 
       {/* Carátula del expediente (si está en cartera) o destinatario (sino) */}
@@ -147,7 +171,21 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
           <ExternalLink className="h-3 w-3" />
           Ver en portal
         </a>
+        {!unread && (
+          <button
+            type="button"
+            onClick={() => setShowConstancia(true)}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/15"
+            title="Ver constancia legal de toma de conocimiento"
+          >
+            <FileCheck2 className="h-3 w-3" />
+            Constancia
+          </button>
+        )}
       </div>
+      {showConstancia && (
+        <ConstanciaModal notifId={notif.id} onClose={() => setShowConstancia(false)} />
+      )}
     </div>
   )
 }

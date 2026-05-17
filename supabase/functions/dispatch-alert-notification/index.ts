@@ -71,17 +71,25 @@ function renderEmailHtml(titulo: string, mensaje: string, urlAbs: string | null)
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  // Auth: JWT del usuario (cualquiera autenticado puede invocar para crear notifs)
+  // Auth: aceptamos dos modos
+  //   1. JWT de usuario autenticado (legacy: invocado desde el cliente)
+  //   2. Service role key (trigger DB vía pg_net — el camino preferido)
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'No autorizado' }, 401)
 
-  const userClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
-  const { data: { user }, error: authErr } = await userClient.auth.getUser()
-  if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const isServiceRole = token === serviceKey
+
+  if (!isServiceRole) {
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authErr } = await userClient.auth.getUser()
+    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+  }
 
   const body = await req.json().catch(() => null) as DispatchInput | null
   if (!body) return json({ error: 'Body inválido' }, 400)
@@ -93,6 +101,7 @@ Deno.serve(async (req) => {
 
   // Resolver datos de la alerta (DB o body directo)
   let tipo: string, usuario_id: string, titulo: string, mensaje: string, url: string | null
+  let alertaId: string | null = null
 
   if (body.alerta_id) {
     const { data: alerta, error } = await admin
@@ -102,6 +111,7 @@ Deno.serve(async (req) => {
       .single()
     if (error || !alerta) return json({ error: 'Alerta no encontrada' }, 404)
     const a = alerta as AlertaRow
+    alertaId = a.id
     tipo = a.tipo
     usuario_id = a.usuario_id
     titulo = a.titulo
@@ -116,6 +126,35 @@ Deno.serve(async (req) => {
     titulo = body.titulo
     mensaje = body.mensaje ?? ''
     url = body.url ?? null
+  }
+
+  // ── Helper: idempotencia + escritura del dispatch ──────────────
+  async function hasSuccessfulDispatch(channel: 'push' | 'email'): Promise<boolean> {
+    if (!alertaId) return false // dispatches directos sin alerta no se desduplican
+    const { data } = await admin
+      .from('notif_dispatches')
+      .select('id')
+      .eq('alerta_id', alertaId)
+      .eq('channel', channel)
+      .eq('status', 'success')
+      .limit(1)
+      .maybeSingle()
+    return !!data
+  }
+  async function recordDispatch(
+    channel: 'push' | 'email',
+    status: 'success' | 'failed' | 'skipped',
+    reason: string | null,
+    metadata: Record<string, unknown> = {},
+  ) {
+    await admin.from('notif_dispatches').insert({
+      alerta_id: alertaId,
+      usuario_id,
+      channel,
+      status,
+      reason,
+      metadata,
+    })
   }
 
   // Validar que el evento sea uno conocido
@@ -138,42 +177,75 @@ Deno.serve(async (req) => {
 
   // Push
   if (wantsPush) {
-    try {
-      const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-        },
-        body: JSON.stringify({
-          user_ids: [usuario_id],
-          payload: { title: titulo, body: mensaje, url: url ?? '/', tag: tipo },
-        }),
-      })
-      result.pushed = res.ok
-      if (!res.ok) result.skipped.push(`push_status_${res.status}`)
-    } catch (e) {
-      result.skipped.push(`push_error_${e instanceof Error ? e.message.slice(0, 60) : 'unknown'}`)
+    if (await hasSuccessfulDispatch('push')) {
+      result.skipped.push('push_already_dispatched')
+      await recordDispatch('push', 'skipped', 'already_dispatched')
+    } else {
+      try {
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({
+            user_ids: [usuario_id],
+            payload: { title: titulo, body: mensaje, url: url ?? '/', tag: tipo },
+          }),
+        })
+        result.pushed = res.ok
+        if (res.ok) {
+          const meta = await res.json().catch(() => ({})) as { sent?: number; removed?: number }
+          await recordDispatch('push', 'success', null, meta)
+          // Si la fn purgó subs vencidas pero no quedó ninguna activa, el `sent`
+          // será 0 — degradamos a "failed" para que la UI lo refleje.
+          if ((meta?.sent ?? 0) === 0) {
+            result.pushed = false
+            result.skipped.push('push_no_active_subs')
+          }
+        } else {
+          result.skipped.push(`push_status_${res.status}`)
+          await recordDispatch('push', 'failed', `http_${res.status}`)
+        }
+      } catch (e) {
+        const reason = e instanceof Error ? e.message.slice(0, 200) : 'unknown'
+        result.skipped.push(`push_error_${reason.slice(0, 60)}`)
+        await recordDispatch('push', 'failed', reason)
+      }
     }
   } else {
     result.skipped.push('push_pref_off')
+    await recordDispatch('push', 'skipped', 'pref_off')
   }
 
   // Email
   if (wantsEmail && profile.email) {
-    const urlAbs = url ? (url.startsWith('http') ? url : `https://app.marcorossi.com.ar${url}`) : null
-    const r = await sendEmail({
-      to: profile.email,
-      subject: titulo,
-      html: renderEmailHtml(titulo, mensaje, urlAbs),
-      tags: [{ name: 'tipo', value: tipo }],
-    })
-    result.emailed = r.ok
-    if (!r.ok) result.skipped.push(`email_error_${r.error?.slice(0, 60) ?? 'unknown'}`)
+    if (await hasSuccessfulDispatch('email')) {
+      result.skipped.push('email_already_dispatched')
+      await recordDispatch('email', 'skipped', 'already_dispatched')
+    } else {
+      const urlAbs = url ? (url.startsWith('http') ? url : `https://app.marcorossi.com.ar${url}`) : null
+      const r = await sendEmail({
+        to: profile.email,
+        subject: titulo,
+        html: renderEmailHtml(titulo, mensaje, urlAbs),
+        tags: [{ name: 'tipo', value: tipo }],
+      })
+      result.emailed = r.ok
+      if (r.ok) {
+        await recordDispatch('email', 'success', null, { to: profile.email })
+      } else {
+        const reason = r.error?.slice(0, 200) ?? 'unknown'
+        result.skipped.push(`email_error_${reason.slice(0, 60)}`)
+        await recordDispatch('email', 'failed', reason)
+      }
+    }
   } else if (wantsEmail && !profile.email) {
     result.skipped.push('email_no_address')
+    await recordDispatch('email', 'skipped', 'no_address')
   } else {
     result.skipped.push('email_pref_off')
+    await recordDispatch('email', 'skipped', 'pref_off')
   }
 
   return json({ ok: true, tipo, usuario_id, ...result })
