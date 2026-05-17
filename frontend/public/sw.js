@@ -1,15 +1,18 @@
 // ---------------------------------------------------------------------------
-// Alba CRM — Service Worker (Network-first strategy)
-// Does NOT cache API calls or Supabase data — CRM data must always be fresh.
+// MR Abogado — Service Worker (Network-first strategy)
+// Does NOT cache API calls or Supabase data — must always be fresh.
 // Only caches static assets (JS, CSS, fonts, images) for fast reload.
+// Bumping CACHE_NAME invalida cualquier cache previo (incluido alba-crm-v1).
 // ---------------------------------------------------------------------------
 
-const CACHE_NAME = 'alba-crm-v1'
+const CACHE_NAME = 'mr-abogado-v2'
 
 // Static assets to pre-cache on install
 const PRECACHE_URLS = [
   '/',
-  '/icon.svg',
+  '/logo/icon-192.png',
+  '/logo/icon-512.png',
+  '/logo/mr-monograma-azul.svg',
 ]
 
 self.addEventListener('install', (event) => {
@@ -40,14 +43,14 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data ? event.data.json() : {}
   } catch {
-    payload = { title: 'Alba CRM', body: event.data ? event.data.text() : '' }
+    payload = { title: 'MR Abogado', body: event.data ? event.data.text() : '' }
   }
 
-  const title = payload.title || 'Alba CRM'
+  const title = payload.title || 'MR Abogado'
   const options = {
     body: payload.body || '',
-    icon: payload.icon || '/icon.svg',
-    badge: payload.badge || '/icon.svg',
+    icon: payload.icon || '/logo/icon-192.png',
+    badge: payload.badge || '/logo/icon-192.png',
     tag: payload.tag,
     data: { url: payload.url || '/' },
   }
