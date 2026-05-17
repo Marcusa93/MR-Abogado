@@ -135,6 +135,17 @@ export interface PollResult {
   fueros_con_novedades_detectadas?: string[] | null
   discovery_mode?: 'auto' | 'manual'
   errores: { profile_id: string; error: string }[]
+  debug?: {
+    discovery?: {
+      status: number
+      finalUrl: string
+      hops: number
+      htmlLen: number
+      anchorsFound: number
+      log: string[]
+    }
+    fueros: { slug: string; pages: number; items: number; firstStatus: number; htmlLen: number; error?: string }[]
+  } | null
 }
 
 export function useTriggerSaePoll() {

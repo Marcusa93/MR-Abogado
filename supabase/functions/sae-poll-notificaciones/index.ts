@@ -33,6 +33,85 @@ import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
+const MAX_REDIRECT_HOPS = 12     // SSO puede encadenar 4-6 saltos
+
+// ─── Walk de redirects manual con cookie accumulation ──────────────────────
+// Deno fetch sigue redirects automáticamente PERO se come los Set-Cookie de
+// los hops intermedios — que es exactamente lo que necesitamos del SSO.
+// Lo hacemos a mano: hop por hop, mergeando cookies en la session.
+
+function parseSetCookieHeader(raw: string | null): string[] {
+  if (!raw) return []
+  // Set-Cookie con múltiples cookies viene separado por "," entre cookies
+  // (cuidado: la fecha "Expires=Wed, 21 Oct..." también tiene comas).
+  return raw.split(/,(?=[^;,\s]+=)/g)
+    .map(s => s.split(';')[0].trim())
+    .filter(Boolean)
+}
+
+function mergeCookies(existing: string[], incoming: string[]): string[] {
+  const map = new Map<string, string>()
+  for (const c of existing) {
+    const eq = c.indexOf('=')
+    if (eq > 0) map.set(c.slice(0, eq), c)
+  }
+  for (const c of incoming) {
+    const eq = c.indexOf('=')
+    if (eq > 0) map.set(c.slice(0, eq), c)
+  }
+  return [...map.values()]
+}
+
+interface RedirectResult {
+  res: Response
+  finalUrl: string
+  session: SaeSession
+  hops: { url: string; status: number; setCookies: string[] }[]
+}
+
+async function fetchWithManualRedirects(
+  startUrl: string,
+  session: SaeSession,
+): Promise<RedirectResult> {
+  const hops: RedirectResult['hops'] = []
+  let currentUrl = startUrl
+  let currentSession = session
+
+  for (let i = 0; i < MAX_REDIRECT_HOPS; i++) {
+    const res = await fetch(currentUrl, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-AR,es;q=0.9',
+        'User-Agent': BROWSER_UA,
+        Cookie: currentSession.cookies.join('; '),
+        Referer: PORTAL_BASE,
+      },
+      redirect: 'manual',
+    })
+
+    const setCookies = parseSetCookieHeader(res.headers.get('set-cookie'))
+    if (setCookies.length > 0) {
+      currentSession = { ...currentSession, cookies: mergeCookies(currentSession.cookies, setCookies) }
+    }
+    hops.push({ url: currentUrl, status: res.status, setCookies })
+
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const loc = res.headers.get('location')
+      if (!loc) return { res, finalUrl: currentUrl, session: currentSession, hops }
+      try {
+        currentUrl = new URL(loc, currentUrl).toString()
+      } catch {
+        return { res, finalUrl: currentUrl, session: currentSession, hops }
+      }
+      // Consumimos el body del redirect para liberar la conexión
+      await res.body?.cancel().catch(() => {})
+      continue
+    }
+
+    return { res, finalUrl: currentUrl, session: currentSession, hops }
+  }
+  throw new SaeError('TOO_MANY_REDIRECTS', `Más de ${MAX_REDIRECT_HOPS} redirects en ${startUrl}`)
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -87,24 +166,16 @@ async function fetchPaginaFuero(
   fueroSlug: string,
   page: number,
   session: SaeSession,
-): Promise<{ items: PortalNotificacion[]; hayMas: boolean }> {
+): Promise<{ items: PortalNotificacion[]; hayMas: boolean; session: SaeSession; htmlLen: number; status: number }> {
   const url = `${PORTAL_BASE}/casillero/fuero/${fueroSlug}?page=${page}`
-  const res = await fetch(url, {
-    headers: {
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'es-AR,es;q=0.9',
-      'User-Agent': BROWSER_UA,
-      Referer: `${PORTAL_BASE}/casillero`,
-      Cookie: session.cookies.join('; '),
-    },
-    redirect: 'manual',
-  })
+  const { res, session: newSession, hops } = await fetchWithManualRedirects(url, session)
 
-  // 302 → bouncea al SSO → sesión expirada
-  if (res.status === 301 || res.status === 302) {
-    throw new SaeError('SESSION_EXPIRED', 'Sesión SAE expirada: el portal redirige al SSO')
+  // Si el último hop terminó en login.justucuman, perdimos la sesión
+  const lastHop = hops[hops.length - 1]
+  if (lastHop && /login\.justucuman/i.test(lastHop.url)) {
+    throw new SaeError('SESSION_EXPIRED', 'Redirect a SSO en /casillero/fuero — cookies del portal no válidas')
   }
-  if (!res.ok) return { items: [], hayMas: false }
+  if (!res.ok) return { items: [], hayMas: false, session: newSession, htmlLen: 0, status: res.status }
 
   const html = await res.text()
   const $ = cheerio.load(html)
@@ -139,65 +210,74 @@ async function fetchPaginaFuero(
   })
 
   const hayMas = $('ul.pagination a[rel="next"]').length > 0
-  return { items, hayMas }
+  return { items, hayMas, session: newSession, htmlLen: html.length, status: res.status }
 }
 
-// Discovery: parsea /casillero para detectar qué fueros tienen 🔔 (novedades
-// desde el último ingreso del usuario). Devuelve solo los slugs con bell.
-// Si el parseo falla por completo, devuelve null para que el caller decida
-// qué hacer (probablemente fallback a iterar todos los fueros conocidos).
-async function discoverFuerosWithNovedades(session: SaeSession): Promise<string[] | null> {
-  const res = await fetch(`${PORTAL_BASE}/casillero`, {
-    headers: {
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'es-AR,es;q=0.9',
-      'User-Agent': BROWSER_UA,
-      Cookie: session.cookies.join('; '),
-    },
-    redirect: 'manual',
-  })
-  if (res.status === 301 || res.status === 302) {
-    throw new SaeError('SESSION_EXPIRED', 'Sesión expirada en /casillero (302 al SSO)')
+interface DiscoveryResult {
+  slugsConBell: string[] | null   // null = parseo falló
+  session: SaeSession
+  htmlLen: number
+  status: number
+  finalUrl: string
+  hopsCount: number
+  anchorsFound: number             // cuántos <a href=/casillero/fuero/X> había
+  debugLog: string[]
+}
+
+// Discovery: parsea /casillero para detectar qué fueros tienen 🔔.
+async function discoverFuerosWithNovedades(session: SaeSession): Promise<DiscoveryResult> {
+  const debugLog: string[] = []
+  const { res, finalUrl, session: newSession, hops } = await fetchWithManualRedirects(
+    `${PORTAL_BASE}/casillero`,
+    session,
+  )
+
+  debugLog.push(`/casillero status=${res.status} hops=${hops.length} finalUrl=${finalUrl}`)
+  for (const h of hops) {
+    debugLog.push(`  hop ${h.url} → ${h.status} (set-cookie: ${h.setCookies.length})`)
   }
-  if (!res.ok) return null
+
+  if (/login\.justucuman/i.test(finalUrl)) {
+    throw new SaeError('SESSION_EXPIRED', `Discovery /casillero terminó en SSO (${finalUrl}). Cookies de portal no aplican.`)
+  }
+  if (!res.ok) {
+    return { slugsConBell: null, session: newSession, htmlLen: 0, status: res.status, finalUrl, hopsCount: hops.length, anchorsFound: 0, debugLog }
+  }
 
   const html = await res.text()
   const $ = cheerio.load(html)
-
-  // Buscamos links que apunten a /casillero/fuero/{slug}. Heurística para detectar
-  // el bell: el slug está marcado si dentro del mismo row hay un <i> con clase que
-  // contiene 'bell' (FontAwesome fa-bell, fa-solid fa-bell, etc.) o un texto/icono
-  // con 'novedad'.
   const slugsConBell = new Set<string>()
-  $('a[href*="/casillero/fuero/"]').each((_, a) => {
+
+  const anchors = $('a[href*="/casillero/fuero/"]')
+  debugLog.push(`anchors a[href*=/casillero/fuero/]: ${anchors.length}`)
+
+  anchors.each((_, a) => {
     const $a = $(a)
     const href = $a.attr('href') ?? ''
     const m = href.match(/\/casillero\/fuero\/([a-z0-9-]+)/i)
     if (!m) return
     const slug = m[1].toLowerCase()
 
-    // Buscamos el bell en el <a> o en su row contenedor (typically un <tr> o <li>)
     const container = $a.closest('tr, li, .row, .card, .panel, div').first()
     const candidates = container.length > 0 ? container : $a.parent()
-    const hasBell = candidates.find('i[class*="bell"], svg[class*="bell"], [class*="fa-bell"]').length > 0
-                 || candidates.text().toLowerCase().includes('novedad')
-    if (hasBell) slugsConBell.add(slug)
-  })
 
-  // Heurística adicional: si los <a> tienen un span/badge cercano con número (count
-  // de notifs nuevas), también lo contamos como con novedad.
-  $('a[href*="/casillero/fuero/"]').each((_, a) => {
-    const $a = $(a)
-    const href = $a.attr('href') ?? ''
-    const m = href.match(/\/casillero\/fuero\/([a-z0-9-]+)/i)
-    if (!m) return
+    const hasBellIcon = candidates.find('i[class*="bell"], svg[class*="bell"], [class*="fa-bell"]').length > 0
+    const containerText = candidates.text().toLowerCase()
+    const hasNovedadText = containerText.includes('novedad')
     const badge = $a.find('.badge, .pill, .count, [class*="badge"]').first()
-    if (badge.length > 0 && /\d+/.test(badge.text())) {
-      slugsConBell.add(m[1].toLowerCase())
+    const hasBadge = badge.length > 0 && /\d+/.test(badge.text())
+
+    if (hasBellIcon || hasNovedadText || hasBadge) {
+      slugsConBell.add(slug)
+      debugLog.push(`  ✓ ${slug} (bell=${hasBellIcon} novedad=${hasNovedadText} badge=${hasBadge})`)
     }
   })
 
-  return [...slugsConBell]
+  return {
+    slugsConBell: [...slugsConBell],
+    session: newSession, htmlLen: html.length, status: res.status, finalUrl, hopsCount: hops.length,
+    anchorsFound: anchors.length, debugLog,
+  }
 }
 
 interface FueroResult {
@@ -206,6 +286,18 @@ interface FueroResult {
   fueros_iterados: string[]
   fueros_con_novedades_detectadas: string[] | 'discovery_fallido'
   fueros_seleccionados_manual: string[] | null
+  session: SaeSession
+  debug: {
+    discovery?: {
+      status: number
+      finalUrl: string
+      hops: number
+      htmlLen: number
+      anchorsFound: number
+      log: string[]
+    }
+    fueros: { slug: string; pages: number; items: number; firstStatus: number; htmlLen: number; error?: string }[]
+  }
 }
 
 async function fetchNotificacionesFromPortal(
@@ -214,53 +306,70 @@ async function fetchNotificacionesFromPortal(
 ): Promise<FueroResult> {
   const allItems: PortalNotificacion[] = []
   const errores: string[] = []
+  const debug: FueroResult['debug'] = { fueros: [] }
+  let currentSession = session
 
   // Decidir qué fueros iterar
   let fuerosAIterar: string[]
   let fuerosConBell: string[] | 'discovery_fallido' = 'discovery_fallido'
 
   if (fuerosSeleccionados.length > 0) {
-    // Override manual: el usuario eligió fueros específicos
     fuerosAIterar = fuerosSeleccionados
   } else {
-    // Discovery automático
-    const discovered = await discoverFuerosWithNovedades(session)
-    if (discovered === null) {
-      // Discovery falló (no pudo parsear /casillero) → fallback: iterar todos
+    const discovery = await discoverFuerosWithNovedades(currentSession)
+    currentSession = discovery.session
+    debug.discovery = {
+      status: discovery.status,
+      finalUrl: discovery.finalUrl,
+      hops: discovery.hopsCount,
+      htmlLen: discovery.htmlLen,
+      anchorsFound: discovery.anchorsFound,
+      log: discovery.debugLog,
+    }
+
+    if (discovery.slugsConBell === null) {
       fuerosAIterar = FUEROS_SAE.map(f => f.slug)
       errores.push('Discovery de bandeja falló — barriendo todos los fueros')
-    } else if (discovered.length === 0) {
-      // Discovery OK pero no hay novedades en ningún fuero
+    } else if (discovery.slugsConBell.length === 0) {
       fuerosAIterar = []
       fuerosConBell = []
     } else {
-      fuerosAIterar = discovered
-      fuerosConBell = discovered
+      fuerosAIterar = discovery.slugsConBell
+      fuerosConBell = discovery.slugsConBell
     }
   }
 
-  // Iterar fueros + paginar
   for (const slug of fuerosAIterar) {
+    let pages = 0
+    let firstStatus = 0
+    let totalHtmlLen = 0
+    let errorMsg: string | undefined
+    let itemsForThisFuero = 0
     try {
       for (let page = 1; page <= MAX_PAGES_PER_FUERO; page++) {
-        const { items, hayMas } = await fetchPaginaFuero(slug, page, session)
-        allItems.push(...items)
-        if (!hayMas || items.length === 0) break
+        const r = await fetchPaginaFuero(slug, page, currentSession)
+        currentSession = r.session
+        if (page === 1) firstStatus = r.status
+        totalHtmlLen += r.htmlLen
+        pages++
+        allItems.push(...r.items)
+        itemsForThisFuero += r.items.length
+        if (!r.hayMas || r.items.length === 0) break
       }
     } catch (e) {
       if (e instanceof SaeError && e.code === 'SESSION_EXPIRED') throw e
-      const msg = e instanceof Error ? e.message : String(e)
-      errores.push(`${slug}: ${msg}`)
-      console.error(`[sae-poll] fuero ${slug} error:`, msg)
+      errorMsg = e instanceof Error ? e.message : String(e)
+      errores.push(`${slug}: ${errorMsg}`)
     }
+    debug.fueros.push({ slug, pages, items: itemsForThisFuero, firstStatus, htmlLen: totalHtmlLen, error: errorMsg })
   }
 
   return {
-    items: allItems,
-    errores,
+    items: allItems, errores,
     fueros_iterados: fuerosAIterar,
     fueros_con_novedades_detectadas: fuerosConBell,
     fueros_seleccionados_manual: fuerosSeleccionados.length > 0 ? fuerosSeleccionados : null,
+    session: currentSession, debug,
   }
 }
 
@@ -417,6 +526,9 @@ Deno.serve(async (req) => {
     fueros_con_novedades_detectadas: null as string[] | null,
     discovery_mode: 'auto' as 'auto' | 'manual',
     errores: [] as { profile_id: string; error: string }[],
+    // Solo se popula en modo manual (forcedProfileId no null): telemetría
+    // detallada para debug del flow real con el portal.
+    debug: null as FueroResult['debug'] | null,
   }
 
   for (const p of (profiles ?? []) as ProfileRow[]) {
@@ -445,42 +557,15 @@ Deno.serve(async (req) => {
       continue
     }
 
-    // 3.5) Warm-up: visitamos el portal para que el SSO setee las cookies de Laravel
-    //      (las cookies del consultaexpedientes no alcanzan en portaldelsae).
-    try {
-      const warmupRes = await fetch(`${PORTAL_BASE}/casillero`, {
-        headers: {
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'User-Agent': BROWSER_UA,
-          Cookie: session.cookies.join('; '),
-        },
-        redirect: 'follow',  // dejamos que siga al SSO y vuelva con la cookie portal
-      })
-      // Capturamos cookies adicionales que setee el portal/SSO
-      const setCookies = warmupRes.headers.get('set-cookie')
-      if (setCookies) {
-        const lines = setCookies.split(/,(?=[^;,\s]+=)/g).map(s => s.trim()).filter(Boolean)
-        const existing = new Map(session.cookies.map(c => {
-          const eq = c.indexOf('=')
-          return [eq > 0 ? c.slice(0, eq) : c, c] as [string, string]
-        }))
-        for (const line of lines) {
-          const pair = line.split(';')[0]?.trim()
-          if (!pair) continue
-          const eq = pair.indexOf('=')
-          if (eq > 0) existing.set(pair.slice(0, eq), pair)
-        }
-        session = { ...session, cookies: [...existing.values()] }
-      }
-    } catch (e) {
-      console.error(`[sae-poll] warmup error for ${p.id}:`, e instanceof Error ? e.message : e)
-    }
-
     // 4) Fetch notificaciones del portal
+    //    fetchNotificacionesFromPortal hace todo: discovery /casillero (con
+    //    walk de redirects manual que acumula cookies de SSO + Laravel
+    //    portal) y luego itera fueros con la sesión enriquecida.
     let portalNotifs: PortalNotificacion[] = []
     let fueroResult: FueroResult | null = null
     try {
       fueroResult = await fetchNotificacionesFromPortal(session, p.sae_fueros_seleccionados ?? [])
+      session = fueroResult.session  // sesión enriquecida con cookies del portal
       portalNotifs = fueroResult.items
       stats.fueros_iterados = fueroResult.fueros_iterados
       if (fueroResult.fueros_seleccionados_manual) {
@@ -488,12 +573,15 @@ Deno.serve(async (req) => {
       } else if (Array.isArray(fueroResult.fueros_con_novedades_detectadas)) {
         stats.fueros_con_novedades_detectadas = fueroResult.fueros_con_novedades_detectadas
       }
+      // Solo exponemos debug si es invocación manual del usuario (1 profile)
+      if (forcedProfileId) stats.debug = fueroResult.debug
       for (const err of fueroResult.errores) {
         stats.errores.push({ profile_id: p.id, error: err })
       }
     } catch (e) {
       const code = e instanceof SaeError ? e.code : 'FETCH_UNKNOWN'
-      stats.errores.push({ profile_id: p.id, error: `Fetch: ${code}` })
+      const msg = e instanceof Error ? e.message : String(e)
+      stats.errores.push({ profile_id: p.id, error: `Fetch: ${code} — ${msg}` })
       continue
     }
     if (portalNotifs.length === 0) continue

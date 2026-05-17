@@ -7,7 +7,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
   useSaeNotificaciones, useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead,
-  useSaeNotifPreferences, useTriggerSaePoll, type SaeNotificacion,
+  useSaeNotifPreferences, useTriggerSaePoll,
+  type SaeNotificacion, type PollResult,
 } from '@/hooks/use-sae-notificaciones'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -111,10 +112,13 @@ export default function NotificacionesSaePage() {
   const markAll = useMarkAllSaeNotifAsRead()
   const trigger = useTriggerSaePoll()
   const queryClient = useQueryClient()
+  const [lastResult, setLastResult] = useState<PollResult | null>(null)
+  const [debugOpen, setDebugOpen] = useState(false)
 
   const handleSyncNow = () => {
     trigger.mutate(undefined, {
       onSuccess: (res) => {
+        setLastResult(res)
         if (res.notifs_nuevas > 0) {
           toast.success(`${res.notifs_nuevas} ${res.notifs_nuevas === 1 ? 'notificación nueva' : 'notificaciones nuevas'}`)
         } else {
@@ -168,6 +172,56 @@ export default function NotificacionesSaePage() {
           </a>
         </div>
       </div>
+
+      {lastResult && lastResult.debug && (
+        <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.03] p-3">
+          <button
+            onClick={() => setDebugOpen(!debugOpen)}
+            className="w-full text-left flex items-center justify-between"
+          >
+            <div className="text-[11px] text-zinc-400">
+              <span className="text-cyan-300 font-medium">Última sincronización:</span>{' '}
+              {lastResult.notifs_nuevas} nuevas · {lastResult.fueros_iterados?.length ?? 0} fueros consultados
+              {lastResult.discovery_mode === 'auto' && lastResult.fueros_con_novedades_detectadas && (
+                <> · {lastResult.fueros_con_novedades_detectadas.length} con 🔔 detectado</>
+              )}
+              {lastResult.errores.length > 0 && <span className="text-rose-300"> · {lastResult.errores.length} error(es)</span>}
+            </div>
+            <span className="text-[10px] text-cyan-300">{debugOpen ? 'ocultar detalle' : 'ver detalle'}</span>
+          </button>
+          {debugOpen && (
+            <div className="mt-3 space-y-2 text-[10px] font-mono">
+              {lastResult.debug.discovery && (
+                <div className="rounded bg-black/30 p-2">
+                  <div className="text-cyan-300 mb-1">discovery /casillero:</div>
+                  <div>status={lastResult.debug.discovery.status} · hops={lastResult.debug.discovery.hops} · htmlLen={lastResult.debug.discovery.htmlLen} · anchors={lastResult.debug.discovery.anchorsFound}</div>
+                  <div className="text-zinc-500 truncate">finalUrl: {lastResult.debug.discovery.finalUrl}</div>
+                  {lastResult.debug.discovery.log.map((l, i) => (
+                    <div key={i} className="text-zinc-400">{l}</div>
+                  ))}
+                </div>
+              )}
+              {lastResult.debug.fueros.length > 0 && (
+                <div className="rounded bg-black/30 p-2">
+                  <div className="text-cyan-300 mb-1">fueros iterados:</div>
+                  {lastResult.debug.fueros.map(f => (
+                    <div key={f.slug} className={f.error ? 'text-rose-300' : 'text-zinc-300'}>
+                      {f.slug}: status={f.firstStatus} pages={f.pages} items={f.items} htmlLen={f.htmlLen}
+                      {f.error && <span> — ERROR: {f.error}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {lastResult.errores.length > 0 && (
+                <div className="rounded bg-rose-950/20 border border-rose-500/30 p-2 text-rose-200">
+                  <div className="mb-1 font-medium">errores:</div>
+                  {lastResult.errores.map((e, i) => <div key={i}>{e.error}</div>)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {prefs && !prefs.sae_notif_enabled && (
         <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 flex items-start gap-2">
