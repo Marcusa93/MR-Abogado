@@ -28,25 +28,10 @@ import * as cheerio from 'npm:cheerio@1.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
+import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
 
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-
-// Listado completo de slugs de fueros del portal del SAE Tucumán.
-// Sufijos: -cjc (Concepción), -cjm (Monteros), -cje (Este), -brs (Banda Río Salí).
-const FUEROS_SLUGS = [
-  'apremios', 'apremios-cjc',
-  'civil', 'civil-cjc', 'civil-cjm',
-  'conclusional', 'conclusional-cjm',
-  'contencioso',
-  'documentos', 'documentos-cjc', 'documentos-cjm',
-  'familia', 'familia-cjc', 'familia-cje', 'familia-cjm',
-  'generico', 'justicia-paz',
-  'mediacion', 'mediacion-brs', 'mediacion-cjc', 'mediacion-cjm',
-  'oga', 'oga-cjc', 'oga-cjm',
-  'originarios', 'superintendencia',
-  'trabajo', 'trabajo-cjc', 'trabajo-cjm',
-]
 const MAX_PAGES_PER_FUERO = 20  // safety cap
 
 function json(body: unknown, status = 200) {
@@ -69,6 +54,7 @@ interface ProfileRow {
   sae_notif_email_addresses: string[]
   sae_notif_push_quiet: boolean
   sae_notif_weekend: boolean
+  sae_fueros_seleccionados: string[]
 }
 
 interface PortalNotificacion {
@@ -156,22 +142,126 @@ async function fetchPaginaFuero(
   return { items, hayMas }
 }
 
-async function fetchNotificacionesFromPortal(session: SaeSession): Promise<PortalNotificacion[]> {
-  const all: PortalNotificacion[] = []
-  for (const slug of FUEROS_SLUGS) {
+// Discovery: parsea /casillero para detectar qué fueros tienen 🔔 (novedades
+// desde el último ingreso del usuario). Devuelve solo los slugs con bell.
+// Si el parseo falla por completo, devuelve null para que el caller decida
+// qué hacer (probablemente fallback a iterar todos los fueros conocidos).
+async function discoverFuerosWithNovedades(session: SaeSession): Promise<string[] | null> {
+  const res = await fetch(`${PORTAL_BASE}/casillero`, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-AR,es;q=0.9',
+      'User-Agent': BROWSER_UA,
+      Cookie: session.cookies.join('; '),
+    },
+    redirect: 'manual',
+  })
+  if (res.status === 301 || res.status === 302) {
+    throw new SaeError('SESSION_EXPIRED', 'Sesión expirada en /casillero (302 al SSO)')
+  }
+  if (!res.ok) return null
+
+  const html = await res.text()
+  const $ = cheerio.load(html)
+
+  // Buscamos links que apunten a /casillero/fuero/{slug}. Heurística para detectar
+  // el bell: el slug está marcado si dentro del mismo row hay un <i> con clase que
+  // contiene 'bell' (FontAwesome fa-bell, fa-solid fa-bell, etc.) o un texto/icono
+  // con 'novedad'.
+  const slugsConBell = new Set<string>()
+  $('a[href*="/casillero/fuero/"]').each((_, a) => {
+    const $a = $(a)
+    const href = $a.attr('href') ?? ''
+    const m = href.match(/\/casillero\/fuero\/([a-z0-9-]+)/i)
+    if (!m) return
+    const slug = m[1].toLowerCase()
+
+    // Buscamos el bell en el <a> o en su row contenedor (typically un <tr> o <li>)
+    const container = $a.closest('tr, li, .row, .card, .panel, div').first()
+    const candidates = container.length > 0 ? container : $a.parent()
+    const hasBell = candidates.find('i[class*="bell"], svg[class*="bell"], [class*="fa-bell"]').length > 0
+                 || candidates.text().toLowerCase().includes('novedad')
+    if (hasBell) slugsConBell.add(slug)
+  })
+
+  // Heurística adicional: si los <a> tienen un span/badge cercano con número (count
+  // de notifs nuevas), también lo contamos como con novedad.
+  $('a[href*="/casillero/fuero/"]').each((_, a) => {
+    const $a = $(a)
+    const href = $a.attr('href') ?? ''
+    const m = href.match(/\/casillero\/fuero\/([a-z0-9-]+)/i)
+    if (!m) return
+    const badge = $a.find('.badge, .pill, .count, [class*="badge"]').first()
+    if (badge.length > 0 && /\d+/.test(badge.text())) {
+      slugsConBell.add(m[1].toLowerCase())
+    }
+  })
+
+  return [...slugsConBell]
+}
+
+interface FueroResult {
+  items: PortalNotificacion[]
+  errores: string[]
+  fueros_iterados: string[]
+  fueros_con_novedades_detectadas: string[] | 'discovery_fallido'
+  fueros_seleccionados_manual: string[] | null
+}
+
+async function fetchNotificacionesFromPortal(
+  session: SaeSession,
+  fuerosSeleccionados: string[],
+): Promise<FueroResult> {
+  const allItems: PortalNotificacion[] = []
+  const errores: string[] = []
+
+  // Decidir qué fueros iterar
+  let fuerosAIterar: string[]
+  let fuerosConBell: string[] | 'discovery_fallido' = 'discovery_fallido'
+
+  if (fuerosSeleccionados.length > 0) {
+    // Override manual: el usuario eligió fueros específicos
+    fuerosAIterar = fuerosSeleccionados
+  } else {
+    // Discovery automático
+    const discovered = await discoverFuerosWithNovedades(session)
+    if (discovered === null) {
+      // Discovery falló (no pudo parsear /casillero) → fallback: iterar todos
+      fuerosAIterar = FUEROS_SAE.map(f => f.slug)
+      errores.push('Discovery de bandeja falló — barriendo todos los fueros')
+    } else if (discovered.length === 0) {
+      // Discovery OK pero no hay novedades en ningún fuero
+      fuerosAIterar = []
+      fuerosConBell = []
+    } else {
+      fuerosAIterar = discovered
+      fuerosConBell = discovered
+    }
+  }
+
+  // Iterar fueros + paginar
+  for (const slug of fuerosAIterar) {
     try {
       for (let page = 1; page <= MAX_PAGES_PER_FUERO; page++) {
         const { items, hayMas } = await fetchPaginaFuero(slug, page, session)
-        all.push(...items)
+        allItems.push(...items)
         if (!hayMas || items.length === 0) break
       }
     } catch (e) {
-      // Si la sesión expiró, no tiene sentido seguir con los demás fueros.
       if (e instanceof SaeError && e.code === 'SESSION_EXPIRED') throw e
-      console.error(`[sae-poll] fuero ${slug} error:`, e instanceof Error ? e.message : e)
+      const msg = e instanceof Error ? e.message : String(e)
+      errores.push(`${slug}: ${msg}`)
+      console.error(`[sae-poll] fuero ${slug} error:`, msg)
     }
   }
-  return all
+
+  return {
+    items: allItems,
+    errores,
+    fueros_iterados: fuerosAIterar,
+    fueros_con_novedades_detectadas: fuerosConBell,
+    fueros_seleccionados_manual: fuerosSeleccionados.length > 0 ? fuerosSeleccionados : null,
+  }
 }
 
 // ─── Quiet hours: ¿push ahora o diferido? ───────────────────────────────────
@@ -303,7 +393,7 @@ Deno.serve(async (req) => {
   // 1) Traer usuarios con opt-in
   let profilesQuery = admin
     .from('profiles')
-    .select('id, email, nombre, apellido, sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend')
+    .select('id, email, nombre, apellido, sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend, sae_fueros_seleccionados')
     .eq('sae_notif_enabled', true)
   if (forcedProfileId) {
     profilesQuery = profilesQuery.eq('id', forcedProfileId)
@@ -323,6 +413,9 @@ Deno.serve(async (req) => {
     push_enviados: 0,
     push_diferidos: 0,
     emails_enviados: 0,
+    fueros_iterados: [] as string[],
+    fueros_con_novedades_detectadas: null as string[] | null,
+    discovery_mode: 'auto' as 'auto' | 'manual',
     errores: [] as { profile_id: string; error: string }[],
   }
 
@@ -385,8 +478,19 @@ Deno.serve(async (req) => {
 
     // 4) Fetch notificaciones del portal
     let portalNotifs: PortalNotificacion[] = []
+    let fueroResult: FueroResult | null = null
     try {
-      portalNotifs = await fetchNotificacionesFromPortal(session)
+      fueroResult = await fetchNotificacionesFromPortal(session, p.sae_fueros_seleccionados ?? [])
+      portalNotifs = fueroResult.items
+      stats.fueros_iterados = fueroResult.fueros_iterados
+      if (fueroResult.fueros_seleccionados_manual) {
+        stats.discovery_mode = 'manual'
+      } else if (Array.isArray(fueroResult.fueros_con_novedades_detectadas)) {
+        stats.fueros_con_novedades_detectadas = fueroResult.fueros_con_novedades_detectadas
+      }
+      for (const err of fueroResult.errores) {
+        stats.errores.push({ profile_id: p.id, error: err })
+      }
     } catch (e) {
       const code = e instanceof SaeError ? e.code : 'FETCH_UNKNOWN'
       stats.errores.push({ profile_id: p.id, error: `Fetch: ${code}` })

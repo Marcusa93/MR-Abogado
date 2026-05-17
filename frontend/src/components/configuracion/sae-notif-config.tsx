@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Bell, Check, X, Loader2, Mail, Smartphone, MoonStar, Plus, Trash2 } from 'lucide-react'
+import { Bell, Check, X, Loader2, Mail, Smartphone, MoonStar, Plus, Trash2, Filter } from 'lucide-react'
 import {
   useSaeNotifPreferences, useUpdateSaeNotifPreferences,
 } from '@/hooks/use-sae-notificaciones'
+import { FUEROS_SAE } from '@/lib/sae-fueros'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +22,8 @@ export function SaeNotifConfig() {
   const [weekend, setWeekend] = useState(false)
   const [emails, setEmails] = useState<string[]>([])
   const [newEmail, setNewEmail] = useState('')
+  const [fuerosSeleccionados, setFuerosSeleccionados] = useState<string[]>([])
+  const [autoFueros, setAutoFueros] = useState(true)
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
@@ -31,9 +34,25 @@ export function SaeNotifConfig() {
       setPushQuiet(prefs.sae_notif_push_quiet)
       setWeekend(prefs.sae_notif_weekend)
       setEmails(prefs.sae_notif_email_addresses ?? [])
+      const selectedFueros = prefs.sae_fueros_seleccionados ?? []
+      setFuerosSeleccionados(selectedFueros)
+      setAutoFueros(selectedFueros.length === 0)
       setDirty(false)
     }
   }, [prefs])
+
+  const toggleFuero = (slug: string) => {
+    setFuerosSeleccionados(prev =>
+      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
+    )
+    markDirty()
+  }
+
+  const handleAutoFuerosToggle = (val: boolean) => {
+    setAutoFueros(val)
+    if (val) setFuerosSeleccionados([])
+    markDirty()
+  }
 
   const markDirty = () => setDirty(true)
 
@@ -66,6 +85,7 @@ export function SaeNotifConfig() {
         sae_notif_push_quiet: pushQuiet,
         sae_notif_weekend: weekend,
         sae_notif_email_addresses: emails,
+        sae_fueros_seleccionados: autoFueros ? [] : fuerosSeleccionados,
       },
       {
         onSuccess: () => {
@@ -231,6 +251,58 @@ export function SaeNotifConfig() {
                 </p>
               </div>
             </label>
+          </div>
+
+          {/* Fueros a consultar */}
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+              <Filter className="h-3 w-3" />
+              Fueros a consultar
+            </p>
+            <label className="flex items-start gap-3 text-xs cursor-pointer mb-3">
+              <input
+                type="checkbox"
+                checked={autoFueros}
+                onChange={(e) => handleAutoFuerosToggle(e.target.checked)}
+                className="mt-0.5 rounded border-white/20 bg-white/5"
+              />
+              <div className="flex-1">
+                <span className="text-zinc-200">Automático (recomendado)</span>
+                <p className="mt-0.5 text-[10px] text-zinc-500">
+                  El sistema lee la "Bandeja de Entrada" del portal y solo consulta los fueros con novedades. Más rápido y preciso que iterar los 29.
+                </p>
+              </div>
+            </label>
+            {!autoFueros && (
+              <div className="border-l border-white/5 pl-4">
+                <p className="text-[10px] text-zinc-500 mb-2">
+                  Elegí los fueros donde trabajás. Solo esos se van a consultar siempre, ignorando el discovery automático.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-2">
+                  {FUEROS_SAE.map(f => (
+                    <label key={f.slug} className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-white/[0.03] rounded px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={fuerosSeleccionados.includes(f.slug)}
+                        onChange={() => toggleFuero(f.slug)}
+                        className="rounded border-white/20 bg-white/5"
+                      />
+                      <span className="text-zinc-200 truncate">{f.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {fuerosSeleccionados.length === 0 && (
+                  <p className="mt-2 text-[10px] text-amber-400">
+                    Sin selección: el sistema va a iterar TODOS los fueros (sin discovery). Marcá al menos uno o volvé a "Automático".
+                  </p>
+                )}
+                {fuerosSeleccionados.length > 0 && (
+                  <p className="mt-2 text-[10px] text-emerald-400">
+                    {fuerosSeleccionados.length} fuero{fuerosSeleccionados.length === 1 ? '' : 's'} seleccionado{fuerosSeleccionados.length === 1 ? '' : 's'}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

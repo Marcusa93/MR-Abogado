@@ -29,6 +29,7 @@ export interface SaeNotifPreferences {
   sae_notif_email_addresses: string[]
   sae_notif_push_quiet: boolean
   sae_notif_weekend: boolean
+  sae_fueros_seleccionados: string[]
 }
 
 // ── Lista ──────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ export function useSaeNotifPreferences() {
       if (!user) return null
       const { data, error } = await supabase
         .from('profiles')
-        .select('sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend' as never)
+        .select('sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend, sae_fueros_seleccionados' as never)
         .eq('id', user.id)
         .single()
       if (error) throw error
@@ -130,6 +131,9 @@ export interface PollResult {
   push_enviados: number
   push_diferidos: number
   emails_enviados: number
+  fueros_iterados?: string[]
+  fueros_con_novedades_detectadas?: string[] | null
+  discovery_mode?: 'auto' | 'manual'
   errores: { profile_id: string; error: string }[]
 }
 
