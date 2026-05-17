@@ -121,6 +121,38 @@ export function useSaeNotifPreferences() {
   })
 }
 
+// ── Trigger manual del poll (usuario aprieta "Sincronizar ahora") ─────────
+
+export interface PollResult {
+  ok: boolean
+  profiles_checked: number
+  notifs_nuevas: number
+  push_enviados: number
+  push_diferidos: number
+  emails_enviados: number
+  errores: { profile_id: string; error: string }[]
+}
+
+export function useTriggerSaePoll() {
+  return useMutation<PollResult, Error, void>({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sae-poll-notificaciones', {
+        body: {},
+      })
+      if (error) {
+        // intentar extraer mensaje del body si vino
+        const ctx = (error as { context?: Response }).context
+        if (ctx instanceof Response) {
+          const errBody = await ctx.json().catch(() => null) as { error?: string } | null
+          if (errBody?.error) throw new Error(errBody.error)
+        }
+        throw error
+      }
+      return data as PollResult
+    },
+  })
+}
+
 export function useUpdateSaeNotifPreferences() {
   const qc = useQueryClient()
   return useMutation<void, Error, Partial<SaeNotifPreferences>>({

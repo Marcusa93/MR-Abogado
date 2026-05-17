@@ -267,11 +267,25 @@ function renderEmailHtml(profile: ProfileRow, notif: PortalNotificacion, expedie
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  // Auth: x-cron-secret (sin JWT)
+  // Auth: dos modos
+  //  1) Cron: header x-cron-secret válido → procesa TODOS los usuarios con opt-in
+  //  2) Usuario: JWT válido en Authorization → procesa SOLO al usuario que llama
+  let forcedProfileId: string | null = null
   const cronSecret = Deno.env.get('CRON_SECRET')
   const headerSecret = req.headers.get('x-cron-secret')
-  if (!cronSecret || headerSecret !== cronSecret) {
-    return json({ error: 'No autorizado' }, 401)
+  const isCronAuth = Boolean(cronSecret && headerSecret === cronSecret)
+
+  if (!isCronAuth) {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) return json({ error: 'No autorizado' }, 401)
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authErr } = await userClient.auth.getUser()
+    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    forcedProfileId = user.id  // limita el barrido al usuario que llamó
   }
 
   const body = await req.json().catch(() => ({})) as { dry_run?: boolean; only_profile_id?: string }
@@ -291,7 +305,9 @@ Deno.serve(async (req) => {
     .from('profiles')
     .select('id, email, nombre, apellido, sae_notif_enabled, sae_notif_push, sae_notif_email, sae_notif_email_addresses, sae_notif_push_quiet, sae_notif_weekend')
     .eq('sae_notif_enabled', true)
-  if (body.only_profile_id) {
+  if (forcedProfileId) {
+    profilesQuery = profilesQuery.eq('id', forcedProfileId)
+  } else if (body.only_profile_id) {
     profilesQuery = profilesQuery.eq('id', body.only_profile_id)
   }
   if (isWeekend) {

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText,
+  Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
   useSaeNotificaciones, useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead,
-  useSaeNotifPreferences, type SaeNotificacion,
+  useSaeNotifPreferences, useTriggerSaePoll, type SaeNotificacion,
 } from '@/hooks/use-sae-notificaciones'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -108,6 +109,27 @@ export default function NotificacionesSaePage() {
   const { data: notifs = [], isLoading } = useSaeNotificaciones({ unreadOnly: filter === 'unread' })
   const { data: prefs } = useSaeNotifPreferences()
   const markAll = useMarkAllSaeNotifAsRead()
+  const trigger = useTriggerSaePoll()
+  const queryClient = useQueryClient()
+
+  const handleSyncNow = () => {
+    trigger.mutate(undefined, {
+      onSuccess: (res) => {
+        if (res.notifs_nuevas > 0) {
+          toast.success(`${res.notifs_nuevas} ${res.notifs_nuevas === 1 ? 'notificación nueva' : 'notificaciones nuevas'}`)
+        } else {
+          toast.success('Sincronizado — no hay novedades')
+        }
+        if (res.errores?.length) {
+          toast.error(`${res.errores.length} error(es) durante el polling — revisar logs`)
+        }
+        queryClient.invalidateQueries({ queryKey: ['sae-notificaciones'] })
+        queryClient.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+        queryClient.invalidateQueries({ queryKey: ['sidebar-badges', 'sae-notif-unread'] })
+      },
+      onError: (err) => toast.error(err.message),
+    })
+  }
 
   return (
     <div className="p-5 max-w-3xl mx-auto">
@@ -123,15 +145,28 @@ export default function NotificacionesSaePage() {
             </p>
           </div>
         </div>
-        <a
-          href={PORTAL_URL}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
-        >
-          <ExternalLink className="h-3 w-3" />
-          Portal SAE
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncNow}
+            disabled={trigger.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+            title="Forzar revisión del portal ahora (sin esperar al cron 2x/día)"
+          >
+            {trigger.isPending
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <RefreshCw className="h-3 w-3" />}
+            {trigger.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
+          </button>
+          <a
+            href={PORTAL_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Portal SAE
+          </a>
+        </div>
       </div>
 
       {prefs && !prefs.sae_notif_enabled && (
