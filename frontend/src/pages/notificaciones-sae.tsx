@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useMemo } from 'react'
 import {
   Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
-  Building2, CalendarDays,
+  Building2, CalendarDays, Search,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -152,7 +153,9 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
 }
 
 export default function NotificacionesSaePage() {
-  const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  // Default 'unread' para que marcar como leído oculte de la lista.
+  const [filter, setFilter] = useState<'all' | 'unread'>('unread')
+  const [search, setSearch] = useState('')
   const { data: notifs = [], isLoading } = useSaeNotificaciones({ unreadOnly: filter === 'unread' })
   const { data: prefs } = useSaeNotifPreferences()
   const markAll = useMarkAllSaeNotifAsRead()
@@ -160,6 +163,23 @@ export default function NotificacionesSaePage() {
   const queryClient = useQueryClient()
   const [lastResult, setLastResult] = useState<PollResult | null>(null)
   const [debugOpen, setDebugOpen] = useState(false)
+
+  // Filtro client-side por texto (case-insensitive, sin acentos)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    if (!q) return notifs
+    const norm = (s: string | null | undefined) =>
+      (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    return notifs.filter(n =>
+      norm(n.tipo).includes(q)
+      || norm(n.titulo).includes(q)
+      || norm(n.numero_expediente).includes(q)
+      || norm(n.oficina).includes(q)
+      || norm(n.caratula).includes(q)
+      || norm(n.expediente?.caratula).includes(q)
+      || norm(n.raw_payload?.destinatario).includes(q)
+    )
+  }, [notifs, search])
 
   const handleSyncNow = () => {
     trigger.mutate(undefined, {
@@ -292,16 +312,18 @@ export default function NotificacionesSaePage() {
         </div>
       )}
 
+      {/* Búsqueda */}
+      <div className="mb-3 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por expediente, tipo, oficina, carátula…"
+          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+        />
+      </div>
+
       <div className="mb-4 flex items-center gap-2">
-        <button
-          onClick={() => setFilter('all')}
-          className={cn(
-            'h-7 rounded-lg border px-2.5 text-xs transition-colors',
-            filter === 'all' ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
-          )}
-        >
-          Todas
-        </button>
         <button
           onClick={() => setFilter('unread')}
           className={cn(
@@ -311,7 +333,21 @@ export default function NotificacionesSaePage() {
         >
           No leídas
         </button>
+        <button
+          onClick={() => setFilter('all')}
+          className={cn(
+            'h-7 rounded-lg border px-2.5 text-xs transition-colors',
+            filter === 'all' ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
+          )}
+        >
+          Todas (historial)
+        </button>
         <div className="flex-1" />
+        {search && (
+          <span className="text-[10px] text-zinc-500">
+            {filtered.length} de {notifs.length}
+          </span>
+        )}
         <button
           onClick={() => markAll.mutate(undefined, {
             onSuccess: () => toast.success('Marcadas como leídas'),
@@ -334,12 +370,23 @@ export default function NotificacionesSaePage() {
           icon={Bell}
           title={filter === 'unread' ? 'No hay notificaciones sin leer' : 'No hay notificaciones todavía'}
           description={filter === 'unread'
-            ? 'Cuando llegue una nueva, va a aparecer acá.'
+            ? 'Cuando llegue una nueva, va a aparecer acá. Cambiá a "Todas (historial)" para ver las que ya marcaste como leídas.'
             : 'El sistema chequea el portal 2 veces por día. Si activaste las notificaciones, las vas a ver acá apenas se publiquen.'}
         />
+      ) : filtered.length === 0 ? (
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
+          <Search className="h-8 w-8 mx-auto text-zinc-600 mb-2" />
+          <p className="text-sm text-zinc-300">Ninguna notificación coincide con "{search}"</p>
+          <button
+            onClick={() => setSearch('')}
+            className="mt-3 text-xs text-cyan-400 hover:underline"
+          >
+            Limpiar búsqueda
+          </button>
+        </div>
       ) : (
         <div className="space-y-2">
-          {notifs.map(n => <NotifCard key={n.id} notif={n} />)}
+          {filtered.map(n => <NotifCard key={n.id} notif={n} />)}
         </div>
       )}
 
