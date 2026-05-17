@@ -17,7 +17,10 @@ export const useOnboardingStore = create<OnboardingState>()(
       completed: false,
       isOpen: false,
       open: () => set({ isOpen: true }),
-      close: () => set({ isOpen: false }),
+      // Cerrar el tour (con la X o "Saltar") cuenta como "ya lo vi" — no
+      // se vuelve a abrir solo en futuros refreshes. El usuario puede
+      // relanzarlo siempre desde el botón Ayuda (?).
+      close: () => set({ isOpen: false, completed: true }),
       markCompleted: () => set({ completed: true, isOpen: false }),
     }),
     {
