@@ -28,7 +28,9 @@ import {
 
 const TIPO_ICON: Record<string, { icon: typeof Bell; color: string }> = {
   VENCIMIENTO_TAREA: { icon: Clock, color: 'text-amber-400' },
+  TAREA_ASIGNADA: { icon: Clock, color: 'text-cyan-400' },
   TURNO_PROXIMO: { icon: CalendarClock, color: 'text-blue-400' },
+  AUDIENCIA_PROXIMA: { icon: CalendarClock, color: 'text-blue-400' },
   SEGUIMIENTO_PENDIENTE: { icon: AlertTriangle, color: 'text-orange-400' },
   DOCUMENTO_FALTANTE: { icon: FileText, color: 'text-violet-400' },
   COBRO_PENDIENTE: { icon: DollarSign, color: 'text-emerald-400' },

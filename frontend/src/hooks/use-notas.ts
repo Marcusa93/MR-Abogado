@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { parseMentions } from '@/lib/utils/mentions'
 import { useAuthStore } from '@/stores/auth-store'
+import { dispatchAlertNotification } from '@/hooks/use-notif-prefs'
 import type { Tables } from '@/types/database.types'
 
 export type NotaWithAuthor = Tables<'expediente_notas'> & {
@@ -108,7 +109,10 @@ export function useCreateNota() {
           link: `/expedientes/${expedienteId}`,
         }))
 
-        await supabase.from('alertas').insert(alertas)
+        const { data: insertedAlerts } = await supabase.from('alertas').insert(alertas).select('id')
+        for (const a of insertedAlerts ?? []) {
+          dispatchAlertNotification({ alerta_id: (a as { id: string }).id })
+        }
         queryClient.invalidateQueries({ queryKey: ['alertas'] })
       }
     },

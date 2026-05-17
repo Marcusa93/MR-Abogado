@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Tables, TablesInsert } from '@/types/database.types'
 import type { EstadoTarea, Prioridad } from '@/types/enums'
 import { parseMentions } from '@/lib/utils/mentions'
+import { dispatchAlertNotification } from '@/hooks/use-notif-prefs'
 import { useAuthStore } from '@/stores/auth-store'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { toast } from '@/stores/toast-store'
@@ -419,14 +420,17 @@ export function useCreateTarea() {
             ? `Se te asignó una tarea en el expediente ${expLabel}.`
             : 'Se te asignó una nueva tarea.'
 
-        await supabase.from('alertas').insert({
-          tipo: 'VENCIMIENTO_TAREA',
+        const { data: inserted } = await supabase.from('alertas').insert({
+          tipo: 'TAREA_ASIGNADA',
           titulo,
           mensaje,
           expediente_id: data.expediente_id,
           usuario_id: data.asignado_a,
           link: `/expedientes/${data.expediente_id}`,
-        })
+        }).select('id').single()
+        if (inserted?.id) {
+          dispatchAlertNotification({ alerta_id: inserted.id })
+        }
       }
 
       // Create MENCION alerts for @mentioned users in description
@@ -438,7 +442,7 @@ export function useCreateTarea() {
           (m) => m.userId !== currentUserId && m.userId !== data.asignado_a,
         )
         if (toNotify.length > 0) {
-          await supabase.from('alertas').insert(
+          const { data: insertedAlerts } = await supabase.from('alertas').insert(
             toNotify.map((m) => ({
               tipo: 'MENCION' as const,
               titulo: `${authorName} te mencionó en una tarea`,
@@ -447,7 +451,11 @@ export function useCreateTarea() {
               usuario_id: m.userId,
               link: `/expedientes/${data.expediente_id}`,
             })),
-          )
+          ).select('id')
+          // Dispara push/email en paralelo, respetando prefs de cada destinatario
+          for (const a of insertedAlerts ?? []) {
+            dispatchAlertNotification({ alerta_id: (a as { id: string }).id })
+          }
         }
       }
 

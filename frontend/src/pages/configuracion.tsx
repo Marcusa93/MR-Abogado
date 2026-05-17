@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import { useSaeCredential, useSaveSaeCredential, useDeleteSaeCredential, useSaeVerify } from '@/hooks/use-sae'
 import { SaeNotifConfig } from '@/components/configuracion/sae-notif-config'
+import { NotifPrefsConfig } from '@/components/configuracion/notif-prefs-config'
 
 // ---------------------------------------------------------------------------
 // Profile Section
@@ -452,6 +453,14 @@ function SaeNotifSection() {
   return (
     <div className="glass-card rounded-xl border border-white/10 p-5">
       <SaeNotifConfig />
+    </div>
+  )
+}
+
+function NotifPrefsSection() {
+  return (
+    <div className="glass-card rounded-xl border border-white/10 p-5">
+      <NotifPrefsConfig />
     </div>
   )
 }
@@ -1408,6 +1417,8 @@ export default function ConfiguracionPage() {
       <SaeCredentialsSection />
 
       <SaeNotifSection />
+
+      <NotifPrefsSection />
 
       {/* Admin sections */}
       {isAdmin && (
