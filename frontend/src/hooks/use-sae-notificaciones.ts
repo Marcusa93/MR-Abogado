@@ -135,6 +135,8 @@ export interface PollResult {
   fueros_con_novedades_detectadas?: string[] | null
   discovery_mode?: 'auto' | 'manual'
   errores: { profile_id: string; error: string }[]
+  skip_reasons?: { profile_id: string; reason: string }[]
+  profiles_skipped?: number
   debug?: {
     discovery?: {
       status: number

@@ -526,6 +526,9 @@ Deno.serve(async (req) => {
     fueros_con_novedades_detectadas: null as string[] | null,
     discovery_mode: 'auto' as 'auto' | 'manual',
     errores: [] as { profile_id: string; error: string }[],
+    // Toda razón de skip queda registrada acá, así nunca volvemos a
+    // tener un "silencio" engañoso.
+    skip_reasons: [] as { profile_id: string; reason: string }[],
     // Solo se popula en modo manual (forcedProfileId no null): telemetría
     // detallada para debug del flow real con el portal.
     debug: null as FueroResult['debug'] | null,
@@ -534,15 +537,26 @@ Deno.serve(async (req) => {
   for (const p of (profiles ?? []) as ProfileRow[]) {
     stats.profiles_checked++
 
-    // 2) Traer credenciales SAE
+    // 2) Traer credenciales SAE. El status válido en DB es 'activo' (español).
     const { data: credRow } = await admin
       .from('sae_credentials')
       .select('username, encrypted_secret, status')
       .eq('profile_id', p.id)
       .maybeSingle()
     const cred = credRow as { username: string; encrypted_secret: string | null; status: string } | null
-    if (!cred?.encrypted_secret || cred.status !== 'active') {
+    if (!cred) {
       stats.profiles_skipped++
+      stats.skip_reasons.push({ profile_id: p.id, reason: 'sin_credenciales_sae' })
+      continue
+    }
+    if (!cred.encrypted_secret) {
+      stats.profiles_skipped++
+      stats.skip_reasons.push({ profile_id: p.id, reason: 'credenciales_sin_secret' })
+      continue
+    }
+    if (cred.status !== 'activo') {
+      stats.profiles_skipped++
+      stats.skip_reasons.push({ profile_id: p.id, reason: `status_no_activo (${cred.status})` })
       continue
     }
     const password = atob(cred.encrypted_secret)

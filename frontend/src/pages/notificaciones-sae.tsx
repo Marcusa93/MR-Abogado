@@ -173,7 +173,12 @@ export default function NotificacionesSaePage() {
         </div>
       </div>
 
-      {lastResult && (lastResult.debug || lastResult.errores.length > 0 || (lastResult.fueros_iterados ?? []).length > 0) && (
+      {lastResult && (
+        lastResult.debug
+        || lastResult.errores.length > 0
+        || (lastResult.fueros_iterados ?? []).length > 0
+        || (lastResult.skip_reasons?.length ?? 0) > 0
+      ) && (
         <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.03] p-3">
           <button
             onClick={() => setDebugOpen(!debugOpen)}
@@ -191,7 +196,7 @@ export default function NotificacionesSaePage() {
           </button>
           {debugOpen && (
             <div className="mt-3 space-y-2 text-[10px] font-mono">
-              {lastResult.debug.discovery && (
+              {lastResult.debug?.discovery && (
                 <div className="rounded bg-black/30 p-2">
                   <div className="text-cyan-300 mb-1">discovery /casillero:</div>
                   <div>status={lastResult.debug.discovery.status} · hops={lastResult.debug.discovery.hops} · htmlLen={lastResult.debug.discovery.htmlLen} · anchors={lastResult.debug.discovery.anchorsFound}</div>
@@ -201,15 +206,21 @@ export default function NotificacionesSaePage() {
                   ))}
                 </div>
               )}
-              {lastResult.debug.fueros.length > 0 && (
+              {(lastResult.debug?.fueros?.length ?? 0) > 0 && (
                 <div className="rounded bg-black/30 p-2">
                   <div className="text-cyan-300 mb-1">fueros iterados:</div>
-                  {lastResult.debug.fueros.map(f => (
+                  {lastResult.debug!.fueros.map(f => (
                     <div key={f.slug} className={f.error ? 'text-rose-300' : 'text-zinc-300'}>
                       {f.slug}: status={f.firstStatus} pages={f.pages} items={f.items} htmlLen={f.htmlLen}
                       {f.error && <span> — ERROR: {f.error}</span>}
                     </div>
                   ))}
+                </div>
+              )}
+              {(lastResult.skip_reasons?.length ?? 0) > 0 && (
+                <div className="rounded bg-amber-950/20 border border-amber-500/30 p-2 text-amber-200">
+                  <div className="mb-1 font-medium">perfiles salteados:</div>
+                  {lastResult.skip_reasons!.map((s, i) => <div key={i}>{s.reason}</div>)}
                 </div>
               )}
               {lastResult.errores.length > 0 && (
