@@ -44,6 +44,8 @@ export function useSaeNotificaciones(opts: { unreadOnly?: boolean; limit?: numbe
       let q = supabase
         .from('sae_notificaciones' as never)
         .select('*, raw_payload, expediente:expedientes(id, caratula, numero)')
+        // Más reciente primero: por fecha del portal, con fallback al created_at local
+        .order('fecha_emision', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(opts.limit ?? 50)
       if (opts.unreadOnly) q = q.eq('leida', false)
