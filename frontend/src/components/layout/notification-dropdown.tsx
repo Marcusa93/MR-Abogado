@@ -2,7 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useAlertas, useMarcarLeida, useMarcarTodasLeidas, type AlertaWithExpediente } from '@/hooks/use-alertas'
-import { useSaeNotifUnreadCount } from '@/hooks/use-sae-notificaciones'
+import {
+  useSaeNotifUnreadCount, useSaeNotificaciones,
+  useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead,
+  type SaeNotificacion,
+} from '@/hooks/use-sae-notificaciones'
+import { getFueroLabel } from '@/lib/sae-fueros'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import {
@@ -118,6 +123,73 @@ function NotificationItem({
 }
 
 // ---------------------------------------------------------------------------
+// SAE notification item (mini-card en el dropdown)
+// ---------------------------------------------------------------------------
+
+function SaeNotifItem({
+  notif,
+  onMarkRead,
+  onNavigate,
+}: {
+  notif: SaeNotificacion
+  onMarkRead: (id: string) => void
+  onNavigate: (path: string) => void
+}) {
+  const fueroLabel = getFueroLabel(notif.raw_payload?.fuero)
+
+  const handleClick = () => {
+    onMarkRead(notif.id)
+    if (notif.expediente_id) onNavigate(`/expedientes/${notif.expediente_id}`)
+    else onNavigate('/notificaciones-sae')
+  }
+
+  return (
+    <div
+      onClick={handleClick}
+      className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-cyan-500/10 transition-colors border-b border-white/5 last:border-0"
+    >
+      <div className="mt-0.5 shrink-0 rounded-lg bg-cyan-500/15 p-1 text-cyan-300">
+        <Bell className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-[10px] mb-0.5 flex-wrap">
+          {notif.tipo && (
+            <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wider text-violet-300">
+              {notif.tipo}
+            </span>
+          )}
+          {notif.numero_expediente && (
+            <span className="font-mono text-zinc-300">Exp. {notif.numero_expediente}</span>
+          )}
+        </div>
+        <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
+          {notif.titulo || notif.caratula || 'Notificación SAE'}
+        </p>
+        {fueroLabel && (
+          <p className="mt-0.5 text-[10px] text-zinc-600 dark:text-zinc-500 truncate">
+            {fueroLabel}
+            {notif.oficina && ` · ${notif.oficina}`}
+          </p>
+        )}
+        <p className="mt-0.5 text-[10px] text-zinc-600 dark:text-zinc-500">
+          {timeAgo(notif.fecha_emision ?? notif.created_at)}
+        </p>
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onMarkRead(notif.id)
+        }}
+        className="mt-0.5 shrink-0 rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+        title="Marcar como leída"
+      >
+        <Eye className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main dropdown
 // ---------------------------------------------------------------------------
 
@@ -129,12 +201,20 @@ export function NotificationDropdown() {
 
   const { data: alertas } = useAlertas()
   const { data: saeUnread = 0 } = useSaeNotifUnreadCount()
+  const { data: saeNotifs = [] } = useSaeNotificaciones({ unreadOnly: true, limit: 5 })
   const marcarLeida = useMarcarLeida()
   const marcarTodasLeidas = useMarcarTodasLeidas()
+  const markSaeRead = useMarkSaeNotifAsRead()
+  const markAllSaeRead = useMarkAllSaeNotifAsRead()
 
   const alertCount = alertas?.length ?? 0
   const totalCount = alertCount + saeUnread
   const displayAlerts = (alertas ?? []).slice(0, 8)
+
+  const handleMarkAllAll = () => {
+    if (alertCount > 0) marcarTodasLeidas.mutate()
+    if (saeUnread > 0) markAllSaeRead.mutate()
+  }
 
   // Close on click outside
   useEffect(() => {
@@ -209,17 +289,17 @@ export function NotificationDropdown() {
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones</h3>
-                {alertCount > 0 && (
+                {totalCount > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[10px] font-bold text-amber-400">
-                    {alertCount}
+                    {totalCount}
                   </span>
                 )}
               </div>
-              {alertCount > 0 && (
+              {totalCount > 0 && (
                 <button
-                  onClick={() => marcarTodasLeidas.mutate()}
-                  disabled={marcarTodasLeidas.isPending}
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors"
+                  onClick={handleMarkAllAll}
+                  disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors disabled:opacity-50"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
                   Marcar todas leídas
@@ -227,30 +307,9 @@ export function NotificationDropdown() {
               )}
             </div>
 
-            {/* SAE highlight: si hay notif SAE no leídas, mostrar shortcut */}
-            {saeUnread > 0 && (
-              <button
-                onClick={() => handleNavigate('/notificaciones-sae')}
-                className="w-full border-b border-white/10 px-4 py-3 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors text-left"
-              >
-                <div className="rounded-lg bg-cyan-500/15 p-2 shrink-0">
-                  <Bell className="h-4 w-4 text-cyan-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    {saeUnread} {saeUnread === 1 ? 'notificación' : 'notificaciones'} del SAE
-                  </p>
-                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                    Sin leer en el casillero digital · tocá para ver
-                  </p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-cyan-300 shrink-0" />
-              </button>
-            )}
-
-            {/* Alert list */}
-            <div className="flex-1 overflow-y-auto sm:max-h-[380px]">
-              {displayAlerts.length === 0 && saeUnread === 0 ? (
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto sm:max-h-[420px]">
+              {displayAlerts.length === 0 && saeNotifs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4">
                   <BellOff className="h-8 w-8 text-zinc-600 mb-2" />
                   <p className="text-xs text-zinc-900 dark:text-zinc-500">Sin notificaciones pendientes</p>
@@ -261,31 +320,83 @@ export function NotificationDropdown() {
                     Configurar alertas →
                   </button>
                 </div>
-              ) : displayAlerts.length === 0 ? null : (
-                displayAlerts.map((alerta) => (
-                  <NotificationItem
-                    key={alerta.id}
-                    alerta={alerta}
-                    onMarkRead={(id) => marcarLeida.mutate(id)}
-                    onNavigate={handleNavigate}
-                  />
-                ))
+              ) : (
+                <>
+                  {/* SAE notifications section */}
+                  {saeNotifs.length > 0 && (
+                    <div className="border-b border-white/10">
+                      <div className="flex items-center justify-between px-4 py-2 bg-cyan-500/5">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-cyan-300">
+                          SAE · Casillero digital
+                        </span>
+                        {saeUnread > saeNotifs.length && (
+                          <button
+                            onClick={() => handleNavigate('/notificaciones-sae')}
+                            className="text-[10px] text-cyan-300 hover:underline"
+                          >
+                            Ver todas ({saeUnread})
+                          </button>
+                        )}
+                      </div>
+                      {saeNotifs.map((n) => (
+                        <SaeNotifItem
+                          key={n.id}
+                          notif={n}
+                          onMarkRead={(id) => markSaeRead.mutate(id)}
+                          onNavigate={handleNavigate}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Internal alertas section */}
+                  {displayAlerts.length > 0 && (
+                    <div>
+                      {saeNotifs.length > 0 && (
+                        <div className="px-4 py-2 bg-amber-500/5">
+                          <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-300">
+                            Alertas internas
+                          </span>
+                        </div>
+                      )}
+                      {displayAlerts.map((alerta) => (
+                        <NotificationItem
+                          key={alerta.id}
+                          alerta={alerta}
+                          onMarkRead={(id) => marcarLeida.mutate(id)}
+                          onNavigate={handleNavigate}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Footer */}
-            {alertCount > 0 && (
-              <div className="border-t border-white/10 px-3 py-2.5">
-                <button
-                  onClick={() => handleNavigate('/alertas')}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Ver todas las alertas
-                  {alertCount > 8 && (
-                    <span className="text-zinc-900 dark:text-zinc-500">({alertCount - 8} más)</span>
-                  )}
-                </button>
+            {(alertCount > 8 || saeUnread > saeNotifs.length) && (
+              <div className="border-t border-white/10 px-3 py-2.5 flex flex-col gap-1">
+                {alertCount > 0 && (
+                  <button
+                    onClick={() => handleNavigate('/alertas')}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Ver todas las alertas
+                    {alertCount > 8 && (
+                      <span className="text-zinc-600 dark:text-zinc-500">({alertCount - 8} más)</span>
+                    )}
+                  </button>
+                )}
+                {saeUnread > saeNotifs.length && (
+                  <button
+                    onClick={() => handleNavigate('/notificaciones-sae')}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/10 transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Ver todas las notificaciones SAE
+                  </button>
+                )}
               </div>
             )}
           </div>
