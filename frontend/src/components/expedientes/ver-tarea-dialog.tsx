@@ -77,7 +77,7 @@ const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: 'text-amber-500',
   EN_PROGRESO: 'text-blue-500',
   COMPLETADA: 'text-emerald-500',
-  CANCELADA: 'text-zinc-900 dark:text-zinc-500',
+  CANCELADA: 'text-zinc-700 dark:text-zinc-300',
 }
 
 function buildExpLabel(exp: TareaDetalle['expediente']): string {

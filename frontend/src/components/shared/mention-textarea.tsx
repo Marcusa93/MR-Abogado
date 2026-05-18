@@ -166,7 +166,7 @@ export default function MentionTextarea({
               <span className="flex-1 truncate">
                 {member.nombre} {member.apellido}
               </span>
-              <span className="text-xs text-zinc-900 dark:text-zinc-500">{displayRol(member)}</span>
+              <span className="text-xs text-zinc-700 dark:text-zinc-300">{displayRol(member)}</span>
             </button>
           ))}
         </div>

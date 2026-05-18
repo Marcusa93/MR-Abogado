@@ -233,7 +233,7 @@ function AlertaCard({
                 </button>
                 <button
                   onClick={() => setShowPosponer(false)}
-                  className="text-xs text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  className="text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
                 >
                   Cancelar
                 </button>
@@ -287,7 +287,7 @@ export default function AlertasPage() {
       {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-900 dark:text-zinc-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-zinc-700 dark:text-zinc-300" />
         </div>
       ) : isError ? (
         <div className="rounded-xl border border-rose-900 bg-rose-950/30 p-6 text-center">

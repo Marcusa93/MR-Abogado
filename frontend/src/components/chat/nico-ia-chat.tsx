@@ -782,7 +782,7 @@ export function NicoIAChat() {
                 Conversaciones anteriores
               </div>
               {conversations.length === 0 ? (
-                <p className="px-4 py-6 text-center text-xs text-zinc-900 dark:text-zinc-500">Sin conversaciones guardadas</p>
+                <p className="px-4 py-6 text-center text-xs text-zinc-700 dark:text-zinc-300">Sin conversaciones guardadas</p>
               ) : (
                 <div className="space-y-0.5 px-1 pb-2">
                   {conversations.map((conv) => (
@@ -793,7 +793,7 @@ export function NicoIAChat() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-medium text-zinc-800 dark:text-zinc-200">{conv.title}</p>
-                        <p className="text-[10px] text-zinc-900 dark:text-zinc-500">
+                        <p className="text-[10px] text-zinc-700 dark:text-zinc-300">
                           {conv.messages.length} mensaje{conv.messages.length !== 1 ? 's' : ''} · {new Date(conv.updatedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
@@ -802,7 +802,7 @@ export function NicoIAChat() {
                           e.stopPropagation()
                           deleteConversation(conv.id)
                         }}
-                        className="hidden group-hover:block rounded p-1 text-zinc-900 dark:text-zinc-500 hover:text-red-400"
+                        className="hidden group-hover:block rounded p-1 text-zinc-700 dark:text-zinc-300 hover:text-red-400"
                         title="Eliminar"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -925,7 +925,7 @@ export function NicoIAChat() {
                 )}
               </button>
             </div>
-            <p className="mt-1 text-[10px] text-zinc-600 text-center">Alt+N para abrir/cerrar</p>
+            <p className="mt-1 text-[10px] text-zinc-600 dark:text-zinc-400 text-center">Alt+N para abrir/cerrar</p>
           </form>
           )}
         </div>

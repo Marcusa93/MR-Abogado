@@ -162,7 +162,7 @@ function ProfileSection() {
           <input
             value={profile.email ?? ''}
             disabled
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-500"
+            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-700 dark:text-zinc-300"
           />
         </div>
         <div>
@@ -370,7 +370,7 @@ function ChangePasswordSection() {
             <button
               type="button"
               onClick={() => setShowCurrent(!showCurrent)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
             >
               {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -393,7 +393,7 @@ function ChangePasswordSection() {
             <button
               type="button"
               onClick={() => setShowNew(!showNew)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
             >
               {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -656,7 +656,7 @@ function SaeCredentialsSection() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -730,7 +730,7 @@ function ThemeSection() {
                 'h-5 w-5',
                 theme === opt.value
                   ? 'text-amber-400'
-                  : 'text-zinc-900 dark:text-zinc-500'
+                  : 'text-zinc-700 dark:text-zinc-300'
               )}
             />
             <span
@@ -869,7 +869,7 @@ function UsersSection() {
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Usuarios del sistema
           </h2>
-          <span className="text-[10px] text-zinc-600">{users?.length ?? 0}</span>
+          <span className="text-[10px] text-zinc-600 dark:text-zinc-400">{users?.length ?? 0}</span>
         </div>
         <button
           onClick={() => { resetInvite(); setShowInvite(true) }}
@@ -908,7 +908,7 @@ function UsersSection() {
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p className="text-[10px] text-zinc-900 dark:text-zinc-500">
+                <p className="text-[10px] text-zinc-700 dark:text-zinc-300">
                   Compartí esta contraseña con el usuario. Podrá cambiarla desde su perfil.
                 </p>
               </div>
@@ -923,7 +923,7 @@ function UsersSection() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Nuevo usuario</h3>
-                <button onClick={resetInvite} className="text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                <button onClick={resetInvite} className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -1002,7 +1002,7 @@ function UsersSection() {
                 {/* Avatar */}
                 <div className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold',
-                  user.activo !== false ? 'bg-blue-900 text-blue-300' : 'bg-slate-800 text-zinc-900 dark:text-zinc-500'
+                  user.activo !== false ? 'bg-blue-900 text-blue-300' : 'bg-slate-800 text-zinc-700 dark:text-zinc-300'
                 )}>
                   {(user.nombre?.[0] ?? '').toUpperCase()}
                   {(user.apellido?.[0] ?? '').toUpperCase()}
@@ -1010,7 +1010,7 @@ function UsersSection() {
 
                 {/* Info */}
                 <div className="min-w-0 flex-1">
-                  <p className={cn('text-sm font-medium', user.activo !== false ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-900 dark:text-zinc-500')}>
+                  <p className={cn('text-sm font-medium', user.activo !== false ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300')}>
                     {user.nombre} {user.apellido}
                     {user.rol === 'ADMIN' && <Shield className="ml-1 inline h-3 w-3 text-rose-400" />}
                   </p>
@@ -1027,7 +1027,7 @@ function UsersSection() {
                   <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => startEdit(user)}
-                      className="rounded p-1.5 text-zinc-900 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/10 transition-colors"
+                      className="rounded p-1.5 text-zinc-700 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/10 transition-colors"
                       title="Editar"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -1038,7 +1038,7 @@ function UsersSection() {
                         'rounded p-1.5 transition-colors',
                         user.activo !== false
                           ? 'text-emerald-500 hover:text-rose-400 hover:bg-white/10'
-                          : 'text-zinc-600 hover:text-emerald-400 hover:bg-white/10'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-emerald-400 hover:bg-white/10'
                       )}
                       title={user.activo !== false ? 'Desactivar' : 'Activar'}
                     >
@@ -1269,7 +1269,7 @@ function CatalogoEditor({
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
           {title}
         </h2>
-        <span className="ml-auto text-[10px] text-zinc-600">{items?.length ?? 0}</span>
+        <span className="ml-auto text-[10px] text-zinc-600 dark:text-zinc-400">{items?.length ?? 0}</span>
       </div>
 
       {isLoading ? (
@@ -1289,7 +1289,7 @@ function CatalogoEditor({
                 }
                 className={cn(
                   'shrink-0 transition-colors',
-                  item.activo ? 'text-amber-400' : 'text-zinc-600'
+                  item.activo ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-400'
                 )}
                 title={item.activo ? 'Desactivar' : 'Activar'}
               >
@@ -1310,15 +1310,15 @@ function CatalogoEditor({
                     className="h-7 flex-1 rounded border border-amber-500/30 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none"
                   />
                   <button onClick={saveEdit} className="text-amber-400 hover:text-amber-300"><Check className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => setEditingId(null)} className="text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"><X className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setEditingId(null)} className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"><X className="h-3.5 w-3.5" /></button>
                 </div>
               ) : (
                 <div className="min-w-0 flex-1">
-                  <span className={cn('text-sm', item.activo ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-900 dark:text-zinc-500 line-through')}>
+                  <span className={cn('text-sm', item.activo ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300 line-through')}>
                     {formatNames ? formatSnakeCase(item.nombre) : item.nombre}
                   </span>
                   {showAddress && (item as any).direccion && (
-                    <div className="flex items-center gap-1 text-[10px] text-zinc-900 dark:text-zinc-500 mt-0.5">
+                    <div className="flex items-center gap-1 text-[10px] text-zinc-700 dark:text-zinc-300 mt-0.5">
                       <MapPin className="h-2.5 w-2.5" />
                       {(item as any).direccion}
                     </div>
@@ -1331,14 +1331,14 @@ function CatalogoEditor({
                 <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => startEdit(item.id, item.nombre)}
-                    className="rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
                     title="Editar"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
                   <button
                     onClick={() => setDeleteConfirm({ id: item.id, nombre: formatNames ? formatSnakeCase(item.nombre) : item.nombre })}
-                    className="rounded p-1 text-zinc-600 hover:text-rose-400"
+                    className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-rose-400"
                     title="Eliminar"
                   >
                     <Trash2 className="h-3 w-3" />

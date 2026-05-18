@@ -52,7 +52,7 @@ export default function NormativaDetailPage() {
             <FileText className="h-5 w-5 text-cyan-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold text-zinc-50">{doc.titulo}</h1>
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{doc.titulo}</h1>
             <p className="mt-1 text-xs text-zinc-500 flex items-center gap-2 flex-wrap">
               <span className="uppercase tracking-wider">{doc.tipo}</span>
               {doc.numero && <span>· {doc.numero}</span>}
@@ -129,7 +129,7 @@ export default function NormativaDetailPage() {
                   >
                     {isOpen ? <ChevronUp className="h-3 w-3 text-zinc-500" /> : <ChevronDown className="h-3 w-3 text-zinc-500" />}
                     <span className="text-xs font-medium text-zinc-200 flex-1 truncate">{label}</span>
-                    <span className="text-[10px] text-zinc-600 shrink-0">#{c.id} · {c.contenido.length} chars</span>
+                    <span className="text-[10px] text-zinc-600 dark:text-zinc-400 shrink-0">#{c.id} · {c.contenido.length} chars</span>
                   </button>
                   {isOpen && (
                     <div className="border-t border-white/5 px-3 py-2 text-[11px] text-zinc-300 whitespace-pre-wrap leading-relaxed">

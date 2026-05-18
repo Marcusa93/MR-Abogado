@@ -140,7 +140,7 @@ export function ExpedienteFilters({
       {/* Active filter badges */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-500" />
+          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
           <span className="mr-1 text-xs text-zinc-600 dark:text-zinc-400">Filtros activos:</span>
           {filters.estado_interno && (
             <FilterBadge

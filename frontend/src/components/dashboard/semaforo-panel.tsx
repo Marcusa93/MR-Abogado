@@ -189,7 +189,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
             placeholder="Buscar expediente, cliente..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE) }}
-            className="dashboard-input h-10 w-64 rounded-xl pl-9 pr-3 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            className="dashboard-input h-10 w-64 rounded-xl pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-50 outline-none transition-all placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
         </div>
       </div>
@@ -267,14 +267,14 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100 max-w-[260px]">
                             {exp.caratula || `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim() || '-'}
                           </p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-900 dark:text-zinc-500">
+                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-300">
                             {exp.tipos_tramite && (
                               <>
                                 <span className="truncate">{exp.tipos_tramite.nombre}</span>
-                                <span className="text-zinc-700">·</span>
+                                <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               </>
                             )}
-                            <span className="font-mono text-[10px] text-zinc-600">{(exp as any).numero}</span>
+                            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(exp as any).numero}</span>
                           </div>
                         </div>
                         {exp.clientes?.telefono && (
@@ -317,7 +317,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           {formatDateCompact(nextTurno)}
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-600">—</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">—</span>
                       )}
                     </td>
 
@@ -328,7 +328,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           {pendingTareas}
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-600">0</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">0</span>
                       )}
                     </td>
                   </tr>
@@ -341,7 +341,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
         {/* Show more / pagination info */}
         {filtered.length > visibleCount && (
           <div className="flex items-center justify-between pt-2">
-            <span className="text-xs text-zinc-900 dark:text-zinc-500">
+            <span className="text-xs text-zinc-700 dark:text-zinc-300">
               Mostrando {visibleCount} de {filtered.length}
             </span>
             <button

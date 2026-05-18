@@ -113,7 +113,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
             <EstadoBadge estado={expediente.estado_interno} compact />
             <PrioridadBadge prioridad={expediente.prioridad} compact />
           </div>
-          {tipo && <p className="text-[11px] text-zinc-900 dark:text-zinc-500 mt-1">{tipo.nombre}</p>}
+          {tipo && <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-1">{tipo.nombre}</p>}
         </div>
         {cliente?.telefono && (
           <div onClick={(e) => e.stopPropagation()}>
@@ -504,9 +504,9 @@ export default function ExpedientesPage() {
                                 </>
                               )}
                               {tipo && (expediente as any).numero && (
-                                <span className="text-zinc-700">·</span>
+                                <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               )}
-                              <span className="font-mono text-zinc-600 text-[10px]">{(expediente as any).numero}</span>
+                              <span className="font-mono text-zinc-600 dark:text-zinc-400 text-[10px]">{(expediente as any).numero}</span>
                             </div>
                           </div>
                           {cliente?.telefono && (
@@ -546,7 +546,7 @@ export default function ExpedientesPage() {
                           </span>
                         )}
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-sm text-zinc-900 dark:text-zinc-500 whitespace-nowrap">
+                      <td className="hidden md:table-cell px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
                         {formatDateShort(expediente.fecha_alta)}
                       </td>
                     </tr>
@@ -590,7 +590,7 @@ export default function ExpedientesPage() {
                     return (
                       <div key={page} className="flex items-center">
                         {showEllipsis && (
-                          <span className="px-1.5 text-xs text-zinc-900 dark:text-zinc-500">
+                          <span className="px-1.5 text-xs text-zinc-700 dark:text-zinc-300">
                             ...
                           </span>
                         )}

@@ -221,7 +221,7 @@ export default function ActividadPage() {
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-900 dark:text-zinc-500">Usuario</label>
+            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Usuario</label>
             <select
               value={userId}
               onChange={(e) => { setUserId(e.target.value); setPage(0) }}
@@ -234,7 +234,7 @@ export default function ActividadPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-900 dark:text-zinc-500">Acción</label>
+            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Acción</label>
             <select
               value={accion}
               onChange={(e) => { setAccion(e.target.value); setPage(0) }}
@@ -247,7 +247,7 @@ export default function ActividadPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-900 dark:text-zinc-500">Desde</label>
+            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Desde</label>
             <input
               type="date"
               value={dateFrom}
@@ -256,7 +256,7 @@ export default function ActividadPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-900 dark:text-zinc-500">Hasta</label>
+            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Hasta</label>
             <input
               type="date"
               value={dateTo}
@@ -274,7 +274,7 @@ export default function ActividadPage() {
         <ErrorState message="Error al cargar la actividad" onRetry={() => refetch()} />
       ) : entries.length === 0 ? (
         <div className="glass-card rounded-xl p-8 text-center">
-          <Activity className="mx-auto h-10 w-10 text-zinc-600 mb-3" />
+          <Activity className="mx-auto h-10 w-10 text-zinc-600 dark:text-zinc-400 mb-3" />
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No hay actividad para los filtros seleccionados</p>
         </div>
       ) : (
@@ -302,7 +302,7 @@ export default function ActividadPage() {
                     <div className="mt-0.5 flex items-center gap-2">
                       <span className={cn('text-[10px] font-medium', config.color)}>{config.label}</span>
                       {entry.tabla !== 'auth' && (
-                        <span className="text-[10px] text-zinc-600">
+                        <span className="text-[10px] text-zinc-600 dark:text-zinc-400">
                           {TABLA_LABELS[entry.tabla] ?? entry.tabla}
                         </span>
                       )}
@@ -311,8 +311,8 @@ export default function ActividadPage() {
 
                   {/* Timestamp */}
                   <div className="shrink-0 text-right">
-                    <p className="text-xs text-zinc-900 dark:text-zinc-500">{timeAgo(entry.created_at)}</p>
-                    <p className="text-[10px] text-zinc-600">{formatDateTime(entry.created_at)}</p>
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300">{timeAgo(entry.created_at)}</p>
+                    <p className="text-[10px] text-zinc-600 dark:text-zinc-400">{formatDateTime(entry.created_at)}</p>
                   </div>
                 </div>
               )
@@ -322,7 +322,7 @@ export default function ActividadPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">
                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}
               </p>
               <div className="flex items-center gap-1">
@@ -361,7 +361,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: typeof Activity; 
     <div className="glass-card rounded-xl border border-white/5 p-3">
       <div className="flex items-center gap-2 mb-1">
         <Icon className={cn('h-4 w-4', color)} />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">{label}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{label}</span>
       </div>
       <p className={cn('text-2xl font-bold', color)}>{value}</p>
     </div>

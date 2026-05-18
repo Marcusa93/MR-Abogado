@@ -180,7 +180,7 @@ function KanbanFiltersBar({
 
       {/* Search */}
       <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-900 dark:text-zinc-500" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-700 dark:text-zinc-300" />
         <input
           placeholder="Buscar nombre o expediente..."
           value={searchValue}
@@ -381,7 +381,7 @@ function KanbanDraggableCard({
     >
       {/* Header: drag indicator + avatar + name + semaforo */}
       <div className="flex items-start gap-2">
-        <div className="mt-1 shrink-0 text-zinc-700 group-hover:text-zinc-900 dark:text-zinc-500">
+        <div className="mt-1 shrink-0 text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-700 dark:text-zinc-300">
           <GripVertical className="h-3.5 w-3.5" />
         </div>
 
@@ -398,10 +398,10 @@ function KanbanDraggableCard({
           <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate leading-tight">
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
-          <p className="text-[11px] text-zinc-900 dark:text-zinc-500 mt-0.5">
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
             {card.tipo_tramite || ''}
             {card.tipo_tramite && ' · '}
-            <span className="font-mono text-[10px] text-zinc-600">{(card as any).numero ?? card.numero_expediente}</span>
+            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
 
@@ -418,7 +418,7 @@ function KanbanDraggableCard({
       )}
 
       {/* Footer info */}
-      <div className="mt-2 flex items-center gap-3 ml-[52px] text-[11px] text-zinc-900 dark:text-zinc-500">
+      <div className="mt-2 flex items-center gap-3 ml-[52px] text-[11px] text-zinc-700 dark:text-zinc-300">
         {card.tareas_pendientes > 0 && (
           <span className="flex items-center gap-1" title={`${card.tareas_pendientes} tareas pendientes`}>
             <ClipboardList className="h-3 w-3" />
@@ -491,10 +491,10 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
           <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate leading-tight">
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
-          <p className="text-[11px] text-zinc-900 dark:text-zinc-500 mt-0.5">
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
             {card.tipo_tramite || ''}
             {card.tipo_tramite && ' · '}
-            <span className="font-mono text-[10px] text-zinc-600">{(card as any).numero ?? card.numero_expediente}</span>
+            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
       </div>
@@ -624,7 +624,7 @@ export default function KanbanPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Tablero de Estados
           </h1>
-          <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
             Arrastrá los expedientes entre columnas para cambiar su estado.
           </p>
         </div>
@@ -693,9 +693,9 @@ export default function KanbanPage() {
                   {column.cards.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-white/10">
-                        <LayoutGrid className="h-4 w-4 text-zinc-600" />
+                        <LayoutGrid className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
                       </div>
-                      <p className="text-[11px] text-zinc-600">
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
                         Arrastra expedientes aquí
                       </p>
                     </div>

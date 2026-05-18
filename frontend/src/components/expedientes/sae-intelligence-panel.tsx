@@ -199,7 +199,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
             <div className="flex items-center gap-1.5 mb-2">
               <Clock className="h-3 w-3 text-orange-400" />
               <p className="text-[11px] uppercase tracking-wider text-orange-300 font-medium">Plazos vigentes</p>
-              <span className="text-[10px] text-zinc-600">próximos 60 días</span>
+              <span className="text-[10px] text-zinc-600 dark:text-zinc-400">próximos 60 días</span>
             </div>
             <div className="space-y-1.5">
               {plazos.map((p) => {
@@ -257,7 +257,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
                 {fechasClave.slice(0, 6).map((f, i) => (
                   <div key={`${f.fecha_iso}-${i}`} className="flex items-center gap-2 text-[11px]">
                     <span className="shrink-0 text-amber-300 font-mono">{formatDate(f.fecha_iso)}</span>
-                    <span className="text-zinc-600">·</span>
+                    <span className="text-zinc-600 dark:text-zinc-400">·</span>
                     <span className="text-zinc-400 line-clamp-1">{f.tipo}: {f.descripcion}</span>
                   </div>
                 ))}
@@ -287,7 +287,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
 
         {!hasAnyContent && analyzedCount === 0 && (
           <div className="text-center py-2">
-            <AlertCircle className="h-5 w-5 text-zinc-700 mx-auto mb-1" />
+            <AlertCircle className="h-5 w-5 text-zinc-700 dark:text-zinc-200 mx-auto mb-1" />
             <p className="text-[11px] text-zinc-500">
               Para que aparezca contenido acá, analizá actuaciones desde el listado de abajo (botón violeta "Analizar con IA" en cada una, o "Analizar pendientes" arriba).
             </p>

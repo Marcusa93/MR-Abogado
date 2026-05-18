@@ -134,7 +134,7 @@ function NotificationItem({
             </span>
           </button>
         )}
-        <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-900 dark:text-zinc-500">
+        <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-700 dark:text-zinc-300">
           <span>{timeAgo(alerta.created_at)}</span>
         </div>
       </div>
@@ -144,7 +144,7 @@ function NotificationItem({
             e.stopPropagation()
             onMarkRead(alerta.id)
           }}
-          className="rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
           title="Marcar como leída"
         >
           <Eye className="h-3 w-3" />
@@ -226,7 +226,7 @@ function SaeNotifItem({
             e.stopPropagation()
             onMarkRead(notif.id)
           }}
-          className="rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
           title="Marcar como leída"
         >
           <Eye className="h-3 w-3" />
@@ -536,8 +536,8 @@ export function NotificationDropdown() {
             <div className="flex-1 overflow-y-auto sm:max-h-[420px]">
               {displayAlerts.length === 0 && saeNotifs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4">
-                  <BellOff className="h-8 w-8 text-zinc-600 mb-2" />
-                  <p className="text-xs text-zinc-900 dark:text-zinc-500">Sin notificaciones pendientes</p>
+                  <BellOff className="h-8 w-8 text-zinc-600 dark:text-zinc-400 mb-2" />
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300">Sin notificaciones pendientes</p>
                   <button
                     onClick={() => handleNavigate('/alertas')}
                     className="mt-3 text-[11px] font-medium text-amber-500 hover:text-amber-400 transition-colors"

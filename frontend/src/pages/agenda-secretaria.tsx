@@ -212,7 +212,7 @@ function SeguimientoForm({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
-            Pr{'\u00F3'}ximo control <span className="text-zinc-900 dark:text-zinc-500 font-normal">(F = hoy)</span>
+            Pr{'\u00F3'}ximo control <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
           </label>
           <input
             type="date"
@@ -362,7 +362,7 @@ function MiniCalendar({
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-px mb-1">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-medium text-zinc-900 dark:text-zinc-500 py-1">
+          <div key={d} className="text-center text-[10px] font-medium text-zinc-700 dark:text-zinc-300 py-1">
             {d}
           </div>
         ))}
@@ -390,7 +390,7 @@ function MiniCalendar({
                   ? 'bg-amber-500/10 text-amber-400 font-bold'
                   : hasTurnos
                   ? 'text-zinc-900 dark:text-zinc-100 hover:bg-white/5'
-                  : 'text-zinc-900 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.03]'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.03]'
               )}
             >
               {day}
@@ -421,7 +421,7 @@ function MiniCalendar({
             })}
           </p>
           {selectedTurnos.length === 0 ? (
-            <p className="text-xs text-zinc-900 dark:text-zinc-500 text-center py-3">Sin audiencias este día</p>
+            <p className="text-xs text-zinc-700 dark:text-zinc-300 text-center py-3">Sin audiencias este día</p>
           ) : (
             <div className="space-y-2">
               {selectedTurnos.map((turno) => (
@@ -503,7 +503,7 @@ export default function AgendaSecretariaPage() {
   if (agendaLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-900 dark:text-zinc-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-700 dark:text-zinc-300" />
       </div>
     )
   }
@@ -530,7 +530,7 @@ export default function AgendaSecretariaPage() {
         <div className="glass-card-glow rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 mb-1">
             <Calendar className="h-4 w-4 text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Hoy</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Hoy</span>
           </div>
           <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
             {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })}
@@ -539,31 +539,31 @@ export default function AgendaSecretariaPage() {
         <div className="glass-card-glow rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 mb-1">
             <CalendarClock className="h-4 w-4 text-sky-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Audiencias</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Audiencias</span>
           </div>
           <p className="text-lg font-bold text-sky-400">
             {turnos.filter(t => t.fecha === new Date().toISOString().split('T')[0]).length} hoy
-            <span className="text-xs text-zinc-900 dark:text-zinc-500 font-normal ml-1">/ {turnos.filter(t => t.fecha <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).length} semana</span>
+            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1">/ {turnos.filter(t => t.fecha <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).length} semana</span>
           </p>
         </div>
         <div className="glass-card-glow rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 mb-1">
             <FileSearch className="h-4 w-4 text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Revisar</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Revisar</span>
           </div>
           <p className="text-lg font-bold text-amber-400">
             {expedientes.filter(e => e.dias_sin_control > 14).length}
-            <span className="text-xs text-zinc-900 dark:text-zinc-500 font-normal ml-1"> atrasados</span>
+            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1"> atrasados</span>
           </p>
         </div>
         <div className="glass-card-glow rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 mb-1">
             <ListChecks className="h-4 w-4 text-rose-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Vencidas</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Vencidas</span>
           </div>
           <p className="text-lg font-bold text-rose-400">
             {tareasVencidas.length}
-            <span className="text-xs text-zinc-900 dark:text-zinc-500 font-normal ml-1"> tareas</span>
+            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1"> tareas</span>
           </p>
         </div>
       </div>
@@ -724,7 +724,7 @@ export default function AgendaSecretariaPage() {
                   >
                     <button
                       onClick={() => completarTarea.mutate(tarea.id)}
-                      className="shrink-0 rounded p-1 text-zinc-900 dark:text-zinc-500 hover:text-emerald-400"
+                      className="shrink-0 rounded p-1 text-zinc-700 dark:text-zinc-300 hover:text-emerald-400"
                       title="Completar"
                     >
                       <CheckSquare className="h-4 w-4" />

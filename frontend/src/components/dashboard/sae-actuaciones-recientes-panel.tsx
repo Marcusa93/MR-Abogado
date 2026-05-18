@@ -54,7 +54,7 @@ function ActuacionRow({ act }: { act: ActuacionReciente }) {
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium leading-snug text-zinc-800 line-clamp-1 dark:text-zinc-100">
+        <p className="text-xs font-medium leading-snug text-zinc-800 dark:text-zinc-100 line-clamp-1 dark:text-zinc-100">
           {act.titulo}
         </p>
         {act.ai_summary && (
@@ -67,7 +67,7 @@ function ActuacionRow({ act }: { act: ActuacionReciente }) {
           {act.expediente_numero ? `${act.expediente_numero} · ` : ''}
           {act.expediente_caratula ?? 'Sin carátula'}
         </p>
-        <p className="text-[10px] text-zinc-600 mt-0.5">
+        <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-0.5">
           Llegó {timeAgo(act.created_at)}
         </p>
       </div>
@@ -114,7 +114,7 @@ function ActuacionesRecientesPanelView({
             <Database className="h-6 w-6" />
           </div>
           <p className="text-xs text-zinc-500">Sin actuaciones nuevas en las últimas 48h.</p>
-          <p className="text-[10px] text-zinc-600 mt-1">Sincronizá tus expedientes desde el tab SAE.</p>
+          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-1">Sincronizá tus expedientes desde el tab SAE.</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">

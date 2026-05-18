@@ -191,7 +191,7 @@ export default function ImportarSaePage() {
               <Database className="h-4.5 w-4.5 text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-zinc-100">Importar desde SAE</h1>
+              <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Importar desde SAE</h1>
               <p className="text-xs text-zinc-500">Sistema de Actuación Electrónica — Tucumán</p>
             </div>
           </div>
@@ -303,10 +303,10 @@ export default function ImportarSaePage() {
                 <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-cyan-400' : 'text-zinc-500')} />
                 {visibleAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
                 {filtersActive && visibleNewRows.length > 0 && (
-                  <span className="text-xs text-zinc-600">({visibleNewRows.length})</span>
+                  <span className="text-xs text-zinc-600 dark:text-zinc-400">({visibleNewRows.length})</span>
                 )}
               </button>
-              <span className="text-xs text-zinc-600">·</span>
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">·</span>
               <span className="text-sm text-zinc-400">
                 <span className="font-medium text-zinc-200">{rows.length}</span> encontrados
                 {alreadyImportedCount > 0 && (
@@ -353,7 +353,7 @@ export default function ImportarSaePage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por número o carátula..."
-                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               {search && (
                 <button
@@ -415,7 +415,7 @@ export default function ImportarSaePage() {
                     <tr>
                       <td colSpan={4} className="px-4 py-10">
                         <div className="flex flex-col items-center gap-2 text-center">
-                          <Search className="h-7 w-7 text-zinc-600" />
+                          <Search className="h-7 w-7 text-zinc-600 dark:text-zinc-400" />
                           <p className="text-sm text-zinc-400">Ningún expediente coincide con el filtro.</p>
                           {filtersActive && (
                             <button
@@ -461,13 +461,13 @@ export default function ImportarSaePage() {
 
                           {/* Número SAE */}
                           <td className={cn('px-4 py-3 font-mono text-xs whitespace-nowrap', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
-                            {row.numero_sae || <span className="text-zinc-600 italic">—</span>}
+                            {row.numero_sae || <span className="text-zinc-600 dark:text-zinc-400 italic">—</span>}
                           </td>
 
                           {/* Carátula */}
                           <td className={cn('px-4 py-3 max-w-xs', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
                             <span className="line-clamp-2 leading-snug">
-                              {row.caratula || <span className="text-zinc-600 italic">Sin carátula</span>}
+                              {row.caratula || <span className="text-zinc-600 dark:text-zinc-400 italic">Sin carátula</span>}
                             </span>
                           </td>
 
@@ -525,10 +525,10 @@ export default function ImportarSaePage() {
       {/* ── No results after load ── */}
       {!isLoading && hasLoaded && !loadError && rows.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] py-14 text-center">
-          <Database className="h-8 w-8 text-zinc-600" />
+          <Database className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
           <div>
             <p className="font-medium text-zinc-400">No se encontraron expedientes en SAE</p>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               No hay expedientes asociados a tu cuenta en ninguna jurisdicción.
             </p>
           </div>

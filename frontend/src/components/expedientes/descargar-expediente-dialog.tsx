@@ -91,7 +91,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <Download className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-zinc-100">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {onlyKeys ? 'Descargar actuaciones claves' : 'Descargar expediente'}
             </h3>
           </div>

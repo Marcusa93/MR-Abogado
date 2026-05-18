@@ -150,7 +150,7 @@ function UploadDialog({
                     />
                   ) : (
                     <div className="flex items-center justify-center h-24">
-                      <FileText className="h-10 w-10 text-zinc-900 dark:text-zinc-500" />
+                      <FileText className="h-10 w-10 text-zinc-700 dark:text-zinc-300" />
                     </div>
                   )}
                 </div>
@@ -159,7 +159,7 @@ function UploadDialog({
                   <FileText className="h-5 w-5 text-blue-400" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
-                    <p className="text-xs text-zinc-900 dark:text-zinc-500">{formatFileSize(file.size)}{file.type.startsWith('image/') ? ' — se convertirá a PDF' : ''}</p>
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300">{formatFileSize(file.size)}{file.type.startsWith('image/') ? ' — se convertirá a PDF' : ''}</p>
                   </div>
                   <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-zinc-600 dark:text-zinc-400 hover:text-red-500">
                     <X className="h-4 w-4" />
@@ -404,7 +404,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                     <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       {fileName}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-zinc-900 dark:text-zinc-500">
+                    <div className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
                       <span>{formatFileSize(fileSize)}</span>
                       {adj.categoria && (
                         <>

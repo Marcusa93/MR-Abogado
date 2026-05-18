@@ -34,7 +34,7 @@ export function EmptyState({
       )}>
         <Icon
           className={cn(
-            'text-zinc-900 dark:text-zinc-500',
+            'text-zinc-700 dark:text-zinc-300',
             size === 'sm' ? 'h-5 w-5' : 'h-7 w-7'
           )}
         />

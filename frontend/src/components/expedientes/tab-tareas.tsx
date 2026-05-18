@@ -146,7 +146,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                   className={cn(
                     'text-sm font-medium',
                     isCompletada(tarea)
-                      ? 'text-zinc-900 dark:text-zinc-500 line-through'
+                      ? 'text-zinc-700 dark:text-zinc-300 line-through'
                       : 'text-zinc-900 dark:text-zinc-100'
                   )}
                 >
@@ -182,7 +182,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                     }}
                     disabled={deleteTarea.isPending}
                     title="Eliminar tarea"
-                    className="rounded p-1.5 text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                    className="rounded p-1.5 text-zinc-600 dark:text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

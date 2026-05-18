@@ -158,7 +158,7 @@ export function CrearTurnoDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>
-                Fecha * <span className="text-zinc-900 dark:text-zinc-500 font-normal">(F = hoy)</span>
+                Fecha * <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
               </label>
               <input
                 type="date"

@@ -62,7 +62,7 @@ export function SnoozeMenu({
           setOpen((v) => !v)
         }}
         className={cn(
-          'shrink-0 rounded p-1 text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors',
+          'shrink-0 rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors',
           className,
         )}
         title={title}

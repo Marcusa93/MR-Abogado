@@ -121,7 +121,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
 
       {/* Título de la actuación */}
       {notif.titulo && (
-        <h3 className="text-sm font-semibold text-zinc-50 leading-snug">{notif.titulo}</h3>
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 leading-snug">{notif.titulo}</h3>
       )}
 
       {/* Resumen IA — si hay y agrega valor sobre el título */}
@@ -247,7 +247,7 @@ export default function NotificacionesSaePage() {
             <Bell className="h-5 w-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-50">Notificaciones SAE</h1>
+            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Notificaciones SAE</h1>
             <p className="text-xs text-zinc-500">
               Notificaciones digitales capturadas del portal del SAE 2 veces por día.
             </p>
@@ -357,7 +357,7 @@ export default function NotificacionesSaePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por expediente, tipo, oficina, carátula…"
-          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
         />
       </div>
 
@@ -413,7 +413,7 @@ export default function NotificacionesSaePage() {
         />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
-          <Search className="h-8 w-8 mx-auto text-zinc-600 mb-2" />
+          <Search className="h-8 w-8 mx-auto text-zinc-600 dark:text-zinc-400 mb-2" />
           <p className="text-sm text-zinc-300">Ninguna notificación coincide con "{search}"</p>
           <button
             onClick={() => setSearch('')}

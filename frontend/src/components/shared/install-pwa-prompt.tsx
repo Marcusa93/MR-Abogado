@@ -294,7 +294,7 @@ function AndroidInstallModal({
           <button
             type="button"
             onClick={onInstall}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-zinc-900 hover:bg-amber-400 transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-amber-400 transition-colors"
           >
             <Download className="h-4 w-4" />
             Instalar ahora
@@ -430,7 +430,7 @@ function DesktopInstallCard({
                 type="button"
                 onClick={onInstall}
                 disabled={!canInstall}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
                 {canInstall ? 'Instalar ahora' : 'Esperando...'}

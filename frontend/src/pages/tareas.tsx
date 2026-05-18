@@ -57,7 +57,7 @@ const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: 'text-amber-500',
   EN_PROGRESO: 'text-blue-500',
   COMPLETADA: 'text-emerald-500',
-  CANCELADA: 'text-zinc-900 dark:text-zinc-500',
+  CANCELADA: 'text-zinc-700 dark:text-zinc-300',
 }
 
 const PRIORIDAD_ROW: Record<string, { border: string; bg: string }> = {
@@ -286,7 +286,7 @@ export default function TareasPage() {
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
           >
             Cancelar
           </button>
@@ -297,7 +297,7 @@ export default function TareasPage() {
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* Search */}
         <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-900 dark:text-zinc-500" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-700 dark:text-zinc-300" />
           <input
             placeholder="Buscar tarea..."
             value={searchValue}
@@ -488,7 +488,7 @@ export default function TareasPage() {
                   .map((tarea) => {
                   const overdue = isOverdue(tarea.fecha_vencimiento, tarea.estado)
                   const Icon = ESTADO_ICON[tarea.estado] ?? Circle
-                  const iconColor = ESTADO_COLORS[tarea.estado] ?? 'text-zinc-900 dark:text-zinc-500'
+                  const iconColor = ESTADO_COLORS[tarea.estado] ?? 'text-zinc-700 dark:text-zinc-300'
                   const canComplete =
                     tarea.estado === 'PENDIENTE' || tarea.estado === 'EN_PROGRESO'
                   const priStyle = PRIORIDAD_ROW[tarea.prioridad] ?? { border: '', bg: '' }
@@ -521,7 +521,7 @@ export default function TareasPage() {
                             <button
                               onClick={(e) => handleComplete(tarea.id, e)}
                               disabled={completarTarea.isPending}
-                              className="rounded p-1 text-zinc-900 dark:text-zinc-500 hover:text-emerald-400 transition-colors"
+                              className="rounded p-1 text-zinc-700 dark:text-zinc-300 hover:text-emerald-400 transition-colors"
                               title="Completar tarea"
                             >
                             {completarTarea.isPending ? (
@@ -653,7 +653,7 @@ export default function TareasPage() {
                               onClick={(e) => { e.stopPropagation(); archivarTarea.mutate(tarea.id) }}
                               disabled={archivarTarea.isPending}
                               title="Archivar"
-                              className="rounded p-1.5 text-zinc-900 dark:text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              className="rounded p-1.5 text-zinc-700 dark:text-zinc-300 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
                             >
                               <Archive className="h-3.5 w-3.5" />
                             </button>
@@ -666,7 +666,7 @@ export default function TareasPage() {
                               }}
                               disabled={deleteTarea.isPending}
                               title="Eliminar"
-                              className="rounded p-1.5 text-zinc-900 dark:text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              className="rounded p-1.5 text-zinc-700 dark:text-zinc-300 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

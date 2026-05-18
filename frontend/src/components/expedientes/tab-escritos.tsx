@@ -121,7 +121,7 @@ function NuevoEscritoDialog({
       <div className="relative w-full max-w-xl rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
           <div>
-            <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-400" />
               Nuevo escrito
             </h2>
@@ -155,7 +155,7 @@ function NuevoEscritoDialog({
               onChange={(e) => setTipo(e.target.value)}
               placeholder="ej: Contestación de demanda"
               disabled={generate.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
             />
             <datalist id="tipos-escrito">
               {sugerencias.map(s => <option key={s} value={s} />)}
@@ -174,7 +174,7 @@ function NuevoEscritoDialog({
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Si lo dejás vacío, la IA decide el título"
               disabled={generate.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
             />
           </div>
 
@@ -188,7 +188,7 @@ function NuevoEscritoDialog({
               placeholder="ej: contestar negando todos los hechos y oponiendo prescripción"
               rows={4}
               disabled={generate.isPending}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
             />
           </div>
         </div>
@@ -267,7 +267,7 @@ function PresentarSaeDialog({
       <div className="absolute inset-0 bg-black/60" onClick={isLoading ? undefined : onClose} />
       <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
-          <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Send className="h-4 w-4 text-emerald-400" />
             Presentar al portal del SAE
           </h2>
@@ -304,7 +304,7 @@ function PresentarSaeDialog({
               onChange={(e) => setCategoria(e.target.value)}
               placeholder={portalInfo?.categorias.length ? 'Elegí una categoría' : 'Cargando…'}
               disabled={isLoading || !portalInfo}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
             />
             <datalist id="categorias-portal">
               {portalInfo?.categorias.map(c => <option key={c.id} value={c.nombre} />)}
@@ -323,7 +323,7 @@ function PresentarSaeDialog({
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Texto de referencia que aparece en el portal"
               disabled={isLoading}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
             />
           </div>
 
@@ -446,14 +446,14 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
         </button>
       )}
 
-      <span className="text-zinc-700">→</span>
+      <span className="text-zinc-700 dark:text-zinc-200">→</span>
 
       {/* Paso 2: Presentar */}
       <div className={cn(
         'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
         isPresentado ? 'border-violet-500/30 bg-violet-500/5 text-violet-300'
                      : isFirmado ? 'border-white/10 text-zinc-300'
-                     : 'border-white/10 text-zinc-600',
+                     : 'border-white/10 text-zinc-600 dark:text-zinc-400',
       )}>
         <Send className="h-3.5 w-3.5" />
         <span className="font-medium">
@@ -596,7 +596,7 @@ function EscritoEditorModal({
           <input
             value={titulo}
             onChange={(e) => { setTitulo(e.target.value); setDirty(true) }}
-            className="bg-transparent text-base font-semibold text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
+            className="bg-transparent text-base font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
           />
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0">
             {escrito.tipo} · {escrito.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}
@@ -667,13 +667,13 @@ function EscritoEditorModal({
             <input
               value={contenido.encabezado_juez}
               onChange={(e) => { setContenido(c => ({ ...c, encabezado_juez: e.target.value })); setDirty(true) }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
             />
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 mt-2">Carátula</label>
             <input
               value={contenido.caratula}
               onChange={(e) => { setContenido(c => ({ ...c, caratula: e.target.value })); setDirty(true) }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
             />
           </div>
 
@@ -798,11 +798,11 @@ export function TabEscritos({ expedienteId }: Props) {
                   onClick={() => setEditingId(esc.id)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <p className="text-sm font-medium text-zinc-100 truncate">{esc.titulo}</p>
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{esc.titulo}</p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">
                     {esc.tipo}
-                    {esc.registro_tonal && <span className="ml-2 text-zinc-600">· {esc.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}</span>}
-                    <span className="ml-2 text-zinc-600">· {new Date(esc.created_at).toLocaleDateString('es-AR')}</span>
+                    {esc.registro_tonal && <span className="ml-2 text-zinc-600 dark:text-zinc-400">· {esc.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}</span>}
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">· {new Date(esc.created_at).toLocaleDateString('es-AR')}</span>
                   </p>
                 </button>
                 <span className={cn(
@@ -825,7 +825,7 @@ export function TabEscritos({ expedienteId }: Props) {
           </div>
         )}
 
-        <p className="mt-3 text-[10px] text-zinc-600">
+        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
           Cada escrito se genera usando solo las actuaciones marcadas como claves (nunca todo el historial).
         </p>
       </Card>

@@ -125,7 +125,7 @@ export default function ForcePasswordChangePage() {
                       minLength={6}
                       autoFocus
                       disabled={saving}
-                      className="h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-10 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all"
+                      className="h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-10 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all"
                     />
                     <button
                       type="button"
@@ -150,7 +150,7 @@ export default function ForcePasswordChangePage() {
                     required
                     minLength={6}
                     disabled={saving}
-                    className={`h-10 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all ${
+                    className={`h-10 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all ${
                       confirmPwd && confirmPwd !== newPwd
                         ? 'border-rose-500/50 focus:border-rose-500/50'
                         : 'border-white/10 focus:border-amber-500/40'
@@ -186,7 +186,7 @@ export default function ForcePasswordChangePage() {
                 <CheckCircle2 className="h-7 w-7 text-emerald-400" />
               </div>
               <div className="text-center">
-                <p className="text-base font-semibold text-zinc-100">Contraseña actualizada</p>
+                <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Contraseña actualizada</p>
                 <p className="mt-1 text-sm text-zinc-400">Redirigiendo al panel...</p>
               </div>
             </div>

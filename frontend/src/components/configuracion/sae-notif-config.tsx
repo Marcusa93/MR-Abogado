@@ -117,7 +117,7 @@ export function SaeNotifConfig() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold text-zinc-100">Notificaciones SAE</h3>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones SAE</h3>
             <button
               onClick={() => { setEnabled(!enabled); markDirty() }}
               className={cn(
@@ -191,7 +191,7 @@ export function SaeNotifConfig() {
                     onChange={(e) => setNewEmail(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail() } }}
                     placeholder="agregar email…"
-                    className="h-8 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                    className="h-8 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                   <button
                     onClick={addEmail}

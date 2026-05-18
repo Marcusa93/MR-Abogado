@@ -179,7 +179,7 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
               {(uploadAudio.isPending || transcribeUpload.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
               Subir audio/video
             </button>
-            <span className="text-[10px] text-zinc-600">
+            <span className="text-[10px] text-zinc-600 dark:text-zinc-400">
               Groq (gratis) → fallback OpenAI · máx 25 MB
             </span>
           </div>
@@ -243,7 +243,7 @@ function TranscriptCard({
           {t.audio_duration_seconds && (
             <span className="text-[10px] text-zinc-500">· {formatDuration(t.audio_duration_seconds)}</span>
           )}
-          <span className="text-[10px] text-zinc-600">· {formatDate(t.created_at)}</span>
+          <span className="text-[10px] text-zinc-600 dark:text-zinc-400">· {formatDate(t.created_at)}</span>
         </div>
         {showKeyButton && (
           <button
@@ -262,7 +262,7 @@ function TranscriptCard({
                 'h-3.5 w-3.5 transition-colors',
                 movement!.is_key === true
                   ? 'fill-amber-400 text-amber-400'
-                  : 'text-zinc-600 hover:text-amber-400',
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-amber-400',
               )}
             />
           </button>

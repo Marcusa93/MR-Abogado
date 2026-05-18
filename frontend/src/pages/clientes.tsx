@@ -67,12 +67,12 @@ function ClienteCard({
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-amber-400 transition-colors">
             {cliente.apellido} {cliente.nombre}
           </h3>
-          <div className="flex items-center gap-2 mt-1 text-xs text-zinc-900 dark:text-zinc-500">
+          <div className="flex items-center gap-2 mt-1 text-xs text-zinc-700 dark:text-zinc-300">
             <CreditCard className="h-3 w-3 shrink-0" />
             <span>DNI: {cliente.dni}</span>
             {cliente.cuil && (
               <>
-                <span className="text-zinc-700">|</span>
+                <span className="text-zinc-700 dark:text-zinc-200">|</span>
                 <span>{cliente.cuil}</span>
               </>
             )}
@@ -86,7 +86,7 @@ function ClienteCard({
             ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
             : stats.total > 0
               ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-              : 'bg-white/5 text-zinc-900 dark:text-zinc-500 border border-white/10'
+              : 'bg-white/5 text-zinc-700 dark:text-zinc-300 border border-white/10'
         )}>
           <FolderOpen className="h-2.5 w-2.5" />
           {stats.total} exp.
@@ -97,7 +97,7 @@ function ClienteCard({
       <div className="mt-3 space-y-1">
         {cliente.telefono && (
           <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-            <Phone className="h-3 w-3 shrink-0 text-zinc-900 dark:text-zinc-500" />
+            <Phone className="h-3 w-3 shrink-0 text-zinc-700 dark:text-zinc-300" />
             <span className="flex-1">{cliente.telefono}</span>
             <WhatsAppButton
               phone={cliente.telefono}
@@ -108,7 +108,7 @@ function ClienteCard({
         )}
         {cliente.email && (
           <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-            <Mail className="h-3 w-3 shrink-0 text-zinc-900 dark:text-zinc-500" />
+            <Mail className="h-3 w-3 shrink-0 text-zinc-700 dark:text-zinc-300" />
             <span className="truncate">{cliente.email}</span>
           </div>
         )}
@@ -116,7 +116,7 @@ function ClienteCard({
 
       {/* Footer: ultimo contacto + actions */}
       <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2.5">
-        <div className="flex items-center gap-1.5 text-[10px] text-zinc-900 dark:text-zinc-500">
+        <div className="flex items-center gap-1.5 text-[10px] text-zinc-700 dark:text-zinc-300">
           <Clock className="h-3 w-3" />
           {hasUltimoContacto
             ? `Último contacto: ${timeAgo(cliente.ultimo_contacto!)}`
@@ -125,7 +125,7 @@ function ClienteCard({
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onExportPDF(cliente) }}
-          className="rounded p-1 text-zinc-600 hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
           title="Exportar informe del cliente"
         >
           <Download className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ export default function ClientesPage() {
 
       {/* Search bar — instant debounced */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-900 dark:text-zinc-500" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-700 dark:text-zinc-300" />
         <input
           type="text"
           placeholder="Buscar por nombre, DNI, CUIL, email, teléfono..."

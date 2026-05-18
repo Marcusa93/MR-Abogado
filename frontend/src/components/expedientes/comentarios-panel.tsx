@@ -31,14 +31,14 @@ function NotaContent({ text, deleted }: { text: string; deleted?: boolean }) {
   return (
     <p
       className={`text-sm whitespace-pre-wrap break-words ${
-        deleted ? 'text-zinc-600 line-through italic' : 'text-zinc-700 dark:text-zinc-300'
+        deleted ? 'text-zinc-600 dark:text-zinc-400 line-through italic' : 'text-zinc-700 dark:text-zinc-300'
       }`}
     >
       {parts.map((part, i) =>
         part.type === 'mention' ? (
           <span
             key={i}
-            className={deleted ? 'text-zinc-600' : 'font-medium text-amber-400'}
+            className={deleted ? 'text-zinc-600 dark:text-zinc-400' : 'font-medium text-amber-400'}
           >
             {part.content}
           </span>
@@ -81,7 +81,7 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
           nota.eliminada
-            ? 'bg-slate-800 text-zinc-600'
+            ? 'bg-slate-800 text-zinc-600 dark:text-zinc-400'
             : isOwn
               ? 'bg-amber-500/20 text-amber-400'
               : 'bg-slate-700 text-zinc-700 dark:text-zinc-300'
@@ -92,16 +92,16 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span
-            className={`text-sm font-medium ${nota.eliminada ? 'text-zinc-900 dark:text-zinc-500' : 'text-zinc-800 dark:text-zinc-200'}`}
+            className={`text-sm font-medium ${nota.eliminada ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-800 dark:text-zinc-200'}`}
           >
             {authorName}
           </span>
           {nota.es_privada && !nota.eliminada && (
             <Lock className="h-3 w-3 text-amber-500/60" />
           )}
-          <span className="text-xs text-zinc-900 dark:text-zinc-500">{timeAgo(nota.created_at)}</span>
+          <span className="text-xs text-zinc-700 dark:text-zinc-300">{timeAgo(nota.created_at)}</span>
           {nota.eliminada && (
-            <span className="rounded bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-900 dark:text-zinc-500">
+            <span className="rounded bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 dark:text-zinc-300">
               eliminado
             </span>
           )}
@@ -110,7 +110,7 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
               type="button"
               onClick={handleDelete}
               disabled={deleteNota.isPending}
-              className="ml-auto hidden rounded p-1 text-zinc-600 transition-colors hover:bg-rose-500/10 hover:text-rose-400 group-hover:flex items-center disabled:opacity-50"
+              className="ml-auto hidden rounded p-1 text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-rose-500/10 hover:text-rose-400 group-hover:flex items-center disabled:opacity-50"
               title="Eliminar nota"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
             className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
               esPrivada
                 ? 'bg-amber-500/15 text-amber-400'
-                : 'text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300'
             }`}
             title={esPrivada ? 'Nota privada (solo vos y admins)' : 'Nota pública'}
           >
@@ -202,8 +202,8 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
         </div>
       ) : notas.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-sm text-zinc-900 dark:text-zinc-500">Sin notas todavía</p>
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="text-sm text-zinc-700 dark:text-zinc-300">Sin notas todavía</p>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
             Usá @ para mencionar a un compañero
           </p>
         </div>

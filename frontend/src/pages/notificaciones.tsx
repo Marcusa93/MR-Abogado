@@ -106,7 +106,7 @@ function AlertaRow({
             if (alerta.expediente_id) onNavigate(`/expedientes/${alerta.expediente_id}`)
           }}
         >
-          <p className="text-sm font-medium text-zinc-100 line-clamp-2">{alerta.titulo}</p>
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">{alerta.titulo}</p>
           {alerta.mensaje && (
             <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{alerta.mensaje}</p>
           )}
@@ -212,7 +212,7 @@ function SaeRow({
               <span className="text-[11px] font-mono text-zinc-300 truncate max-w-[180px]">Exp. {notif.numero_expediente}</span>
             )}
           </div>
-          <p className="text-sm font-medium text-zinc-100 line-clamp-2">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">
             {notif.titulo || notif.caratula || 'Notificación SAE'}
           </p>
           {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
@@ -357,7 +357,7 @@ export default function NotificacionesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-50 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-amber-400" />
             Notificaciones
           </h1>
@@ -411,7 +411,7 @@ export default function NotificacionesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título, expediente, mensaje…"
-            className="w-full rounded-lg border border-white/10 bg-white/[0.03] pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-400/40"
+            className="w-full rounded-lg border border-white/10 bg-white/[0.03] pl-9 pr-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-400/40"
           />
         </div>
         {selected.size > 0 ? (
@@ -464,7 +464,7 @@ export default function NotificacionesPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <BellOff className="h-10 w-10 text-zinc-600 mb-3" />
+            <BellOff className="h-10 w-10 text-zinc-600 dark:text-zinc-400 mb-3" />
             <p className="text-sm text-zinc-400">
               {search ? 'No hay resultados para tu búsqueda' : 'Sin notificaciones'}
             </p>

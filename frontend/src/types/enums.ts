@@ -38,7 +38,7 @@ export const ESTADO_INTERNO_LABELS: Record<EstadoInterno, string> = {
 }
 
 export const ESTADO_BADGE_COLORS: Record<EstadoInterno, string> = {
-  NUEVA_CONSULTA: 'bg-slate-100 text-zinc-800 border-slate-200',
+  NUEVA_CONSULTA: 'bg-slate-100 text-zinc-800 dark:text-zinc-100 border-slate-200',
   PARA_INICIAR: 'bg-violet-100 text-violet-800 border-violet-200',
   INICIADO: 'bg-blue-100 text-blue-800 border-blue-200',
   PRUEBA: 'bg-cyan-100 text-cyan-800 border-cyan-200',
@@ -48,7 +48,7 @@ export const ESTADO_BADGE_COLORS: Record<EstadoInterno, string> = {
   CORTE: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   FINALIZADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   NO_VIABLE_RECHAZADO: 'bg-rose-100 text-rose-800 border-rose-200',
-  PAUSADO: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+  PAUSADO: 'bg-zinc-100 text-zinc-700 dark:text-zinc-200 border-zinc-200',
 }
 
 export const ESTADOS_TERMINALES = [
@@ -176,7 +176,7 @@ export const PRIORIDAD_LABELS: Record<Prioridad, string> = {
 }
 
 export const PRIORIDAD_COLORS: Record<Prioridad, string> = {
-  BAJA: 'bg-slate-100 text-zinc-700 border-slate-200',
+  BAJA: 'bg-slate-100 text-zinc-700 dark:text-zinc-200 border-slate-200',
   MEDIA: 'bg-blue-100 text-blue-700 border-blue-200',
   ALTA: 'bg-orange-100 text-orange-700 border-orange-200',
   URGENTE: 'bg-red-100 text-red-700 border-red-200',
@@ -264,7 +264,7 @@ export const ESTADO_TAREA_COLORS: Record<EstadoTarea, string> = {
   PENDIENTE: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   EN_PROGRESO: 'bg-blue-100 text-blue-800 border-blue-200',
   COMPLETADA: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  CANCELADA: 'bg-slate-100 text-zinc-800 border-slate-200',
+  CANCELADA: 'bg-slate-100 text-zinc-800 dark:text-zinc-100 border-slate-200',
 }
 
 // ---------------------------------------------------------------------------
@@ -305,9 +305,9 @@ export const TIPO_ALERTA_COLORS: Record<TipoAlerta, string> = {
   SIN_RESPONSABLE: 'bg-orange-100 text-orange-800 border-orange-200',
   DOCUMENTO_FALTANTE: 'bg-orange-100 text-orange-800 border-orange-200',
   ESTADO_CAMBIO: 'bg-violet-100 text-violet-800 border-violet-200',
-  SISTEMA: 'bg-slate-100 text-zinc-800 border-slate-200',
+  SISTEMA: 'bg-slate-100 text-zinc-800 dark:text-zinc-100 border-slate-200',
   MENCION: 'bg-pink-100 text-pink-800 border-pink-200',
-  CUSTOM: 'bg-slate-100 text-zinc-700 border-slate-200',
+  CUSTOM: 'bg-slate-100 text-zinc-700 dark:text-zinc-200 border-slate-200',
 }
 
 // ---------------------------------------------------------------------------

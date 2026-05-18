@@ -103,7 +103,7 @@ export function NotifPrefsConfig() {
           <Bell className="h-4 w-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-zinc-100">Notificaciones de la app</h3>
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones de la app</h3>
           <p className="mt-1 text-xs text-zinc-500">
             Elegí por cada tipo de evento si querés recibir push (browser/PWA) y/o email. Los defaults están pensados para no spammear: las menciones y tareas vienen activas, los cambios de estado vienen apagados.
           </p>
@@ -126,7 +126,7 @@ export function NotifPrefsConfig() {
               className={`grid grid-cols-[1fr_70px_70px] gap-2 px-3 py-2.5 items-center ${i < NOTIF_EVENTS.length - 1 ? 'border-b border-white/5' : ''} hover:bg-white/[0.02]`}
             >
               <div className="min-w-0">
-                <p className="text-xs font-medium text-zinc-100">{ev.label}</p>
+                <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{ev.label}</p>
                 <p className="text-[10px] text-zinc-500 leading-snug mt-0.5">{ev.desc}</p>
               </div>
               <div className="flex justify-center">
@@ -164,7 +164,7 @@ export function NotifPrefsConfig() {
 
       <DispatchTelemetry />
 
-      <p className="text-[10px] text-zinc-600">
+      <p className="text-[10px] text-zinc-600 dark:text-zinc-400">
         Las notificaciones del SAE tienen sus propias preferencias arriba (incluyendo horario silencioso y selector de fueros).
       </p>
     </div>

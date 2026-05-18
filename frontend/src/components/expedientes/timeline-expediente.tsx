@@ -65,7 +65,7 @@ export function TimelineExpediente({
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Clock className="h-8 w-8 text-zinc-600" />
+        <Clock className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
           No hay eventos en la línea de tiempo.
         </p>
@@ -127,7 +127,7 @@ export function TimelineExpediente({
                             .slice(0, 2)
                             .toUpperCase()}
                         </div>
-                        <span className="text-[11px] text-zinc-900 dark:text-zinc-500">
+                        <span className="text-[11px] text-zinc-700 dark:text-zinc-300">
                           {event.usuario_nombre}
                         </span>
                       </div>
@@ -135,10 +135,10 @@ export function TimelineExpediente({
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-[11px] text-zinc-900 dark:text-zinc-500">
+                    <p className="text-[11px] text-zinc-700 dark:text-zinc-300">
                       {timeAgo(event.fecha)}
                     </p>
-                    <p className="text-[10px] text-zinc-600">
+                    <p className="text-[10px] text-zinc-600 dark:text-zinc-400">
                       {formatDate(event.fecha)}
                     </p>
                   </div>

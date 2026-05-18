@@ -142,7 +142,7 @@ export function CrearSeguimientoDialog({
             <div>
               <label className={labelClass}>
                 Próximo seguimiento{' '}
-                <span className="text-[10px] text-zinc-600">(F = hoy)</span>
+                <span className="text-[10px] text-zinc-600 dark:text-zinc-400">(F = hoy)</span>
               </label>
               <input
                 ref={dateRef}

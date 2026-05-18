@@ -58,7 +58,7 @@ export function TabSeguimientos({ seguimientos, expedienteId, clienteTelefono, c
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-xs text-zinc-600 dark:text-zinc-400">{formatDate(seg.fecha_control)}</p>
-                    <p className="text-[10px] text-zinc-900 dark:text-zinc-500">{timeAgo(seg.fecha_control)}</p>
+                    <p className="text-[10px] text-zinc-700 dark:text-zinc-300">{timeAgo(seg.fecha_control)}</p>
                   </div>
                 </div>
                 {seg.estado_organismo_reportado && (

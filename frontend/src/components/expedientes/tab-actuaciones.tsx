@@ -231,8 +231,8 @@ function ActuacionRow({
                 movement.is_key === true
                   ? 'fill-amber-400 text-amber-400'
                   : movement.is_key === false
-                    ? 'text-zinc-700'
-                    : 'text-zinc-600 hover:text-amber-400'
+                    ? 'text-zinc-700 dark:text-zinc-200'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-amber-400'
               )}
             />
           </button>
@@ -256,10 +256,10 @@ function ActuacionRow({
                 movement.is_audiencia === true
                   ? 'fill-cyan-500/30 text-cyan-400'
                   : movement.is_audiencia === false
-                    ? 'text-zinc-700'
+                    ? 'text-zinc-700 dark:text-zinc-200'
                     : hasAudioAttachment(movement)
                       ? 'text-cyan-500/50 hover:text-cyan-400'
-                      : 'text-zinc-600 hover:text-cyan-400'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-cyan-400'
               )}
             />
           </button>
@@ -793,7 +793,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar en título o cuerpo..."
-                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               {search && (
                 <button
@@ -851,7 +851,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
           />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <Search className="h-8 w-8 text-zinc-600" />
+            <Search className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
             <p className="text-sm text-zinc-400">Ninguna actuación coincide con el filtro.</p>
             {filtersActive && (
               <button
@@ -870,8 +870,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                   <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                     {group.label}
                   </h4>
-                  <span className="text-[11px] text-zinc-600">·</span>
-                  <span className="text-[11px] text-zinc-600">
+                  <span className="text-[11px] text-zinc-600 dark:text-zinc-400">·</span>
+                  <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
                     {group.movements.length} {group.movements.length === 1 ? 'actuación' : 'actuaciones'}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06] ml-2" />

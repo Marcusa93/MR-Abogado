@@ -221,7 +221,7 @@ export function CrearTareaDialog({
             <div>
               <label className={labelClass}>
                 Fecha de vencimiento{' '}
-                <span className="text-zinc-900 dark:text-zinc-500 font-normal">(F = hoy)</span>
+                <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
               </label>
               <input
                 type="date"

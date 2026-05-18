@@ -57,7 +57,7 @@ export function SaePdfViewerDialog({
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-zinc-100">{fileName}</p>
+            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{fileName}</p>
             <p className="text-xs text-zinc-500">
               {hasMultiple ? `Documento ${currentIndex + 1} de ${totalFiles}` : 'Documento SAE'}
             </p>

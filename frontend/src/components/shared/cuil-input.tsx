@@ -177,7 +177,7 @@ export function CuilInput({
           )}
           {result.afip?.domicilio?.direccion && (
             <p className="text-zinc-600 dark:text-zinc-400">
-              <span className="text-zinc-900 dark:text-zinc-500">Domicilio fiscal:</span>{' '}
+              <span className="text-zinc-700 dark:text-zinc-300">Domicilio fiscal:</span>{' '}
               {[
                 result.afip.domicilio.direccion,
                 result.afip.domicilio.localidad,
@@ -189,7 +189,7 @@ export function CuilInput({
           )}
           {result.afip?.actividades && result.afip.actividades.length > 0 && (
             <p className="text-zinc-600 dark:text-zinc-400 truncate">
-              <span className="text-zinc-900 dark:text-zinc-500">Actividad:</span>{' '}
+              <span className="text-zinc-700 dark:text-zinc-300">Actividad:</span>{' '}
               {result.afip.actividades[0]}
             </p>
           )}

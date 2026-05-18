@@ -254,38 +254,38 @@ export default function ExpedienteDetailPage() {
           return (
             <>
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
-                <Timer className="h-4 w-4 text-zinc-900 dark:text-zinc-500 shrink-0" />
+                <Timer className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-zinc-500">En estado actual</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">En estado actual</p>
                   <p className={cn("text-sm font-semibold", diasEnEstado > 60 ? "text-rose-400" : diasEnEstado > 30 ? "text-amber-400" : "text-zinc-800 dark:text-zinc-200")}>
                     {diasEnEstado} días
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
-                <ListTodo className="h-4 w-4 text-zinc-900 dark:text-zinc-500 shrink-0" />
+                <ListTodo className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Tareas pend.</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Tareas pend.</p>
                   <p className={cn("text-sm font-semibold", tareasPendientes > 0 ? "text-emerald-400" : "text-zinc-600 dark:text-zinc-400")}>
                     {tareasPendientes} de {tareas.length}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
-                <CalendarClock className="h-4 w-4 text-zinc-900 dark:text-zinc-500 shrink-0" />
+                <CalendarClock className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Próx. audiencia</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Próx. audiencia</p>
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
                     {proximaAudiencia
                       ? new Date(proximaAudiencia.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-                      : <span className="text-zinc-900 dark:text-zinc-500">—</span>}
+                      : <span className="text-zinc-700 dark:text-zinc-300">—</span>}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
-                <User className="h-4 w-4 text-zinc-900 dark:text-zinc-500 shrink-0" />
+                <User className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-900 dark:text-zinc-500">Responsable</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Responsable</p>
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
                     {responsable ? `${responsable.apellido}` : <span className="text-amber-400">Sin asignar</span>}
                   </p>
@@ -378,7 +378,7 @@ export default function ExpedienteDetailPage() {
           <Card title="Línea de tiempo">
             {timelineLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-900 dark:text-zinc-500" />
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-300" />
               </div>
             ) : (
               <TimelineExpediente events={timeline ?? []} />

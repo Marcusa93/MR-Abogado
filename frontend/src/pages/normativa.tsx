@@ -67,7 +67,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
       <div className="absolute inset-0 bg-black/50" onClick={upload.isPending ? undefined : onClose} />
       <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
-          <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Plus className="h-4 w-4 text-cyan-400" />
             Cargar norma
           </h2>
@@ -99,7 +99,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
               value={titulo} onChange={(e) => setTitulo(e.target.value)}
               placeholder="ej: Código Civil y Comercial de la Nación"
               disabled={upload.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -110,7 +110,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
                 value={tipo} onChange={(e) => setTipo(e.target.value)}
                 placeholder="ley, decreto…"
                 disabled={upload.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               <datalist id="tipos-normativa">
                 {TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}
@@ -122,7 +122,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
                 value={numero} onChange={(e) => setNumero(e.target.value)}
                 placeholder="24.240"
                 disabled={upload.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
             </div>
           </div>
@@ -133,7 +133,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
                 value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)}
                 placeholder="nacional, tucumán…"
                 disabled={upload.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
             </div>
             <div>
@@ -142,7 +142,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
                 type="date"
                 value={fecha} onChange={(e) => setFecha(e.target.value)}
                 disabled={upload.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
             </div>
           </div>
@@ -152,7 +152,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
               value={fuente} onChange={(e) => setFuente(e.target.value)}
               placeholder="InfoLEG, Boletín Oficial…"
               disabled={upload.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function NormativaPage() {
             <BookMarked className="h-5 w-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-50">Normativa</h1>
+            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Normativa</h1>
             <p className="text-xs text-zinc-500">
               Biblioteca privada de leyes, decretos y códigos. Se usa como fundamento al redactar escritos.
             </p>
@@ -225,7 +225,7 @@ export default function NormativaPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título, tipo, número, jurisdicción…"
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
           />
         </div>
       )}
@@ -253,7 +253,7 @@ export default function NormativaPage() {
             >
               <FileText className="h-4 w-4 text-cyan-400 shrink-0" />
               <Link to={`/normativa/${doc.id}`} className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-100 truncate">{doc.titulo}</p>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.titulo}</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5 flex items-center gap-2 flex-wrap">
                   <span>{doc.tipo}</span>
                   {doc.numero && <span>· {doc.numero}</span>}
@@ -287,7 +287,7 @@ export default function NormativaPage() {
               >
                 <Trash2 className="h-3 w-3" />
               </button>
-              <ChevronRight className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
             </div>
           ))}
         </div>

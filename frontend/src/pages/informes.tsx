@@ -445,7 +445,7 @@ export default function InformesPage() {
 function StatCard({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
     <div className="rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.02] px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{label}</p>
       <p className={`mt-1 text-xl font-bold ${color ?? 'text-zinc-800 dark:text-zinc-100'}`}>{value}</p>
     </div>
   )

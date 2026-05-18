@@ -17,7 +17,7 @@ const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
 const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
 const errorClass = 'mt-1 text-xs text-rose-500'
-const sectionClass = 'text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3 flex items-center gap-2 before:h-px before:w-3 before:bg-gradient-to-r before:from-amber-500/50 before:to-transparent'
+const sectionClass = 'text-sm font-semibold text-zinc-50 mb-3 flex items-center gap-2 before:h-px before:w-3 before:bg-gradient-to-r before:from-amber-500/50 before:to-transparent'
 
 export default function NuevoClientePage() {
   const navigate = useNavigate()

@@ -49,7 +49,7 @@ function InfoItem({
 }) {
   return (
     <div className="flex items-start gap-2.5">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-900 dark:text-zinc-500" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-700 dark:text-zinc-300" />
       <div className="min-w-0">
         <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
           {label}
@@ -82,7 +82,7 @@ function MaskedInfoItem({
 
   return (
     <div className="flex items-start gap-2.5">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-900 dark:text-zinc-500" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-700 dark:text-zinc-300" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
           {label}
@@ -94,7 +94,7 @@ function MaskedInfoItem({
           <button
             type="button"
             onClick={toggle}
-            className="shrink-0 rounded p-0.5 text-zinc-900 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+            className="shrink-0 rounded p-0.5 text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
             title={visible ? 'Ocultar' : 'Mostrar'}
           >
             {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -279,7 +279,7 @@ export default function ClienteDetailPage() {
               {cliente.notas}
             </p>
           ) : (
-            <p className="text-sm text-zinc-900 dark:text-zinc-500 italic">
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 italic">
               Sin notas registradas.
             </p>
           )}
@@ -334,7 +334,7 @@ export default function ClienteDetailPage() {
                     <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       {exp.caratula || (exp as any).numero}
                     </p>
-                    <p className="text-xs text-zinc-900 dark:text-zinc-500 truncate font-mono">
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300 truncate font-mono">
                       {(exp as any).numero}
                     </p>
                   </div>
@@ -342,10 +342,10 @@ export default function ClienteDetailPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   <EstadoBadge estado={exp.estado_interno} compact />
                   <PrioridadBadge prioridad={exp.prioridad} compact />
-                  <span className="text-xs text-zinc-900 dark:text-zinc-500">
+                  <span className="text-xs text-zinc-700 dark:text-zinc-300">
                     {formatDate((exp as any).fecha_alta ?? (exp as any).fecha_inicio)}
                   </span>
-                  <ExternalLink className="h-3.5 w-3.5 text-zinc-900 dark:text-zinc-500" />
+                  <ExternalLink className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                 </div>
               </div>
             ))}

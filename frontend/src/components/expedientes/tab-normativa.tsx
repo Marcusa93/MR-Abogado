@@ -62,7 +62,7 @@ function FijarDialog({
       <div className="absolute inset-0 bg-black/50" onClick={fijar.isPending ? undefined : onClose} />
       <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Pin className="h-4 w-4 text-violet-400" />
             Fijar norma al expediente
           </h2>
@@ -81,7 +81,7 @@ function FijarDialog({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en tu biblioteca…"
                   autoFocus
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
                 />
               </div>
               <p className="mt-2 text-[10px] text-zinc-500">
@@ -117,7 +117,7 @@ function FijarDialog({
                     >
                       <FileText className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-zinc-100 truncate">{doc.titulo}</p>
+                        <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.titulo}</p>
                         <p className="text-[10px] text-zinc-500">
                           {doc.tipo}
                           {doc.numero && <> · {doc.numero}</>}
@@ -136,7 +136,7 @@ function FijarDialog({
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               <div className="rounded-lg border border-violet-500/30 bg-violet-950/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-violet-300 mb-1">Vas a fijar</p>
-                <p className="text-sm font-medium text-zinc-100">{selected.titulo}</p>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{selected.titulo}</p>
                 <p className="text-[10px] text-zinc-400 mt-0.5">
                   {selected.tipo}{selected.numero && <> · {selected.numero}</>}{selected.jurisdiccion && <> · {selected.jurisdiccion}</>}
                 </p>
@@ -151,7 +151,7 @@ function FijarDialog({
                   rows={3}
                   placeholder="Por qué fijás esta norma a este expediente"
                   disabled={fijar.isPending}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
                 />
               </div>
             </div>
@@ -228,7 +228,7 @@ export function TabNormativa({ expedienteId }: Props) {
                   <div className="flex items-center gap-2">
                     <Link
                       to={`/normativa/${row.documento_id}`}
-                      className="text-sm font-medium text-zinc-100 hover:text-violet-300 truncate"
+                      className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-violet-300 truncate"
                     >
                       {row.documento.titulo}
                     </Link>
@@ -257,7 +257,7 @@ export function TabNormativa({ expedienteId }: Props) {
           </div>
         )}
 
-        <p className="mt-3 text-[10px] text-zinc-600">
+        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
           Además de estas normas, al redactar se hace retrieval automático sobre el resto de tu biblioteca buscando lo más relevante al expediente.
         </p>
       </Card>

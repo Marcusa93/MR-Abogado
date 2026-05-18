@@ -287,7 +287,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               placeholder="Buscar expedientes, clientes, tareas, turnos..."
               className="flex-1 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:outline-none"
             />
-            <kbd className="hidden items-center rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-900 dark:text-zinc-500 sm:inline-flex">
+            <kbd className="hidden items-center rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 dark:text-zinc-300 sm:inline-flex">
               ESC
             </kbd>
           </div>
@@ -295,14 +295,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           {/* Results */}
           <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
             {items.length === 0 && search.trim().length >= 2 && !isFetching && (
-              <div className="py-8 text-center text-sm text-zinc-900 dark:text-zinc-500">
+              <div className="py-8 text-center text-sm text-zinc-700 dark:text-zinc-300">
                 No se encontraron resultados para &ldquo;{search}&rdquo;
               </div>
             )}
 
             {Object.entries(grouped).map(([group, groupItems]) => (
               <Fragment key={group}>
-                <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-500">
+                <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                   {group}
                 </div>
                 {groupItems.map((item) => {
@@ -328,7 +328,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{item.title}</p>
                         {item.subtitle && (
-                          <p className="truncate text-xs text-zinc-900 dark:text-zinc-500">{item.subtitle}</p>
+                          <p className="truncate text-xs text-zinc-700 dark:text-zinc-300">{item.subtitle}</p>
                         )}
                       </div>
                       {idx === activeIndex && (
@@ -342,7 +342,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center gap-4 border-t border-white/10 px-4 py-2.5 text-[11px] text-zinc-900 dark:text-zinc-500">
+          <div className="flex items-center gap-4 border-t border-white/10 px-4 py-2.5 text-[11px] text-zinc-700 dark:text-zinc-300">
             <span className="inline-flex items-center gap-1">
               <CornerDownLeft className="h-3 w-3" /> Seleccionar
             </span>

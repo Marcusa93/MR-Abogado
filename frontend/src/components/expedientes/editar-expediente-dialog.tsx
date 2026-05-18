@@ -62,7 +62,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar expediente</h3>
-            <p className="text-xs text-zinc-900 dark:text-zinc-500 font-mono">{(expediente as any).numero ?? (expediente as any).numero_expediente}</p>
+            <p className="text-xs text-zinc-700 dark:text-zinc-300 font-mono">{(expediente as any).numero ?? (expediente as any).numero_expediente}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
             <X className="h-5 w-5" />

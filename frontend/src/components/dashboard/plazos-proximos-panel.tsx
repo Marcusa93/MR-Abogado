@@ -30,7 +30,7 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
           </span>
           <span className="text-[10px] text-zinc-500">{formatDate(plazo.plazo.vence_aprox)}</span>
         </div>
-        <p className="mt-1 text-xs leading-snug text-zinc-800 line-clamp-2 dark:text-zinc-100">
+        <p className="mt-1 text-xs leading-snug text-zinc-800 dark:text-zinc-100 line-clamp-2 dark:text-zinc-100">
           {plazo.plazo.descripcion}
         </p>
         <p className="mt-0.5 text-[11px] text-zinc-500 truncate">
@@ -118,7 +118,7 @@ function PlazosProximosPanelView({
             <AlertTriangle className="h-6 w-6" />
           </div>
           <p className="text-xs text-zinc-500">No hay plazos detectados por IA en los próximos 7 días.</p>
-          <p className="text-[10px] text-zinc-600 mt-1">Analizá actuaciones desde el tab SAE de un expediente.</p>
+          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-1">Analizá actuaciones desde el tab SAE de un expediente.</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">

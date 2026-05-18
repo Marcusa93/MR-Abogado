@@ -72,7 +72,7 @@ export default function ImportarExcelPage() {
           return (
             <div key={s} className="flex items-center gap-2">
               {i > 0 && <div className={`h-px w-8 ${isDone || isActive ? 'bg-amber-500' : 'bg-white/10'}`} />}
-              <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${isActive ? 'bg-amber-500/20 text-amber-400' : isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-zinc-900 dark:text-zinc-500'}`}>
+              <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${isActive ? 'bg-amber-500/20 text-amber-400' : isDone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-zinc-700 dark:text-zinc-300'}`}>
                 {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : <span className="flex h-4 w-4 items-center justify-center rounded-full bg-current/20 text-[10px]">{i + 1}</span>}
                 {labels[i]}
               </div>
@@ -92,7 +92,7 @@ export default function ImportarExcelPage() {
           <h3 className="mt-4 text-lg font-medium text-zinc-800 dark:text-zinc-200">
             Arrastrá tu archivo Excel aquí
           </h3>
-          <p className="mt-1 text-sm text-zinc-900 dark:text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
             o hacé clic para seleccionarlo
           </p>
           <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-amber-500/20 px-6 py-3 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/30">
@@ -108,7 +108,7 @@ export default function ImportarExcelPage() {
               }}
             />
           </label>
-          <p className="mt-4 text-xs text-zinc-600">
+          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-400">
             Compatible con la Planilla de Control del estudio (.xlsx)
           </p>
 
@@ -130,7 +130,7 @@ export default function ImportarExcelPage() {
               <FileSpreadsheet className="h-8 w-8 text-emerald-400" />
               <div>
                 <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{fileName}</p>
-                <p className="text-xs text-zinc-900 dark:text-zinc-500">
+                <p className="text-xs text-zinc-700 dark:text-zinc-300">
                   Hojas procesadas: {preview.stats.hojasProcesadas.join(', ')}
                 </p>
               </div>
@@ -148,7 +148,7 @@ export default function ImportarExcelPage() {
                 <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Clientes</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalClientes}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">únicos por DNI</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">únicos por DNI</p>
             </div>
             <div className="glass-card rounded-xl p-4">
               <div className="flex items-center gap-2 text-amber-400">
@@ -156,7 +156,7 @@ export default function ImportarExcelPage() {
                 <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Expedientes</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalExpedientes}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">de todas las hojas</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">de todas las hojas</p>
             </div>
             <div className="glass-card rounded-xl p-4">
               <div className="flex items-center gap-2 text-amber-400">
@@ -164,7 +164,7 @@ export default function ImportarExcelPage() {
                 <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Turnos</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalTurnos}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">históricos</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">históricos</p>
             </div>
           </div>
 
@@ -225,7 +225,7 @@ export default function ImportarExcelPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-white/5">
-                  <tr className="text-xs text-zinc-900 dark:text-zinc-500 uppercase">
+                  <tr className="text-xs text-zinc-700 dark:text-zinc-300 uppercase">
                     <th className="px-4 py-2">Apellido</th>
                     <th className="px-4 py-2">Nombre</th>
                     <th className="px-4 py-2">DNI</th>
@@ -308,12 +308,12 @@ export default function ImportarExcelPage() {
                   style={{ width: `${Math.round((progress.current / progress.total) * 100)}%` }}
                 />
               </div>
-              <p className="mt-2 text-sm text-zinc-900 dark:text-zinc-500">
+              <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
                 {progress.current} / {progress.total}
               </p>
             </>
           )}
-          <p className="mt-4 text-xs text-zinc-600">
+          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-400">
             No cierres esta página
           </p>
         </div>
@@ -330,23 +330,23 @@ export default function ImportarExcelPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div className="glass-card rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-emerald-400">{result.clientesCreados}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">clientes creados</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">clientes creados</p>
             </div>
             <div className="glass-card rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{result.clientesActualizados}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">clientes actualizados</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">clientes actualizados</p>
             </div>
             <div className="glass-card rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-violet-400">{result.expedientesCreados}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">expedientes creados</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">expedientes creados</p>
             </div>
             <div className="glass-card rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-amber-400">{result.expedientesActualizados}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">expedientes actualizados</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">expedientes actualizados</p>
             </div>
             <div className="glass-card rounded-xl p-4 text-center">
               <p className="text-2xl font-bold text-rose-400">{result.turnosCreados}</p>
-              <p className="text-xs text-zinc-900 dark:text-zinc-500">turnos importados</p>
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">turnos importados</p>
             </div>
           </div>
 

@@ -67,7 +67,7 @@ function ClaveRow({ movement, onUnstar, manuallyMarked }: { movement: SaeMovemen
           {TIPO_LABELS[movement.tipo_movimiento] ?? movement.tipo_movimiento}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-zinc-100 leading-snug">{movement.titulo}</p>
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">{movement.titulo}</p>
           <p className="text-[11px] text-zinc-500 mt-0.5">{formatDate(movement.fecha)}</p>
 
           {aiSummary && (
@@ -205,7 +205,7 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
         </p>
       )}
 
-      <p className="mt-3 text-[10px] text-zinc-600">
+      <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
         Tip: en el tab SAE, click en la estrella para marcar/desmarcar. Acá podés sacar una con click en la estrella amarilla.
       </p>
 

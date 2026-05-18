@@ -53,7 +53,7 @@ export function DateInput({
         {...props}
       />
       {/* F key hint — visible on focus */}
-      <span className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 hidden group-focus-within:inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1 text-[9px] font-mono text-zinc-900 dark:text-zinc-500">
+      <span className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 hidden group-focus-within:inline-flex items-center gap-0.5 rounded border border-white/10 bg-white/5 px-1 text-[9px] font-mono text-zinc-700 dark:text-zinc-300">
         F = hoy
       </span>
     </div>
