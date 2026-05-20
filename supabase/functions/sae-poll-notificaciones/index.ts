@@ -121,6 +121,16 @@ function json(body: unknown, status = 200) {
   })
 }
 
+// SHA-256 en hex — debe matchear EXACTAMENTE el formato del trigger SQL
+// public.compute_sae_notif_hash (encode(digest(text, 'sha256'), 'hex')).
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input)
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
 interface ProfileRow {
@@ -601,15 +611,45 @@ Deno.serve(async (req) => {
     }
     if (portalNotifs.length === 0) continue
 
-    // 5) Cargar las ya conocidas para diff
-    const ids = portalNotifs.map(n => n.sae_notif_id)
+    // 5) Diff por hash determinístico (NO por sae_notif_id — el permalink
+    //    encriptado de Laravel cambia entre requests y disparaba spam).
+    const portalWithHash = await Promise.all(portalNotifs.map(async (n) => ({
+      ...n,
+      notif_hash: await sha256Hex([
+        p.id,
+        n.numero_expediente ?? '',
+        n.fecha_emision ?? '',
+        n.tipo ?? '',
+        n.titulo ?? '',
+        (n.raw as { fuero?: string }).fuero ?? '',
+      ].join('|')),
+    })))
+
+    const hashes = portalWithHash.map(n => n.notif_hash)
     const { data: existing } = await admin
       .from('sae_notificaciones')
-      .select('sae_notif_id')
+      .select('id, notif_hash, sae_notif_id')
       .eq('profile_id', p.id)
-      .in('sae_notif_id', ids)
-    const existingIds = new Set((existing ?? []).map(r => (r as { sae_notif_id: string }).sae_notif_id))
-    const nuevas = portalNotifs.filter(n => !existingIds.has(n.sae_notif_id))
+      .in('notif_hash', hashes)
+    const existingByHash = new Map(
+      (existing ?? []).map(r => {
+        const e = r as { id: string; notif_hash: string; sae_notif_id: string }
+        return [e.notif_hash, e]
+      })
+    )
+
+    // Las que ya existen pero con permalink viejo: actualizar el ver_url
+    // para que el link siga funcionando si el user clickea.
+    for (const n of portalWithHash) {
+      const e = existingByHash.get(n.notif_hash)
+      if (e && e.sae_notif_id !== n.sae_notif_id) {
+        await admin.from('sae_notificaciones')
+          .update({ sae_notif_id: n.sae_notif_id, raw_payload: n.raw } as never)
+          .eq('id', e.id)
+      }
+    }
+
+    const nuevas = portalWithHash.filter(n => !existingByHash.has(n.notif_hash))
 
     if (nuevas.length === 0) continue
 
@@ -651,10 +691,28 @@ Deno.serve(async (req) => {
     })
 
     if (!dryRun) {
-      const { error: insErr } = await admin.from('sae_notificaciones').insert(insertRows)
+      // upsert con conflict por (profile_id, notif_hash). Si justo otra
+      // invocación insertó la misma fila entre el diff y el insert,
+      // ignoreDuplicates evita el error y NO duplicamos mail/push.
+      const { error: insErr, data: inserted } = await admin
+        .from('sae_notificaciones')
+        .upsert(insertRows, { onConflict: 'profile_id,notif_hash', ignoreDuplicates: true } as never)
+        .select('sae_notif_id')
       if (insErr) {
         stats.errores.push({ profile_id: p.id, error: `Insert: ${insErr.message}` })
         continue
+      }
+      // Si por race condition algunas no se insertaron, filtramos nuevas
+      // para no notificar las que ya estaban.
+      if (inserted && Array.isArray(inserted)) {
+        const insertedIds = new Set((inserted as { sae_notif_id: string }[]).map(r => r.sae_notif_id))
+        if (insertedIds.size < nuevas.length) {
+          const before = nuevas.length
+          for (let i = nuevas.length - 1; i >= 0; i--) {
+            if (!insertedIds.has(nuevas[i].sae_notif_id)) nuevas.splice(i, 1)
+          }
+          stats.errores.push({ profile_id: p.id, error: `Dedup: descartadas ${before - nuevas.length} ya conocidas` })
+        }
       }
     }
     stats.notifs_nuevas += nuevas.length
