@@ -10,7 +10,7 @@ export function TableSkeleton({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-slate-900 overflow-hidden animate-pulse', className)}>
+    <div className={cn('rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white dark:bg-zinc-900/80 overflow-hidden animate-pulse', className)}>
       {/* Header */}
       <div className="flex gap-4 border-b border-white/5 px-4 py-3">
         {Array.from({ length: columns }).map((_, i) => (
@@ -79,7 +79,7 @@ export function DetailSkeleton() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-64 rounded-xl border border-white/10 bg-slate-900"
+            className="h-64 rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80"
           />
         ))}
       </div>

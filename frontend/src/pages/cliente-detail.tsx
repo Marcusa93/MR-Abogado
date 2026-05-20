@@ -363,7 +363,7 @@ export default function ClienteDetailPage() {
       {/* Confirm Delete Dialog */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-sm rounded-xl bg-slate-900 border border-white/10 p-6 shadow-xl animate-fade-in">
+          <div className="w-full max-w-sm rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Eliminar cliente</h3>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               ¿Estás seguro de que querés eliminar a <strong className="text-zinc-800 dark:text-zinc-200">{cliente.apellido} {cliente.nombre}</strong>?

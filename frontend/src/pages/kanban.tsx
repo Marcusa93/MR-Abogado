@@ -372,7 +372,7 @@ function KanbanDraggableCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-slate-900/70 p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
+        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white dark:bg-zinc-900/80/70 p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
         estadoBorder,
         'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5 hover:border-white/[0.12]',
         isDragging && 'opacity-50 shadow-2xl ring-2 ring-amber-500/25'
@@ -473,7 +473,7 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
   return (
     <div
       className={cn(
-        'w-[300px] rounded-xl border-l-[3px] border border-amber-500/30 bg-white dark:bg-slate-900 p-3 shadow-2xl shadow-amber-500/10',
+        'w-[300px] rounded-xl border-l-[3px] border border-amber-500/30 bg-white dark:bg-white dark:bg-zinc-900/80 p-3 shadow-2xl shadow-amber-500/10',
         estadoBorder
       )}
     >
@@ -524,7 +524,7 @@ function KanbanSkeleton() {
             <div className="p-3 space-y-3">
               <div className="h-4 w-24 rounded bg-slate-700" />
               {Array.from({ length: 3 }).map((_, j) => (
-                <div key={j} className="h-24 rounded-xl bg-slate-800/50" />
+                <div key={j} className="h-24 rounded-xl bg-zinc-50 dark:bg-zinc-900/60/50" />
               ))}
             </div>
           </div>

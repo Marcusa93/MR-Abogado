@@ -227,7 +227,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-white/5 px-5 py-4 gap-3">
           <div className="min-w-0 flex-1">

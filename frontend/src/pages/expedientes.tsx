@@ -381,7 +381,7 @@ export default function ExpedientesPage() {
           /* Table container */
           <div className={cn("glass-card rounded-xl overflow-auto max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
             <table className="w-full text-left">
-              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-slate-900">
+              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-white dark:bg-zinc-900/80">
                 <tr className="border-b border-zinc-200 dark:border-white/5">
                   <th className="w-[40px] px-4 py-3">
                     <input

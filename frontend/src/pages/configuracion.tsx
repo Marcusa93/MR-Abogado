@@ -894,7 +894,7 @@ function UsersSection() {
                   Contraseña temporal para el primer ingreso:
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-amber-300 font-mono break-all">
+                  <code className="flex-1 rounded bg-zinc-50 dark:bg-zinc-900/60 px-3 py-2 text-xs text-amber-300 font-mono break-all">
                     {recoveryInfo.tempPassword}
                   </code>
                   <button
@@ -1002,7 +1002,7 @@ function UsersSection() {
                 {/* Avatar */}
                 <div className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold',
-                  user.activo !== false ? 'bg-blue-900 text-blue-300' : 'bg-slate-800 text-zinc-700 dark:text-zinc-300'
+                  user.activo !== false ? 'bg-blue-900 text-blue-300' : 'bg-zinc-50 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-300'
                 )}>
                   {(user.nombre?.[0] ?? '').toUpperCase()}
                   {(user.apellido?.[0] ?? '').toUpperCase()}

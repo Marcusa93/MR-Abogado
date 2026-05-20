@@ -58,7 +58,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-xl bg-slate-900 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar expediente</h3>

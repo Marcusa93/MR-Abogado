@@ -43,13 +43,13 @@ export function InfoItem({
 
   return (
     <div className={cn('group flex items-start gap-2.5', className)}>
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-300" />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <p className="text-[11px] uppercase tracking-wider font-semibold text-zinc-600 dark:text-zinc-300">
           {label}
         </p>
         <div className="mt-0.5 flex items-center gap-1.5">
-          <p className="text-sm text-zinc-800 dark:text-zinc-100 break-words">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50 break-words">
             {value ?? '-'}
           </p>
           {showCopy && (
@@ -86,11 +86,11 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/10 bg-slate-900',
+        'rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 shadow-sm',
         className
       )}
     >
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/5 px-4 py-3">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
           {title}
         </h3>

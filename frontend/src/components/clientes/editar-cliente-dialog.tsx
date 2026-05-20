@@ -102,7 +102,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-xl rounded-xl bg-slate-900 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-xl rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar cliente</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">

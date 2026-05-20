@@ -87,7 +87,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-slate-900 shadow-xl overflow-hidden">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <Download className="h-4 w-4 text-cyan-400" />

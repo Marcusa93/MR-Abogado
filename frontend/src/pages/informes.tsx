@@ -53,7 +53,7 @@ const ESTADO_HEX: Record<string, string> = {
 function GlassTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2 shadow-lg backdrop-blur-sm">
+    <div className="rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80/90 px-3 py-2 shadow-lg backdrop-blur-sm">
       {label && <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="text-sm font-semibold" style={{ color: p.color || '#d4a853' }}>
@@ -130,7 +130,7 @@ function SVGDonut({ data, total }: { data: { name: string; value: number; fill: 
         </div>
         {/* Tooltip on hover */}
         {hover !== null && segments[hover] && (
-          <div className="absolute left-1/2 -translate-x-1/2 -top-2 rounded-lg border border-white/10 bg-slate-900/90 px-3 py-1.5 shadow-lg backdrop-blur-sm pointer-events-none">
+          <div className="absolute left-1/2 -translate-x-1/2 -top-2 rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80/90 px-3 py-1.5 shadow-lg backdrop-blur-sm pointer-events-none">
             <p className="text-sm font-semibold" style={{ color: segments[hover].fill }}>
               {segments[hover].name}: {segments[hover].value}
             </p>
@@ -170,7 +170,7 @@ function TipoBarChart({ data, onBarClick }: { data: { id: string; nombre: string
           <span className="w-[120px] shrink-0 truncate text-[11px] text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">
             {item.nombre}
           </span>
-          <div className="flex-1 h-5 rounded bg-slate-800/50 overflow-hidden">
+          <div className="flex-1 h-5 rounded bg-zinc-50 dark:bg-zinc-900/60/50 overflow-hidden">
             <div
               className="h-full rounded transition-all duration-500"
               style={{

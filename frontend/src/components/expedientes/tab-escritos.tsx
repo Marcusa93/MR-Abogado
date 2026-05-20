@@ -118,8 +118,8 @@ function NuevoEscritoDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={generate.isPending ? undefined : handleClose} />
 
-      <div className="relative w-full max-w-xl rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
+      <div className="relative w-full max-w-xl rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/80">
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-400" />
@@ -265,8 +265,8 @@ function PresentarSaeDialog({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={isLoading ? undefined : onClose} />
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-slate-900 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-slate-900">
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/80">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Send className="h-4 w-4 text-emerald-400" />
             Presentar al portal del SAE
@@ -609,7 +609,7 @@ function EscritoEditorModal({
             onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
             disabled={update.isPending || estado === 'firmado' || estado === 'presentado_sae'}
             className={cn(
-              'h-7 rounded-lg border bg-slate-900 px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-colors',
+              'h-7 rounded-lg border bg-white dark:bg-zinc-900/80 px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-colors',
               estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
               estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
               estado === 'firmado'   && 'border-cyan-500/40 text-cyan-300',

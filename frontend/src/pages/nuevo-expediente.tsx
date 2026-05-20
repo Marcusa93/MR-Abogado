@@ -123,7 +123,7 @@ function ClienteCombobox({
         onChange={(e) => handleSearch(e.target.value)}
       />
       {open && results && results.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-white/10 bg-slate-900 shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80 shadow-lg max-h-48 overflow-y-auto">
           {results.map((c) => (
             <button
               key={c.id}

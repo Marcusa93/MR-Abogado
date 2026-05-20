@@ -81,7 +81,7 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
           nota.eliminada
-            ? 'bg-slate-800 text-zinc-600 dark:text-zinc-400'
+            ? 'bg-zinc-50 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400'
             : isOwn
               ? 'bg-amber-500/20 text-amber-400'
               : 'bg-slate-700 text-zinc-700 dark:text-zinc-300'
@@ -152,7 +152,7 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
   return (
     <div className="space-y-4">
       {/* Input */}
-      <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
+      <div className="rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80/50 p-4">
         <MentionTextarea
           value={contenido}
           onChange={setContenido}
