@@ -57,7 +57,7 @@ export function TabSeguimientos({ seguimientos, expedienteId, clienteTelefono, c
                     </span>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400">{formatDate(seg.fecha_control)}</p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300">{formatDate(seg.fecha_control)}</p>
                     <p className="text-[10px] text-zinc-700 dark:text-zinc-300">{timeAgo(seg.fecha_control)}</p>
                   </div>
                 </div>
@@ -67,7 +67,7 @@ export function TabSeguimientos({ seguimientos, expedienteId, clienteTelefono, c
                   </p>
                 )}
                 {seg.observacion && (
-                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 italic">{seg.observacion}</p>
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300 italic">{seg.observacion}</p>
                 )}
                 {seg.proxima_fecha_control && (
                   <p className="mt-2 text-xs text-amber-400">

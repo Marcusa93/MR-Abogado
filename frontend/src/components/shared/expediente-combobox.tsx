@@ -50,7 +50,7 @@ export function ExpedienteCombobox({
     <div ref={ref} className="relative">
       {/* Input */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-300" />
         <input
           type="text"
           value={open ? search : displayLabel}
@@ -71,7 +71,7 @@ export function ExpedienteCombobox({
               : 'border-white/10'
           )}
         />
-        <ChevronDown className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
+        <ChevronDown className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-300" />
       </div>
 
       {/* Dropdown */}
@@ -79,10 +79,10 @@ export function ExpedienteCombobox({
         <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80 shadow-lg max-h-48 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-300" />
             </div>
           ) : !expedientes || expedientes.length === 0 ? (
-            <p className="px-3 py-3 text-xs text-zinc-600 dark:text-zinc-400">Sin resultados</p>
+            <p className="px-3 py-3 text-xs text-zinc-600 dark:text-zinc-300">Sin resultados</p>
           ) : (
             expedientes.map((exp) => (
               <button
@@ -102,7 +102,7 @@ export function ExpedienteCombobox({
                   {exp.numero}
                 </span>
                 {exp.caratula && (
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 truncate">
                     {exp.caratula}
                   </span>
                 )}

@@ -133,7 +133,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 isCollapsed && 'justify-center px-2',
                 isActive
                   ? 'bg-[var(--brand-navy)]/10 text-[var(--brand-navy)] dark:bg-[var(--brand-accent)]/15 dark:text-[var(--brand-ice)]'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
               )}
             >
               <Icon
@@ -177,7 +177,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
                 {profile.nombre} {profile.apellido}
               </span>
-              <span className="truncate text-xs text-zinc-500">
+              <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                 {displayRol(profile)}
               </span>
             </div>

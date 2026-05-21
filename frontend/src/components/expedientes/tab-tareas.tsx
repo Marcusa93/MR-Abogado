@@ -114,7 +114,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                   }}
                   disabled={completarTarea.isPending}
                   title="Completar tarea"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-emerald-500/15 hover:text-emerald-400 transition-colors"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-emerald-500/15 hover:text-emerald-400 transition-colors"
                 >
                   {completarTarea.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -136,7 +136,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                       'h-4 w-4',
                       tarea.estado === 'COMPLETADA'
                         ? 'text-emerald-400'
-                        : 'text-zinc-600 dark:text-zinc-400'
+                        : 'text-zinc-600 dark:text-zinc-300'
                     )}
                   />
                 </div>
@@ -158,12 +158,12 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                     color={getTareaColor(tarea.estado)}
                   />
                   {tarea.asignado && (
-                    <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
                       {tarea.asignado.nombre} {tarea.asignado.apellido}
                     </span>
                   )}
                   {tarea.fecha_vencimiento && (
-                    <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
                       Vence: {formatDate(tarea.fecha_vencimiento)}
                     </span>
                   )}
@@ -182,7 +182,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
                     }}
                     disabled={deleteTarea.isPending}
                     title="Eliminar tarea"
-                    className="rounded p-1.5 text-zinc-600 dark:text-zinc-400 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                    className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

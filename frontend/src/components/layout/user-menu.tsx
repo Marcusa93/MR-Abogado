@@ -72,7 +72,7 @@ export function UserMenu() {
             <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {fullName}
             </p>
-            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="truncate text-xs text-zinc-500 dark:text-zinc-300">
               {role}
             </p>
           </div>

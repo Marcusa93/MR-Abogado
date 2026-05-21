@@ -192,7 +192,7 @@ export default function ImportarSaePage() {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Importar desde SAE</h1>
-              <p className="text-xs text-zinc-500">Sistema de Actuación Electrónica — Tucumán</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Sistema de Actuación Electrónica — Tucumán</p>
             </div>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function ImportarSaePage() {
           </div>
           <div className="text-center">
             <p className="font-medium text-zinc-200">Conectando con SAE...</p>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               Esto puede tardar unos segundos mientras consultamos todas las jurisdicciones.
             </p>
           </div>
@@ -275,7 +275,7 @@ export default function ImportarSaePage() {
           </div>
           <div>
             <p className="font-medium text-zinc-300">Consultá tus expedientes en SAE</p>
-            <p className="mt-1 text-sm text-zinc-500 max-w-sm mx-auto">
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
               Hacé clic en "Cargar expedientes SAE" para consultar todos tus expedientes en el sistema judicial de Tucumán.
             </p>
           </div>
@@ -300,17 +300,17 @@ export default function ImportarSaePage() {
                 disabled={visibleNewRows.length === 0 || isImporting}
                 className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-cyan-400' : 'text-zinc-500')} />
+                <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-cyan-400' : 'text-zinc-500 dark:text-zinc-400')} />
                 {visibleAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
                 {filtersActive && visibleNewRows.length > 0 && (
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400">({visibleNewRows.length})</span>
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300">({visibleNewRows.length})</span>
                 )}
               </button>
-              <span className="text-xs text-zinc-600 dark:text-zinc-400">·</span>
+              <span className="text-xs text-zinc-600 dark:text-zinc-300">·</span>
               <span className="text-sm text-zinc-400">
                 <span className="font-medium text-zinc-200">{rows.length}</span> encontrados
                 {alreadyImportedCount > 0 && (
-                  <span className="text-zinc-500"> ({alreadyImportedCount} ya importados)</span>
+                  <span className="text-zinc-500 dark:text-zinc-400"> ({alreadyImportedCount} ya importados)</span>
                 )}
               </span>
             </div>
@@ -347,7 +347,7 @@ export default function ImportarSaePage() {
           {/* Search + status filter */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[220px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
               <input
                 type="text"
                 value={search}
@@ -358,7 +358,7 @@ export default function ImportarSaePage() {
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
                   title="Limpiar búsqueda"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -399,13 +399,13 @@ export default function ImportarSaePage() {
                     <th className="w-10 px-4 py-3">
                       <span className="sr-only">Seleccionar</span>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Número SAE
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Carátula
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                       Estado
                     </th>
                   </tr>
@@ -415,7 +415,7 @@ export default function ImportarSaePage() {
                     <tr>
                       <td colSpan={4} className="px-4 py-10">
                         <div className="flex flex-col items-center gap-2 text-center">
-                          <Search className="h-7 w-7 text-zinc-600 dark:text-zinc-400" />
+                          <Search className="h-7 w-7 text-zinc-600 dark:text-zinc-300" />
                           <p className="text-sm text-zinc-400">Ningún expediente coincide con el filtro.</p>
                           {filtersActive && (
                             <button
@@ -460,14 +460,14 @@ export default function ImportarSaePage() {
                           </td>
 
                           {/* Número SAE */}
-                          <td className={cn('px-4 py-3 font-mono text-xs whitespace-nowrap', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
-                            {row.numero_sae || <span className="text-zinc-600 dark:text-zinc-400 italic">—</span>}
+                          <td className={cn('px-4 py-3 font-mono text-xs whitespace-nowrap', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-300')}>
+                            {row.numero_sae || <span className="text-zinc-600 dark:text-zinc-300 italic">—</span>}
                           </td>
 
                           {/* Carátula */}
-                          <td className={cn('px-4 py-3 max-w-xs', row.ya_importado ? 'text-zinc-500' : 'text-zinc-300')}>
+                          <td className={cn('px-4 py-3 max-w-xs', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-300')}>
                             <span className="line-clamp-2 leading-snug">
-                              {row.caratula || <span className="text-zinc-600 dark:text-zinc-400 italic">Sin carátula</span>}
+                              {row.caratula || <span className="text-zinc-600 dark:text-zinc-300 italic">Sin carátula</span>}
                             </span>
                           </td>
 
@@ -515,7 +515,7 @@ export default function ImportarSaePage() {
 
           {/* Footer hint */}
           {newCount === 0 && !filtersActive && (
-            <p className="text-center text-sm text-zinc-500">
+            <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
               Todos tus expedientes SAE ya están importados.
             </p>
           )}
@@ -525,10 +525,10 @@ export default function ImportarSaePage() {
       {/* ── No results after load ── */}
       {!isLoading && hasLoaded && !loadError && rows.length === 0 && (
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] py-14 text-center">
-          <Database className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
+          <Database className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
           <div>
             <p className="font-medium text-zinc-400">No se encontraron expedientes en SAE</p>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
               No hay expedientes asociados a tu cuenta en ninguna jurisdicción.
             </p>
           </div>

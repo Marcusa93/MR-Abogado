@@ -14,7 +14,7 @@ export function ErrorState({
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10">
         <AlertTriangle className="h-6 w-6 text-rose-400" />
       </div>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
+      <p className="text-sm text-zinc-600 dark:text-zinc-300">{message}</p>
       {onRetry && (
         <button
           type="button"

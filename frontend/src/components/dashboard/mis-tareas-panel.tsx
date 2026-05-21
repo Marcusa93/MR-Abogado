@@ -42,7 +42,7 @@ const URGENCY_CLASSES = {
   overdue: 'text-rose-500 dark:text-rose-400',
   today: 'text-amber-600 dark:text-amber-400',
   soon: 'text-amber-500 dark:text-amber-500',
-  normal: 'text-zinc-500 dark:text-zinc-400',
+  normal: 'text-zinc-500 dark:text-zinc-300',
 }
 
 const PRIORIDAD_DOT: Record<string, string> = {
@@ -195,7 +195,7 @@ function MisTareasPanelView({
             <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-zinc-500 dark:text-zinc-300">
               {isAdmin ? 'No hay tareas pendientes' : '¡No tenés tareas pendientes!'}
             </p>
           </div>

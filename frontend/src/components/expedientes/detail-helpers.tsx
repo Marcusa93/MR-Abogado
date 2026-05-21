@@ -116,7 +116,7 @@ export function CanalIcon({ canal }: { canal: string }) {
     case 'EMAIL':
       return <Mail className="h-3.5 w-3.5 text-violet-500" />
     default:
-      return <MessageSquare className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />
+      return <MessageSquare className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />
   }
 }
 
@@ -137,7 +137,7 @@ export function StatusBadge({
     green: 'bg-green-950/40 text-green-400',
     red: 'bg-red-950/40 text-red-400',
     purple: 'bg-purple-950/40 text-purple-400',
-    gray: 'bg-white/5 text-zinc-600 dark:text-zinc-400',
+    gray: 'bg-white/5 text-zinc-600 dark:text-zinc-300',
   }
   return (
     <span

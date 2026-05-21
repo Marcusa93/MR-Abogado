@@ -53,7 +53,7 @@ export function ExpedienteFilters({
       <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
         <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-400" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-300" />
           <input
             type="text"
             placeholder="Buscar por número, carátula, cliente..."
@@ -129,7 +129,7 @@ export function ExpedienteFilters({
         {activeFilterCount > 0 && (
           <button
             onClick={clearFilters}
-            className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
+            className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
           >
             <X className="h-3.5 w-3.5" />
             Limpiar
@@ -141,7 +141,7 @@ export function ExpedienteFilters({
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
-          <span className="mr-1 text-xs text-zinc-600 dark:text-zinc-400">Filtros activos:</span>
+          <span className="mr-1 text-xs text-zinc-600 dark:text-zinc-300">Filtros activos:</span>
           {filters.estado_interno && (
             <FilterBadge
               label={ESTADO_INTERNO_LABELS[filters.estado_interno]}
@@ -193,7 +193,7 @@ const BADGE_COLORS: Record<string, string> = {
   violet: 'bg-violet-950/40 text-violet-400 hover:bg-violet-950/60',
   amber: 'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
   indigo: 'bg-indigo-950/40 text-indigo-400 hover:bg-indigo-950/60',
-  gray: 'bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-white/10',
+  gray: 'bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10',
 }
 
 function FilterBadge({

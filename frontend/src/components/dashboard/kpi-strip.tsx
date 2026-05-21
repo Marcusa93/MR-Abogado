@@ -49,7 +49,7 @@ function KPICard({ title, value, delta, icon, color = 'accent' }: {
             </span>
           </div>
         ) : (
-          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">sin variación</span>
+          <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-300">sin variación</span>
         )}
       </div>
     </div>

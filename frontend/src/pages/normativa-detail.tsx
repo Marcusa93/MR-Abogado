@@ -24,7 +24,7 @@ export default function NormativaDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+        <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
       </div>
     )
   }
@@ -53,14 +53,14 @@ export default function NormativaDetailPage() {
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{doc.titulo}</h1>
-            <p className="mt-1 text-xs text-zinc-500 flex items-center gap-2 flex-wrap">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2 flex-wrap">
               <span className="uppercase tracking-wider">{doc.tipo}</span>
               {doc.numero && <span>· {doc.numero}</span>}
               {doc.jurisdiccion && <span>· {doc.jurisdiccion}</span>}
               {doc.fecha && <span>· {new Date(doc.fecha).toLocaleDateString('es-AR')}</span>}
               {doc.fuente && <span>· {doc.fuente}</span>}
             </p>
-            <p className="mt-2 text-[11px] text-zinc-500">
+            <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
               Archivo: {doc.source_file_name}
             </p>
           </div>
@@ -103,13 +103,13 @@ export default function NormativaDetailPage() {
       </div>
 
       <div className="mt-5">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           Chunks ({chunks.length})
         </h2>
         {doc.estado === 'procesando' || doc.estado === 'pendiente' ? (
           <p className="text-sm text-zinc-400 italic">Indexando… los chunks aparecen acá cuando termina.</p>
         ) : chunks.length === 0 ? (
-          <p className="text-sm text-zinc-500">No hay chunks (puede haber fallado la indexación).</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No hay chunks (puede haber fallado la indexación).</p>
         ) : (
           <div className="space-y-1">
             {chunks.map(c => {
@@ -127,9 +127,9 @@ export default function NormativaDetailPage() {
                     onClick={() => toggle(c.id)}
                     className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.03] rounded-lg"
                   >
-                    {isOpen ? <ChevronUp className="h-3 w-3 text-zinc-500" /> : <ChevronDown className="h-3 w-3 text-zinc-500" />}
+                    {isOpen ? <ChevronUp className="h-3 w-3 text-zinc-500 dark:text-zinc-400" /> : <ChevronDown className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />}
                     <span className="text-xs font-medium text-zinc-200 flex-1 truncate">{label}</span>
-                    <span className="text-[10px] text-zinc-600 dark:text-zinc-400 shrink-0">#{c.id} · {c.contenido.length} chars</span>
+                    <span className="text-[10px] text-zinc-600 dark:text-zinc-300 shrink-0">#{c.id} · {c.contenido.length} chars</span>
                   </button>
                   {isOpen && (
                     <div className="border-t border-white/5 px-3 py-2 text-[11px] text-zinc-300 whitespace-pre-wrap leading-relaxed">

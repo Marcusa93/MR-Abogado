@@ -129,7 +129,7 @@ export default function LoginPage() {
               <h1 className="text-2xl font-bold tracking-[0.08em] text-[var(--brand-navy)] dark:text-[var(--brand-ice)]">
                 Estudio Jurídico
               </h1>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
                 Sistema de gestión de expedientes
               </p>
             </div>
@@ -210,7 +210,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleResetPassword}
             disabled={resetLoading}
-            className="mt-4 w-full text-center text-xs text-zinc-500 hover:text-[var(--brand-accent)] dark:hover:text-[var(--brand-ice)] transition-colors disabled:opacity-50"
+            className="mt-4 w-full text-center text-xs text-zinc-500 dark:text-zinc-400 hover:text-[var(--brand-accent)] dark:hover:text-[var(--brand-ice)] transition-colors disabled:opacity-50"
           >
             {resetLoading ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
           </button>

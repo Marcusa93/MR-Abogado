@@ -24,7 +24,7 @@ const statusMeta: Record<Status, { label: string; tone: string; icon: typeof Che
   },
   desactivado: {
     label: 'SAE desactivado',
-    tone: 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20 hover:bg-zinc-500/15',
+    tone: 'text-zinc-500 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20 hover:bg-zinc-500/15',
     icon: MinusCircle,
   },
 }

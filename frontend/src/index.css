@@ -169,8 +169,9 @@ html {
   box-shadow: 0 1px 3px oklch(0 0 0 / 6%), 0 4px 16px oklch(0 0 0 / 4%);
 }
 .dark .glass-card {
-  background: oklch(1 0 0 / 5%);
-  box-shadow: 0 8px 32px oklch(0 0 0 / 20%);
+  background: oklch(0.22 0.012 240 / 80%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 30%);
 }
 
 /* Glass card with animated gradient border — navy-light accent */
@@ -184,8 +185,9 @@ html {
   overflow: hidden;
 }
 .dark .glass-card-glow {
-  background: oklch(1 0 0 / 5%);
-  box-shadow: 0 8px 32px oklch(0 0 0 / 20%);
+  background: oklch(0.22 0.012 240 / 80%);
+  border-color: oklch(1 0 0 / 10%);
+  box-shadow: 0 8px 32px oklch(0 0 0 / 30%);
 }
 
 .glass-card-glow::before {

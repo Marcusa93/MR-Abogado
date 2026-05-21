@@ -159,7 +159,7 @@ export default function ExpedienteDetailPage() {
                 {expediente.caratula || (expediente as any).numero}
               </h1>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 font-mono">{(expediente as any).numero}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (
                   <span className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold">
                     SAE: {(expediente as any).numero_sae}
@@ -266,7 +266,7 @@ export default function ExpedienteDetailPage() {
                 <ListTodo className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Tareas pend.</p>
-                  <p className={cn("text-sm font-semibold", tareasPendientes > 0 ? "text-emerald-400" : "text-zinc-600 dark:text-zinc-400")}>
+                  <p className={cn("text-sm font-semibold", tareasPendientes > 0 ? "text-emerald-400" : "text-zinc-600 dark:text-zinc-300")}>
                     {tareasPendientes} de {tareas.length}
                   </p>
                 </div>
@@ -315,7 +315,7 @@ export default function ExpedienteDetailPage() {
                   'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
                     ? tab.activeClasses
-                    : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:border-slate-600 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:border-slate-600 hover:text-zinc-800 dark:hover:text-zinc-200'
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -326,7 +326,7 @@ export default function ExpedienteDetailPage() {
                       'ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
                       isActive
                         ? tab.badgeClasses
-                        : 'bg-white/5 text-zinc-600 dark:text-zinc-400'
+                        : 'bg-white/5 text-zinc-600 dark:text-zinc-300'
                     )}
                   >
                     {count}
@@ -466,7 +466,7 @@ export default function ExpedienteDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-sm rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Eliminar expediente</h3>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               ¿Estás seguro de que querés eliminar el expediente <strong className="text-zinc-800 dark:text-zinc-200">{(expediente as any).numero}</strong>?
               Esta acción no se puede deshacer fácilmente.
             </p>

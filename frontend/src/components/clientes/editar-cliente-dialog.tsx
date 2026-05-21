@@ -9,7 +9,7 @@ import { CuilInput } from '@/components/shared/cuil-input'
 
 const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
-const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
+const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 const sectionClass = 'text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3'
 
 interface Props {
@@ -105,7 +105,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
       <div className="w-full max-w-xl rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar cliente</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
             <X className="h-5 w-5" />
           </button>
         </div>

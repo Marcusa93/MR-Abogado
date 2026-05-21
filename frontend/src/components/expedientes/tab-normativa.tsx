@@ -75,7 +75,7 @@ function FijarDialog({
           <>
             <div className="px-5 py-3 border-b border-white/5">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -84,7 +84,7 @@ function FijarDialog({
                   className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
                 />
               </div>
-              <p className="mt-2 text-[10px] text-zinc-500">
+              <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
                 Solo aparecen normas <strong>indexadas</strong> y no fijadas todavía. Las normas fijadas SIEMPRE van como contexto al redactar escritos en este expediente.
               </p>
             </div>
@@ -92,7 +92,7 @@ function FijarDialog({
             <div className="flex-1 overflow-y-auto px-5 py-3">
               {isLoading ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                  <Loader2 className="h-4 w-4 animate-spin text-zinc-500 dark:text-zinc-400" />
                 </div>
               ) : disponibles.length === 0 ? (
                 <div className="py-8 text-center">
@@ -118,7 +118,7 @@ function FijarDialog({
                       <FileText className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.titulo}</p>
-                        <p className="text-[10px] text-zinc-500">
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
                           {doc.tipo}
                           {doc.numero && <> · {doc.numero}</>}
                           {doc.jurisdiccion && <> · {doc.jurisdiccion}</>}
@@ -206,7 +206,7 @@ export function TabNormativa({ expedienteId }: Props) {
       >
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState
@@ -236,7 +236,7 @@ export function TabNormativa({ expedienteId }: Props) {
                       {row.documento.tipo}
                     </span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                     {row.documento.numero && <>{row.documento.numero} · </>}
                     {row.documento.jurisdiccion && <>{row.documento.jurisdiccion} · </>}
                     {row.documento.chunk_count} chunks
@@ -247,7 +247,7 @@ export function TabNormativa({ expedienteId }: Props) {
                 </div>
                 <button
                   onClick={() => setConfirmDesfijar(row)}
-                  className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-all"
+                  className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-white/10 transition-all"
                   title="Desfijar"
                 >
                   <PinOff className="h-3 w-3" />
@@ -257,7 +257,7 @@ export function TabNormativa({ expedienteId }: Props) {
           </div>
         )}
 
-        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
+        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-300">
           Además de estas normas, al redactar se hace retrieval automático sobre el resto de tu biblioteca buscando lo más relevante al expediente.
         </p>
       </Card>

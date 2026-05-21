@@ -96,7 +96,7 @@ function ClienteCard({
       {/* Contact info */}
       <div className="mt-3 space-y-1">
         {cliente.telefono && (
-          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
             <Phone className="h-3 w-3 shrink-0 text-zinc-700 dark:text-zinc-300" />
             <span className="flex-1">{cliente.telefono}</span>
             <WhatsAppButton
@@ -107,7 +107,7 @@ function ClienteCard({
           </div>
         )}
         {cliente.email && (
-          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
             <Mail className="h-3 w-3 shrink-0 text-zinc-700 dark:text-zinc-300" />
             <span className="truncate">{cliente.email}</span>
           </div>
@@ -125,7 +125,7 @@ function ClienteCard({
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onExportPDF(cliente) }}
-          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-amber-400 transition-colors opacity-0 group-hover:opacity-100"
           title="Exportar informe del cliente"
         >
           <Download className="h-3.5 w-3.5" />
@@ -182,7 +182,7 @@ export default function ClientesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Clientes
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
             {data ? `${data.count} clientes registrados` : 'Gestión de clientes del estudio'}
           </p>
         </div>
@@ -245,7 +245,7 @@ export default function ClientesPage() {
           {/* Pagination */}
           {data.totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
                 Mostrando {(data.page - 1) * data.pageSize + 1} a{' '}
                 {Math.min(data.page * data.pageSize, data.count)} de{' '}
                 {data.count} clientes
@@ -254,17 +254,17 @@ export default function ClientesPage() {
                 <button
                   disabled={data.page <= 1}
                   onClick={() => goToPage(data.page - 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="px-3 text-xs text-zinc-600 dark:text-zinc-400">
+                <span className="px-3 text-xs text-zinc-600 dark:text-zinc-300">
                   {data.page} / {data.totalPages}
                 </span>
                 <button
                   disabled={data.page >= data.totalPages}
                   onClick={() => goToPage(data.page + 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

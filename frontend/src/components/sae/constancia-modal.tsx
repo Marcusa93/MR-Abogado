@@ -61,7 +61,7 @@ export function ConstanciaModal({
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/10 hover:text-zinc-300 transition-colors"
+              className="rounded-lg p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10 hover:text-zinc-300 transition-colors"
               aria-label="Cerrar"
             >
               <X className="h-4 w-4" />
@@ -72,21 +72,21 @@ export function ConstanciaModal({
         {/* Contenido */}
         <div className="px-4 sm:px-6 py-4 sm:py-5 print:px-12 print:py-10 text-sm text-zinc-200 print:text-zinc-900 leading-relaxed">
           <header className="mb-6 pb-4 border-b border-white/10 print:border-zinc-300">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-500 print:text-zinc-600">MR Abogado System</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-500 dark:text-zinc-400 print:text-zinc-600">MR Abogado System</p>
             <h1 className="mt-2 text-xl font-bold text-zinc-900 dark:text-zinc-100 print:text-zinc-900">
               Constancia de toma de conocimiento de notificación digital
             </h1>
-            <p className="mt-1 text-xs text-zinc-500 print:text-zinc-600">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 print:text-zinc-600">
               Portal SAE — Poder Judicial de Tucumán
             </p>
           </header>
 
           {isLoading ? (
-            <div className="flex items-center gap-2 text-zinc-500">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
               <Loader2 className="h-4 w-4 animate-spin" /> Cargando constancia…
             </div>
           ) : !data ? (
-            <p className="text-zinc-500">
+            <p className="text-zinc-500 dark:text-zinc-400">
               No hay constancia registrada para esta notificación. Marcala como leída
               para generar el respaldo procesal.
             </p>
@@ -100,7 +100,7 @@ export function ConstanciaModal({
                   {profile ? `${profile.nombre} ${profile.apellido}` : '—'}
                 </p>
                 {profile?.email && (
-                  <p className="text-xs text-zinc-500 print:text-zinc-600">{profile.email}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 print:text-zinc-600">{profile.email}</p>
                 )}
               </section>
 
@@ -112,7 +112,7 @@ export function ConstanciaModal({
                   {fmtDateLong(data.viewed_at)}
                 </p>
                 {data.timezone && (
-                  <p className="text-xs text-zinc-500 print:text-zinc-600">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 print:text-zinc-600">
                     Zona horaria del dispositivo: {data.timezone}
                   </p>
                 )}
@@ -157,37 +157,37 @@ export function ConstanciaModal({
                       <dl className="space-y-1.5 text-xs">
                         {snap.tipo && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Tipo:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Tipo:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900 font-medium">{snap.tipo}</dd>
                           </div>
                         )}
                         {snap.numero_expediente && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Expediente:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Expediente:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900 font-mono">{snap.numero_expediente}</dd>
                           </div>
                         )}
                         {snap.caratula && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Carátula:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Carátula:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900">{snap.caratula}</dd>
                           </div>
                         )}
                         {snap.titulo && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Asunto:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Asunto:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900">{snap.titulo}</dd>
                           </div>
                         )}
                         {snap.oficina && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Oficina:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Oficina:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900">{snap.oficina}</dd>
                           </div>
                         )}
                         {snap.fecha_emision && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Fecha emisión:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Fecha emisión:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900">
                               {new Date(snap.fecha_emision).toLocaleString('es-AR')}
                             </dd>
@@ -195,7 +195,7 @@ export function ConstanciaModal({
                         )}
                         {snap.fecha_captura && (
                           <div className="flex gap-2">
-                            <dt className="text-zinc-500 print:text-zinc-600 w-24 sm:w-32 shrink-0">Captura del portal:</dt>
+                            <dt className="text-zinc-500 dark:text-zinc-400 print:text-zinc-600 w-24 sm:w-32 shrink-0">Captura del portal:</dt>
                             <dd className="text-zinc-900 dark:text-zinc-100 print:text-zinc-900">
                               {new Date(snap.fecha_captura).toLocaleString('es-AR')}
                             </dd>
@@ -207,7 +207,7 @@ export function ConstanciaModal({
                 </div>
               </section>
 
-              <footer className="mt-8 pt-4 border-t border-white/10 print:border-zinc-300 text-[10px] text-zinc-500 print:text-zinc-600 leading-relaxed">
+              <footer className="mt-8 pt-4 border-t border-white/10 print:border-zinc-300 text-[10px] text-zinc-500 dark:text-zinc-400 print:text-zinc-600 leading-relaxed">
                 <p>
                   Este registro fue generado de forma automática por el sistema de gestión
                   MR Abogado al momento en que el profesional usuario marcó la notificación

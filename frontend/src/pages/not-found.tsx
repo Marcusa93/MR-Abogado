@@ -8,7 +8,7 @@ export default function NotFoundPage() {
     <div className="flex min-h-[60vh] items-center justify-center p-8">
       <div className="mx-auto max-w-md text-center animate-fade-in">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-          <FileQuestion className="h-8 w-8 text-zinc-500" />
+          <FileQuestion className="h-8 w-8 text-zinc-500 dark:text-zinc-400" />
         </div>
 
         <h1 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-zinc-50">

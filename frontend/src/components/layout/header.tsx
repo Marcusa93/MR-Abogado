@@ -68,7 +68,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             <button
               type="button"
               onClick={onMobileMenuToggle}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 lg:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 lg:hidden"
               aria-label="Abrir menu"
             >
               <Menu className="h-5 w-5" />
@@ -82,7 +82,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           <button
             type="button"
             onClick={() => setCommandOpen(true)}
-            className="group flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/8 bg-zinc-50 dark:bg-white/5 px-3 text-sm text-zinc-500 transition-all hover:border-amber-500/30 hover:bg-white dark:hover:bg-white/[0.08] hover:text-zinc-600 dark:hover:text-zinc-400"
+            className="group flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/8 bg-zinc-50 dark:bg-white/5 px-3 text-sm text-zinc-500 dark:text-zinc-400 transition-all hover:border-amber-500/30 hover:bg-white dark:hover:bg-white/[0.08] hover:text-zinc-600 dark:hover:text-zinc-400"
           >
             <Search className="h-4 w-4 shrink-0" />
             <span className="flex-1 text-left">Buscar...</span>

@@ -739,7 +739,7 @@ export function NicoIAChat() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">BogaBot</h3>
-                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-300">
                   Asistente del CRM
                 </p>
               </div>
@@ -750,7 +750,7 @@ export function NicoIAChat() {
                   onClick={toggleHistory}
                   className={cn(
                     'rounded-lg p-1.5 transition-colors',
-                    showHistory ? 'bg-amber-500/20 dark:bg-white/20 text-amber-600 dark:text-white' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white'
+                    showHistory ? 'bg-amber-500/20 dark:bg-white/20 text-amber-600 dark:text-white' : 'text-zinc-500 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white'
                   )}
                   title="Historial de conversaciones"
                 >
@@ -760,7 +760,7 @@ export function NicoIAChat() {
               {messages.length > 0 && (
                 <button
                   onClick={newConversation}
-                  className="rounded-lg p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                  className="rounded-lg p-1.5 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-colors"
                   title="Nueva conversación"
                 >
                   <MessageSquarePlus className="h-3.5 w-3.5" />
@@ -768,7 +768,7 @@ export function NicoIAChat() {
               )}
               <button
                 onClick={toggle}
-                className="rounded-lg p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                className="rounded-lg p-1.5 text-zinc-500 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -778,7 +778,7 @@ export function NicoIAChat() {
           {/* History panel */}
           {showHistory && (
             <div className="flex-1 overflow-y-auto border-b border-zinc-200 dark:border-white/10">
-              <div className="px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+              <div className="px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
                 Conversaciones anteriores
               </div>
               {conversations.length === 0 ? (
@@ -825,7 +825,7 @@ export function NicoIAChat() {
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     Hola, soy BogaBot
                   </p>
-                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 max-w-[260px]">
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300 max-w-[260px]">
                     Consultame sobre expedientes, clientes, tareas, audiencias o el estado general del estudio.
                   </p>
                 </div>
@@ -834,7 +834,7 @@ export function NicoIAChat() {
                     <button
                       key={s}
                       onClick={() => sendMessage(s)}
-                      className="w-full rounded-xl border border-white/10 px-3 py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:border-amber-500/30 transition-colors"
+                      className="w-full rounded-xl border border-white/10 px-3 py-2 text-left text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:border-amber-500/30 transition-colors"
                     >
                       {s}
                     </button>
@@ -902,7 +902,7 @@ export function NicoIAChat() {
                     'flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition-colors',
                     voice.listening
                       ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 animate-pulse'
-                      : 'bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200'
+                      : 'bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200'
                   )}
                   title={voice.listening ? 'Detener grabación' : 'Hablar'}
                 >
@@ -925,7 +925,7 @@ export function NicoIAChat() {
                 )}
               </button>
             </div>
-            <p className="mt-1 text-[10px] text-zinc-600 dark:text-zinc-400 text-center">Alt+N para abrir/cerrar</p>
+            <p className="mt-1 text-[10px] text-zinc-600 dark:text-zinc-300 text-center">Alt+N para abrir/cerrar</p>
           </form>
           )}
         </div>

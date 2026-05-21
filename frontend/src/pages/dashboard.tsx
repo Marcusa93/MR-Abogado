@@ -466,7 +466,7 @@ function SectionHeading({
         <h2 className="mt-2 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-50">
           {title}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-300">
           {description}
         </p>
       </div>
@@ -564,7 +564,7 @@ function PipelineFunnelBar({ counts }: { counts: Record<PipelineCategory, number
               className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: FUNNEL_COLORS[cat].hex }}
             />
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+            <span className="text-xs text-zinc-500 dark:text-zinc-300 whitespace-nowrap">
               {COLOR_CONFIG[cat].label}
             </span>
             <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{count}</span>
@@ -615,7 +615,7 @@ function UpcomingTurnosPanel({ turnos }: { turnos: ProximoTurno[] }) {
             <div className="dashboard-stat-orb mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
               <Calendar className="h-6 w-6" />
             </div>
-            <p className="mt-3 text-sm text-zinc-500">No hay turnos programados</p>
+            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No hay turnos programados</p>
           </div>
         ) : (
           turnos.slice(0, 6).map((turno) => {
@@ -633,11 +633,11 @@ function UpcomingTurnosPanel({ turnos }: { turnos: ProximoTurno[] }) {
                   <span className={`text-[10px] font-bold ${isToday ? 'text-amber-600 dark:text-amber-300' : isTomorrow ? 'text-amber-600 dark:text-amber-300' : 'text-[var(--brand-accent)] dark:text-[var(--brand-ice)]'}`}>
                     {countdown}
                   </span>
-                  {turno.hora && <span className="text-[10px] text-zinc-500">{turno.hora.slice(0, 5)}</span>}
+                  {turno.hora && <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{turno.hora.slice(0, 5)}</span>}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{turno.cliente_nombre} {turno.cliente_apellido}</p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {TIPO_TURNO_LABELS[turno.tipo_turno as keyof typeof TIPO_TURNO_LABELS] ?? turno.tipo_turno}
                     {' · '}{(turno as any).caratula || turno.numero}
                   </p>
@@ -647,7 +647,7 @@ function UpcomingTurnosPanel({ turnos }: { turnos: ProximoTurno[] }) {
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
                     : turno.estado === 'PENDIENTE'
                     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400'
+                    : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300'
                 }`}>
                   {turno.estado === 'CONFIRMADO' ? 'Confirmado' : turno.estado === 'PENDIENTE' ? 'Pendiente' : turno.estado}
                 </div>
@@ -671,7 +671,7 @@ const ALERTA_COLORS: Record<string, string> = {
   DOCUMENTO_FALTANTE: 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
   COBRO_PENDIENTE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   ESTADO_CAMBIO: 'bg-violet-500/10 text-violet-500 dark:text-violet-400',
-  SISTEMA: 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400',
+  SISTEMA: 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300',
 }
 
 function ActiveAlertasPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
@@ -698,7 +698,7 @@ function ActiveAlertasPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
             <div className="dashboard-stat-orb mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
               <Bell className="h-6 w-6" />
             </div>
-            <p className="mt-3 text-sm text-zinc-500">No hay alertas activas</p>
+            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No hay alertas activas</p>
           </div>
         ) : (
           alertas.slice(0, 5).map((alerta) => (
@@ -708,7 +708,7 @@ function ActiveAlertasPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{alerta.titulo}</p>
-                {alerta.mensaje && <p className="mt-0.5 truncate text-xs text-zinc-500">{alerta.mensaje}</p>}
+                {alerta.mensaje && <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{alerta.mensaje}</p>}
                 {alerta.expediente && (
                   <Link to={`/expedientes/${alerta.expediente.id}`} className="dashboard-link mt-1 inline-flex items-center gap-1 text-[11px] font-semibold">
                     {alerta.expediente.caratula || alerta.expediente.numero}

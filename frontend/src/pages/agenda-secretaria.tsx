@@ -259,7 +259,7 @@ function SeguimientoForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
         >
           Cancelar
         </button>
@@ -343,7 +343,7 @@ function MiniCalendar({
     <div>
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
+        <button onClick={prevMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-2">
@@ -354,7 +354,7 @@ function MiniCalendar({
             Hoy
           </button>
         </div>
-        <button onClick={nextMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
+        <button onClick={nextMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -413,7 +413,7 @@ function MiniCalendar({
       {/* Selected date detail */}
       {selectedDate && (
         <div className="mt-4 border-t border-white/5 pt-3">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-2">
             {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-AR', {
               weekday: 'long',
               day: 'numeric',
@@ -520,7 +520,7 @@ export default function AgendaSecretariaPage() {
         <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
           Audiencias / Agenda
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           Resumen diario de seguimientos, audiencias y tareas pendientes.
         </p>
       </div>
@@ -583,7 +583,7 @@ export default function AgendaSecretariaPage() {
           </div>
 
           {expedientes.length === 0 ? (
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 text-center py-6">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-6">
               No hay expedientes pendientes de control.
             </p>
           ) : (
@@ -647,7 +647,7 @@ export default function AgendaSecretariaPage() {
                       {!isDone && (
                         <button
                           onClick={() => toggleExpand(exp.id)}
-                          className="shrink-0 rounded-lg border border-white/10 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200"
+                          className="shrink-0 rounded-lg border border-white/10 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200"
                           title="Registrar seguimiento"
                         >
                           {isExpanded ? (
@@ -712,7 +712,7 @@ export default function AgendaSecretariaPage() {
             </div>
 
             {tareasVencidas.length === 0 ? (
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 text-center py-4">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-4">
                 No hay tareas vencidas.
               </p>
             ) : (
@@ -776,7 +776,7 @@ export default function AgendaSecretariaPage() {
             </div>
 
             {alertasList.length === 0 ? (
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 text-center py-4">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-4">
                 Sin alertas pendientes.
               </p>
             ) : (

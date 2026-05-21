@@ -62,7 +62,7 @@ export function SnoozeMenu({
           setOpen((v) => !v)
         }}
         className={cn(
-          'shrink-0 rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors',
+          'shrink-0 rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors',
           className,
         )}
         title={title}
@@ -74,7 +74,7 @@ export function SnoozeMenu({
           onClick={(e) => e.stopPropagation()}
           className="absolute right-0 top-full mt-1 z-[101] w-44 rounded-lg border border-white/10 bg-zinc-900 shadow-2xl py-1 animate-fade-in"
         >
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-zinc-500 border-b border-white/5">
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400 border-b border-white/5">
             Recordar en
           </div>
           {OPTIONS.map((opt) => (

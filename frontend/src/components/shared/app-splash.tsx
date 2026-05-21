@@ -37,13 +37,13 @@ export function AppSplash({
         </div>
 
         <div className="animate-fade-in-up [animation-delay:180ms] [animation-fill-mode:both]">
-          <p className="text-[0.68rem] font-medium uppercase tracking-[0.45em] text-zinc-500 dark:text-zinc-400">
+          <p className="text-[0.68rem] font-medium uppercase tracking-[0.45em] text-zinc-500 dark:text-zinc-300">
             Dr. Marco Rossi
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[0.14em] text-zinc-950 dark:text-zinc-50 md:text-4xl">
             Estudio Jurídico
           </h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 md:text-base">{message}</p>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-300 md:text-base">{message}</p>
         </div>
       </div>
     </div>

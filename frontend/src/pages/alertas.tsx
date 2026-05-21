@@ -70,7 +70,7 @@ const TIPO_ICON_MAP: Record<string, { icon: typeof Bell; bg: string; text: strin
   SISTEMA: {
     icon: Monitor,
     bg: 'bg-white/5',
-    text: 'text-zinc-600 dark:text-zinc-400',
+    text: 'text-zinc-600 dark:text-zinc-300',
   },
   MENCION: {
     icon: AtSign,
@@ -82,7 +82,7 @@ const TIPO_ICON_MAP: Record<string, { icon: typeof Bell; bg: string; text: strin
 const DEFAULT_ICON = {
   icon: Bell,
   bg: 'bg-white/5',
-  text: 'text-zinc-600 dark:text-zinc-400',
+  text: 'text-zinc-600 dark:text-zinc-300',
 }
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ function AlertaCard({
                 {alerta.titulo}
               </h3>
               {alerta.mensaje && (
-                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2">
                   {alerta.mensaje}
                 </p>
               )}
@@ -149,7 +149,7 @@ function AlertaCard({
           </div>
 
           {/* Meta row */}
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
             <span>{timeAgo(alerta.created_at)}</span>
             {alerta.expediente && (
               <>
@@ -279,7 +279,7 @@ export default function AlertasPage() {
         <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
           Alertas
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           Notificaciones y alertas pendientes de tus expedientes.
         </p>
       </div>
@@ -304,7 +304,7 @@ export default function AlertasPage() {
           />
           <div className="mx-auto max-w-md glass-card rounded-xl p-5">
             <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-3">El sistema genera alertas automáticamente cuando:</p>
-            <ul className="space-y-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <ul className="space-y-2 text-xs text-zinc-500 dark:text-zinc-300">
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                 Un expediente lleva más de 30 días sin movimiento
@@ -386,7 +386,7 @@ export default function AlertasPage() {
                       <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                         {group.label}
                       </span>
-                      <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-400">
+                      <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
                         {group.items.length}
                       </span>
                       <div className="flex-1 border-t border-white/5" />

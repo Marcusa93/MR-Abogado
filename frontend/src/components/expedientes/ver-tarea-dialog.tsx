@@ -122,7 +122,7 @@ function CopyableField({
         </span>
         <button
           onClick={onCopy}
-          className="shrink-0 rounded p-1 text-zinc-500 hover:text-amber-400 hover:bg-white/5 transition-colors"
+          className="shrink-0 rounded p-1 text-zinc-500 dark:text-zinc-400 hover:text-amber-400 hover:bg-white/5 transition-colors"
           title={`Copiar ${label}`}
         >
           {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
@@ -162,7 +162,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
   if (!open || !tarea) return null
 
   const Icon = ESTADO_ICON[tarea.estado] ?? Circle
-  const iconColor = ESTADO_COLORS[tarea.estado] ?? 'text-zinc-500'
+  const iconColor = ESTADO_COLORS[tarea.estado] ?? 'text-zinc-500 dark:text-zinc-400'
   const canComplete =
     tarea.estado === 'PENDIENTE' || tarea.estado === 'EN_PROGRESO'
 
@@ -221,7 +221,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
 
   const inputClass =
     'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
-  const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
+  const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -258,7 +258,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 shrink-0"
+            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
@@ -283,7 +283,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                   {expLabel || 'Expediente sin título'}
                 </p>
                 {tarea.expediente.numero && expLabel !== tarea.expediente.numero && (
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-300 truncate">
                     {tarea.expediente.numero}
                   </p>
                 )}
@@ -301,9 +301,9 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
           {tarea.expediente?.clientes && (
             <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 space-y-2">
               <div className="flex items-start gap-2">
-                <IdCard className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500" />
+                <IdCard className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                     Cliente
                   </p>
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
@@ -336,7 +336,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
               {tarea.expediente.clientes.clave_arca && (
                 <div className="pl-5 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                       <Key className="h-3 w-3" />
                       Claves
                     </div>
@@ -373,7 +373,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
 
           {/* Descripción */}
           <div>
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
               Descripción
             </p>
             {editing ? (
@@ -397,7 +397,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                 )}
               </p>
             ) : (
-              <p className="text-sm text-zinc-500 italic">Sin descripción</p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 italic">Sin descripción</p>
             )}
           </div>
 
@@ -447,9 +447,9 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
             ) : (
               <>
                 <div className="flex items-start gap-2">
-                  <User className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500" />
+                  <User className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
                   <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                       Asignado a
                     </p>
                     <p className="text-sm text-zinc-800 dark:text-zinc-200 truncate">
@@ -461,9 +461,9 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                 </div>
 
                 <div className="flex items-start gap-2">
-                  <Calendar className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500" />
+                  <Calendar className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
                   <div className="min-w-0">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                       Vencimiento
                     </p>
                     <p className="text-sm text-zinc-800 dark:text-zinc-200">
@@ -476,7 +476,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                         Completada
                       </p>
                       <p className="text-sm text-zinc-800 dark:text-zinc-200">
@@ -488,9 +488,9 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
 
                 {tarea.created_at && (
                   <div className="flex items-start gap-2">
-                    <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500" />
+                    <Clock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
                     <div className="min-w-0">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-300">
                         Creada
                       </p>
                       <p className="text-sm text-zinc-800 dark:text-zinc-200">

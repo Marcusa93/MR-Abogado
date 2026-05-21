@@ -137,7 +137,7 @@ function ClienteCombobox({
               className={`w-full px-3 py-2 text-left text-sm hover:bg-white/5 ${c.id === value ? 'bg-white/5' : ''}`}
             >
               <span className="font-medium text-zinc-900 dark:text-zinc-100">{c.apellido} {c.nombre}</span>
-              <span className="ml-2 text-xs text-zinc-600 dark:text-zinc-400">DNI: {c.dni}</span>
+              <span className="ml-2 text-xs text-zinc-600 dark:text-zinc-300">DNI: {c.dni}</span>
             </button>
           ))}
         </div>
@@ -152,7 +152,7 @@ function ClienteCombobox({
 
 const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
-const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
+const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 const errorClass = 'mt-1 text-xs text-rose-500'
 
 // ---------------------------------------------------------------------------
@@ -225,7 +225,7 @@ export default function NuevoExpedientePage() {
       <div>
         <button
           onClick={() => navigate(-1)}
-          className="mb-3 flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="mb-3 flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
@@ -233,7 +233,7 @@ export default function NuevoExpedientePage() {
         <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
           Nuevo Expediente
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           El numero de expediente se genera automaticamente (EXP-{new Date().getFullYear()}-XXXX).
         </p>
       </div>
@@ -251,7 +251,7 @@ export default function NuevoExpedientePage() {
               <button
                 type="button"
                 onClick={() => navigate('/clientes/nuevo')}
-                className="flex h-9 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-white/5"
+                className="flex h-9 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-white/5"
                 title="Crear cliente nuevo"
               >
                 <UserPlus className="h-3.5 w-3.5" />
@@ -297,7 +297,7 @@ export default function NuevoExpedientePage() {
             </div>
             <div>
               <label className={labelClass}>Estado inicial</label>
-              <p className="mb-1 text-[10px] text-zinc-500">Si el trámite ya fue iniciado en otro lado, seleccioná el estado actual</p>
+              <p className="mb-1 text-[10px] text-zinc-500 dark:text-zinc-400">Si el trámite ya fue iniciado en otro lado, seleccioná el estado actual</p>
               <select
                 value={estadoInicial}
                 onChange={(e) => setEstadoInicial(e.target.value)}

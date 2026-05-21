@@ -194,7 +194,7 @@ export default function TareasPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Tareas
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
             Gestiona las tareas de todos los expedientes.
           </p>
         </div>
@@ -212,7 +212,7 @@ export default function TareasPage() {
         <div className="glass-card-glow rounded-xl px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Pendientes</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Pendientes</p>
               <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">{pendientesCount}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
@@ -223,7 +223,7 @@ export default function TareasPage() {
         <div className="glass-card-glow rounded-xl px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Vencidas</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Vencidas</p>
               <p className="mt-1 text-2xl font-bold text-rose-400">{vencidasCount}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500/10 text-rose-400">
@@ -234,7 +234,7 @@ export default function TareasPage() {
         <div className="glass-card-glow rounded-xl px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Completadas hoy</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Completadas hoy</p>
               <p className="mt-1 text-2xl font-bold text-emerald-400">{completadasHoyCount}</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -261,7 +261,7 @@ export default function TareasPage() {
                 'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                 isActive
                   ? 'bg-amber-500/15 text-amber-400'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/5'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/5'
               )}
             >
               <Icon className="h-3 w-3" />
@@ -370,7 +370,7 @@ export default function TareasPage() {
         </select>
 
         {/* Toggle: solo vencidas */}
-        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={soloVencidas}
@@ -384,7 +384,7 @@ export default function TareasPage() {
         </label>
 
         {/* Toggle: mis tareas */}
-        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={soloMisTareas}
@@ -398,7 +398,7 @@ export default function TareasPage() {
         </label>
 
         {/* Toggle: archivadas */}
-        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showArchivadas}
@@ -423,7 +423,7 @@ export default function TareasPage() {
               setSortBy('fecha_vencimiento')
               setSortOrder('asc')
             }}
-            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
           >
             <X className="h-3 w-3" />
             Limpiar filtros
@@ -457,22 +457,22 @@ export default function TareasPage() {
               <thead>
                 <tr className="border-b border-white/5 bg-white/5">
                   <th className="w-10 px-3 py-2.5" />
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Tarea
                   </th>
-                  <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Expediente
                   </th>
-                  <th className="hidden md:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="hidden md:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Estado
                   </th>
-                  <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="hidden sm:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Prioridad
                   </th>
-                  <th className="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="hidden lg:table-cell px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Asignado
                   </th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Vencimiento
                   </th>
                   <th className="w-20 px-3 py-2.5" />
@@ -549,7 +549,7 @@ export default function TareasPage() {
                         </p>
                         {tarea.descripcion && (
                           <p
-                            className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2"
+                            className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-300 line-clamp-2"
                             title={stripMentionIds(tarea.descripcion)}
                           >
                             {stripMentionIds(tarea.descripcion)}
@@ -632,7 +632,7 @@ export default function TareasPage() {
                             'text-xs',
                             overdue
                               ? 'font-semibold text-rose-400'
-                              : 'text-zinc-600 dark:text-zinc-400'
+                              : 'text-zinc-600 dark:text-zinc-300'
                           )}
                         >
                           {formatDateShort(tarea.fecha_vencimiento)}
@@ -683,7 +683,7 @@ export default function TareasPage() {
           {/* Pagination */}
           {data.totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
                 Mostrando {(data.page - 1) * data.pageSize + 1} a{' '}
                 {Math.min(data.page * data.pageSize, data.count)} de {data.count}{' '}
                 tareas
@@ -692,17 +692,17 @@ export default function TareasPage() {
                 <button
                   disabled={data.page <= 1}
                   onClick={() => goToPage(data.page - 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="px-3 text-xs text-zinc-600 dark:text-zinc-400">
+                <span className="px-3 text-xs text-zinc-600 dark:text-zinc-300">
                   {data.page} / {data.totalPages}
                 </span>
                 <button
                   disabled={data.page >= data.totalPages}
                   onClick={() => goToPage(data.page + 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:bg-white/[0.04] disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

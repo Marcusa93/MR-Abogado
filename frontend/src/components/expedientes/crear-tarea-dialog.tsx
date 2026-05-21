@@ -111,7 +111,7 @@ export function CrearTareaDialog({
 
   const inputClass =
     'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
-  const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
+  const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -124,13 +124,13 @@ export function CrearTareaDialog({
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
               Nueva tarea
             </h2>
-            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
               Crea una tarea y asignala a un miembro del equipo.
             </p>
           </div>
           <button
             onClick={resetAndClose}
-            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:bg-white/5"
+            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5"
           >
             <X className="h-4 w-4" />
           </button>

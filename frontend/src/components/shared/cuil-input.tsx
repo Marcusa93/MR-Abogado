@@ -166,7 +166,7 @@ export function CuilInput({
                 'inline-block h-1.5 w-1.5 rounded-full',
                 result.afip.estadoClave === 'ACTIVO' ? 'bg-emerald-400' : 'bg-amber-400',
               )} />
-              <span className="text-zinc-600 dark:text-zinc-400">Estado AFIP:</span>
+              <span className="text-zinc-600 dark:text-zinc-300">Estado AFIP:</span>
               <span className={cn(
                 'font-medium',
                 result.afip.estadoClave === 'ACTIVO' ? 'text-emerald-400' : 'text-amber-400',
@@ -176,7 +176,7 @@ export function CuilInput({
             </div>
           )}
           {result.afip?.domicilio?.direccion && (
-            <p className="text-zinc-600 dark:text-zinc-400">
+            <p className="text-zinc-600 dark:text-zinc-300">
               <span className="text-zinc-700 dark:text-zinc-300">Domicilio fiscal:</span>{' '}
               {[
                 result.afip.domicilio.direccion,
@@ -188,7 +188,7 @@ export function CuilInput({
             </p>
           )}
           {result.afip?.actividades && result.afip.actividades.length > 0 && (
-            <p className="text-zinc-600 dark:text-zinc-400 truncate">
+            <p className="text-zinc-600 dark:text-zinc-300 truncate">
               <span className="text-zinc-700 dark:text-zinc-300">Actividad:</span>{' '}
               {result.afip.actividades[0]}
             </p>

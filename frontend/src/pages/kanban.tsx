@@ -105,7 +105,7 @@ function PipelineBar({
 
   return (
     <div className="glass-card rounded-xl px-4 py-3">
-      <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
+      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
         <span className="font-bold text-lg text-zinc-800 dark:text-zinc-200">{total}</span>
         <span>expedientes en pipeline</span>
       </div>
@@ -131,12 +131,12 @@ function PipelineBar({
                     'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold',
                     hasCards
                       ? cn(cfg.counterBg, cfg.counterText)
-                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'
+                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
                   )}
                 >
                   {col.count}
                 </span>
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap hidden sm:inline">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-300 whitespace-nowrap hidden sm:inline">
                   {col.label}
                 </span>
               </div>
@@ -233,7 +233,7 @@ function KanbanFiltersBar({
             onFiltersChange({})
             onSearchChange('')
           }}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
         >
           <X className="h-3.5 w-3.5" />
           Limpiar
@@ -271,11 +271,11 @@ function KanbanDroppableColumn({
       >
         <div className={cn('h-1 w-full rounded-t-xl', cfg.dotClass)} />
         <div className="flex-1 flex items-center justify-center py-4">
-          <span className="writing-vertical text-[10px] font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+          <span className="writing-vertical text-[10px] font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
             {column.label}
           </span>
         </div>
-        <span className="mb-3 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+        <span className="mb-3 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
           0
         </span>
       </div>
@@ -401,7 +401,7 @@ function KanbanDraggableCard({
           <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
             {card.tipo_tramite || ''}
             {card.tipo_tramite && ' · '}
-            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(card as any).numero ?? card.numero_expediente}</span>
+            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
 
@@ -411,7 +411,7 @@ function KanbanDraggableCard({
       {/* Tipo tramite */}
       {card.tipo_tramite && (
         <div className="mt-2 ml-[52px]">
-          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
             {card.tipo_tramite}
           </span>
         </div>
@@ -494,13 +494,13 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
           <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
             {card.tipo_tramite || ''}
             {card.tipo_tramite && ' · '}
-            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(card as any).numero ?? card.numero_expediente}</span>
+            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
       </div>
       {card.tipo_tramite && (
         <div className="mt-2 ml-[52px]">
-          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
             {card.tipo_tramite}
           </span>
         </div>
@@ -693,9 +693,9 @@ export default function KanbanPage() {
                   {column.cards.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-white/10">
-                        <LayoutGrid className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                        <LayoutGrid className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
                       </div>
-                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
                         Arrastra expedientes aquí
                       </p>
                     </div>

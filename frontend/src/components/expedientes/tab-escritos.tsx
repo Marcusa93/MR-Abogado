@@ -160,7 +160,7 @@ function NuevoEscritoDialog({
             <datalist id="tipos-escrito">
               {sugerencias.map(s => <option key={s} value={s} />)}
             </datalist>
-            <p className="mt-1 text-[10px] text-zinc-500">
+            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
               Podés escribir cualquier tipo. Los conocidos aparecen como sugerencia.
             </p>
           </div>
@@ -291,7 +291,7 @@ function PresentarSaeDialog({
                 <p className="mt-1 text-zinc-400 truncate">{portalInfo.expediente.caratula}</p>
               )}
               {portalInfo.expediente.oficina && (
-                <p className="text-zinc-500 truncate">{portalInfo.expediente.oficina}</p>
+                <p className="text-zinc-500 dark:text-zinc-400 truncate">{portalInfo.expediente.oficina}</p>
               )}
             </div>
           )}
@@ -406,7 +406,7 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
           {isFirmado ? 'Firmado' : '1. Firmar'}
         </span>
         {escrito.pdf_firmado_at && (
-          <span className="text-[10px] text-zinc-500">
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
             · {new Date(escrito.pdf_firmado_at).toLocaleDateString('es-AR')}
           </span>
         )}
@@ -417,7 +417,7 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
           href="https://firmar.gob.ar/firmador/"
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-[10px] text-zinc-500 hover:text-zinc-300"
+          className="inline-flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
         >
           firmar.gob.ar <ExternalLink className="h-2.5 w-2.5" />
         </a>
@@ -453,7 +453,7 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
         'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
         isPresentado ? 'border-violet-500/30 bg-violet-500/5 text-violet-300'
                      : isFirmado ? 'border-white/10 text-zinc-300'
-                     : 'border-white/10 text-zinc-600 dark:text-zinc-400',
+                     : 'border-white/10 text-zinc-600 dark:text-zinc-300',
       )}>
         <Send className="h-3.5 w-3.5" />
         <span className="font-medium">
@@ -598,7 +598,7 @@ function EscritoEditorModal({
             onChange={(e) => { setTitulo(e.target.value); setDirty(true) }}
             className="bg-transparent text-base font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
           />
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider shrink-0">
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
             {escrito.tipo} · {escrito.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}
           </span>
         </div>
@@ -663,13 +663,13 @@ function EscritoEditorModal({
         {/* Editor */}
         <div className="overflow-y-auto border-r border-white/10 p-5 space-y-4">
           <div className="grid grid-cols-1 gap-2">
-            <label className="text-[10px] uppercase tracking-wider text-zinc-500">Encabezado al juez</label>
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Encabezado al juez</label>
             <input
               value={contenido.encabezado_juez}
               onChange={(e) => { setContenido(c => ({ ...c, encabezado_juez: e.target.value })); setDirty(true) }}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
             />
-            <label className="text-[10px] uppercase tracking-wider text-zinc-500 mt-2">Carátula</label>
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Carátula</label>
             <input
               value={contenido.caratula}
               onChange={(e) => { setContenido(c => ({ ...c, caratula: e.target.value })); setDirty(true) }}
@@ -776,7 +776,7 @@ export function TabEscritos({ expedienteId }: Props) {
       >
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
           </div>
         ) : escritos.length === 0 ? (
           <EmptyState
@@ -799,10 +799,10 @@ export function TabEscritos({ expedienteId }: Props) {
                   className="min-w-0 flex-1 text-left"
                 >
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{esc.titulo}</p>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                     {esc.tipo}
-                    {esc.registro_tonal && <span className="ml-2 text-zinc-600 dark:text-zinc-400">· {esc.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}</span>}
-                    <span className="ml-2 text-zinc-600 dark:text-zinc-400">· {new Date(esc.created_at).toLocaleDateString('es-AR')}</span>
+                    {esc.registro_tonal && <span className="ml-2 text-zinc-600 dark:text-zinc-300">· {esc.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}</span>}
+                    <span className="ml-2 text-zinc-600 dark:text-zinc-300">· {new Date(esc.created_at).toLocaleDateString('es-AR')}</span>
                   </p>
                 </button>
                 <span className={cn(
@@ -815,7 +815,7 @@ export function TabEscritos({ expedienteId }: Props) {
                 </span>
                 <button
                   onClick={() => setConfirmDelete(esc)}
-                  className="shrink-0 rounded p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-colors"
+                  className="shrink-0 rounded p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-white/10 transition-colors"
                   title="Eliminar"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -825,7 +825,7 @@ export function TabEscritos({ expedienteId }: Props) {
           </div>
         )}
 
-        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
+        <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-300">
           Cada escrito se genera usando solo las actuaciones marcadas como claves (nunca todo el historial).
         </p>
       </Card>

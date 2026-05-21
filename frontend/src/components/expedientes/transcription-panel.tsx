@@ -136,12 +136,12 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
           <Headphones className="h-3.5 w-3.5 text-violet-400" />
           <span className="text-xs font-medium text-violet-200">Transcripción de audiencia</span>
           {transcripts.length > 0 && (
-            <span className="text-[10px] text-zinc-500">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
               · {transcripts.length} {transcripts.length === 1 ? 'transcripción' : 'transcripciones'}
             </span>
           )}
         </div>
-        {expanded ? <ChevronUp className="h-3.5 w-3.5 text-zinc-500" /> : <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />}
+        {expanded ? <ChevronUp className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" /> : <ChevronDown className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />}
       </button>
 
       {expanded && (
@@ -179,7 +179,7 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
               {(uploadAudio.isPending || transcribeUpload.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
               Subir audio/video
             </button>
-            <span className="text-[10px] text-zinc-600 dark:text-zinc-400">
+            <span className="text-[10px] text-zinc-600 dark:text-zinc-300">
               Groq (gratis) → fallback OpenAI · máx 25 MB
             </span>
           </div>
@@ -187,10 +187,10 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
           {/* Lista de transcripciones */}
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-500 dark:text-zinc-400" />
             </div>
           ) : transcripts.length === 0 ? (
-            <p className="text-[11px] text-zinc-500 text-center py-2">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 text-center py-2">
               Sin transcripciones todavía. Tocá "Transcribir" o "Subir audio" arriba.
             </p>
           ) : (
@@ -241,9 +241,9 @@ function TranscriptCard({
             {t.audio_filename ?? 'Sin nombre'}
           </span>
           {t.audio_duration_seconds && (
-            <span className="text-[10px] text-zinc-500">· {formatDuration(t.audio_duration_seconds)}</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">· {formatDuration(t.audio_duration_seconds)}</span>
           )}
-          <span className="text-[10px] text-zinc-600 dark:text-zinc-400">· {formatDate(t.created_at)}</span>
+          <span className="text-[10px] text-zinc-600 dark:text-zinc-300">· {formatDate(t.created_at)}</span>
         </div>
         {showKeyButton && (
           <button
@@ -262,7 +262,7 @@ function TranscriptCard({
                 'h-3.5 w-3.5 transition-colors',
                 movement!.is_key === true
                   ? 'fill-amber-400 text-amber-400'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-amber-400',
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-amber-400',
               )}
             />
           </button>
@@ -325,7 +325,7 @@ function TranscriptCard({
           )}
           {t.ai_analysis.partes_presentes.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-1 flex items-center gap-1">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium mb-1 flex items-center gap-1">
                 <Users className="h-2.5 w-2.5" />Partes presentes
               </p>
               <div className="flex flex-wrap gap-1">

@@ -73,7 +73,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
             </span>
           )}
           <span
-            className="text-zinc-500 inline-flex items-center gap-1"
+            className="text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1"
             title={formatFechaCompleta(fechaPortal)}
           >
             <CalendarDays className="h-3 w-3" />
@@ -144,7 +144,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
 
       {/* Oficina judicial */}
       {notif.oficina && (
-        <p className="mt-0.5 text-[11px] text-zinc-500 truncate">{notif.oficina}</p>
+        <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{notif.oficina}</p>
       )}
 
       {/* Acciones */}
@@ -158,7 +158,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
             Abrir expediente
           </Link>
         ) : notif.numero_expediente && (
-          <span className="text-[10px] text-zinc-500 italic">
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 italic">
             Expediente no está en tu cartera
           </span>
         )}
@@ -248,7 +248,7 @@ export default function NotificacionesSaePage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Notificaciones SAE</h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Notificaciones digitales capturadas del portal del SAE 2 veces por día.
             </p>
           </div>
@@ -304,7 +304,7 @@ export default function NotificacionesSaePage() {
                 <div className="rounded bg-black/30 p-2">
                   <div className="text-cyan-300 mb-1">discovery /casillero:</div>
                   <div>status={lastResult.debug.discovery.status} · hops={lastResult.debug.discovery.hops} · htmlLen={lastResult.debug.discovery.htmlLen} · anchors={lastResult.debug.discovery.anchorsFound}</div>
-                  <div className="text-zinc-500 truncate">finalUrl: {lastResult.debug.discovery.finalUrl}</div>
+                  <div className="text-zinc-500 dark:text-zinc-400 truncate">finalUrl: {lastResult.debug.discovery.finalUrl}</div>
                   {lastResult.debug.discovery.log.map((l, i) => (
                     <div key={i} className="text-zinc-400">{l}</div>
                   ))}
@@ -352,7 +352,7 @@ export default function NotificacionesSaePage() {
 
       {/* Búsqueda */}
       <div className="mb-3 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -382,7 +382,7 @@ export default function NotificacionesSaePage() {
         </button>
         <div className="flex-1" />
         {search && (
-          <span className="text-[10px] text-zinc-500">
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
             {filtered.length} de {notifs.length}
           </span>
         )}
@@ -401,7 +401,7 @@ export default function NotificacionesSaePage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
         </div>
       ) : notifs.length === 0 ? (
         <EmptyState
@@ -413,7 +413,7 @@ export default function NotificacionesSaePage() {
         />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
-          <Search className="h-8 w-8 mx-auto text-zinc-600 dark:text-zinc-400 mb-2" />
+          <Search className="h-8 w-8 mx-auto text-zinc-600 dark:text-zinc-300 mb-2" />
           <p className="text-sm text-zinc-300">Ninguna notificación coincide con "{search}"</p>
           <button
             onClick={() => setSearch('')}
@@ -429,8 +429,8 @@ export default function NotificacionesSaePage() {
       )}
 
       <div className="mt-6 rounded-lg border border-white/5 bg-white/[0.02] p-3 flex items-start gap-2">
-        <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-500" />
-        <p className="text-[11px] text-zinc-500">
+        <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
           Esta lista se actualiza con dos consultas al portal: 00:15 y 08:30 (hora AR). Si necesitás ver algo en tiempo real, abrí el portal del SAE directamente.
         </p>
       </div>

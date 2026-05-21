@@ -32,7 +32,7 @@ const EVENT_CONFIG: Record<
   },
   nota: {
     icon: StickyNote,
-    color: 'text-zinc-600 dark:text-zinc-400',
+    color: 'text-zinc-600 dark:text-zinc-300',
     bg: 'bg-white/5',
   },
   tarea: {
@@ -49,7 +49,7 @@ const EVENT_CONFIG: Record<
 
 const FALLBACK_CONFIG = {
   icon: Clock,
-  color: 'text-zinc-600 dark:text-zinc-400',
+  color: 'text-zinc-600 dark:text-zinc-300',
   bg: 'bg-white/5',
 }
 
@@ -65,8 +65,8 @@ export function TimelineExpediente({
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Clock className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <Clock className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           No hay eventos en la línea de tiempo.
         </p>
       </div>
@@ -113,7 +113,7 @@ export function TimelineExpediente({
                       {event.titulo}
                     </p>
                     {event.detalle && (
-                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2">
                         {event.detalle}
                       </p>
                     )}
@@ -138,7 +138,7 @@ export function TimelineExpediente({
                     <p className="text-[11px] text-zinc-700 dark:text-zinc-300">
                       {timeAgo(event.fecha)}
                     </p>
-                    <p className="text-[10px] text-zinc-600 dark:text-zinc-400">
+                    <p className="text-[10px] text-zinc-600 dark:text-zinc-300">
                       {formatDate(event.fecha)}
                     </p>
                   </div>

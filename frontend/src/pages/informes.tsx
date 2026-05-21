@@ -54,7 +54,7 @@ function GlassTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80/90 px-3 py-2 shadow-lg backdrop-blur-sm">
-      {label && <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>}
+      {label && <p className="text-xs text-zinc-600 dark:text-zinc-300 mb-1">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p key={i} className="text-sm font-semibold" style={{ color: p.color || '#d4a853' }}>
           {p.name ?? 'Expedientes'}: {p.value}
@@ -142,7 +142,7 @@ function SVGDonut({ data, total }: { data: { name: string; value: number; fill: 
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: d.fill }} />
-            <span className="text-[11px] text-zinc-600 dark:text-zinc-400">{d.name}</span>
+            <span className="text-[11px] text-zinc-600 dark:text-zinc-300">{d.name}</span>
           </div>
         ))}
       </div>
@@ -167,7 +167,7 @@ function TipoBarChart({ data, onBarClick }: { data: { id: string; nombre: string
           onClick={() => item.id && onBarClick(item.id)}
           className="group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
         >
-          <span className="w-[120px] shrink-0 truncate text-[11px] text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">
+          <span className="w-[120px] shrink-0 truncate text-[11px] text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">
             {item.nombre}
           </span>
           <div className="flex-1 h-5 rounded bg-zinc-50 dark:bg-zinc-900/60/50 overflow-hidden">
@@ -250,7 +250,7 @@ export default function InformesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Informes
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
             Reportes y estadísticas del estudio — datos históricos
           </p>
         </div>
@@ -386,7 +386,7 @@ export default function InformesPage() {
                   <Bar dataKey="tomados" name="Tomados" fill="#d4a853" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-              <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
+              <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Consultas (en análisis)</span>
                 <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Tomados (iniciados+)</span>
               </div>
@@ -403,27 +403,27 @@ export default function InformesPage() {
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="rounded-lg bg-zinc-100 dark:bg-white/5 p-3 text-center">
                   <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{turnosStats.total}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Total asignados</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Total asignados</p>
                 </div>
                 <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 p-3 text-center">
                   <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{turnosStats.realizados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Realizados</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Realizados</p>
                 </div>
                 <div className="rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3 text-center">
                   <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{turnosStats.pendientes}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Pendientes</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Pendientes</p>
                 </div>
                 <div className="rounded-lg bg-rose-50 dark:bg-rose-500/10 p-3 text-center">
                   <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{turnosStats.cancelados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Cancelados</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Cancelados</p>
                 </div>
                 <div className="rounded-lg bg-violet-50 dark:bg-violet-500/10 p-3 text-center">
                   <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">{turnosStats.reprogramados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 mt-1">Reprogramados</p>
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Reprogramados</p>
                 </div>
               </div>
               {turnosStats.total > 0 && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500">
+                <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                   <span>Tasa de asistencia:</span>
                   <span className="font-bold text-zinc-800 dark:text-zinc-200">
                     {Math.round((turnosStats.realizados / turnosStats.total) * 100)}%
@@ -454,7 +454,7 @@ function StatCard({ label, value, color }: { label: string; value: number | stri
 function FinRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-zinc-600 dark:text-zinc-400">{label}</span>
+      <span className="text-sm text-zinc-600 dark:text-zinc-300">{label}</span>
       <span className={`text-sm font-semibold ${color ?? 'text-zinc-800 dark:text-zinc-200'}`}>{value}</span>
     </div>
   )

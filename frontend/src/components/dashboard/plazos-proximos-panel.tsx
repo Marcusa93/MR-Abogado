@@ -28,12 +28,12 @@ function PlazoRow({ plazo, onCreateTarea }: { plazo: PlazoProximo; onCreateTarea
             <Clock className="h-2.5 w-2.5" />
             Vence {restantesLabel}
           </span>
-          <span className="text-[10px] text-zinc-500">{formatDate(plazo.plazo.vence_aprox)}</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{formatDate(plazo.plazo.vence_aprox)}</span>
         </div>
         <p className="mt-1 text-xs leading-snug text-zinc-800 dark:text-zinc-100 line-clamp-2 dark:text-zinc-100">
           {plazo.plazo.descripcion}
         </p>
-        <p className="mt-0.5 text-[11px] text-zinc-500 truncate">
+        <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
           {plazo.expediente_numero ? `${plazo.expediente_numero} · ` : ''}
           {plazo.expediente_caratula ?? 'Sin carátula'}
         </p>
@@ -103,7 +103,7 @@ function PlazosProximosPanelView({
             )}
           </div>
         </div>
-        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">7 días</span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">7 días</span>
       </div>
 
       {isLoading ? (
@@ -117,8 +117,8 @@ function PlazosProximosPanelView({
           <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
             <AlertTriangle className="h-6 w-6" />
           </div>
-          <p className="text-xs text-zinc-500">No hay plazos detectados por IA en los próximos 7 días.</p>
-          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-1">Analizá actuaciones desde el tab SAE de un expediente.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">No hay plazos detectados por IA en los próximos 7 días.</p>
+          <p className="text-[10px] text-zinc-600 dark:text-zinc-300 mt-1">Analizá actuaciones desde el tab SAE de un expediente.</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">

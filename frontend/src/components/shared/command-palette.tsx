@@ -277,7 +277,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             {isFetching ? (
               <Loader2 className="h-5 w-5 shrink-0 text-amber-400 animate-spin" />
             ) : (
-              <Search className="h-5 w-5 shrink-0 text-zinc-600 dark:text-zinc-400" />
+              <Search className="h-5 w-5 shrink-0 text-zinc-600 dark:text-zinc-300" />
             )}
             <input
               ref={inputRef}

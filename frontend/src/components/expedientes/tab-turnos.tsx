@@ -114,7 +114,7 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
           <p className="text-[10px] uppercase tracking-wider text-cyan-300/80 font-medium flex items-center gap-1.5">
             <Video className="h-3 w-3" />
             Desde actuaciones SAE
-            <span className="text-zinc-500 font-normal normal-case">· {audienciasFromActuaciones.length}</span>
+            <span className="text-zinc-500 dark:text-zinc-400 font-normal normal-case">· {audienciasFromActuaciones.length}</span>
           </p>
           <div className="space-y-2">
             {audienciasFromActuaciones.map((m) => (
@@ -137,7 +137,7 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
           size="sm"
         />
       ) : turnos.length === 0 ? (
-        <p className="text-[11px] text-zinc-500">No hay audiencias agendadas manualmente. Las de arriba vienen del SAE.</p>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">No hay audiencias agendadas manualmente. Las de arriba vienen del SAE.</p>
       ) : (
         <div className="space-y-3">
           {[...turnos]
@@ -223,12 +223,12 @@ function TurnoRow({
             color={getTurnoColor(turno.estado)}
           />
         </div>
-        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
           {formatDate(turno.fecha)}
           {turno.hora && ` a las ${turno.hora}`}
         </p>
         {turno.notas && (
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{turno.notas}</p>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{turno.notas}</p>
         )}
         <TranscriptionPanel audienciaId={turno.id} />
       </div>
@@ -246,7 +246,7 @@ function TurnoRow({
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-white/10"
+              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10"
               title="Cancelar"
             >
               <X className="h-3.5 w-3.5" />
@@ -256,14 +256,14 @@ function TurnoRow({
           <>
             <button
               onClick={onEdit}
-              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200"
+              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200"
               title="Editar turno"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-400 hover:bg-rose-500/20 hover:text-rose-400"
+              className="rounded-lg bg-white/5 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-rose-500/20 hover:text-rose-400"
               title="Eliminar turno"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -320,7 +320,7 @@ function TurnoEditRow({
     <div className="rounded-lg border border-amber-500/30 bg-amber-950/10 p-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Tipo</label>
+          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Tipo</label>
           <input
             type="text"
             value={tipoTurno}
@@ -330,7 +330,7 @@ function TurnoEditRow({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Estado</label>
+          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Estado</label>
           <select
             value={estado}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value as EstadoAudiencia)}
@@ -344,16 +344,16 @@ function TurnoEditRow({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Fecha</label>
+          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Fecha</label>
           <input type="date" value={fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Hora</label>
+          <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Hora</label>
           <input type="time" value={hora} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHora(e.target.value)} className={inputClass} />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Notas</label>
+        <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Notas</label>
         <textarea
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
@@ -362,7 +362,7 @@ function TurnoEditRow({
         />
       </div>
       <div className="flex justify-end gap-2">
-        <button onClick={onDone} className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
+        <button onClick={onDone} className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
           Cancelar
         </button>
         <button
@@ -428,7 +428,7 @@ function ActuacionAudienciaRow({
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
             {formatDate(movement.fecha)}
             {attachments.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 text-sky-400">
@@ -482,7 +482,7 @@ function ActuacionAudienciaRow({
                 >
                   <FileText className="h-4 w-4 shrink-0 text-sky-400" />
                   <span className="min-w-0 flex-1 truncate text-xs text-zinc-300">{att.fileName}</span>
-                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 group-hover/att:text-sky-400" />
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400 group-hover/att:text-sky-400" />
                 </button>
               ))}
             </div>

@@ -8,7 +8,7 @@ import { X, Loader2, Save } from 'lucide-react'
 
 const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
-const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400'
+const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
 interface Props {
   open: boolean
@@ -64,7 +64,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar expediente</h3>
             <p className="text-xs text-zinc-700 dark:text-zinc-300 font-mono">{(expediente as any).numero ?? (expediente as any).numero_expediente}</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -113,7 +113,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
 
           {/* Número SAE */}
           <div>
-            <label className={labelClass}>Número SAE <span className="text-zinc-500">(Poder Judicial Tucumán)</span></label>
+            <label className={labelClass}>Número SAE <span className="text-zinc-500 dark:text-zinc-400">(Poder Judicial Tucumán)</span></label>
             <input
               value={numeroSae}
               onChange={(e) => setNumeroSae(e.target.value)}

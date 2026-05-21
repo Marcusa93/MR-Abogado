@@ -52,7 +52,7 @@ export function PushToggle() {
       className={`relative inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed ${
         isSubscribed
           ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/15'
-          : 'text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200'
+          : 'text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200'
       } ${disabled && !isSubscribed ? 'opacity-60' : ''}`}
     >
       <span className="relative inline-flex">

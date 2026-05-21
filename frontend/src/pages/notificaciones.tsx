@@ -120,7 +120,7 @@ function AlertaRow({
                 <span className="truncate">{alerta.expediente.numero || alerta.expediente.caratula}</span>
               </span>
             )}
-            <span className="text-[10px] text-zinc-500">{timeAgo(alerta.created_at)}</span>
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{timeAgo(alerta.created_at)}</span>
           </div>
         </div>
       </div>
@@ -218,7 +218,7 @@ function SaeRow({
           {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
             <p className="mt-0.5 text-xs text-amber-200/80 italic line-clamp-2">{notif.ia_resumen}</p>
           )}
-          <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10px] text-zinc-500">
+          <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10px] text-zinc-500 dark:text-zinc-400">
             {fueroLabel && (
               <span className="inline-flex items-center gap-1 text-cyan-300 max-w-full truncate">
                 <Building2 className="h-3 w-3 shrink-0" />
@@ -405,7 +405,7 @@ export default function NotificacionesPage() {
       {/* Search + bulk */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
           <input
             type="search"
             value={search}
@@ -425,7 +425,7 @@ export default function NotificacionesPage() {
             </button>
             <button
               onClick={clearSelection}
-              className="text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-300 whitespace-nowrap"
+              className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-300 whitespace-nowrap"
             >
               Cancelar
             </button>
@@ -433,7 +433,7 @@ export default function NotificacionesPage() {
         ) : items.length > 0 && (
           <button
             onClick={selectAllVisible}
-            className="text-[11px] sm:text-xs text-zinc-500 hover:text-zinc-300 whitespace-nowrap self-start sm:self-auto"
+            className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-300 whitespace-nowrap self-start sm:self-auto"
           >
             Seleccionar visibles ({items.length})
           </button>
@@ -460,11 +460,11 @@ export default function NotificacionesPage() {
       <div className="space-y-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <BellOff className="h-10 w-10 text-zinc-600 dark:text-zinc-400 mb-3" />
+            <BellOff className="h-10 w-10 text-zinc-600 dark:text-zinc-300 mb-3" />
             <p className="text-sm text-zinc-400">
               {search ? 'No hay resultados para tu búsqueda' : 'Sin notificaciones'}
             </p>

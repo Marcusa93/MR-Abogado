@@ -61,7 +61,7 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Sin cliente asignado</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">Sin cliente asignado</p>
           )}
         </Card>
 

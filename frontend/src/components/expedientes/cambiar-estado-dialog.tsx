@@ -66,13 +66,13 @@ export function CambiarEstadoDialog({
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
               Cambiar estado del expediente
             </h2>
-            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
               Selecciona el nuevo estado y opcionalmente agrega un motivo.
             </p>
           </div>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:bg-white/5"
+            className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -81,7 +81,7 @@ export function CambiarEstadoDialog({
         {/* Body */}
         <div className="space-y-4 px-5 py-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
               Estado actual
             </label>
             <div>
@@ -90,7 +90,7 @@ export function CambiarEstadoDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
               Nuevo estado
             </label>
             <select
@@ -108,7 +108,7 @@ export function CambiarEstadoDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            <label className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
               Motivo (opcional)
             </label>
             <textarea

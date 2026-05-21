@@ -59,7 +59,7 @@ function CounterCard({
       <span
         className={cn(
           'text-[11px] font-medium',
-          isActive ? cfg.counterText : 'text-zinc-600 dark:text-zinc-400'
+          isActive ? cfg.counterText : 'text-zinc-600 dark:text-zinc-300'
         )}
       >
         {cfg.label}
@@ -162,7 +162,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
           <span
             className={cn(
               'text-[11px] font-medium',
-              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-600 dark:text-zinc-400'
+              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-600 dark:text-zinc-300'
             )}
           >
             Total
@@ -274,7 +274,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                                 <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               </>
                             )}
-                            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400">{(exp as any).numero}</span>
+                            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(exp as any).numero}</span>
                           </div>
                         </div>
                         {exp.clientes?.telefono && (
@@ -317,7 +317,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           {formatDateCompact(nextTurno)}
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-600 dark:text-zinc-400">—</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-300">—</span>
                       )}
                     </td>
 
@@ -328,7 +328,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           {pendingTareas}
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-600 dark:text-zinc-400">0</span>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-300">0</span>
                       )}
                     </td>
                   </tr>
@@ -355,7 +355,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
       </>)}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
         {PIPELINE_CATEGORIES.map(
           (cat) => (
             <span key={cat} className="flex items-center gap-1.5">

@@ -117,7 +117,7 @@ function UploadDialog({
       <div className="w-full max-w-md rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Subir documento</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200">
+          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -161,7 +161,7 @@ function UploadDialog({
                     <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
                     <p className="text-xs text-zinc-700 dark:text-zinc-300">{formatFileSize(file.size)}{file.type.startsWith('image/') ? ' — se convertirá a PDF' : ''}</p>
                   </div>
-                  <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-zinc-600 dark:text-zinc-400 hover:text-red-500">
+                  <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-zinc-600 dark:text-zinc-300 hover:text-red-500">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -169,7 +169,7 @@ function UploadDialog({
             ) : (
               <button
                 onClick={() => fileRef.current?.click()}
-                className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-white/10 py-8 text-zinc-600 dark:text-zinc-400 hover:border-amber-500/30 hover:text-amber-400 transition-colors"
+                className="flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed border-white/10 py-8 text-zinc-600 dark:text-zinc-300 hover:border-amber-500/30 hover:text-amber-400 transition-colors"
               >
                 <Upload className="h-8 w-8" />
                 <span className="text-sm">Hacé click para seleccionar un archivo</span>
@@ -181,7 +181,7 @@ function UploadDialog({
           {/* Nombre del archivo */}
           {file && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Nombre del documento</label>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Nombre del documento</label>
               <input
                 value={nombreArchivo}
                 onChange={(e) => setNombreArchivo(e.target.value)}
@@ -193,7 +193,7 @@ function UploadDialog({
 
           {/* Categoria */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Categoría</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Categoría</label>
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
@@ -208,7 +208,7 @@ function UploadDialog({
 
           {/* Descripción */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Descripción (opcional)</label>
+            <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Descripción (opcional)</label>
             <input
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
@@ -344,7 +344,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-300" />
             </div>
           ) : !adjuntos || adjuntos.length === 0 ? (
             <EmptyState
@@ -363,7 +363,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                     className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                       !filterCategoria
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        : 'bg-white/5 text-zinc-600 dark:text-zinc-400 border border-white/10 hover:bg-white/10'
+                        : 'bg-white/5 text-zinc-600 dark:text-zinc-300 border border-white/10 hover:bg-white/10'
                     }`}
                   >
                     Todos ({adjuntos.length})
@@ -377,7 +377,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium capitalize transition-colors ${
                           filterCategoria === cat
                             ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-white/5 text-zinc-600 dark:text-zinc-400 border border-white/10 hover:bg-white/10'
+                            : 'bg-white/5 text-zinc-600 dark:text-zinc-300 border border-white/10 hover:bg-white/10'
                         }`}
                       >
                         {CATEGORIA_LABELS[cat] ?? cat} ({count})
@@ -419,14 +419,14 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handlePreview(adj.storage_path, fileName)}
-                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-amber-400 hover:bg-amber-950/30"
+                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-amber-400 hover:bg-amber-950/30"
                       title="Ver documento"
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleDownload(adj.storage_path, fileName)}
-                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-400 hover:bg-blue-950/30"
+                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-blue-400 hover:bg-blue-950/30"
                       title="Descargar"
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -434,7 +434,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                     <button
                       onClick={() => setDeleteTarget({ id: adj.id, path: adj.storage_path })}
                       disabled={deleteAdjunto.isPending}
-                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-red-400 hover:bg-red-950/30"
+                      className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-red-400 hover:bg-red-950/30"
                       title="Eliminar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -477,14 +477,14 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                   href={previewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-blue-400"
+                  className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-blue-400"
                   title="Abrir en nueva pestaña"
                 >
                   <Download className="h-4 w-4" />
                 </a>
                 <button
                   onClick={() => setPreviewUrl(null)}
-                  className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200"
+                  className="rounded-lg p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
                 >
                   <X className="h-4 w-4" />
                 </button>

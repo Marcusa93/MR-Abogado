@@ -144,7 +144,7 @@ export default function ActividadPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">Actividad</h1>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Monitoreo de acciones de los usuarios del sistema</p>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Monitoreo de acciones de los usuarios del sistema</p>
           </div>
           <button
             type="button"
@@ -216,7 +216,7 @@ export default function ActividadPage() {
       {/* Filters */}
       <div className="glass-card rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+          <Filter className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
           <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Filtros</h3>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
@@ -274,14 +274,14 @@ export default function ActividadPage() {
         <ErrorState message="Error al cargar la actividad" onRetry={() => refetch()} />
       ) : entries.length === 0 ? (
         <div className="glass-card rounded-xl p-8 text-center">
-          <Activity className="mx-auto h-10 w-10 text-zinc-600 dark:text-zinc-400 mb-3" />
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No hay actividad para los filtros seleccionados</p>
+          <Activity className="mx-auto h-10 w-10 text-zinc-600 dark:text-zinc-300 mb-3" />
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">No hay actividad para los filtros seleccionados</p>
         </div>
       ) : (
         <div className="glass-card rounded-xl overflow-hidden">
           <div className="divide-y divide-white/5">
             {entries.map((entry) => {
-              const config = ACCION_CONFIG[entry.accion] ?? { icon: Activity, label: entry.accion, color: 'text-zinc-600 dark:text-zinc-400' }
+              const config = ACCION_CONFIG[entry.accion] ?? { icon: Activity, label: entry.accion, color: 'text-zinc-600 dark:text-zinc-300' }
               const Icon = config.icon
               const userName = entry.profiles ? `${entry.profiles.nombre} ${entry.profiles.apellido}` : 'Sistema'
 
@@ -297,12 +297,12 @@ export default function ActividadPage() {
                     <p className="text-sm text-zinc-800 dark:text-zinc-200">
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">{userName}</span>
                       {' '}
-                      <span className="text-zinc-600 dark:text-zinc-400">{describeAuditEntry(entry)}</span>
+                      <span className="text-zinc-600 dark:text-zinc-300">{describeAuditEntry(entry)}</span>
                     </p>
                     <div className="mt-0.5 flex items-center gap-2">
                       <span className={cn('text-[10px] font-medium', config.color)}>{config.label}</span>
                       {entry.tabla !== 'auth' && (
-                        <span className="text-[10px] text-zinc-600 dark:text-zinc-400">
+                        <span className="text-[10px] text-zinc-600 dark:text-zinc-300">
                           {TABLA_LABELS[entry.tabla] ?? entry.tabla}
                         </span>
                       )}
@@ -312,7 +312,7 @@ export default function ActividadPage() {
                   {/* Timestamp */}
                   <div className="shrink-0 text-right">
                     <p className="text-xs text-zinc-700 dark:text-zinc-300">{timeAgo(entry.created_at)}</p>
-                    <p className="text-[10px] text-zinc-600 dark:text-zinc-400">{formatDateTime(entry.created_at)}</p>
+                    <p className="text-[10px] text-zinc-600 dark:text-zinc-300">{formatDateTime(entry.created_at)}</p>
                   </div>
                 </div>
               )
@@ -329,17 +329,17 @@ export default function ActividadPage() {
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-xs text-zinc-600 dark:text-zinc-400 px-2">
+                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-2">
                   {page + 1} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

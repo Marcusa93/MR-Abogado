@@ -58,21 +58,21 @@ function ActuacionRow({ act }: { act: ActuacionReciente }) {
           {act.titulo}
         </p>
         {act.ai_summary && (
-          <p className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-zinc-500 line-clamp-2 dark:text-zinc-400">
+          <p className="mt-1 flex items-start gap-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2 dark:text-zinc-300">
             <Sparkles className="mt-[3px] h-2.5 w-2.5 shrink-0 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
             <span>{act.ai_summary}</span>
           </p>
         )}
-        <p className="mt-1 text-[11px] text-zinc-500 truncate">
+        <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
           {act.expediente_numero ? `${act.expediente_numero} · ` : ''}
           {act.expediente_caratula ?? 'Sin carátula'}
         </p>
-        <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+        <p className="text-[10px] text-zinc-600 dark:text-zinc-300 mt-0.5">
           Llegó {timeAgo(act.created_at)}
         </p>
       </div>
 
-      <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-zinc-500 transition-colors group-hover:text-[var(--brand-accent)] dark:group-hover:text-[var(--brand-ice)]" />
+      <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400 transition-colors group-hover:text-[var(--brand-accent)] dark:group-hover:text-[var(--brand-ice)]" />
     </Link>
   )
 }
@@ -99,7 +99,7 @@ function ActuacionesRecientesPanelView({
             )}
           </div>
         </div>
-        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">48h</span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">48h</span>
       </div>
 
       {isLoading ? (
@@ -113,8 +113,8 @@ function ActuacionesRecientesPanelView({
           <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
             <Database className="h-6 w-6" />
           </div>
-          <p className="text-xs text-zinc-500">Sin actuaciones nuevas en las últimas 48h.</p>
-          <p className="text-[10px] text-zinc-600 dark:text-zinc-400 mt-1">Sincronizá tus expedientes desde el tab SAE.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Sin actuaciones nuevas en las últimas 48h.</p>
+          <p className="text-[10px] text-zinc-600 dark:text-zinc-300 mt-1">Sincronizá tus expedientes desde el tab SAE.</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">

@@ -58,7 +58,7 @@ export function SaePdfViewerDialog({
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{fileName}</p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {hasMultiple ? `Documento ${currentIndex + 1} de ${totalFiles}` : 'Documento SAE'}
             </p>
           </div>
@@ -152,7 +152,7 @@ export function SaePdfViewerDialog({
         </div>
 
         {hasMultiple && (
-          <div className="border-t border-white/10 px-4 py-2 text-[11px] text-zinc-500 flex items-center justify-between">
+          <div className="border-t border-white/10 px-4 py-2 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
             <span>Usá ← → para navegar entre documentos</span>
             <span>{currentIndex + 1} / {totalFiles}</span>
           </div>

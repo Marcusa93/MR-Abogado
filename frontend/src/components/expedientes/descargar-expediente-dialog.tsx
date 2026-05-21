@@ -111,7 +111,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
               <Ban className="h-5 w-5 shrink-0 text-zinc-400 mt-0.5" />
               <div>
                 <p className="font-medium text-zinc-300">Generación cancelada</p>
-                <p className="text-xs text-zinc-500 mt-1">El PDF no se descargó.</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">El PDF no se descargó.</p>
               </div>
             </div>
           ) : error ? (
@@ -152,7 +152,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-500">
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
                     <span>
                       {progress?.bytesSoFar ? `Descargado: ${formatBytes(progress.bytesSoFar)}` : ''}
                     </span>
@@ -162,7 +162,7 @@ export function DescargarExpedienteDialog({ open, onClose, expedienteId, expedie
               )}
 
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] text-zinc-500 flex-1">
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 flex-1">
                   Puede tardar entre 30 segundos y varios minutos según cantidad de adjuntos.
                 </p>
                 <button

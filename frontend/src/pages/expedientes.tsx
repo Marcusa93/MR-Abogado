@@ -65,7 +65,7 @@ function SortHeader({
     <th
       className={cn(
         'px-4 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-zinc-800 dark:hover:text-zinc-200',
-        isActive ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-400',
+        isActive ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-300',
         className
       )}
       onClick={() => onSort(field)}
@@ -217,7 +217,7 @@ export default function ExpedientesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
             Expedientes
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
             Gestiona todos los expedientes del estudio.
           </p>
         </div>
@@ -350,7 +350,7 @@ export default function ExpedientesPage() {
               {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-amber-400" />}
               <button
                 onClick={() => setSelectedIds(new Set())}
-                className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
+                className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
               >
                 <X className="h-3.5 w-3.5" />
                 Deseleccionar
@@ -420,7 +420,7 @@ export default function ExpedientesPage() {
                     onSort={handleSort}
                     className="hidden md:table-cell"
                   />
-                  <th className="hidden lg:table-cell px-4 py-3 text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                  <th className="hidden lg:table-cell px-4 py-3 text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
                     Responsable
                   </th>
                   <SortHeader
@@ -493,7 +493,7 @@ export default function ExpedientesPage() {
                             <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
                               {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
                             </p>
-                            <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                               {tipo && (
                                 <span className="truncate">{tipo.nombre}</span>
                               )}
@@ -506,7 +506,7 @@ export default function ExpedientesPage() {
                               {tipo && (expediente as any).numero && (
                                 <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               )}
-                              <span className="font-mono text-zinc-600 dark:text-zinc-400 text-[10px]">{(expediente as any).numero}</span>
+                              <span className="font-mono text-zinc-600 dark:text-zinc-300 text-[10px]">{(expediente as any).numero}</span>
                             </div>
                           </div>
                           {cliente?.telefono && (
@@ -532,11 +532,11 @@ export default function ExpedientesPage() {
                       <td className="hidden lg:table-cell px-4 py-3">
                         {abogadoMembro ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-zinc-600 dark:text-zinc-400">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
                               {(abogadoMembro.nombre?.[0] ?? '').toUpperCase()}
                               {(abogadoMembro.apellido?.[0] ?? '').toUpperCase()}
                             </div>
-                            <span className="truncate text-sm text-zinc-600 dark:text-zinc-400 max-w-[120px]">
+                            <span className="truncate text-sm text-zinc-600 dark:text-zinc-300 max-w-[120px]">
                               {abogadoMembro.apellido}
                             </span>
                           </div>
@@ -560,7 +560,7 @@ export default function ExpedientesPage() {
           {/* Pagination */}
           {data.totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <p className="text-xs text-zinc-600 dark:text-zinc-300">
                 Mostrando {(data.page - 1) * data.pageSize + 1} a{' '}
                 {Math.min(data.page * data.pageSize, data.count)} de{' '}
                 {data.count} expedientes
@@ -569,7 +569,7 @@ export default function ExpedientesPage() {
                 <button
                   disabled={data.page <= 1 || isFetching}
                   onClick={() => goToPage(data.page - 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -599,7 +599,7 @@ export default function ExpedientesPage() {
                           className={
                             page === data.page
                               ? 'flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-cyan text-sm font-medium text-zinc-950'
-                              : 'flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-white/5'
+                              : 'flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5'
                           }
                         >
                           {page}
@@ -611,7 +611,7 @@ export default function ExpedientesPage() {
                 <button
                   disabled={data.page >= data.totalPages || isFetching}
                   onClick={() => goToPage(data.page + 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

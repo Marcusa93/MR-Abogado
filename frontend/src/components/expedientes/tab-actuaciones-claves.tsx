@@ -68,7 +68,7 @@ function ClaveRow({ movement, onUnstar, manuallyMarked }: { movement: SaeMovemen
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">{movement.titulo}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">{formatDate(movement.fecha)}</p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{formatDate(movement.fecha)}</p>
 
           {aiSummary && (
             <p className="mt-2 text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
@@ -156,7 +156,7 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
       title="Actuaciones claves"
       headerRight={
         <div className="flex items-center gap-3">
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {claves.length} de {movements.length}
             {manuallyMarkedSet.size > 0 && (
               <span className="ml-2 text-amber-400/80">· {manuallyMarkedSet.size} marcadas por vos</span>
@@ -177,7 +177,7 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
     >
       {isLoading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
         </div>
       ) : claves.length === 0 ? (
         <EmptyState
@@ -199,13 +199,13 @@ export function TabActuacionesClaves({ expedienteId }: Props) {
       )}
 
       {claves.some(m => !m.ai_analyzed_at) && (
-        <p className="mt-3 text-[11px] text-zinc-500 flex items-center gap-1">
+        <p className="mt-3 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
           <AlertCircle className="h-3 w-3" />
           Algunas claves todavía no fueron analizadas con IA. Andá al tab SAE y usá "Analizar pendientes" para enriquecerlas.
         </p>
       )}
 
-      <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-400">
+      <p className="mt-3 text-[10px] text-zinc-600 dark:text-zinc-300">
         Tip: en el tab SAE, click en la estrella para marcar/desmarcar. Acá podés sacar una con click en la estrella amarilla.
       </p>
 

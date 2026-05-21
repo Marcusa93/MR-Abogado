@@ -451,7 +451,7 @@ export function OnboardingTour() {
               <h2 id="onboarding-title" className="truncate text-base font-bold text-zinc-900 dark:text-zinc-50">
                 {step.titulo}
               </h2>
-              <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">
+              <p className="truncate text-xs text-zinc-600 dark:text-zinc-300">
                 {step.subtitulo}
               </p>
             </div>
@@ -460,7 +460,7 @@ export function OnboardingTour() {
             type="button"
             onClick={close}
             aria-label="Cerrar tour"
-            className="shrink-0 rounded-lg p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+            className="shrink-0 rounded-lg p-1 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -511,7 +511,7 @@ export function OnboardingTour() {
             <button
               type="button"
               onClick={finish}
-              className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+              className="text-xs font-medium text-zinc-500 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
             >
               Saltar
             </button>

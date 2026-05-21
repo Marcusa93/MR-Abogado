@@ -31,14 +31,14 @@ function NotaContent({ text, deleted }: { text: string; deleted?: boolean }) {
   return (
     <p
       className={`text-sm whitespace-pre-wrap break-words ${
-        deleted ? 'text-zinc-600 dark:text-zinc-400 line-through italic' : 'text-zinc-700 dark:text-zinc-300'
+        deleted ? 'text-zinc-600 dark:text-zinc-300 line-through italic' : 'text-zinc-700 dark:text-zinc-300'
       }`}
     >
       {parts.map((part, i) =>
         part.type === 'mention' ? (
           <span
             key={i}
-            className={deleted ? 'text-zinc-600 dark:text-zinc-400' : 'font-medium text-amber-400'}
+            className={deleted ? 'text-zinc-600 dark:text-zinc-300' : 'font-medium text-amber-400'}
           >
             {part.content}
           </span>
@@ -81,7 +81,7 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
           nota.eliminada
-            ? 'bg-zinc-50 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-400'
+            ? 'bg-zinc-50 dark:bg-zinc-900/60 text-zinc-600 dark:text-zinc-300'
             : isOwn
               ? 'bg-amber-500/20 text-amber-400'
               : 'bg-slate-700 text-zinc-700 dark:text-zinc-300'
@@ -110,7 +110,7 @@ function NotaItem({ nota, expedienteId }: { nota: NotaWithAuthor; expedienteId: 
               type="button"
               onClick={handleDelete}
               disabled={deleteNota.isPending}
-              className="ml-auto hidden rounded p-1 text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-rose-500/10 hover:text-rose-400 group-hover:flex items-center disabled:opacity-50"
+              className="ml-auto hidden rounded p-1 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-rose-500/10 hover:text-rose-400 group-hover:flex items-center disabled:opacity-50"
               title="Eliminar nota"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -203,7 +203,7 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
       ) : notas.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-sm text-zinc-700 dark:text-zinc-300">Sin notas todavía</p>
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
             Usá @ para mencionar a un compañero
           </p>
         </div>

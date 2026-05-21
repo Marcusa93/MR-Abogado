@@ -8,11 +8,11 @@ import { toast } from '@/stores/toast-store'
 
 function DispatchStatusPill({ snap, label }: { snap: DispatchSnapshot | null | undefined; label: string }) {
   if (snap === undefined) {
-    return <span className="text-[10px] text-zinc-500">—</span>
+    return <span className="text-[10px] text-zinc-500 dark:text-zinc-400">—</span>
   }
   if (snap === null) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500">
+      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
         <CircleMinus className="h-3 w-3" /> Sin envíos
       </span>
     )
@@ -21,7 +21,7 @@ function DispatchStatusPill({ snap, label }: { snap: DispatchSnapshot | null | u
     snap.status === 'success'
       ? 'text-emerald-400'
       : snap.status === 'skipped'
-        ? 'text-zinc-500'
+        ? 'text-zinc-500 dark:text-zinc-400'
         : 'text-rose-400'
   const Icon = snap.status === 'success' ? CircleCheck : snap.status === 'skipped' ? CircleMinus : CircleX
   return (
@@ -40,14 +40,14 @@ function DispatchTelemetry() {
   const email = useLastDispatch('email')
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 flex flex-col gap-1.5">
-      <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">Último envío</p>
+      <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">Último envío</p>
       <div className="grid grid-cols-2 gap-2">
         <div className="flex items-center gap-2">
-          <Smartphone className="h-3 w-3 text-zinc-500 shrink-0" />
+          <Smartphone className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
           <DispatchStatusPill snap={push.data} label="Push" />
         </div>
         <div className="flex items-center gap-2">
-          <Mail className="h-3 w-3 text-zinc-500 shrink-0" />
+          <Mail className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
           <DispatchStatusPill snap={email.data} label="Email" />
         </div>
       </div>
@@ -93,7 +93,7 @@ export function NotifPrefsConfig() {
   }
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-zinc-500" /></div>
+    return <div className="flex items-center justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-zinc-500 dark:text-zinc-400" /></div>
   }
 
   return (
@@ -104,7 +104,7 @@ export function NotifPrefsConfig() {
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones de la app</h3>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             Elegí por cada tipo de evento si querés recibir push (browser/PWA) y/o email. Los defaults están pensados para no spammear: las menciones y tareas vienen activas, los cambios de estado vienen apagados.
           </p>
         </div>
@@ -112,7 +112,7 @@ export function NotifPrefsConfig() {
 
       {/* Tabla de eventos × canales */}
       <div className="rounded-lg border border-white/10 overflow-hidden">
-        <div className="grid grid-cols-[1fr_70px_70px] gap-2 px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+        <div className="grid grid-cols-[1fr_70px_70px] gap-2 px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-medium">
           <div>Evento</div>
           <div className="flex items-center justify-center gap-1 text-center"><Smartphone className="h-3 w-3" /> Push</div>
           <div className="flex items-center justify-center gap-1 text-center"><Mail className="h-3 w-3" /> Email</div>
@@ -127,7 +127,7 @@ export function NotifPrefsConfig() {
             >
               <div className="min-w-0">
                 <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{ev.label}</p>
-                <p className="text-[10px] text-zinc-500 leading-snug mt-0.5">{ev.desc}</p>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug mt-0.5">{ev.desc}</p>
               </div>
               <div className="flex justify-center">
                 <input
@@ -164,7 +164,7 @@ export function NotifPrefsConfig() {
 
       <DispatchTelemetry />
 
-      <p className="text-[10px] text-zinc-600 dark:text-zinc-400">
+      <p className="text-[10px] text-zinc-600 dark:text-zinc-300">
         Las notificaciones del SAE tienen sus propias preferencias arriba (incluyendo horario silencioso y selector de fueros).
       </p>
     </div>

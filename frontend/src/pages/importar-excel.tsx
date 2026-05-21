@@ -58,7 +58,7 @@ export default function ImportarExcelPage() {
         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-400">
           Importar desde Excel
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+        <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
           Cargá tu planilla de control para sincronizar clientes y expedientes
         </p>
       </div>
@@ -108,7 +108,7 @@ export default function ImportarExcelPage() {
               }}
             />
           </label>
-          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-300">
             Compatible con la Planilla de Control del estudio (.xlsx)
           </p>
 
@@ -135,7 +135,7 @@ export default function ImportarExcelPage() {
                 </p>
               </div>
             </div>
-            <button onClick={handleReset} className="rounded-lg p-2 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
+            <button onClick={handleReset} className="rounded-lg p-2 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -145,7 +145,7 @@ export default function ImportarExcelPage() {
             <div className="glass-card rounded-xl p-4">
               <div className="flex items-center gap-2 text-violet-400">
                 <Users className="h-5 w-5" />
-                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Clientes</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Clientes</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalClientes}</p>
               <p className="text-xs text-zinc-700 dark:text-zinc-300">únicos por DNI</p>
@@ -153,7 +153,7 @@ export default function ImportarExcelPage() {
             <div className="glass-card rounded-xl p-4">
               <div className="flex items-center gap-2 text-amber-400">
                 <Briefcase className="h-5 w-5" />
-                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Expedientes</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Expedientes</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalExpedientes}</p>
               <p className="text-xs text-zinc-700 dark:text-zinc-300">de todas las hojas</p>
@@ -161,7 +161,7 @@ export default function ImportarExcelPage() {
             <div className="glass-card rounded-xl p-4">
               <div className="flex items-center gap-2 text-amber-400">
                 <Calendar className="h-5 w-5" />
-                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">Turnos</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">Turnos</span>
               </div>
               <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{preview.stats.totalTurnos}</p>
               <p className="text-xs text-zinc-700 dark:text-zinc-300">históricos</p>
@@ -210,7 +210,7 @@ export default function ImportarExcelPage() {
                       <div className={`h-2 w-2 rounded-full ${colors[estado] || 'bg-slate-400'}`} />
                       <span className="text-sm text-zinc-700 dark:text-zinc-300">{labels[estado] || estado}</span>
                     </div>
-                    <span className="text-sm font-mono text-zinc-600 dark:text-zinc-400">{count}</span>
+                    <span className="text-sm font-mono text-zinc-600 dark:text-zinc-300">{count}</span>
                   </div>
                 )
               })}
@@ -279,7 +279,7 @@ export default function ImportarExcelPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
+              className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
             >
               <ArrowLeft className="h-4 w-4" />
               Volver
@@ -313,7 +313,7 @@ export default function ImportarExcelPage() {
               </p>
             </>
           )}
-          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-4 text-xs text-zinc-600 dark:text-zinc-300">
             No cierres esta página
           </p>
         </div>
@@ -367,7 +367,7 @@ export default function ImportarExcelPage() {
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-white/5"
+              className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5"
             >
               Importar otro archivo
             </button>

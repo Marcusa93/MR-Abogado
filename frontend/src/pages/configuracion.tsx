@@ -180,7 +180,7 @@ function ProfileSection() {
       {/* Datos profesionales \u2014 usados en encabezado de escritos */}
       <div className="mt-5 border-t border-white/10 pt-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
             Datos profesionales
           </h3>
           {datosEscritoFaltantes ? (
@@ -473,7 +473,7 @@ const STATUS_CONFIG = {
   pendiente: { label: 'Pendiente verificación', color: 'text-zinc-400', bg: 'bg-zinc-500/15', icon: Clock },
   activo:    { label: 'Activo', color: 'text-emerald-400', bg: 'bg-emerald-500/15', icon: CheckCircle2 },
   error:     { label: 'Error de conexión', color: 'text-rose-400', bg: 'bg-rose-500/15', icon: AlertCircle },
-  desactivado: { label: 'Desactivado', color: 'text-zinc-500', bg: 'bg-zinc-700/20', icon: X },
+  desactivado: { label: 'Desactivado', color: 'text-zinc-500 dark:text-zinc-400', bg: 'bg-zinc-700/20', icon: X },
 } as const
 
 function SaeCredentialsSection() {
@@ -537,7 +537,7 @@ function SaeCredentialsSection() {
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Integración SAE
           </h2>
-          <span className="text-[10px] text-zinc-500">justucuman.gov.ar</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">justucuman.gov.ar</span>
         </div>
         {credential && !showForm && (
           <div className="flex items-center gap-2">
@@ -556,7 +556,7 @@ function SaeCredentialsSection() {
             )}
             <button
               onClick={() => { setShowForm(true); setUsername(credential.username) }}
-              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/10 transition-colors"
             >
               <RefreshCw className="h-3 w-3" />
               Actualizar
@@ -567,7 +567,7 @@ function SaeCredentialsSection() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-300" />
         </div>
       ) : credential && !showForm ? (
         /* Credential exists — show info */
@@ -578,7 +578,7 @@ function SaeCredentialsSection() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{credential.username}</p>
-              <p className={cn('text-xs', statusCfg?.color ?? 'text-zinc-500')}>
+              <p className={cn('text-xs', statusCfg?.color ?? 'text-zinc-500 dark:text-zinc-400')}>
                 {statusCfg?.label ?? credential.status}
               </p>
             </div>
@@ -591,7 +591,7 @@ function SaeCredentialsSection() {
             </p>
           )}
 
-          <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+          <div className="flex items-center gap-2 text-[10px] text-zinc-500 dark:text-zinc-400">
             {credential.last_sync_at && (
               <span>Última sync: {new Date(credential.last_sync_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
             )}
@@ -600,7 +600,7 @@ function SaeCredentialsSection() {
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-xs text-zinc-500 hover:text-rose-400 transition-colors"
+              className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-rose-400 transition-colors"
             >
               Eliminar credenciales
             </button>
@@ -616,7 +616,7 @@ function SaeCredentialsSection() {
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-xs text-zinc-500 hover:text-zinc-300"
+                className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
               >
                 Cancelar
               </button>
@@ -626,7 +626,7 @@ function SaeCredentialsSection() {
       ) : (
         /* No credential or editing — show form */
         <div className="space-y-3 max-w-sm">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Ingresá tus credenciales del SAE (Sistema de Actuación Electrónica) para sincronizar actuaciones automáticamente.
           </p>
           <div>
@@ -661,7 +661,7 @@ function SaeCredentialsSection() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <p className="mt-1 text-[10px] text-zinc-500">
+            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
               La contraseña se cifra en el servidor y nunca se expone al cliente.
             </p>
           </div>
@@ -678,7 +678,7 @@ function SaeCredentialsSection() {
             {showForm && (
               <button
                 onClick={() => { setShowForm(false); setUsername(''); setPassword('') }}
-                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-300 transition-colors"
               >
                 Cancelar
               </button>
@@ -738,7 +738,7 @@ function ThemeSection() {
                 'text-xs font-medium',
                 theme === opt.value
                   ? 'text-amber-300'
-                  : 'text-zinc-600 dark:text-zinc-400'
+                  : 'text-zinc-600 dark:text-zinc-300'
               )}
             >
               {opt.label}
@@ -869,7 +869,7 @@ function UsersSection() {
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Usuarios del sistema
           </h2>
-          <span className="text-[10px] text-zinc-600 dark:text-zinc-400">{users?.length ?? 0}</span>
+          <span className="text-[10px] text-zinc-600 dark:text-zinc-300">{users?.length ?? 0}</span>
         </div>
         <button
           onClick={() => { resetInvite(); setShowInvite(true) }}
@@ -890,7 +890,7 @@ function UsersSection() {
                 <p className="text-sm font-medium">Usuario creado</p>
               </div>
               <div className="space-y-2">
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">
                   Contraseña temporal para el primer ingreso:
                 </p>
                 <div className="flex items-center gap-2">
@@ -902,7 +902,7 @@ function UsersSection() {
                       navigator.clipboard.writeText(recoveryInfo.tempPassword)
                       toast.success('Contraseña copiada')
                     }}
-                    className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-2 text-zinc-600 dark:text-zinc-400 hover:text-white transition-colors"
+                    className="shrink-0 rounded-lg border border-white/10 bg-white/5 p-2 text-zinc-600 dark:text-zinc-300 hover:text-white transition-colors"
                     title="Copiar"
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -929,7 +929,7 @@ function UsersSection() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Email *</label>
+                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Email *</label>
                   <input
                     type="email"
                     value={inviteForm.email}
@@ -939,7 +939,7 @@ function UsersSection() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Rol *</label>
+                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Rol *</label>
                   <select
                     value={inviteForm.rol}
                     onChange={(e) => setInviteForm(f => ({ ...f, rol: e.target.value }))}
@@ -951,7 +951,7 @@ function UsersSection() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Nombre *</label>
+                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Nombre *</label>
                   <input
                     value={inviteForm.nombre}
                     onChange={(e) => setInviteForm(f => ({ ...f, nombre: e.target.value }))}
@@ -959,7 +959,7 @@ function UsersSection() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Apellido *</label>
+                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Apellido *</label>
                   <input
                     value={inviteForm.apellido}
                     onChange={(e) => setInviteForm(f => ({ ...f, apellido: e.target.value }))}
@@ -967,7 +967,7 @@ function UsersSection() {
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Teléfono</label>
+                  <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Teléfono</label>
                   <input
                     value={inviteForm.telefono}
                     onChange={(e) => setInviteForm(f => ({ ...f, telefono: e.target.value }))}
@@ -992,7 +992,7 @@ function UsersSection() {
       {/* User list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-300" />
         </div>
       ) : (
         <div className="space-y-2">
@@ -1014,7 +1014,7 @@ function UsersSection() {
                     {user.nombre} {user.apellido}
                     {user.rol === 'ADMIN' && <Shield className="ml-1 inline h-3 w-3 text-rose-400" />}
                   </p>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400">{user.email}</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300">{user.email}</p>
                 </div>
 
                 {/* Role badge */}
@@ -1038,7 +1038,7 @@ function UsersSection() {
                         'rounded p-1.5 transition-colors',
                         user.activo !== false
                           ? 'text-emerald-500 hover:text-rose-400 hover:bg-white/10'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:text-emerald-400 hover:bg-white/10'
+                          : 'text-zinc-600 dark:text-zinc-300 hover:text-emerald-400 hover:bg-white/10'
                       )}
                       title={user.activo !== false ? 'Desactivar' : 'Activar'}
                     >
@@ -1059,7 +1059,7 @@ function UsersSection() {
                 <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-950/10 p-3 animate-fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Nombre</label>
+                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Nombre</label>
                       <input
                         value={editForm.nombre}
                         onChange={(e) => setEditForm(f => ({ ...f, nombre: e.target.value }))}
@@ -1067,7 +1067,7 @@ function UsersSection() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Apellido</label>
+                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Apellido</label>
                       <input
                         value={editForm.apellido}
                         onChange={(e) => setEditForm(f => ({ ...f, apellido: e.target.value }))}
@@ -1075,7 +1075,7 @@ function UsersSection() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Rol</label>
+                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Rol</label>
                       <select
                         value={editForm.rol}
                         onChange={(e) => setEditForm(f => ({ ...f, rol: e.target.value }))}
@@ -1087,7 +1087,7 @@ function UsersSection() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-400">Teléfono</label>
+                      <label className="mb-1 block text-[10px] font-medium text-zinc-600 dark:text-zinc-300">Teléfono</label>
                       <input
                         value={editForm.telefono}
                         onChange={(e) => setEditForm(f => ({ ...f, telefono: e.target.value }))}
@@ -1106,7 +1106,7 @@ function UsersSection() {
                     </button>
                     <button
                       onClick={() => setEditingUser(null)}
-                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/5"
+                      className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-white/5"
                     >
                       Cancelar
                     </button>
@@ -1269,12 +1269,12 @@ function CatalogoEditor({
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
           {title}
         </h2>
-        <span className="ml-auto text-[10px] text-zinc-600 dark:text-zinc-400">{items?.length ?? 0}</span>
+        <span className="ml-auto text-[10px] text-zinc-600 dark:text-zinc-300">{items?.length ?? 0}</span>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-300" />
         </div>
       ) : (
         <div className="space-y-1">
@@ -1289,7 +1289,7 @@ function CatalogoEditor({
                 }
                 className={cn(
                   'shrink-0 transition-colors',
-                  item.activo ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-400'
+                  item.activo ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-300'
                 )}
                 title={item.activo ? 'Desactivar' : 'Activar'}
               >
@@ -1331,14 +1331,14 @@ function CatalogoEditor({
                 <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => startEdit(item.id, item.nombre)}
-                    className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    className="rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
                     title="Editar"
                   >
                     <Pencil className="h-3 w-3" />
                   </button>
                   <button
                     onClick={() => setDeleteConfirm({ id: item.id, nombre: formatNames ? formatSnakeCase(item.nombre) : item.nombre })}
-                    className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-rose-400"
+                    className="rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-rose-400"
                     title="Eliminar"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -1401,7 +1401,7 @@ export default function ConfiguracionPage() {
         <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
           Configuraci{'\u00F3'}n
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           Ajustes del perfil, apariencia y administraci{'\u00F3'}n del sistema.
         </p>
       </div>

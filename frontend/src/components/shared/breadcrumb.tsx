@@ -17,7 +17,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
         const isLast = i === items.length - 1
         return (
           <span key={i} className="flex items-center gap-1.5">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300" />}
             {isLast || !item.href ? (
               <span className="font-medium text-zinc-800 dark:text-zinc-200 truncate max-w-[200px]">
                 {item.label}
@@ -25,7 +25,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
             ) : (
               <Link
                 to={item.href}
-                className="text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors"
+                className="text-zinc-600 dark:text-zinc-300 hover:text-amber-400 transition-colors"
               >
                 {item.label}
               </Link>

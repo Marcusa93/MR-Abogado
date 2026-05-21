@@ -51,7 +51,7 @@ function InfoItem({
     <div className="flex items-start gap-2.5">
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-700 dark:text-zinc-300" />
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+        <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
           {label}
         </p>
         <p className="mt-0.5 text-sm text-zinc-900 dark:text-zinc-100 break-words">
@@ -84,7 +84,7 @@ function MaskedInfoItem({
     <div className="flex items-start gap-2.5">
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-700 dark:text-zinc-300" />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+        <p className="text-[11px] uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
           {label}
         </p>
         <div className="mt-0.5 flex items-center gap-2">
@@ -182,7 +182,7 @@ export default function ClienteDetailPage() {
             <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {cliente.apellido} {cliente.nombre}
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">
               DNI: {cliente.dni}
               {cliente.cuil && ` | CUIL: ${cliente.cuil}`}
             </p>
@@ -212,7 +212,7 @@ export default function ClienteDetailPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Personal info */}
         <div className="glass-card rounded-xl p-4 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-3">
             Datos personales
           </h3>
           <InfoItem icon={CreditCard} label="DNI" value={cliente.dni} />
@@ -233,7 +233,7 @@ export default function ClienteDetailPage() {
 
         {/* Contact info */}
         <div className="glass-card rounded-xl p-4 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-3">
             Contacto
           </h3>
           <InfoItem icon={Phone} label="Teléfono" value={cliente.telefono} />
@@ -247,7 +247,7 @@ export default function ClienteDetailPage() {
             className="pt-1"
           />
           <div className="border-t border-white/5 pt-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-3">
               Domicilio
             </h3>
             <div className="space-y-3">
@@ -271,7 +271,7 @@ export default function ClienteDetailPage() {
 
         {/* Notes */}
         <div className="glass-card rounded-xl p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-3">
             Notas
           </h3>
           {cliente.notas ? (
@@ -289,7 +289,7 @@ export default function ClienteDetailPage() {
       {/* Claves de acceso — siempre enmascaradas, show/hide por item */}
       {(cliente as any).clave_arca && (
         <div className="glass-card rounded-xl p-4 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 mb-3">
             Claves de acceso
           </h3>
           <MaskedInfoItem icon={Key} label="Clave ARCA" value={(cliente as any).clave_arca} />
@@ -302,7 +302,7 @@ export default function ClienteDetailPage() {
           <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Expedientes
             {expedientes.length > 0 && (
-              <span className="ml-2 text-xs text-zinc-600 dark:text-zinc-400">
+              <span className="ml-2 text-xs text-zinc-600 dark:text-zinc-300">
                 ({expedientes.length})
               </span>
             )}
@@ -365,7 +365,7 @@ export default function ClienteDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-sm rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Eliminar cliente</h3>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               ¿Estás seguro de que querés eliminar a <strong className="text-zinc-800 dark:text-zinc-200">{cliente.apellido} {cliente.nombre}</strong>?
               {expedientes.length > 0 && (
                 <span className="block mt-1 text-amber-400">

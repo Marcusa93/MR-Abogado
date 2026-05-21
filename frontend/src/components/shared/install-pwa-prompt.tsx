@@ -191,7 +191,7 @@ function IOSSafariInstructions({ onDismiss }: { onDismiss: () => void }) {
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
           >
             Ahora no
           </button>
@@ -205,7 +205,7 @@ function IOSSafariInstructions({ onDismiss }: { onDismiss: () => void }) {
         </div>
       }
     >
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
         En iPhone/iPad las notificaciones solo llegan si instalás la app desde
         Safari. Es un minuto:
       </p>
@@ -216,7 +216,7 @@ function IOSSafariInstructions({ onDismiss }: { onDismiss: () => void }) {
             de un <strong>cuadrado con una flecha hacia arriba</strong>{' '}
             <IOSShareIcon className="inline-block h-5 w-5 align-middle text-sky-500 mx-0.5" />
           </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-300">
             Normalmente está en la barra de abajo del iPhone, o arriba a la
             derecha en iPad. Tocalo.
           </p>
@@ -229,7 +229,7 @@ function IOSSafariInstructions({ onDismiss }: { onDismiss: () => void }) {
           <p className="mt-1.5 rounded-lg bg-zinc-100 dark:bg-white/5 px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
             Añadir a pantalla de inicio
           </p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-300">
             Suele estar después de "Copiar", "Imprimir" o "Marcadores".
           </p>
         </Step>
@@ -272,7 +272,7 @@ function AndroidInstallModal({
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
           >
             Ahora no
           </button>
@@ -288,7 +288,7 @@ function AndroidInstallModal({
     >
       {canInstall ? (
         <>
-          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
             Chrome te lo puede instalar directamente desde acá:
           </p>
           <button
@@ -300,7 +300,7 @@ function AndroidInstallModal({
             Instalar ahora
           </button>
           <div className="mt-5">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+            <p className="text-xs text-zinc-500 dark:text-zinc-300 mb-2">
               ¿No te funcionó el botón? Hacelo desde el menú:
             </p>
             <AndroidManualSteps />
@@ -308,7 +308,7 @@ function AndroidInstallModal({
         </>
       ) : (
         <>
-          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
             Tu navegador todavía no te mostró el botón automático. Lo podés
             hacer en 3 pasos:
           </p>
@@ -325,7 +325,7 @@ function AndroidManualSteps() {
       <Step n={1}>
         <p className="flex items-center gap-1.5 flex-wrap">
           Tocá el menú de Chrome <MoreVertical className="h-4 w-4 inline" />
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs text-zinc-500 dark:text-zinc-300">
             (los 3 puntos arriba a la derecha)
           </span>
         </p>
@@ -337,7 +337,7 @@ function AndroidManualSteps() {
         <p className="mt-1.5 rounded-lg bg-zinc-100 dark:bg-white/5 px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Instalar aplicación
         </p>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-300">
           En algunos Chrome viejos figura como "Añadir a pantalla principal".
         </p>
       </Step>
@@ -365,14 +365,14 @@ function IOSNonSafariWarning({ onDismiss }: { onDismiss: () => void }) {
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
           >
             Entendido
           </button>
         </div>
       }
     >
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
         En iPhone/iPad la app solo se puede instalar y recibir notificaciones
         desde <strong>Safari</strong>. Chrome, Firefox y otros browsers en iOS
         no lo permiten (restricción de Apple).
@@ -421,7 +421,7 @@ function DesktopInstallCard({
             >
               Instalá Marco Rossi Estudio Jurídico como app
             </h3>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
               Te lo deja en una ventana propia y recibís las notificaciones sin
               tener que abrir el navegador.
             </p>
@@ -438,7 +438,7 @@ function DesktopInstallCard({
               <button
                 type="button"
                 onClick={onDismiss}
-                className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
               >
                 Ahora no
               </button>

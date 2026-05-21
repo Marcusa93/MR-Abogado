@@ -89,7 +89,7 @@ function UploadForm({ onClose }: { onClose: () => void }) {
               disabled={upload.isPending}
               className="block w-full text-xs text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-500/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-cyan-300 hover:file:bg-cyan-500/20"
             />
-            <p className="mt-1 text-[10px] text-zinc-500">
+            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
               PDF/DOCX nativamente digitales (no escaneados) o texto plano UTF-8. Máx. 30 MB.
             </p>
           </div>
@@ -204,7 +204,7 @@ export default function NormativaPage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Normativa</h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Biblioteca privada de leyes, decretos y códigos. Se usa como fundamento al redactar escritos.
             </p>
           </div>
@@ -220,7 +220,7 @@ export default function NormativaPage() {
 
       {docs.length > 0 && (
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -232,7 +232,7 @@ export default function NormativaPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
         </div>
       ) : docs.length === 0 ? (
         <EmptyState
@@ -243,7 +243,7 @@ export default function NormativaPage() {
           onAction={() => setUploadOpen(true)}
         />
       ) : filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-500">Ningún documento coincide con "{search}".</p>
+        <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Ningún documento coincide con "{search}".</p>
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (
@@ -254,7 +254,7 @@ export default function NormativaPage() {
               <FileText className="h-4 w-4 text-cyan-400 shrink-0" />
               <Link to={`/normativa/${doc.id}`} className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.titulo}</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
                   <span>{doc.tipo}</span>
                   {doc.numero && <span>· {doc.numero}</span>}
                   {doc.jurisdiccion && <span>· {doc.jurisdiccion}</span>}
@@ -274,7 +274,7 @@ export default function NormativaPage() {
                     onError: (err) => toast.error(err.message),
                   })}
                   disabled={reindex.isPending}
-                  className="shrink-0 rounded p-1.5 text-zinc-500 hover:text-cyan-300 hover:bg-white/10"
+                  className="shrink-0 rounded p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-cyan-300 hover:bg-white/10"
                   title="Reintentar"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -282,12 +282,12 @@ export default function NormativaPage() {
               )}
               <button
                 onClick={() => setConfirmDelete(doc)}
-                className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-white/10 transition-all"
+                className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-white/10 transition-all"
                 title="Eliminar"
               >
                 <Trash2 className="h-3 w-3" />
               </button>
-              <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-zinc-600 dark:text-zinc-300 shrink-0" />
             </div>
           ))}
         </div>

@@ -232,7 +232,7 @@ function ActuacionRow({
                   ? 'fill-amber-400 text-amber-400'
                   : movement.is_key === false
                     ? 'text-zinc-700 dark:text-zinc-200'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-amber-400'
+                    : 'text-zinc-600 dark:text-zinc-300 hover:text-amber-400'
               )}
             />
           </button>
@@ -259,7 +259,7 @@ function ActuacionRow({
                     ? 'text-zinc-700 dark:text-zinc-200'
                     : hasAudioAttachment(movement)
                       ? 'text-cyan-500/50 hover:text-cyan-400'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-cyan-400'
+                      : 'text-zinc-600 dark:text-zinc-300 hover:text-cyan-400'
               )}
             />
           </button>
@@ -284,7 +284,7 @@ function ActuacionRow({
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500">
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
             {formatDate(movement.fecha)}
             {attachments.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 text-sky-400">
@@ -404,7 +404,7 @@ function ActuacionRow({
                 >
                   <FileText className="h-4 w-4 shrink-0 text-sky-400" />
                   <span className="min-w-0 flex-1 truncate text-xs text-zinc-300">{att.fileName}</span>
-                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 group-hover:text-sky-400" />
+                  <Eye className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400 group-hover:text-sky-400" />
                 </button>
               ))}
             </div>
@@ -711,7 +711,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       headerRight={
         <div className="flex items-center gap-2">
           {ultimaSincronizacion && (
-            <span className="hidden sm:block text-xs text-zinc-500 mr-1">
+            <span className="hidden sm:block text-xs text-zinc-500 dark:text-zinc-400 mr-1">
               Última sync: {formatDateTime(ultimaSincronizacion)}
             </span>
           )}
@@ -756,7 +756,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
             SAE: {numeroSae}
           </span>
           {movements.length > 0 && (
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
               <span className="font-medium text-zinc-300">{movements.length}</span> actuaciones
             </span>
           )}
@@ -767,7 +767,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
             </span>
           ))}
           {lastSentencia && (
-            <span className="text-xs text-zinc-500 ml-auto">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-auto">
               Última sentencia: <span className="text-rose-300">{formatDate(lastSentencia.fecha)}</span>
             </span>
           )}
@@ -787,7 +787,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         {movements.length > 0 && (
           <div className="space-y-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
               <input
                 type="text"
                 value={search}
@@ -798,7 +798,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
                   title="Limpiar búsqueda"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -841,7 +841,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         {/* ── List ── */}
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
           </div>
         ) : movements.length === 0 ? (
           <EmptyState
@@ -851,7 +851,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
           />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <Search className="h-8 w-8 text-zinc-600 dark:text-zinc-400" />
+            <Search className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
             <p className="text-sm text-zinc-400">Ninguna actuación coincide con el filtro.</p>
             {filtersActive && (
               <button
@@ -867,11 +867,11 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
             {groups.map((group) => (
               <div key={group.key} className="space-y-2">
                 <div className="flex items-center gap-2 px-1">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                     {group.label}
                   </h4>
-                  <span className="text-[11px] text-zinc-600 dark:text-zinc-400">·</span>
-                  <span className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                  <span className="text-[11px] text-zinc-600 dark:text-zinc-300">·</span>
+                  <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
                     {group.movements.length} {group.movements.length === 1 ? 'actuación' : 'actuaciones'}
                   </span>
                   <div className="flex-1 h-px bg-white/[0.06] ml-2" />

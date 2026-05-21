@@ -44,7 +44,7 @@ const TIPO_ICON: Record<string, { icon: typeof Bell; color: string }> = {
   DOCUMENTO_FALTANTE: { icon: FileText, color: 'text-violet-400' },
   COBRO_PENDIENTE: { icon: DollarSign, color: 'text-emerald-400' },
   ESTADO_CAMBIO: { icon: ArrowRightLeft, color: 'text-amber-400' },
-  SISTEMA: { icon: Monitor, color: 'text-zinc-600 dark:text-zinc-400' },
+  SISTEMA: { icon: Monitor, color: 'text-zinc-600 dark:text-zinc-300' },
   MENCION: { icon: AtSign, color: 'text-pink-400' },
 }
 
@@ -55,7 +55,7 @@ const TIPO_ICON: Record<string, { icon: typeof Bell; color: string }> = {
 function SeenSeparator({ label, tone }: { label: string; tone: 'new' | 'old' }) {
   const cls = tone === 'new'
     ? 'text-emerald-400 bg-emerald-500/5'
-    : 'text-zinc-500 bg-zinc-500/5'
+    : 'text-zinc-500 dark:text-zinc-400 bg-zinc-500/5'
   return (
     <div className={cn('px-4 py-1 flex items-center gap-2 border-b border-white/5', cls)}>
       <span className="text-[9px] uppercase tracking-wider font-semibold">{label}</span>
@@ -81,7 +81,7 @@ function NotificationItem({
   onSnooze?: (id: string, until: Date) => void
   onNavigate: (path: string) => void
 }) {
-  const tipo = TIPO_ICON[alerta.tipo] ?? { icon: Bell, color: 'text-zinc-600 dark:text-zinc-400' }
+  const tipo = TIPO_ICON[alerta.tipo] ?? { icon: Bell, color: 'text-zinc-600 dark:text-zinc-300' }
   const Icon = tipo.icon
 
   const handleClick = () => {
@@ -110,7 +110,7 @@ function NotificationItem({
           {alerta.titulo}
         </p>
         {alerta.mensaje && (
-          <p className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-1">
+          <p className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-300 line-clamp-1">
             {alerta.mensaje}
           </p>
         )}
@@ -144,7 +144,7 @@ function NotificationItem({
             e.stopPropagation()
             onMarkRead(alerta.id)
           }}
-          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
           title="Marcar como leída"
         >
           <Eye className="h-3 w-3" />
@@ -226,7 +226,7 @@ function SaeNotifItem({
             e.stopPropagation()
             onMarkRead(notif.id)
           }}
-          className="rounded p-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
+          className="rounded p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-white/5 transition-colors"
           title="Marcar como leída"
         >
           <Eye className="h-3 w-3" />
@@ -317,9 +317,9 @@ function AlertasGroup({
           </div>
         </div>
         {expanded ? (
-          <ChevronDown className="h-4 w-4 text-zinc-500 shrink-0" />
+          <ChevronDown className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-zinc-500 shrink-0" />
+          <ChevronRight className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
         )}
       </button>
       {expanded && (
@@ -478,7 +478,7 @@ export function NotificationDropdown() {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative rounded-lg p-2 text-zinc-600 dark:text-zinc-400 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+        className="relative rounded-lg p-2 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
         aria-label="Notificaciones"
       >
         <Bell className="h-5 w-5" />
@@ -522,7 +522,7 @@ export function NotificationDropdown() {
                 <button
                   onClick={handleMarkAllAll}
                   disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
                   title="Marcar todas leídas"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
@@ -536,7 +536,7 @@ export function NotificationDropdown() {
             <div className="flex-1 overflow-y-auto sm:max-h-[420px]">
               {displayAlerts.length === 0 && saeNotifs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4">
-                  <BellOff className="h-8 w-8 text-zinc-600 dark:text-zinc-400 mb-2" />
+                  <BellOff className="h-8 w-8 text-zinc-600 dark:text-zinc-300 mb-2" />
                   <p className="text-xs text-zinc-700 dark:text-zinc-300">Sin notificaciones pendientes</p>
                   <button
                     onClick={() => handleNavigate('/alertas')}

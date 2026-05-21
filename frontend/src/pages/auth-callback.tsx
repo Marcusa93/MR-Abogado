@@ -205,7 +205,7 @@ export default function AuthCallbackPage() {
                   <button
                     type="button"
                     onClick={() => setShowPwd(!showPwd)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
                     tabIndex={-1}
                   >
                     {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -269,7 +269,7 @@ export default function AuthCallbackPage() {
             </div>
           )}
 
-          <p className="mt-6 text-center text-xs text-zinc-500">
+          <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
             Dr. Marco Rossi &middot; Estudio Jurídico
           </p>
         </div>

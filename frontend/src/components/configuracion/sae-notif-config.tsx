@@ -100,7 +100,7 @@ export function SaeNotifConfig() {
   if (isLoading || !prefs) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+        <Loader2 className="h-4 w-4 animate-spin text-zinc-500 dark:text-zinc-400" />
       </div>
     )
   }
@@ -111,7 +111,7 @@ export function SaeNotifConfig() {
       <div className="flex items-start gap-3">
         <div className={cn(
           'rounded-lg p-2 shrink-0',
-          enabled ? 'bg-cyan-500/15 text-cyan-300' : 'bg-zinc-700/30 text-zinc-500',
+          enabled ? 'bg-cyan-500/15 text-cyan-300' : 'bg-zinc-700/30 text-zinc-500 dark:text-zinc-400',
         )}>
           <Bell className="h-4 w-4" />
         </div>
@@ -131,7 +131,7 @@ export function SaeNotifConfig() {
               )} />
             </button>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             El sistema chequea el portal del SAE dos veces por día (00:15 y 08:30 AR) y te avisa de las notificaciones digitales nuevas.
           </p>
         </div>
@@ -141,7 +141,7 @@ export function SaeNotifConfig() {
         <div className="ml-11 space-y-5 border-l border-white/5 pl-4">
           {/* Canales */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Canales</p>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Canales</p>
             <div className="space-y-2">
               <label className="flex items-center gap-3 text-xs cursor-pointer">
                 <input
@@ -150,7 +150,7 @@ export function SaeNotifConfig() {
                   onChange={(e) => { setPush(e.target.checked); markDirty() }}
                   className="rounded border-white/20 bg-white/5"
                 />
-                <Smartphone className="h-3.5 w-3.5 text-zinc-500" />
+                <Smartphone className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span className="text-zinc-200">Push (browser/PWA)</span>
               </label>
               <label className="flex items-center gap-3 text-xs cursor-pointer">
@@ -160,7 +160,7 @@ export function SaeNotifConfig() {
                   onChange={(e) => { setEmail(e.target.checked); markDirty() }}
                   className="rounded border-white/20 bg-white/5"
                 />
-                <Mail className="h-3.5 w-3.5 text-zinc-500" />
+                <Mail className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span className="text-zinc-200">Email</span>
               </label>
             </div>
@@ -169,15 +169,15 @@ export function SaeNotifConfig() {
           {/* Destinatarios de email */}
           {email && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Destinatarios de email</p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Destinatarios de email</p>
               <div className="space-y-2">
                 {emails.map((e, i) => (
                   <div key={i} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
-                    <Mail className="h-3 w-3 text-zinc-500 shrink-0" />
+                    <Mail className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     <span className="flex-1 text-xs text-zinc-200 font-mono truncate">{e}</span>
                     <button
                       onClick={() => removeEmail(i)}
-                      className="text-zinc-500 hover:text-rose-400 transition-colors"
+                      className="text-zinc-500 dark:text-zinc-400 hover:text-rose-400 transition-colors"
                       title="Quitar"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -214,7 +214,7 @@ export function SaeNotifConfig() {
           {/* Quiet hours del push */}
           {push && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Horas tranquilas</p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Horas tranquilas</p>
               <label className="flex items-start gap-3 text-xs cursor-pointer">
                 <input
                   type="checkbox"
@@ -224,10 +224,10 @@ export function SaeNotifConfig() {
                 />
                 <div className="flex-1">
                   <span className="flex items-center gap-2 text-zinc-200">
-                    <MoonStar className="h-3.5 w-3.5 text-zinc-500" />
+                    <MoonStar className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                     No mandar push entre 22:00 y 08:00
                   </span>
-                  <p className="mt-0.5 text-[10px] text-zinc-500">
+                  <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                     Las notificaciones de medianoche se guardan igual; el push se difiere a las 08:00. El email se manda al instante.
                   </p>
                 </div>
@@ -246,7 +246,7 @@ export function SaeNotifConfig() {
               />
               <div className="flex-1">
                 <span className="text-zinc-200">Polear también sábados y domingos</span>
-                <p className="mt-0.5 text-[10px] text-zinc-500">
+                <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                   Por default solo lunes a viernes (días hábiles judiciales). Activá si esperás notificaciones fuera de semana.
                 </p>
               </div>
@@ -255,7 +255,7 @@ export function SaeNotifConfig() {
 
           {/* Fueros a consultar */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2 flex items-center gap-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2 flex items-center gap-1.5">
               <Filter className="h-3 w-3" />
               Fueros a consultar
             </p>
@@ -268,14 +268,14 @@ export function SaeNotifConfig() {
               />
               <div className="flex-1">
                 <span className="text-zinc-200">Automático (recomendado)</span>
-                <p className="mt-0.5 text-[10px] text-zinc-500">
+                <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                   El sistema lee la "Bandeja de Entrada" del portal y solo consulta los fueros con novedades. Más rápido y preciso que iterar los 29.
                 </p>
               </div>
             </label>
             {!autoFueros && (
               <div className="border-l border-white/5 pl-4">
-                <p className="text-[10px] text-zinc-500 mb-2">
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mb-2">
                   Elegí los fueros donde trabajás. Solo esos se van a consultar siempre, ignorando el discovery automático.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-2">
