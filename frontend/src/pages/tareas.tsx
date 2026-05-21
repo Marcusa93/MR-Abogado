@@ -54,9 +54,9 @@ const ESTADO_ICON: Record<string, typeof Circle> = {
 }
 
 const ESTADO_COLORS: Record<string, string> = {
-  PENDIENTE: 'text-amber-500',
-  EN_PROGRESO: 'text-blue-500',
-  COMPLETADA: 'text-emerald-500',
+  PENDIENTE: 'text-amber-600 dark:text-amber-300',
+  EN_PROGRESO: 'text-blue-600 dark:text-blue-300',
+  COMPLETADA: 'text-emerald-600 dark:text-emerald-300',
   CANCELADA: 'text-zinc-700 dark:text-zinc-300',
 }
 
@@ -502,8 +502,7 @@ export default function TareasPage() {
                         'group cursor-pointer transition-colors border-l-[3px] hover:bg-zinc-100 dark:bg-white/[0.04] hover:shadow-[inset_0_0_0_1px_oklch(0.75_0.11_85_/_8%)]',
                         priStyle.border,
                         priStyle.bg,
-                        tarea.estado === 'COMPLETADA' && 'opacity-50',
-                        tarea.completada_at !== null && tarea.estado !== 'COMPLETADA' && 'opacity-60',
+                        tarea.estado === 'COMPLETADA' && 'opacity-60',
                         isSelected && 'bg-amber-500/[0.06] ring-1 ring-inset ring-amber-500/15'
                       )}
                     >
@@ -562,7 +561,7 @@ export default function TareasPage() {
                               e.stopPropagation()
                               navigate(`/expedientes/${tarea.expediente!.id}`)
                             }}
-                            className="mt-1 sm:hidden flex items-center gap-1 text-[11px] text-amber-400 hover:underline truncate max-w-full"
+                            className="mt-1 sm:hidden flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 hover:underline font-medium truncate max-w-full"
                             title={expedienteLabel(tarea.expediente)}
                           >
                             <span className="truncate">{expedienteLabel(tarea.expediente)}</span>
@@ -578,7 +577,7 @@ export default function TareasPage() {
                               e.stopPropagation()
                               navigate(`/expedientes/${tarea.expediente!.id}`)
                             }}
-                            className="text-xs text-amber-400 hover:underline truncate max-w-full block text-left"
+                            className="text-xs text-amber-300 hover:text-amber-200 hover:underline font-medium truncate max-w-full block text-left"
                             title={expedienteLabel(tarea.expediente)}
                           >
                             {expedienteLabel(tarea.expediente)}
