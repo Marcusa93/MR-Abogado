@@ -608,10 +608,14 @@ export function NicoIAChat() {
       {/* Floating button — pill with brain icon + label */}
       <button
         onClick={toggle}
+        style={{
+          bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+          right: 'max(1.25rem, calc(env(safe-area-inset-right) + 0.5rem))',
+        }}
         className={cn(
-          'fixed bottom-5 right-5 z-50 flex items-center gap-2 shadow-lg transition-all duration-200 hover:scale-105 max-sm:bottom-4 max-sm:right-4 max-sm:scale-90',
+          'fixed z-50 flex items-center gap-2 shadow-lg transition-all duration-200 hover:scale-105 max-sm:scale-90',
           isOpen
-            ? 'h-12 w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'
+            ? 'h-11 w-11 sm:h-12 sm:w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'
             : 'rounded-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 pl-3 pr-4 py-2.5'
         )}
         title="BogaBot Asistente (Alt+N)"
@@ -626,18 +630,24 @@ export function NicoIAChat() {
         )}
       </button>
 
-      {/* Chat window — floating on all sizes */}
+      {/* Chat window — full-screen en mobile, flotante en sm+ */}
       {isOpen && (
-        <div className="fixed bottom-20 right-3 left-3 z-50 flex flex-col bg-white dark:bg-zinc-900 h-[min(520px,75vh)] rounded-2xl border border-zinc-200 dark:border-white/10 shadow-2xl animate-fade-in sm:left-auto sm:bottom-24 sm:right-5 sm:h-[min(520px,80vh)] sm:w-[380px] md:w-[420px]">
+        <div
+          style={{
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingTop: 'env(safe-area-inset-top)',
+          }}
+          className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-900 sm:p-0 sm:rounded-2xl sm:border sm:border-zinc-200 sm:dark:border-white/10 sm:shadow-2xl sm:animate-fade-in sm:left-auto sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(520px,80vh)] sm:w-[380px] md:w-[420px]"
+        >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900 px-4 py-3 rounded-t-2xl">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/20 dark:bg-white/20">
+          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900 px-3 py-2.5 sm:px-4 sm:py-3 sm:rounded-t-2xl shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20 dark:bg-white/20">
                 <BrainCircuit className="h-4 w-4 text-amber-600 dark:text-white" />
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">BogaBot</h3>
-                <p className="text-[10px] text-zinc-500 dark:text-zinc-300">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">BogaBot</h3>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-300 truncate">
                   Asistente del CRM
                 </p>
               </div>
