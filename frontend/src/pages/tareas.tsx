@@ -101,7 +101,7 @@ function useTareaStats() {
           .from('tareas')
           .select('id', { count: 'exact', head: true })
           .eq('estado', 'COMPLETADA')
-          .gte('fecha_completada', `${today}T00:00:00`),
+          .gte('completada_at', `${today}T00:00:00`),
       ])
 
       return {

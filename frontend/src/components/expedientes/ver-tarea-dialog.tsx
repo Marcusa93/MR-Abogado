@@ -39,7 +39,7 @@ interface TareaDetalle {
   estado: string
   prioridad: string
   fecha_vencimiento: string | null
-  fecha_completada: string | null
+  completada_at: string | null
   created_at: string | null
   created_by?: string | null
   asignado_a?: string | null
@@ -472,7 +472,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                   </div>
                 </div>
 
-                {tarea.fecha_completada && (
+                {tarea.completada_at && (
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
                     <div className="min-w-0">
@@ -480,7 +480,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                         Completada
                       </p>
                       <p className="text-sm text-zinc-800 dark:text-zinc-200">
-                        {formatDateTime(tarea.fecha_completada)}
+                        {formatDateTime(tarea.completada_at)}
                       </p>
                     </div>
                   </div>

@@ -216,7 +216,7 @@ export function useCompletarTarea() {
         .from('tareas')
         .update({
           estado: 'COMPLETADA',
-          fecha_completada: new Date().toISOString(),
+          completada_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', tareaId)

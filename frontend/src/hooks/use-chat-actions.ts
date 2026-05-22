@@ -179,7 +179,7 @@ export function useChatActionExecutor() {
             .from('tareas')
             .update({
               estado: 'COMPLETADA',
-              fecha_completada: now,
+              completada_at: now,
               updated_at: now,
             })
             .eq('id', tareaId)
