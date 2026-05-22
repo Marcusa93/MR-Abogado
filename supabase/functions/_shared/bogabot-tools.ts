@@ -48,27 +48,25 @@ function expedienteLabel(e: {
 }
 
 /**
- * Aplica el filtro de visibilidad por role. Modifica la query in-place.
- * Si es staff, no filtra. Si no, restringe a expedientes donde sea miembro.
+ * Devuelve la lista de ids de expedientes que el user puede ver.
+ *  - null = is_staff (sin restricción)
+ *  - []   = no ve nada (no es miembro de ningún expediente)
+ *  - [...] = lista de ids permitidos
+ *
+ * Calculamos esto ANTES de construir la query principal para no chocar
+ * con la separación FilterBuilder/TransformBuilder de supabase-js (una vez
+ * llamado .limit() o .order() ya no se puede chainear .or() / .in()).
  */
-async function filterByVisibility(
+async function getAllowedExpedienteIds(
   admin: SupabaseClient,
-  query: any,
   user: UserInfo,
-  expedienteIdCol = 'expediente_id',
-): Promise<any> {
-  if (user.is_staff) return query
-  // No-staff: traer ids de expedientes donde es miembro
+): Promise<string[] | null> {
+  if (user.is_staff) return null
   const { data: memberships } = await admin
     .from('expediente_miembros')
     .select('expediente_id')
     .eq('profile_id', user.user_id)
-  const ids = (memberships ?? []).map((m: any) => m.expediente_id)
-  if (ids.length === 0) {
-    // Fuerza zero results
-    return query.eq(expedienteIdCol, '00000000-0000-0000-0000-000000000000')
-  }
-  return query.in(expedienteIdCol, ids)
+  return (memberships ?? []).map((m: any) => m.expediente_id)
 }
 
 async function resolveExpediente(
@@ -90,19 +88,20 @@ async function resolveExpediente(
     return { id: data.id, label: expedienteLabel(data as any) }
   }
 
+  const allowedIds = await getAllowedExpedienteIds(admin, user)
+  if (allowedIds && allowedIds.length === 0) {
+    return { error: `No tenés expedientes visibles para buscar` }
+  }
+
   // Buscar por número, número SAE o carátula
-  let query = admin
+  const term = `%${raw.replace(/[%_\\]/g, '')}%`
+  let q1 = admin
     .from('expedientes')
     .select('id, numero, numero_sae, caratula, clientes:clientes(apellido, nombre)')
     .is('deleted_at', null)
-    .limit(10)
-
-  query = await filterByVisibility(admin, query, user, 'id')
-
-  const term = `%${raw.replace(/[%_\\]/g, '')}%`
-  const { data: byNum } = await query.or(
-    `numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`,
-  )
+    .or(`numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`)
+  if (allowedIds) q1 = q1.in('id', allowedIds)
+  const { data: byNum } = await q1.limit(10)
 
   let candidates = (byNum ?? []) as any[]
 
@@ -120,9 +119,8 @@ async function resolveExpediente(
         .select('id, numero, caratula, clientes:clientes(apellido, nombre)')
         .in('cliente_id', clienteIds)
         .is('deleted_at', null)
-        .limit(10)
-      q2 = await filterByVisibility(admin, q2, user, 'id')
-      const { data: byCli } = await q2
+      if (allowedIds) q2 = q2.in('id', allowedIds)
+      const { data: byCli } = await q2.limit(10)
       candidates = (byCli ?? []) as any[]
     }
   }
@@ -297,17 +295,20 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     if (!q) return { error: 'query vacía' }
     const term = `%${q.replace(/[%_\\]/g, '')}%`
 
-    let query = admin
+    const allowedIds = await getAllowedExpedienteIds(admin, user)
+    if (allowedIds && allowedIds.length === 0) {
+      return { result: { count: 0, items: [] } }
+    }
+
+    // Buscar por número/carátula. ORDEN IMPORTANTE: filtros (.or, .in, .is)
+    // ANTES de .limit() o el chain pierde .or().
+    let q1 = admin
       .from('expedientes')
       .select('id, numero, numero_sae, caratula, estado_interno, prioridad, clientes:clientes(apellido, nombre)')
       .is('deleted_at', null)
-      .limit(limit)
-    query = await filterByVisibility(admin, query, user, 'id')
-
-    // Buscar por número/carátula
-    const { data: direct } = await query.or(
-      `numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`,
-    )
+      .or(`numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`)
+    if (allowedIds) q1 = q1.in('id', allowedIds)
+    const { data: direct } = await q1.limit(limit)
 
     let results = (direct ?? []) as any[]
 
@@ -325,9 +326,8 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
           .select('id, numero, caratula, estado_interno, prioridad, clientes:clientes(apellido, nombre)')
           .in('cliente_id', ids)
           .is('deleted_at', null)
-          .limit(limit - results.length)
-        q2 = await filterByVisibility(admin, q2, user, 'id')
-        const { data: byCli } = await q2
+        if (allowedIds) q2 = q2.in('id', allowedIds)
+        const { data: byCli } = await q2.limit(limit - results.length)
         const seenIds = new Set(results.map(r => r.id))
         for (const e of (byCli ?? []) as any[]) {
           if (!seenIds.has(e.id)) results.push(e)
@@ -519,12 +519,15 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const today = new Date().toISOString().split('T')[0]
     const limit = Math.min(Math.max(Number(args.limit ?? 15), 1), 50)
 
+    const allowedIds = await getAllowedExpedienteIds(admin, user)
+    if (allowedIds && allowedIds.length === 0) {
+      return { result: { count: 0, items: [] } }
+    }
+
     let q = admin
       .from('tareas')
       .select('id, titulo, fecha_vencimiento, prioridad, estado, expediente_id, expediente:expedientes!tareas_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre)), asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
       .neq('estado', 'CANCELADA')
-      .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
-      .limit(limit)
 
     if (args.solo_vencidas) {
       q = q.lt('fecha_vencimiento', today).in('estado', ['PENDIENTE', 'EN_PROGRESO'])
@@ -535,9 +538,11 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     if (args.expediente_id) q = q.eq('expediente_id', args.expediente_id)
     if (args.fecha_hasta) q = q.lte('fecha_vencimiento', args.fecha_hasta)
     if (args.prioridad) q = q.eq('prioridad', args.prioridad)
+    if (allowedIds) q = q.in('expediente_id', allowedIds)
 
-    q = await filterByVisibility(admin, q, user, 'expediente_id')
     const { data } = await q
+      .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
+      .limit(limit)
 
     return {
       result: {
@@ -562,19 +567,21 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const hasta = args.hasta || in14
     const limit = Math.min(Math.max(Number(args.limit ?? 15), 1), 50)
 
+    const allowedIds = await getAllowedExpedienteIds(admin, user)
+    if (allowedIds && allowedIds.length === 0) {
+      return { result: { count: 0, rango: { desde, hasta }, items: [] } }
+    }
+
     let q = admin
       .from('audiencias')
       .select('id, fecha, hora, tipo, organismo, observaciones, expediente_id, expediente:expedientes!audiencias_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre))')
       .neq('estado', 'CANCELADA')
       .gte('fecha', desde)
       .lte('fecha', hasta)
-      .order('fecha')
-      .order('hora')
-      .limit(limit)
 
     if (args.expediente_id) q = q.eq('expediente_id', args.expediente_id)
-    q = await filterByVisibility(admin, q, user, 'expediente_id')
-    const { data } = await q
+    if (allowedIds) q = q.in('expediente_id', allowedIds)
+    const { data } = await q.order('fecha').order('hora').limit(limit)
 
     return {
       result: {
@@ -593,20 +600,21 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const limit = Math.min(Math.max(Number(args.limit ?? 10), 1), 30)
     const nowIso = new Date().toISOString()
 
+    // Filtros antes de .order/.limit
     let q = admin
       .from('sae_notificaciones')
       .select('id, fecha_emision, tipo, titulo, ia_resumen, prioridad, leida, numero_expediente, raw_payload, expediente:expedientes(caratula, clientes:clientes(apellido, nombre))')
       .eq('profile_id', user.user_id)
       .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
-      .order('fecha_emision', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .limit(limit)
 
     if (args.solo_no_leidas !== false) q = q.eq('leida', false)
     if (args.solo_urgentes) q = q.eq('prioridad', 'urgente')
     if (args.fuero) q = q.eq('raw_payload->>fuero', args.fuero)
 
     const { data } = await q
+      .order('fecha_emision', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(limit)
     return {
       result: {
         count: (data ?? []).length,
@@ -680,14 +688,17 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
         .maybeSingle()
       tareaRow = data
     } else {
+      const allowedIds = await getAllowedExpedienteIds(admin, user)
+      if (allowedIds && allowedIds.length === 0) {
+        return { error: `No tenés tareas visibles para completar` }
+      }
       let q = admin
         .from('tareas')
         .select('id, titulo, estado, expediente_id, expediente:expedientes(caratula, numero, clientes:clientes(apellido, nombre))')
         .ilike('titulo', `%${ref.replace(/[%_\\]/g, '')}%`)
         .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
-        .limit(5)
-      q = await filterByVisibility(admin, q, user, 'expediente_id')
-      const { data } = await q
+      if (allowedIds) q = q.in('expediente_id', allowedIds)
+      const { data } = await q.limit(5)
       const list = (data ?? []) as any[]
       if (list.length === 0) return { error: `No encuentro una tarea pendiente que matchee "${ref}"` }
       if (list.length > 1) {
