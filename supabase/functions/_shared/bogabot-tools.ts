@@ -48,25 +48,50 @@ function expedienteLabel(e: {
 }
 
 /**
- * Devuelve la lista de ids de expedientes que el user puede ver.
- *  - null = is_staff (sin restricción)
- *  - []   = no ve nada (no es miembro de ningún expediente)
- *  - [...] = lista de ids permitidos
+ * Devuelve la lista de ids de expedientes que el user puede ver:
+ *   - null = is_staff (sin restricción)
+ *   - []   = no ve nada
+ *   - [...] = lista de ids permitidos (unión de miembro + creador)
+ *
+ * Incluye expedientes donde el user es miembro EN expediente_miembros
+ * O figura como created_by. Esto cubre el caso real del estudio donde
+ * los usuarios crean expedientes y no siempre se autoinscriben como
+ * miembros formales.
  *
  * Calculamos esto ANTES de construir la query principal para no chocar
- * con la separación FilterBuilder/TransformBuilder de supabase-js (una vez
- * llamado .limit() o .order() ya no se puede chainear .or() / .in()).
+ * con la separación FilterBuilder/TransformBuilder de supabase-js (una
+ * vez llamado .limit() o .order() ya no se puede chainear .or() / .in()).
  */
 async function getAllowedExpedienteIds(
   admin: SupabaseClient,
   user: UserInfo,
 ): Promise<string[] | null> {
   if (user.is_staff) return null
-  const { data: memberships } = await admin
-    .from('expediente_miembros')
-    .select('expediente_id')
-    .eq('profile_id', user.user_id)
-  return (memberships ?? []).map((m: any) => m.expediente_id)
+  const [m, c] = await Promise.all([
+    admin.from('expediente_miembros').select('expediente_id').eq('profile_id', user.user_id),
+    admin.from('expedientes').select('id').eq('created_by', user.user_id).is('deleted_at', null),
+  ])
+  const ids = new Set<string>()
+  for (const row of (m.data ?? [])) ids.add((row as any).expediente_id)
+  for (const row of (c.data ?? [])) ids.add((row as any).id)
+  return [...ids]
+}
+
+/**
+ * ¿El user puede ver este expediente puntual? Acepta si es staff,
+ * miembro o creador.
+ */
+async function canAccessExpediente(
+  admin: SupabaseClient,
+  user: UserInfo,
+  expedienteId: string,
+): Promise<boolean> {
+  if (user.is_staff) return true
+  const [m, c] = await Promise.all([
+    admin.from('expediente_miembros').select('rol').eq('profile_id', user.user_id).eq('expediente_id', expedienteId).maybeSingle(),
+    admin.from('expedientes').select('id').eq('id', expedienteId).eq('created_by', user.user_id).maybeSingle(),
+  ])
+  return !!(m.data || c.data)
 }
 
 async function resolveExpediente(
@@ -354,11 +379,8 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const id = String(args.expediente_id ?? '').trim()
     if (!id) return { error: 'expediente_id requerido' }
 
-    if (!user.is_staff) {
-      const { data: m } = await admin
-        .from('expediente_miembros')
-        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
-      if (!m) return { error: 'No tenés permiso para ver este expediente' }
+    if (!(await canAccessExpediente(admin, user, id))) {
+      return { error: 'No tenés permiso para ver este expediente' }
     }
 
     const { data: exp, error } = await admin
@@ -429,11 +451,8 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const id = String(args.expediente_id ?? '').trim()
     if (!id) return { error: 'expediente_id requerido' }
 
-    if (!user.is_staff) {
-      const { data: m } = await admin
-        .from('expediente_miembros')
-        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
-      if (!m) return { error: 'No tenés permiso' }
+    if (!(await canAccessExpediente(admin, user, id))) {
+      return { error: 'No tenés permiso' }
     }
 
     const [saeRes, segRes] = await Promise.all([
@@ -490,11 +509,8 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const limit = Math.min(Math.max(Number(args.limit ?? 10), 1), 50)
     if (!id) return { error: 'expediente_id requerido' }
 
-    if (!user.is_staff) {
-      const { data: m } = await admin
-        .from('expediente_miembros')
-        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
-      if (!m) return { error: 'No tenés permiso' }
+    if (!(await canAccessExpediente(admin, user, id))) {
+      return { error: 'No tenés permiso' }
     }
 
     const { data } = await admin
