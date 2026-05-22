@@ -503,6 +503,7 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
           tiene_documentos: mov.tiene_documentos,
           es_clave: mov.is_key,
           es_audiencia: mov.is_audiencia,
+          actuacion_id: mov.id,
         },
       })
     }
@@ -516,6 +517,7 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
           titulo: notif.titulo,
           resumen: notif.ia_resumen,
           prioridad: notif.prioridad,
+          notif_id: notif.id,
         },
       })
     }
@@ -528,13 +530,21 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
           canal: seg.canal,
           observacion: seg.observacion,
           autor: seg.autor ? `${seg.autor.nombre} ${seg.autor.apellido}` : null,
+          seguimiento_id: seg.id,
         },
       })
     }
 
-    if (candidates.length === 0) return { result: { found: false } }
+    if (candidates.length === 0) return { result: { found: false, expediente_id: id } }
     candidates.sort((a, b) => b.ts.localeCompare(a.ts))
-    return { result: { found: true, ...candidates[0].payload } }
+    return {
+      result: {
+        found: true,
+        expediente_id: id,
+        link: `/expedientes/${id}`,
+        ...candidates[0].payload,
+      },
+    }
   },
 
   list_actuaciones_sae: async (admin, user, args) => {
@@ -561,6 +571,8 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     return {
       result: {
         count: (data ?? []).length,
+        expediente_id: id,
+        link: `/expedientes/${id}`,
         items: (data ?? []).map((m: any) => ({
           id: m.id,
           fecha: m.fecha,

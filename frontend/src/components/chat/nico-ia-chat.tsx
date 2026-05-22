@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useNicoChatStore } from '@/stores/nico-chat-store'
 import { type ChatMessage } from '@/lib/openrouter'
 import { useAuth } from '@/hooks/use-auth'
@@ -21,6 +21,7 @@ import {
   Zap,
   History,
   MessageSquarePlus,
+  ExternalLink,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -290,9 +291,39 @@ function ChatBubble({
   executedActions?: Set<string>
   messageIdx?: number
 }) {
+  const navigate = useNavigate()
+  const { close: closeChat } = useNicoChatStore()
   const isUser = message.role === 'user'
   const pending = !isUser ? message.pending_action : null
   const cleanContent = message.content.replace(/\*+/g, '')
+
+  // Extraer paths internos del CRM mencionados en el texto del bot
+  // (los inserta cuando ve campos `link` en los tool results) para
+  // renderizarlos como botones clickables abajo de la respuesta.
+  const INTERNAL_PATH_RE = /\/(expedientes|clientes|tareas|alertas|notificaciones-sae|notificaciones|agenda)\/[a-z0-9-]{6,}/gi
+  const internalLinks: Array<{ path: string; label: string }> = []
+  const seen = new Set<string>()
+  for (const m of cleanContent.matchAll(INTERNAL_PATH_RE)) {
+    if (!seen.has(m[0])) {
+      seen.add(m[0])
+      const section = m[1] === 'expedientes' ? 'Abrir expediente'
+        : m[1] === 'clientes' ? 'Abrir cliente'
+        : m[1] === 'tareas' ? 'Ir a tarea'
+        : m[1] === 'alertas' ? 'Ir a alerta'
+        : m[1].startsWith('notificaciones') ? 'Ver notificación'
+        : 'Abrir'
+      internalLinks.push({ path: m[0], label: section })
+    }
+  }
+  // Quitamos los paths del texto plano para que no queden duplicados
+  const textForRender = (internalLinks.length > 0 && !isUser)
+    ? cleanContent
+        .replace(INTERNAL_PATH_RE, '')
+        .replace(/Ver en la app:\s*$/gim, '')
+        .replace(/—\s*$/gm, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    : cleanContent
 
   // Convertir el pending_action a ChatAction
   const chatAction: ChatAction | null = pending && pending.type ? {
@@ -328,8 +359,26 @@ function ChatBubble({
               : 'bg-white/10 text-zinc-900 dark:text-zinc-100 rounded-bl-md'
           )}
         >
-          <p className="whitespace-pre-wrap break-words">{cleanContent}</p>
+          <p className="whitespace-pre-wrap break-words">{textForRender}</p>
         </div>
+
+        {/* Botones de navegación interna */}
+        {!isUser && internalLinks.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {internalLinks.map((l, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => { closeChat(); navigate(l.path) }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-200 hover:bg-amber-500/20"
+                title={l.path}
+              >
+                <ExternalLink className="h-3 w-3" />
+                {l.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Trace de tool calls (solo para asistente) */}
         {!isUser && message.tool_trace && message.tool_trace.length > 0 && (

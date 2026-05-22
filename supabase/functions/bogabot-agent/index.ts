@@ -62,6 +62,13 @@ ESTILO:
 - Mostrá fechas en formato dd/mm/yyyy.
 - Cuando mostrés un expediente, nombrá primero al cliente y después la carátula corta.
 - Si una tool devuelve count=0, decilo directo: "No hay resultados para X."
+
+DEEP-LINKS AL CRM:
+- Cuando una tool devuelve un campo "link" (tipo "/expedientes/<uuid>"), incluí ese path TAL CUAL al final de tu respuesta, en su propia línea, prefijado con "Ver en la app: ".
+  Ejemplo: "Ver en la app: /expedientes/cbc1eaf7-a65b-4792-a0d8-080d5a2ff2a1"
+  El frontend convierte ese path en un botón clickable. NO uses corchetes ni markdown ni el dominio completo — solo el path crudo.
+- Si la respuesta cubre varios expedientes, listá un link por línea con el nombre del cliente antes:
+  "Rosa Ramiro José — /expedientes/<uuid>"
 `
 
 interface ChatMessage {
