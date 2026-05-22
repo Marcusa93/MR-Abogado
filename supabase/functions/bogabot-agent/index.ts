@@ -103,8 +103,11 @@ Deno.serve(async (req) => {
     .eq('id', user.id)
     .single()
 
-  const rol = (profile as any)?.rol ?? 'colaborador'
-  const isStaff = ['admin', 'abogado'].includes(rol.toLowerCase())
+  const rol = (profile as any)?.rol ?? 'COLABORADOR'
+  // is_staff = ve todo el estudio. Solo el DIRECTOR (y el viejo ADMIN
+  // por compat). Abogado y Colaborador NO ven todo — su visibility se
+  // resuelve por responsable/creador/miembro en getAllowedExpedienteIds.
+  const isStaff = ['DIRECTOR', 'ADMIN'].includes(String(rol).toUpperCase())
   const userInfo: UserInfo = { user_id: user.id, rol, is_staff: isStaff }
 
   const body = await req.json().catch(() => null)

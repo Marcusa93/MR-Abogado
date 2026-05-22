@@ -106,14 +106,14 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
       <div className="flex items-start gap-3">
         <SemaforoBadge color={semaforoColor} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
             {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
           </p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <EstadoBadge estado={expediente.estado_interno} compact />
             <PrioridadBadge prioridad={expediente.prioridad} compact />
           </div>
-          {tipo && <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-1">{tipo.nombre}</p>}
+          {tipo && <p className="text-[11px] text-zinc-700 dark:text-zinc-200 mt-1 font-medium">{tipo.nombre}</p>}
         </div>
         {cliente?.telefono && (
           <div onClick={(e) => e.stopPropagation()}>

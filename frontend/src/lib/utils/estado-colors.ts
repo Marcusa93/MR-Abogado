@@ -6,33 +6,36 @@
 
 import { calcularSemaforo, calcularSemaforoKanban, type SemaforoColor } from './semaforo'
 
-// Intense semáforo row styles — visible full-row tinting.
-// `verde` = activo con audiencia próxima (saludable). `verde_terminal` = ganado/cerrado favorable (distinto, con glow).
+// Estilos del semáforo: cada card mantiene su fondo base (glass-card en
+// dark, white en light) y le sumamos un ring tintado + border izquierdo
+// como indicador visual del estado de salud (rojo/verde/amarillo/gris).
+// Antes usábamos bg-X/0.04 que pisaba el fondo de la card y la dejaba
+// invisible sobre el mesh-gradient oscuro.
 const SEMAFORO_STYLES: Record<SemaforoColor, { bg: string; borderL: string; hoverBg: string }> = {
   rojo: {
-    bg: 'bg-red-500/[0.10]',
+    bg: 'ring-1 ring-inset ring-red-500/20',
     borderL: 'border-l-red-500',
-    hoverBg: 'hover:bg-red-500/[0.16]',
+    hoverBg: 'hover:ring-red-500/40',
   },
   verde: {
-    bg: 'bg-emerald-500/[0.10]',
+    bg: 'ring-1 ring-inset ring-emerald-500/20',
     borderL: 'border-l-emerald-500',
-    hoverBg: 'hover:bg-emerald-500/[0.16]',
+    hoverBg: 'hover:ring-emerald-500/40',
   },
   verde_terminal: {
-    bg: 'bg-emerald-500/[0.18] shadow-[inset_3px_0_0_0_rgba(16,185,129,0.45)]',
+    bg: 'ring-1 ring-inset ring-emerald-400/40 shadow-[inset_3px_0_0_0_rgba(16,185,129,0.55)]',
     borderL: 'border-l-emerald-400',
-    hoverBg: 'hover:bg-emerald-500/[0.24]',
+    hoverBg: 'hover:ring-emerald-400/60',
   },
   amarillo: {
-    bg: 'bg-amber-400/[0.10]',
+    bg: 'ring-1 ring-inset ring-amber-400/20',
     borderL: 'border-l-amber-400',
-    hoverBg: 'hover:bg-amber-400/[0.16]',
+    hoverBg: 'hover:ring-amber-400/40',
   },
   gris: {
-    bg: 'bg-slate-400/[0.04]',
+    bg: 'ring-1 ring-inset ring-slate-400/15',
     borderL: 'border-l-slate-500',
-    hoverBg: 'hover:bg-slate-400/[0.08]',
+    hoverBg: 'hover:ring-slate-400/30',
   },
 }
 

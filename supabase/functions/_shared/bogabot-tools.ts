@@ -49,37 +49,36 @@ function expedienteLabel(e: {
 
 /**
  * Devuelve la lista de ids de expedientes que el user puede ver:
- *   - null = is_staff (sin restricción)
+ *   - null = is_staff (DIRECTOR — sin restricción)
  *   - []   = no ve nada
- *   - [...] = lista de ids permitidos (unión de miembro + creador)
+ *   - [...] = unión de responsable + creador + miembro
  *
- * Incluye expedientes donde el user es miembro EN expediente_miembros
- * O figura como created_by. Esto cubre el caso real del estudio donde
- * los usuarios crean expedientes y no siempre se autoinscriben como
- * miembros formales.
- *
- * Calculamos esto ANTES de construir la query principal para no chocar
- * con la separación FilterBuilder/TransformBuilder de supabase-js (una
- * vez llamado .limit() o .order() ya no se puede chainear .or() / .in()).
+ * Modelo (post-migración 053):
+ *   - DIRECTOR ve todo (is_staff=true).
+ *   - ABOGADO/COLABORADOR ven donde son abogado_responsable, creador
+ *     o miembro formal en expediente_miembros.
  */
 async function getAllowedExpedienteIds(
   admin: SupabaseClient,
   user: UserInfo,
 ): Promise<string[] | null> {
   if (user.is_staff) return null
-  const [m, c] = await Promise.all([
+  const [m, own] = await Promise.all([
     admin.from('expediente_miembros').select('expediente_id').eq('profile_id', user.user_id),
-    admin.from('expedientes').select('id').eq('created_by', user.user_id).is('deleted_at', null),
+    admin.from('expedientes')
+      .select('id')
+      .or(`abogado_responsable_id.eq.${user.user_id},created_by.eq.${user.user_id}`)
+      .is('deleted_at', null),
   ])
   const ids = new Set<string>()
   for (const row of (m.data ?? [])) ids.add((row as any).expediente_id)
-  for (const row of (c.data ?? [])) ids.add((row as any).id)
+  for (const row of (own.data ?? [])) ids.add((row as any).id)
   return [...ids]
 }
 
 /**
- * ¿El user puede ver este expediente puntual? Acepta si es staff,
- * miembro o creador.
+ * ¿El user puede ver este expediente puntual? Acepta director,
+ * responsable, creador o miembro.
  */
 async function canAccessExpediente(
   admin: SupabaseClient,
@@ -87,11 +86,15 @@ async function canAccessExpediente(
   expedienteId: string,
 ): Promise<boolean> {
   if (user.is_staff) return true
-  const [m, c] = await Promise.all([
+  const [m, own] = await Promise.all([
     admin.from('expediente_miembros').select('rol').eq('profile_id', user.user_id).eq('expediente_id', expedienteId).maybeSingle(),
-    admin.from('expedientes').select('id').eq('id', expedienteId).eq('created_by', user.user_id).maybeSingle(),
+    admin.from('expedientes')
+      .select('id')
+      .eq('id', expedienteId)
+      .or(`abogado_responsable_id.eq.${user.user_id},created_by.eq.${user.user_id}`)
+      .maybeSingle(),
   ])
-  return !!(m.data || c.data)
+  return !!(m.data || own.data)
 }
 
 async function resolveExpediente(
