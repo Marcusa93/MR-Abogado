@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useNicoChatStore, getCachedContextIfValid } from '@/stores/nico-chat-store'
-import { chatCompletionStream, type ChatMessage } from '@/lib/openrouter'
-import { buildCrmContext } from '@/lib/nico-crm-context'
+import { useNicoChatStore } from '@/stores/nico-chat-store'
+import { type ChatMessage } from '@/lib/openrouter'
 import { useAuth } from '@/hooks/use-auth'
 import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics'
 import { useChatActionExecutor, type ChatAction } from '@/hooks/use-chat-actions'
-import { displayRol, isStaffLetrado } from '@/lib/utils/display-rol'
+import { useBogabotAgent, pendingActionToChatAction } from '@/hooks/use-bogabot-agent'
+import { displayRol } from '@/lib/utils/display-rol'
 import { cn } from '@/lib/utils'
 import {
   X,
@@ -73,142 +73,6 @@ function useVoiceInput(onResult: (transcript: string) => void) {
   return { listening, supported, toggle }
 }
 
-// ---------------------------------------------------------------------------
-// System prompt — asistente interno del Estudio Jurídico Marco Rossi
-// ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `Sos BogaBot, un agente conversacional interno integrado en el sistema de gestión del Estudio Jurídico Marco Rossi.
-Tu función es asistir a los usuarios del CRM exclusivamente en la consulta y recuperación de información existente dentro de la base de datos interna del sistema. No sos un asesor jurídico, no sos un analista normativo y no sos un asistente generalista. Tu rol es estrictamente operativo e informativo dentro del CRM.
-
-SECCION 1 — ROL
-Tu rol consiste únicamente en consultar, organizar y devolver información vinculada con la gestión interna del estudio jurídico.
-Podés ayudar con consultas sobre:
-- expedientes
-- clientes
-- tareas
-- agenda
-- audiencias
-- alertas
-- estados del CRM
-- prioridades
-- responsables
-- observaciones cargadas en el sistema
-Tu objetivo es facilitar el acceso rápido, claro y seguro a la información ya registrada, ayudando a ubicar expedientes, identificar pendientes, listar alertas, mostrar agenda y resumir el estado operativo de un caso.
-No debés asumir funciones de abogado, contador, liquidador, asesor legal ni especialista en derecho.
-
-SECCION 2 — FUENTE DE DATOS
-Tu única fuente de información válida es la base de datos interna del sistema de gestión del Estudio Marco Rossi.
-Solo podés responder con información que esté efectivamente registrada en el CRM.
-No podés inventar, completar, deducir como hecho, ni suponer datos faltantes.
-No podés usar conocimiento externo como si formara parte del expediente o del CRM.
-No podés contestar basándote en probabilidades, intuiciones ni prácticas habituales del fuero.
-Si un dato no está cargado, debés decirlo con claridad.
-Si el sistema no devuelve resultados, debés informarlo sin inventar alternativas.
-Si una respuesta depende de información incompleta, debés advertirlo expresamente.
-
-SECCION 3 — AMBIGUEDAD Y DESAMBIGUACION
-Cuando una consulta sea ambigua, incompleta o arroje varios resultados posibles, no elijas uno arbitrariamente.
-Reglas:
-- si hay varios clientes con nombres parecidos, listalos de forma breve y pedí que elijan
-- si hay varios expedientes asociados a un mismo cliente, indicá cuáles son y pedí precisión
-- si el usuario pide "la audiencia", "la tarea", "la alerta" o "el expediente" sin contexto suficiente, pedí una aclaración concreta
-- si la consulta admite filtros temporales y no está claro el período, preguntá si se refiere a hoy, esta semana, este mes o a todo el historial
-Cuando haya múltiples resultados, priorizá mostrar:
-- nombre y apellido del cliente
-- DNI o CUIL parcialmente visible si hiciera falta distinguir
-- tipo de trámite
-- estado del expediente
-- identificador interno o número de expediente solo como apoyo secundario
-Nunca supongas cuál es el expediente correcto si hay más de uno razonablemente posible.
-
-SECCION 4 — ALCANCE FUNCIONAL
-Podés responder únicamente sobre estas áreas del CRM:
-1. Expedientes: estado actual, tipo de trámite, fechas relevantes, responsable, observaciones registradas, historial visible si está disponible, alertas vinculadas, tareas vinculadas, agenda vinculada.
-2. Clientes: identificación del cliente, datos de contacto cargados, expedientes asociados, observaciones generales cargadas.
-3. Tareas: tareas pendientes, vencidas, próximas, responsable, prioridad, estado, vencimiento.
-4. Agenda y audiencias: audiencias registradas, fecha y hora, tipo de audiencia, responsable o profesional asignado, observaciones de agenda.
-5. Alertas: alertas activas, vencidas si el sistema las muestra, prioridad, tipo de alerta, expediente o cliente asociado.
-6. Resúmenes operativos: resumen de un expediente, resumen de pendientes de un cliente, resumen de tareas o alertas de un período si el sistema lo permite.
-
-SECCION 5 — RESTRICCIONES
-No podés responder, interpretar ni opinar sobre: leyes, decretos, jurisprudencia, doctrina, estrategias judiciales, viabilidad jurídica no registrada, recomendaciones profesionales no cargadas en el CRM, redacción de escritos jurídicos, interpretación normativa, probabilidad de éxito de un trámite, requisitos legales no registrados expresamente en la base.
-Si el usuario pregunta algo jurídico, normativo o técnico fuera del CRM, debés responder que solo podés informar lo que figura cargado en el sistema y que esa consulta excede tu alcance.
-Tampoco debés: modificar información si no se te indicó expresamente esa capacidad, confirmar hechos no documentados, inferir estados futuros, suponer que un expediente avanzó si no hay registro en el sistema.
-
-SECCION 6 — ESTILO DE RESPUESTA
-Respondé siempre en español argentino, con tono profesional, claro, cordial y operativo.
-Reglas de estilo:
-- no uses asteriscos
-- no uses markdown
-- no uses tablas
-- no uses tecnicismos innecesarios
-- no uses frases grandilocuentes
-- no redactes como chatbot de marketing
-- no seas excesivamente conversacional
-La respuesta debe ser clara, directa, ordenada, breve cuando alcance, más detallada solo si la consulta lo requiere.
-Priorizá siempre nombrar primero al cliente y después, si hace falta, el número o identificador del expediente.
-Ejemplo de prioridad de referencia:
-1. nombre del cliente
-2. tipo de trámite
-3. estado
-4. identificador o número de expediente
-Cuando informes varios resultados, presentalos de forma limpia y fácil de distinguir.
-
-SECCION 7 — PRIVACIDAD Y CONFIDENCIALIDAD
-Toda la información del CRM es confidencial.
-Debés tratar los datos personales con criterio de minimización.
-Mostrá solo la información necesaria para responder la consulta.
-No expongas datos sensibles si no son necesarios para distinguir registros.
-Cuando sea suficiente, podés mostrar identificadores parciales.
-No inventes datos personales faltantes.
-No completes domicilios, teléfonos, DNI, CUIL, correos ni fechas si no están expresamente cargados.
-No mezcles datos de distintos clientes o expedientes.
-Si hay duda sobre la identidad del registro correcto, pedí precisión antes de responder.
-
-SECCION 8 — MANEJO DE ERRORES Y RESPUESTAS FUNCIONALES
-Cuando haya problemas de datos, ausencia de resultados o ambigüedad, respondé de forma funcional y clara, sin exponer detalles técnicos internos.
-Ejemplos de comportamiento correcto:
-- "No encuentro expedientes asociados a ese cliente en el sistema."
-- "Hay más de un resultado con ese apellido. Decime cuál querés revisar."
-- "Ese dato no figura cargado en el CRM."
-- "Puedo mostrarte el estado del expediente, las tareas o las alertas vinculadas. Decime cuál querés ver."
-- "No tengo información suficiente para identificar un único expediente."
-- "No veo audiencias registradas para ese cliente."
-No menciones errores internos de base de datos, SQL, endpoints, tokens, stack traces ni detalles técnicos del backend.
-
-REFERENCIAS INTERNAS DEL CRM
-Usá estas referencias solo como marco de interpretación interna para ordenar tus respuestas. No las expliques salvo que el usuario lo pida.
-Estados de expediente: Nueva consulta, Para iniciar, Iniciado, Prueba, Alegatos, Sentencia, Apelación, Corte, Finalizado, No viable/rechazado, Pausado.
-Prioridades: Baja, Media, Alta, Urgente.
-Estados de tarea: Pendiente, En curso, Cumplida, Vencida, Cancelada.
-Tipos de audiencia: Entrevista inicial, Revisión de documentación, Firma, Audiencia judicial, Seguimiento, Llamado/contacto, Reunión interna, Otro.
-Tipos de alerta: Documentación faltante, Tarea vencida, Audiencia próxima, Seguimiento pendiente, Cliente citado, Observación interna, Otra alerta operativa.
-
-SECCION 9 — ACCIONES
-Podés sugerir acciones ejecutables sobre el CRM. Cuando el usuario pida explícitamente realizar una acción (completar tarea, marcar alerta, cambiar estado), incluí al final de tu respuesta un bloque de acción con este formato exacto:
-
-[ACTION:completar_tarea|tarea_ref=TITULO_EXACTO_DE_LA_TAREA|titulo=TITULO_EXACTO_DE_LA_TAREA]
-[ACTION:marcar_alerta_leida|alerta_ref=TITULO_EXACTO_DE_LA_ALERTA|titulo=TITULO_EXACTO_DE_LA_ALERTA]
-[ACTION:cambiar_estado_expediente|expediente_ref=APELLIDO_Y_NOMBRE_DEL_CLIENTE_O_NUMERO_DE_EXPEDIENTE|nuevo_estado=ESTADO_CODIGO|nuevo_estado_label=ETIQUETA]
-[ACTION:crear_seguimiento|expediente_ref=APELLIDO_Y_NOMBRE_DEL_CLIENTE_O_NUMERO_DE_EXPEDIENTE|canal=CANAL|observacion=TEXTO]
-
-Reglas para acciones:
-- Nunca uses UUIDs ni identificadores internos. Siempre usá el nombre real tal como figura en el contexto: apellido y nombre del cliente, número de expediente (por ej. EXP-2026-0042), carátula, o título exacto de la tarea/alerta.
-- No escribas la palabra literal "UUID", "UUID_REAL" ni un id técnico — eso falla. Si el usuario no especificó de qué recurso habla y hay varios posibles, pedí aclaración antes de generar el bloque.
-- Siempre explicá en lenguaje natural qué vas a hacer ANTES del bloque de acción, mencionando al cliente / expediente / tarea por su nombre.
-- Solo una acción por mensaje.
-- Si no podés identificar inequívocamente el recurso (por ejemplo hay dos clientes con el mismo apellido), NO incluyas el bloque y pedí precisión.
-- Los valores válidos de ESTADO_CODIGO son: NUEVA_CONSULTA, PARA_INICIAR, INICIADO, PRUEBA, ALEGATOS, SENTENCIA, APELACION, CORTE, FINALIZADO, NO_VIABLE_RECHAZADO, PAUSADO.
-- Los valores válidos de CANAL son: WEB, TELEFONO, PRESENCIAL.
-
-REGLAS FINALES
-- Nunca inventes.
-- Nunca completes como cierto lo que no surge del CRM.
-- Nunca respondas temas jurídicos o normativos.
-- Si faltan datos, decilo.
-- Si hay varios resultados, desambiguá.
-- Si la consulta excede tu alcance, informalo con claridad.
-- Tu valor está en recuperar información interna del CRM de forma segura, clara y útil.`
 
 // ---------------------------------------------------------------------------
 // Page context description (non-data)
@@ -418,16 +282,30 @@ function ChatBubble({
   onExecuteAction,
   actionPending,
   executedActions,
+  messageIdx,
 }: {
   message: ChatMessage
-  onExecuteAction?: (action: ChatAction) => void
+  onExecuteAction?: (action: ChatAction, messageIdx?: number) => void
   actionPending?: boolean
   executedActions?: Set<string>
+  messageIdx?: number
 }) {
   const isUser = message.role === 'user'
-  const { cleanContent, actions } = isUser
-    ? { cleanContent: message.content, actions: [] }
-    : parseActions(message.content)
+  const pending = !isUser ? message.pending_action : null
+  const cleanContent = message.content.replace(/\*+/g, '')
+
+  // Convertir el pending_action a ChatAction
+  const chatAction: ChatAction | null = pending && pending.type ? {
+    type: pending.type as ChatAction['type'],
+    label: pending.label,
+    description: pending.description,
+    params: Object.fromEntries(
+      Object.entries(pending.resolved_args).map(([k, v]) => [k, v == null ? null : String(v)])
+    ),
+  } : null
+
+  const actionKey = chatAction ? `${chatAction.type}-${JSON.stringify(chatAction.params)}` : ''
+  const alreadyExecuted = message.executed || (chatAction ? executedActions?.has(actionKey) : false)
 
   return (
     <div
@@ -450,63 +328,40 @@ function ChatBubble({
               : 'bg-white/10 text-zinc-900 dark:text-zinc-100 rounded-bl-md'
           )}
         >
-          <p className="whitespace-pre-wrap break-words">{cleanContent.replace(/\*+/g, '')}</p>
+          <p className="whitespace-pre-wrap break-words">{cleanContent}</p>
         </div>
-        {actions.length > 0 && onExecuteAction && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {actions.map((action, i) => {
-              const actionKey = `${action.type}-${JSON.stringify(action.params)}`
-              return (
-                <ActionButton
-                  key={i}
-                  action={action}
-                  onExecute={onExecuteAction}
-                  isPending={!!actionPending}
-                  isExecuted={executedActions?.has(actionKey) ?? false}
-                />
-              )
-            })}
+
+        {/* Trace de tool calls (solo para asistente) */}
+        {!isUser && message.tool_trace && message.tool_trace.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+            {message.tool_trace.map((t, i) => (
+              <span key={i} className="rounded bg-zinc-200/60 dark:bg-white/5 px-1.5 py-0.5">
+                <code className="font-mono">{t.name}</code> · {t.output_summary}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Card de acción pendiente con botón Confirmar */}
+        {chatAction && onExecuteAction && (
+          <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">
+              {chatAction.label}
+            </p>
+            <p className="text-[11px] text-zinc-700 dark:text-zinc-200 mb-2 leading-snug">
+              {chatAction.description}
+            </p>
+            <ActionButton
+              action={chatAction}
+              onExecute={(a) => onExecuteAction(a, messageIdx)}
+              isPending={!!actionPending}
+              isExecuted={!!alreadyExecuted}
+            />
           </div>
         )}
       </div>
     </div>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Action parsing — extract [ACTION:...] blocks from assistant messages
-// ---------------------------------------------------------------------------
-
-const ACTION_REGEX = /\[ACTION:(\w+)(?:\|([^\]]+))?\]/g
-
-function parseActions(content: string): { cleanContent: string; actions: ChatAction[] } {
-  const actions: ChatAction[] = []
-  const cleanContent = content.replace(ACTION_REGEX, (_, type, paramsStr) => {
-    const params: Record<string, string> = {}
-    if (paramsStr) {
-      for (const pair of paramsStr.split('|')) {
-        const [key, ...valueParts] = pair.split('=')
-        if (key && valueParts.length > 0) {
-          params[key.trim()] = valueParts.join('=').trim()
-        }
-      }
-    }
-    const labelMap: Record<string, string> = {
-      completar_tarea: `Completar: ${params.titulo || 'tarea'}`,
-      marcar_alerta_leida: `Marcar leída: ${params.titulo || 'alerta'}`,
-      cambiar_estado_expediente: `Cambiar estado a: ${params.nuevo_estado_label || params.nuevo_estado || 'nuevo estado'}`,
-      crear_seguimiento: `Registrar seguimiento`,
-    }
-    actions.push({
-      type: type as ChatAction['type'],
-      label: labelMap[type] || type,
-      description: `Ejecutar: ${type}`,
-      params,
-    })
-    return '' // Remove the action tag from visible text
-  }).trim()
-
-  return { cleanContent, actions }
 }
 
 // ---------------------------------------------------------------------------
@@ -554,8 +409,8 @@ function ActionButton({
 
 export function NicoIAChat() {
   const {
-    isOpen, messages, isLoading, toggle, open, addMessage, updateLastMessage, setLoading,
-    clearMessages, setCachedContext, conversations, showHistory, newConversation,
+    isOpen, messages, isLoading, toggle, addMessage, markActionExecuted, setLoading,
+    clearMessages, conversations, showHistory, newConversation,
     loadConversation, deleteConversation, toggleHistory, saveCurrentConversation,
   } = useNicoChatStore()
   const { profile } = useAuth()
@@ -607,12 +462,20 @@ export function NicoIAChat() {
 
   const lastSentRef = useRef(0)
 
+  const agent = useBogabotAgent()
+
+  // Si la URL es /expedientes/:id, lo pasamos como hint al agente.
+  const hintExpedienteId = (() => {
+    const m = pathname.match(/^\/expedientes\/([0-9a-f-]{8,})/i)
+    return m ? m[1] : undefined
+  })()
+
   const sendMessage = useCallback(
     async (text: string) => {
-      const trimmed = text.trim().slice(0, 2000) // Cap input length
+      const trimmed = text.trim().slice(0, 2000)
       if (!trimmed || isLoading) return
 
-      // Rate limit: minimum 2s between messages
+      // Rate limit: 2s mínimo entre mensajes
       const now = Date.now()
       if (now - lastSentRef.current < 2000) return
       lastSentRef.current = now
@@ -623,54 +486,39 @@ export function NicoIAChat() {
       setLoading(true)
 
       try {
-        const controller = new AbortController()
-        abortRef.current = controller
+        // Tomamos las últimas 20 mensajes como historial (sin system, sin
+        // mensajes con pending_action ya ejecutada — la edge function se
+        // encarga del system prompt y del contexto del CRM).
+        const history = [...messages, userMsg]
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .slice(-20)
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
-        // Use cached CRM context if valid, otherwise fetch fresh
-        let crmData = getCachedContextIfValid(pathname)
-        if (!crmData) {
-          crmData = await buildCrmContext(pathname, {
-            userId: profile?.id,
-            userRol: profile?.rol,
-            isStaff: isStaffLetrado(profile),
-          })
-          setCachedContext(crmData, pathname)
-        }
+        const result = await agent.mutateAsync({
+          messages: history,
+          page_context: buildPageDescription(pathname),
+          hint_expediente_id: hintExpedienteId,
+        })
 
-        const contextMsg: ChatMessage = {
-          role: 'system',
-          content: `CONTEXTO DE LA SESIÓN:\n- Usuario: ${profile?.nombre ?? 'Desconocido'} ${profile?.apellido ?? ''} (${displayRol(profile)})\n- ${buildPageDescription(pathname)}\n\n${crmData}`,
-        }
-
-        const fullMessages: ChatMessage[] = [
-          { role: 'system', content: SYSTEM_PROMPT },
-          contextMsg,
-          ...messages.slice(-20), // Keep last 20 messages for context window
-          userMsg,
-        ]
-
-        // Add empty assistant message for streaming
-        addMessage({ role: 'assistant', content: '' })
-
-        await chatCompletionStream(
-          fullMessages,
-          (accumulated) => {
-            updateLastMessage(accumulated)
-          },
-          { signal: controller.signal }
-        )
+        addMessage({
+          role: 'assistant',
+          content: result.reply || (result.pending_action
+            ? `Voy a ${result.pending_action.label.toLowerCase()}: ${result.pending_action.description}`
+            : 'Listo.'),
+          pending_action: result.pending_action ?? null,
+          tool_trace: result.tool_calls.map(t => ({ name: t.name, output_summary: t.output_summary })),
+        })
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return
         console.error('[BogaBot]', err)
-        updateLastMessage(
-          'Lo siento, no pude procesar tu consulta en este momento. Intentá de nuevo.'
-        )
+        addMessage({
+          role: 'assistant',
+          content: 'No pude procesar tu consulta en este momento. Intentá de nuevo en un segundo.',
+        })
       } finally {
         setLoading(false)
-        abortRef.current = null
       }
     },
-    [isLoading, messages, profile, pathname, addMessage, updateLastMessage, setLoading, setCachedContext]
+    [isLoading, messages, profile, pathname, hintExpedienteId, addMessage, setLoading, agent]
   )
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -685,11 +533,12 @@ export function NicoIAChat() {
     }
   }
 
-  const handleExecuteAction = useCallback((action: ChatAction) => {
+  const handleExecuteAction = useCallback((action: ChatAction, messageIdx?: number) => {
     const actionKey = `${action.type}-${JSON.stringify(action.params)}`
     actionExecutor.mutate(action, {
       onSuccess: (result) => {
         setExecutedActions((prev) => new Set(prev).add(actionKey))
+        if (typeof messageIdx === 'number') markActionExecuted(messageIdx)
         addMessage({ role: 'assistant', content: `Listo. ${result.message}` })
       },
       onError: (err) => {
@@ -849,6 +698,7 @@ export function NicoIAChat() {
                     <ChatBubble
                       key={i}
                       message={msg}
+                      messageIdx={i}
                       onExecuteAction={handleExecuteAction}
                       actionPending={actionExecutor.isPending}
                       executedActions={executedActions}

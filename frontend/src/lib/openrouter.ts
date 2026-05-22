@@ -8,6 +8,17 @@ import { createClient } from '@/lib/supabase/client'
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+  /** Acción pendiente de confirmación adjunta al mensaje del asistente */
+  pending_action?: {
+    type: string
+    label: string
+    description: string
+    resolved_args: Record<string, unknown>
+  } | null
+  /** Si la acción ya fue ejecutada por el usuario */
+  executed?: boolean
+  /** Trace de tool calls hechos por el agent al generar este mensaje */
+  tool_trace?: Array<{ name: string; output_summary: string }>
 }
 
 /**

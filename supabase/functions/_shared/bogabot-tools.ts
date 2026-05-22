@@ -1,0 +1,716 @@
+// ─────────────────────────────────────────────────────────────────────────
+// BogaBot — tool definitions + handlers
+//
+// Schemas en formato Anthropic tool-use (JSON Schema). El edge function
+// ejecuta los read-only handlers in-loop y devuelve los write como
+// "needs_confirmation" para que el cliente los confirme antes de tocar
+// la DB.
+// ─────────────────────────────────────────────────────────────────────────
+
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+export interface UserInfo {
+  user_id: string
+  rol: string
+  is_staff: boolean   // admin / abogado → ve todos; otros sólo donde sean miembro
+}
+
+export interface ToolHandlerResult {
+  // Para read-only: el JSON que se le devuelve al modelo
+  result?: unknown
+  // Para write: pendiente de confirmación
+  pending_action?: {
+    type: string
+    label: string
+    description: string
+    resolved_args: Record<string, unknown>
+  }
+  error?: string
+}
+
+// ─── Helpers de resolución de referencias ─────────────────────────────────
+
+function normalize(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+function clienteLabel(c: { apellido?: string | null; nombre?: string | null } | null | undefined): string {
+  if (!c) return 'Sin cliente'
+  return `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim() || 'Sin nombre'
+}
+
+function expedienteLabel(e: {
+  numero?: string | null
+  caratula?: string | null
+  clientes?: { apellido?: string | null; nombre?: string | null } | null
+}): string {
+  return e.caratula || e.numero || clienteLabel(e.clientes) || 'Expediente'
+}
+
+/**
+ * Aplica el filtro de visibilidad por role. Modifica la query in-place.
+ * Si es staff, no filtra. Si no, restringe a expedientes donde sea miembro.
+ */
+async function filterByVisibility(
+  admin: SupabaseClient,
+  query: any,
+  user: UserInfo,
+  expedienteIdCol = 'expediente_id',
+): Promise<any> {
+  if (user.is_staff) return query
+  // No-staff: traer ids de expedientes donde es miembro
+  const { data: memberships } = await admin
+    .from('expediente_miembros')
+    .select('expediente_id')
+    .eq('profile_id', user.user_id)
+  const ids = (memberships ?? []).map((m: any) => m.expediente_id)
+  if (ids.length === 0) {
+    // Fuerza zero results
+    return query.eq(expedienteIdCol, '00000000-0000-0000-0000-000000000000')
+  }
+  return query.in(expedienteIdCol, ids)
+}
+
+async function resolveExpediente(
+  admin: SupabaseClient,
+  ref: string,
+  user: UserInfo,
+): Promise<{ id: string; label: string } | { error: string; candidates?: string[] }> {
+  const raw = ref.trim()
+  if (!raw) return { error: 'Falta referencia al expediente' }
+
+  // UUID directo
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+    const { data } = await admin
+      .from('expedientes')
+      .select('id, numero, caratula, clientes:clientes(apellido, nombre)')
+      .eq('id', raw)
+      .maybeSingle()
+    if (!data) return { error: `No encuentro el expediente con id ${raw}` }
+    return { id: data.id, label: expedienteLabel(data as any) }
+  }
+
+  // Buscar por número, número SAE o carátula
+  let query = admin
+    .from('expedientes')
+    .select('id, numero, numero_sae, caratula, clientes:clientes(apellido, nombre)')
+    .is('deleted_at', null)
+    .limit(10)
+
+  query = await filterByVisibility(admin, query, user, 'id')
+
+  const term = `%${raw.replace(/[%_\\]/g, '')}%`
+  const { data: byNum } = await query.or(
+    `numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`,
+  )
+
+  let candidates = (byNum ?? []) as any[]
+
+  // Si no hubo match, intentar por nombre de cliente
+  if (candidates.length === 0) {
+    const { data: clientes } = await admin
+      .from('clientes')
+      .select('id, nombre, apellido')
+      .or(`apellido.ilike.${term},nombre.ilike.${term}`)
+      .limit(10)
+    if (clientes && clientes.length > 0) {
+      const clienteIds = (clientes as any[]).map(c => c.id)
+      let q2 = admin
+        .from('expedientes')
+        .select('id, numero, caratula, clientes:clientes(apellido, nombre)')
+        .in('cliente_id', clienteIds)
+        .is('deleted_at', null)
+        .limit(10)
+      q2 = await filterByVisibility(admin, q2, user, 'id')
+      const { data: byCli } = await q2
+      candidates = (byCli ?? []) as any[]
+    }
+  }
+
+  if (candidates.length === 0) {
+    return { error: `No encuentro ningún expediente que matchee "${raw}"` }
+  }
+  if (candidates.length > 1) {
+    return {
+      error: `Hay ${candidates.length} expedientes que matchean "${raw}". Pedile al usuario que precise.`,
+      candidates: candidates.map(c => expedienteLabel(c)),
+    }
+  }
+  return { id: candidates[0].id, label: expedienteLabel(candidates[0]) }
+}
+
+async function resolveProfile(
+  admin: SupabaseClient,
+  ref: string | null | undefined,
+): Promise<{ id: string; label: string } | { error: string }> {
+  if (!ref) return { error: 'Falta referencia al usuario' }
+  const raw = ref.trim()
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+    const { data } = await admin.from('profiles').select('id, nombre, apellido').eq('id', raw).maybeSingle()
+    if (!data) return { error: 'Usuario no encontrado' }
+    return { id: data.id, label: `${(data as any).nombre} ${(data as any).apellido}`.trim() }
+  }
+  const term = `%${raw.replace(/[%_\\]/g, '')}%`
+  const { data } = await admin
+    .from('profiles')
+    .select('id, nombre, apellido, email')
+    .or(`nombre.ilike.${term},apellido.ilike.${term},email.ilike.${term}`)
+    .limit(5)
+  const list = (data ?? []) as any[]
+  if (list.length === 0) return { error: `No encuentro un usuario que matchee "${raw}"` }
+  if (list.length > 1) {
+    const names = list.map(p => `${p.nombre} ${p.apellido}`).join(', ')
+    return { error: `Hay varios usuarios que matchean "${raw}": ${names}. Pedí precisión.` }
+  }
+  return { id: list[0].id, label: `${list[0].nombre} ${list[0].apellido}`.trim() }
+}
+
+// ─── Definiciones de Tools (formato Anthropic) ────────────────────────────
+
+export const BOGABOT_TOOLS = [
+  {
+    name: 'search_expediente',
+    description: 'Busca expedientes por número, número SAE, carátula o nombre/apellido del cliente. Devuelve hasta `limit` matches con info resumida. Útil cuando el usuario menciona un cliente o expediente por nombre.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto a buscar — puede ser número (ej. "EXP-2026-0042"), apellido o palabras de la carátula' },
+        limit: { type: 'integer', description: 'Máximo de resultados a devolver', default: 5, minimum: 1, maximum: 20 },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_expediente',
+    description: 'Devuelve el detalle completo de un expediente: cliente, tipo trámite, estado, prioridad, observaciones, tareas pendientes, próxima audiencia, miembros asignados. Si no tenés el id exacto, primero usá search_expediente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_id: { type: 'string', description: 'UUID del expediente (obtenido con search_expediente)' },
+      },
+      required: ['expediente_id'],
+    },
+  },
+  {
+    name: 'get_ultima_actuacion',
+    description: 'Devuelve la última actividad registrada en un expediente: puede ser una notificación SAE recibida o un seguimiento interno cargado. Lo que sea más reciente. Útil para "qué se sabe de X" o "última novedad de X".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_id: { type: 'string', description: 'UUID del expediente' },
+      },
+      required: ['expediente_id'],
+    },
+  },
+  {
+    name: 'list_actuaciones_sae',
+    description: 'Lista las notificaciones SAE recibidas para un expediente, ordenadas por fecha desc. Útil cuando el usuario pide "el historial SAE del expediente X".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_id: { type: 'string', description: 'UUID del expediente' },
+        limit: { type: 'integer', default: 10, minimum: 1, maximum: 50 },
+      },
+      required: ['expediente_id'],
+    },
+  },
+  {
+    name: 'list_tareas',
+    description: 'Lista tareas con filtros opcionales. Sin filtros devuelve las pendientes del usuario actual. Útil para "qué tareas tengo", "tareas vencidas", "tareas de X expediente".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        solo_vencidas: { type: 'boolean', description: 'Solo tareas con vencimiento < hoy y no completadas', default: false },
+        solo_mis_tareas: { type: 'boolean', description: 'Solo las asignadas al usuario que pregunta', default: false },
+        expediente_id: { type: 'string', description: 'UUID — filtrar por expediente' },
+        fecha_hasta: { type: 'string', description: 'Solo tareas con vencimiento ≤ esta fecha (YYYY-MM-DD)' },
+        prioridad: { type: 'string', enum: ['BAJA', 'MEDIA', 'ALTA', 'URGENTE'] },
+        limit: { type: 'integer', default: 15, minimum: 1, maximum: 50 },
+      },
+    },
+  },
+  {
+    name: 'list_audiencias',
+    description: 'Lista audiencias por rango de fechas. Sin filtros devuelve las próximas 14 días.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        desde: { type: 'string', description: 'YYYY-MM-DD inclusive. Default: hoy.' },
+        hasta: { type: 'string', description: 'YYYY-MM-DD inclusive. Default: hoy + 14 días.' },
+        expediente_id: { type: 'string' },
+        limit: { type: 'integer', default: 15, minimum: 1, maximum: 50 },
+      },
+    },
+  },
+  {
+    name: 'list_notif_sae',
+    description: 'Lista notificaciones del portal SAE del usuario actual. Por defecto solo no leídas, más recientes primero.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        solo_no_leidas: { type: 'boolean', default: true },
+        solo_urgentes: { type: 'boolean', description: 'Solo las marcadas urgentes por IA', default: false },
+        fuero: { type: 'string', description: 'Slug del fuero (ej. "civil", "familia")' },
+        limit: { type: 'integer', default: 10, minimum: 1, maximum: 30 },
+      },
+    },
+  },
+  // ─── Write tools — devuelven "pending_action", no ejecutan ──────────
+  {
+    name: 'crear_tarea',
+    description: 'Prepara una tarea para crear. NO la crea — devuelve un payload pendiente para que el usuario confirme. El usuario verá los detalles y un botón "Confirmar".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_ref: { type: 'string', description: 'Carátula, número o apellido del cliente del expediente' },
+        titulo: { type: 'string', description: 'Título corto de la tarea' },
+        descripcion: { type: 'string', description: 'Descripción opcional' },
+        fecha_vencimiento: { type: 'string', description: 'YYYY-MM-DD opcional' },
+        asignado_ref: { type: 'string', description: 'Nombre/apellido del usuario al que asignar. Si se omite, queda sin asignar.' },
+        prioridad: { type: 'string', enum: ['BAJA', 'MEDIA', 'ALTA', 'URGENTE'], default: 'MEDIA' },
+      },
+      required: ['expediente_ref', 'titulo'],
+    },
+  },
+  {
+    name: 'completar_tarea',
+    description: 'Prepara una tarea para marcar como completada. NO la marca — devuelve un payload pendiente para que el usuario confirme.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tarea_ref: { type: 'string', description: 'Título exacto o UUID de la tarea (mejor usar el título tal como apareció en una list_tareas previa).' },
+      },
+      required: ['tarea_ref'],
+    },
+  },
+] as const
+
+// ─── Handlers ─────────────────────────────────────────────────────────────
+
+type Handler = (admin: SupabaseClient, user: UserInfo, args: any) => Promise<ToolHandlerResult>
+
+export const TOOL_HANDLERS: Record<string, Handler> = {
+
+  search_expediente: async (admin, user, args) => {
+    const q = String(args.query ?? '').trim()
+    const limit = Math.min(Math.max(Number(args.limit ?? 5), 1), 20)
+    if (!q) return { error: 'query vacía' }
+    const term = `%${q.replace(/[%_\\]/g, '')}%`
+
+    let query = admin
+      .from('expedientes')
+      .select('id, numero, numero_sae, caratula, estado_interno, prioridad, clientes:clientes(apellido, nombre)')
+      .is('deleted_at', null)
+      .limit(limit)
+    query = await filterByVisibility(admin, query, user, 'id')
+
+    // Buscar por número/carátula
+    const { data: direct } = await query.or(
+      `numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`,
+    )
+
+    let results = (direct ?? []) as any[]
+
+    // Suplementar con búsqueda por cliente si faltan
+    if (results.length < limit) {
+      const { data: clientes } = await admin
+        .from('clientes')
+        .select('id')
+        .or(`apellido.ilike.${term},nombre.ilike.${term}`)
+        .limit(5)
+      if (clientes && clientes.length > 0) {
+        const ids = (clientes as any[]).map(c => c.id)
+        let q2 = admin
+          .from('expedientes')
+          .select('id, numero, caratula, estado_interno, prioridad, clientes:clientes(apellido, nombre)')
+          .in('cliente_id', ids)
+          .is('deleted_at', null)
+          .limit(limit - results.length)
+        q2 = await filterByVisibility(admin, q2, user, 'id')
+        const { data: byCli } = await q2
+        const seenIds = new Set(results.map(r => r.id))
+        for (const e of (byCli ?? []) as any[]) {
+          if (!seenIds.has(e.id)) results.push(e)
+        }
+      }
+    }
+
+    return {
+      result: {
+        count: results.length,
+        items: results.map(e => ({
+          id: e.id,
+          numero: e.numero,
+          caratula: e.caratula,
+          cliente: clienteLabel(e.clientes),
+          estado: e.estado_interno,
+          prioridad: e.prioridad,
+        })),
+      },
+    }
+  },
+
+  get_expediente: async (admin, user, args) => {
+    const id = String(args.expediente_id ?? '').trim()
+    if (!id) return { error: 'expediente_id requerido' }
+
+    if (!user.is_staff) {
+      const { data: m } = await admin
+        .from('expediente_miembros')
+        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
+      if (!m) return { error: 'No tenés permiso para ver este expediente' }
+    }
+
+    const { data: exp, error } = await admin
+      .from('expedientes')
+      .select(`
+        id, numero, numero_sae, caratula, estado_interno, prioridad, fecha_alta, observaciones, updated_at,
+        clientes:clientes(id, apellido, nombre),
+        tipos_tramite:tipos_tramite(nombre),
+        miembros:expediente_miembros(rol, perfil:profiles(nombre, apellido, rol))
+      `)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (error || !exp) return { error: 'Expediente no encontrado' }
+    const e = exp as any
+
+    const today = new Date().toISOString().split('T')[0]
+    const { data: tareasPend } = await admin
+      .from('tareas')
+      .select('id, titulo, fecha_vencimiento, prioridad, estado, asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
+      .eq('expediente_id', id)
+      .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+      .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
+      .limit(10)
+
+    const { data: proxAud } = await admin
+      .from('audiencias')
+      .select('id, fecha, hora, tipo, organismo')
+      .eq('expediente_id', id)
+      .gte('fecha', today)
+      .neq('estado', 'CANCELADA')
+      .order('fecha')
+      .limit(5)
+
+    return {
+      result: {
+        id: e.id,
+        numero: e.numero,
+        numero_sae: e.numero_sae,
+        caratula: e.caratula,
+        cliente: clienteLabel(e.clientes),
+        tipo_tramite: e.tipos_tramite?.nombre ?? null,
+        estado: e.estado_interno,
+        prioridad: e.prioridad,
+        fecha_alta: e.fecha_alta,
+        observaciones: e.observaciones,
+        actualizado: e.updated_at,
+        miembros: (e.miembros ?? []).map((m: any) => ({
+          rol: m.rol,
+          nombre: m.perfil ? `${m.perfil.nombre} ${m.perfil.apellido}` : '?',
+        })),
+        tareas_pendientes: (tareasPend ?? []).map((t: any) => ({
+          id: t.id,
+          titulo: t.titulo,
+          vencimiento: t.fecha_vencimiento,
+          prioridad: t.prioridad,
+          estado: t.estado,
+          asignado: t.asignado ? `${t.asignado.nombre} ${t.asignado.apellido}` : null,
+        })),
+        proximas_audiencias: (proxAud ?? []).map((a: any) => ({
+          id: a.id, fecha: a.fecha, hora: a.hora, tipo: a.tipo, organismo: a.organismo,
+        })),
+      },
+    }
+  },
+
+  get_ultima_actuacion: async (admin, user, args) => {
+    const id = String(args.expediente_id ?? '').trim()
+    if (!id) return { error: 'expediente_id requerido' }
+
+    if (!user.is_staff) {
+      const { data: m } = await admin
+        .from('expediente_miembros')
+        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
+      if (!m) return { error: 'No tenés permiso' }
+    }
+
+    const [saeRes, segRes] = await Promise.all([
+      admin.from('sae_notificaciones')
+        .select('id, fecha_emision, created_at, tipo, titulo, ia_resumen, prioridad')
+        .eq('expediente_id', id)
+        .order('fecha_emision', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin.from('expediente_seguimientos')
+        .select('id, created_at, canal, observacion, autor:profiles(nombre, apellido)')
+        .eq('expediente_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+
+    const sae = saeRes.data as any
+    const seg = segRes.data as any
+    const saeTs = sae ? (sae.fecha_emision ?? sae.created_at) : null
+    const segTs = seg ? seg.created_at : null
+
+    if (!sae && !seg) return { result: { found: false } }
+
+    // Devolver la más reciente
+    if (sae && (!seg || saeTs >= segTs)) {
+      return {
+        result: {
+          found: true,
+          fuente: 'sae',
+          fecha: saeTs,
+          tipo: sae.tipo,
+          titulo: sae.titulo,
+          resumen: sae.ia_resumen,
+          prioridad: sae.prioridad,
+        },
+      }
+    }
+    return {
+      result: {
+        found: true,
+        fuente: 'seguimiento',
+        fecha: seg.created_at,
+        canal: seg.canal,
+        observacion: seg.observacion,
+        autor: seg.autor ? `${seg.autor.nombre} ${seg.autor.apellido}` : null,
+      },
+    }
+  },
+
+  list_actuaciones_sae: async (admin, user, args) => {
+    const id = String(args.expediente_id ?? '').trim()
+    const limit = Math.min(Math.max(Number(args.limit ?? 10), 1), 50)
+    if (!id) return { error: 'expediente_id requerido' }
+
+    if (!user.is_staff) {
+      const { data: m } = await admin
+        .from('expediente_miembros')
+        .select('rol').eq('profile_id', user.user_id).eq('expediente_id', id).maybeSingle()
+      if (!m) return { error: 'No tenés permiso' }
+    }
+
+    const { data } = await admin
+      .from('sae_notificaciones')
+      .select('id, fecha_emision, tipo, titulo, ia_resumen, prioridad, leida')
+      .eq('expediente_id', id)
+      .order('fecha_emision', { ascending: false, nullsFirst: false })
+      .limit(limit)
+
+    return {
+      result: {
+        count: (data ?? []).length,
+        items: (data ?? []).map((n: any) => ({
+          id: n.id, fecha: n.fecha_emision, tipo: n.tipo,
+          titulo: n.titulo, resumen: n.ia_resumen, prioridad: n.prioridad, leida: n.leida,
+        })),
+      },
+    }
+  },
+
+  list_tareas: async (admin, user, args) => {
+    const today = new Date().toISOString().split('T')[0]
+    const limit = Math.min(Math.max(Number(args.limit ?? 15), 1), 50)
+
+    let q = admin
+      .from('tareas')
+      .select('id, titulo, fecha_vencimiento, prioridad, estado, expediente_id, expediente:expedientes!tareas_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre)), asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
+      .neq('estado', 'CANCELADA')
+      .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
+      .limit(limit)
+
+    if (args.solo_vencidas) {
+      q = q.lt('fecha_vencimiento', today).in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+    } else {
+      q = q.in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+    }
+    if (args.solo_mis_tareas) q = q.eq('asignado_a', user.user_id)
+    if (args.expediente_id) q = q.eq('expediente_id', args.expediente_id)
+    if (args.fecha_hasta) q = q.lte('fecha_vencimiento', args.fecha_hasta)
+    if (args.prioridad) q = q.eq('prioridad', args.prioridad)
+
+    q = await filterByVisibility(admin, q, user, 'expediente_id')
+    const { data } = await q
+
+    return {
+      result: {
+        count: (data ?? []).length,
+        items: (data ?? []).map((t: any) => ({
+          id: t.id,
+          titulo: t.titulo,
+          vencimiento: t.fecha_vencimiento,
+          prioridad: t.prioridad,
+          estado: t.estado,
+          expediente: expedienteLabel(t.expediente),
+          asignado: t.asignado ? `${t.asignado.nombre} ${t.asignado.apellido}` : null,
+        })),
+      },
+    }
+  },
+
+  list_audiencias: async (admin, user, args) => {
+    const today = new Date().toISOString().split('T')[0]
+    const in14 = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]
+    const desde = args.desde || today
+    const hasta = args.hasta || in14
+    const limit = Math.min(Math.max(Number(args.limit ?? 15), 1), 50)
+
+    let q = admin
+      .from('audiencias')
+      .select('id, fecha, hora, tipo, organismo, observaciones, expediente_id, expediente:expedientes!audiencias_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre))')
+      .neq('estado', 'CANCELADA')
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .order('fecha')
+      .order('hora')
+      .limit(limit)
+
+    if (args.expediente_id) q = q.eq('expediente_id', args.expediente_id)
+    q = await filterByVisibility(admin, q, user, 'expediente_id')
+    const { data } = await q
+
+    return {
+      result: {
+        count: (data ?? []).length,
+        rango: { desde, hasta },
+        items: (data ?? []).map((a: any) => ({
+          id: a.id, fecha: a.fecha, hora: a.hora, tipo: a.tipo, organismo: a.organismo,
+          observaciones: a.observaciones,
+          expediente: expedienteLabel(a.expediente),
+        })),
+      },
+    }
+  },
+
+  list_notif_sae: async (admin, user, args) => {
+    const limit = Math.min(Math.max(Number(args.limit ?? 10), 1), 30)
+    const nowIso = new Date().toISOString()
+
+    let q = admin
+      .from('sae_notificaciones')
+      .select('id, fecha_emision, tipo, titulo, ia_resumen, prioridad, leida, numero_expediente, raw_payload, expediente:expedientes(caratula, clientes:clientes(apellido, nombre))')
+      .eq('profile_id', user.user_id)
+      .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
+      .order('fecha_emision', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (args.solo_no_leidas !== false) q = q.eq('leida', false)
+    if (args.solo_urgentes) q = q.eq('prioridad', 'urgente')
+    if (args.fuero) q = q.eq('raw_payload->>fuero', args.fuero)
+
+    const { data } = await q
+    return {
+      result: {
+        count: (data ?? []).length,
+        items: (data ?? []).map((n: any) => ({
+          id: n.id,
+          fecha: n.fecha_emision,
+          tipo: n.tipo,
+          titulo: n.titulo,
+          resumen: n.ia_resumen,
+          prioridad: n.prioridad,
+          leida: n.leida,
+          numero_expediente: n.numero_expediente,
+          expediente_vinculado: n.expediente ? expedienteLabel(n.expediente) : null,
+          fuero: n.raw_payload?.fuero,
+        })),
+      },
+    }
+  },
+
+  // ─── Write tools — resuelven refs y devuelven payload pendiente ────────
+
+  crear_tarea: async (admin, user, args) => {
+    const titulo = String(args.titulo ?? '').trim()
+    if (!titulo) return { error: 'titulo requerido' }
+    const expRef = String(args.expediente_ref ?? '').trim()
+    if (!expRef) return { error: 'expediente_ref requerido' }
+
+    const exp = await resolveExpediente(admin, expRef, user)
+    if ('error' in exp) return { error: exp.error }
+
+    let asignado: { id: string; label: string } | null = null
+    if (args.asignado_ref) {
+      const r = await resolveProfile(admin, String(args.asignado_ref))
+      if ('error' in r) return { error: r.error }
+      asignado = r
+    }
+
+    const prioridad = args.prioridad ?? 'MEDIA'
+    const fecha = args.fecha_vencimiento || null
+
+    return {
+      pending_action: {
+        type: 'crear_tarea',
+        label: 'Crear tarea',
+        description: `Crear "${titulo}" en ${exp.label}${asignado ? ` para ${asignado.label}` : ''}${fecha ? ` con vencimiento ${fecha}` : ''} (prioridad ${prioridad}).`,
+        resolved_args: {
+          expediente_id: exp.id,
+          expediente_label: exp.label,
+          titulo,
+          descripcion: args.descripcion ?? null,
+          fecha_vencimiento: fecha,
+          asignado_a: asignado?.id ?? null,
+          asignado_label: asignado?.label ?? null,
+          prioridad,
+        },
+      },
+    }
+  },
+
+  completar_tarea: async (admin, user, args) => {
+    const ref = String(args.tarea_ref ?? '').trim()
+    if (!ref) return { error: 'tarea_ref requerido' }
+
+    // Resolver: id directo o por titulo
+    let tareaRow: any = null
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) {
+      const { data } = await admin
+        .from('tareas')
+        .select('id, titulo, estado, expediente_id, expediente:expedientes(caratula, numero, clientes:clientes(apellido, nombre))')
+        .eq('id', ref)
+        .maybeSingle()
+      tareaRow = data
+    } else {
+      let q = admin
+        .from('tareas')
+        .select('id, titulo, estado, expediente_id, expediente:expedientes(caratula, numero, clientes:clientes(apellido, nombre))')
+        .ilike('titulo', `%${ref.replace(/[%_\\]/g, '')}%`)
+        .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+        .limit(5)
+      q = await filterByVisibility(admin, q, user, 'expediente_id')
+      const { data } = await q
+      const list = (data ?? []) as any[]
+      if (list.length === 0) return { error: `No encuentro una tarea pendiente que matchee "${ref}"` }
+      if (list.length > 1) {
+        const names = list.map(t => `${t.titulo} (${expedienteLabel(t.expediente)})`).join('; ')
+        return { error: `Hay varias tareas pendientes: ${names}. Pedí precisión.` }
+      }
+      tareaRow = list[0]
+    }
+
+    if (!tareaRow) return { error: 'Tarea no encontrada' }
+    if (tareaRow.estado === 'COMPLETADA') return { error: 'La tarea ya está completada' }
+
+    return {
+      pending_action: {
+        type: 'completar_tarea',
+        label: 'Completar tarea',
+        description: `Marcar como completada "${tareaRow.titulo}" en ${expedienteLabel(tareaRow.expediente)}.`,
+        resolved_args: {
+          tarea_id: tareaRow.id,
+          tarea_titulo: tareaRow.titulo,
+          expediente_label: expedienteLabel(tareaRow.expediente),
+        },
+      },
+    }
+  },
+}

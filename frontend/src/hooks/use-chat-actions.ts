@@ -13,12 +13,14 @@ export type ChatActionType =
   | 'marcar_alerta_leida'
   | 'cambiar_estado_expediente'
   | 'crear_seguimiento'
+  | 'crear_tarea'
 
 export interface ChatAction {
   type: ChatActionType
   label: string
   description: string
-  params: Record<string, string>
+  /** El agent ya resuelve refs (nombres → ids) y deja todo listo acá */
+  params: Record<string, string | null | undefined>
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +218,29 @@ export function useChatActionExecutor() {
             .eq('id', expedienteId)
           if (error) throw error
           return { message: `Estado del expediente actualizado a "${action.params.nuevo_estado_label || nuevoEstado}".` }
+        }
+
+        case 'crear_tarea': {
+          const expedienteId = await resolveExpedienteId(
+            supabase,
+            action.params.expediente_id || action.params.expediente_ref,
+          )
+          const { data: { user } } = await supabase.auth.getUser()
+          const titulo = (action.params.titulo || '').trim()
+          if (!titulo) throw new Error('Falta título de la tarea.')
+          const payload: Record<string, unknown> = {
+            expediente_id: expedienteId,
+            titulo,
+            descripcion: action.params.descripcion || null,
+            fecha_vencimiento: action.params.fecha_vencimiento || null,
+            asignado_a: action.params.asignado_a || null,
+            prioridad: action.params.prioridad || 'MEDIA',
+            estado: 'PENDIENTE',
+            created_by: user?.id ?? '',
+          }
+          const { error } = await supabase.from('tareas').insert(payload as never)
+          if (error) throw error
+          return { message: `Tarea "${titulo}" creada correctamente.` }
         }
 
         case 'crear_seguimiento': {

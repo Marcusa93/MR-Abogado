@@ -37,6 +37,7 @@ interface NicoChatState {
   close: () => void
   addMessage: (msg: ChatMessage) => void
   updateLastMessage: (content: string) => void
+  markActionExecuted: (messageIdx: number) => void
   setLoading: (v: boolean) => void
   clearMessages: () => void
   setCachedContext: (context: string, pathname: string) => void
@@ -84,6 +85,14 @@ export const useNicoChatStore = create<NicoChatState>()(
           const msgs = [...s.messages]
           if (msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') {
             msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], content }
+          }
+          return { messages: msgs }
+        }),
+      markActionExecuted: (messageIdx: number) =>
+        set((s) => {
+          const msgs = [...s.messages]
+          if (msgs[messageIdx]) {
+            msgs[messageIdx] = { ...msgs[messageIdx], executed: true }
           }
           return { messages: msgs }
         }),
