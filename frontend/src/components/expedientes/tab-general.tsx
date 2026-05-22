@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, InfoItem } from './detail-helpers'
+import { AbogadoResponsableSelector } from './abogado-responsable-selector'
 import { formatDate, daysAgo } from '@/lib/utils/date-helpers'
 import type { Tables } from '@/types/database.types'
 import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
@@ -77,11 +78,22 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
                   : '-'
               }
             />
-            <InfoItem
-              icon={User}
-              label="Responsable"
-              value={responsable ? `${responsable.nombre} ${responsable.apellido}` : null}
+            <AbogadoResponsableSelector
+              expedienteId={expediente.id}
+              abogadoResponsableId={(expediente as any).abogado_responsable_id ?? null}
+              abogadoResponsableLabel={(() => {
+                const r = (expediente as any).abogado_responsable
+                if (!r) return null
+                return `${r.apellido}, ${r.nombre}`
+              })()}
             />
+            {responsable && (
+              <InfoItem
+                icon={User}
+                label="Responsable (miembro)"
+                value={`${responsable.nombre} ${responsable.apellido}`}
+              />
+            )}
             <InfoItem icon={Calendar} label="Fecha de alta" value={formatDate(fechaAlta)} />
             {expediente.fecha_cierre && (
               <InfoItem icon={Calendar} label="Fecha de cierre" value={formatDate(expediente.fecha_cierre)} />

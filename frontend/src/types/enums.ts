@@ -193,6 +193,7 @@ export const PRIORIDAD_DOT_COLORS: Record<Prioridad, string> = {
 // Rol de usuario
 // ---------------------------------------------------------------------------
 export const Rol = {
+  DIRECTOR: 'DIRECTOR',
   ADMIN: 'ADMIN',
   ABOGADO: 'ABOGADO',
   COLABORADOR: 'COLABORADOR',
@@ -203,6 +204,7 @@ export type Rol = (typeof Rol)[keyof typeof Rol]
 export const ROL_VALUES = Object.values(Rol)
 
 export const ROL_LABELS: Record<Rol, string> = {
+  DIRECTOR: 'Director/a del Estudio',
   ADMIN: 'Administrador',
   ABOGADO: 'Abogado/a',
   COLABORADOR: 'Colaborador/a',

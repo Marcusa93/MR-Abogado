@@ -25,6 +25,7 @@ import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/sem
 import { MisTareasPanel } from '@/components/dashboard/mis-tareas-panel'
 import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
+import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
 import { ErrorState } from '@/components/shared/error-state'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { ESTADOS_TERMINALES } from '@/types/enums'
@@ -368,6 +369,9 @@ export function DashboardView({
         <MisTareasPanel previewData={previewTasks} />
         <UpcomingTurnosPanel turnos={metrics?.turnos_proximos ?? []} />
       </div>
+
+      {/* Panel "Por abogado" — solo visible para el director */}
+      <AbogadosPanel />
 
       <SectionHeading
         eyebrow="radar sae"

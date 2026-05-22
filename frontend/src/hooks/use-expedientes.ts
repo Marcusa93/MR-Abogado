@@ -9,6 +9,8 @@ import type { Tables, TablesInsert, TablesUpdate } from '@/types/database.types'
 import type { EstadoInterno, Prioridad } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { sanitizeForPostgrest } from '@/lib/utils/sanitize-search'
+import { getAllowedExpedienteIds } from '@/lib/utils/expediente-visibility'
+import { useAuthStore } from '@/stores/auth-store'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +79,7 @@ export const expedientesKeys = {
 
 export function useExpedientes(filters: ExpedientesFilters = {}) {
   const supabase = createClient()
+  const profile = useAuthStore((s) => s.profile)
   const {
     estado_interno,
     tipo_tramite_id,
@@ -89,9 +92,15 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
   } = filters
 
   return useQuery<PaginatedResult<ExpedienteWithRelations>>({
-    queryKey: expedientesKeys.list(filters),
+    queryKey: [...expedientesKeys.list(filters), profile?.id, profile?.rol],
     staleTime: 60_000,
     queryFn: async () => {
+      // Filtro de visibilidad: director ve todo, otros ven los suyos.
+      const allowedIds = await getAllowedExpedienteIds(supabase, profile)
+      if (allowedIds && allowedIds.length === 0) {
+        return { data: [], count: 0, page, pageSize, totalPages: 0 }
+      }
+
       let query = supabase
         .from('expedientes')
         .select(
@@ -106,7 +115,8 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           { count: 'exact' }
         )
         .is('deleted_at', null)
-        .order(sortBy, { ascending: sortOrder === 'asc' })
+      if (allowedIds) query = query.in('id', allowedIds)
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' })
 
       // Apply filters
       if (estado_interno) {
@@ -190,6 +200,7 @@ export function useExpediente(id: string | undefined) {
           *,
           clientes (*),
           tipos_tramite (*),
+          abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
           audiencias (*),
           seguimientos (*),
