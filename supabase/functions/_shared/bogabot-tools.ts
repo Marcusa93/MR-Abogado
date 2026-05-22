@@ -216,7 +216,7 @@ export const BOGABOT_TOOLS = [
   },
   {
     name: 'get_ultima_actuacion',
-    description: 'Devuelve la última actividad registrada en un expediente: puede ser una notificación SAE recibida o un seguimiento interno cargado. Lo que sea más reciente. Útil para "qué se sabe de X" o "última novedad de X".',
+    description: 'Devuelve la última actividad cronológica de un expediente. Consulta tres fuentes y devuelve la más reciente: (1) sae_movements = actuaciones reales del juzgado SAE (lo más importante: proveídos, audiencias, traslados, etc.); (2) sae_notificaciones = cédulas del casillero digital; (3) seguimientos internos del estudio. Útil para "qué se sabe de X", "última novedad", "qué pasó en el expediente Y".',
     input_schema: {
       type: 'object',
       properties: {
@@ -227,12 +227,13 @@ export const BOGABOT_TOOLS = [
   },
   {
     name: 'list_actuaciones_sae',
-    description: 'Lista las notificaciones SAE recibidas para un expediente, ordenadas por fecha desc. Útil cuando el usuario pide "el historial SAE del expediente X".',
+    description: 'Lista las actuaciones del expediente desde sae_movements (movimientos del juzgado), ordenadas cronológicamente (más recientes primero). Útil cuando el usuario pide "el historial", "las últimas actuaciones" o "qué pasó en el expediente Y".',
     input_schema: {
       type: 'object',
       properties: {
         expediente_id: { type: 'string', description: 'UUID del expediente' },
         limit: { type: 'integer', default: 10, minimum: 1, maximum: 50 },
+        solo_claves: { type: 'boolean', description: 'Solo movimientos marcados como clave (is_key)', default: false },
       },
       required: ['expediente_id'],
     },
@@ -455,7 +456,18 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
       return { error: 'No tenés permiso' }
     }
 
-    const [saeRes, segRes] = await Promise.all([
+    // Consultamos 3 fuentes en paralelo. La principal son sae_movements
+    // (actuaciones reales del juzgado vía SAE). Las otras dos son:
+    // - sae_notificaciones: cédulas/notif del casillero digital
+    // - expediente_seguimientos: notas internas del estudio
+    const [movRes, notifRes, segRes] = await Promise.all([
+      admin.from('sae_movements')
+        .select('id, fecha, titulo, cuerpo, tipo_movimiento, ai_summary, tiene_documentos, is_key, is_audiencia')
+        .eq('expediente_id', id)
+        .order('fecha', { ascending: false, nullsFirst: false })
+        .order('synced_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       admin.from('sae_notificaciones')
         .select('id, fecha_emision, created_at, tipo, titulo, ia_resumen, prioridad')
         .eq('expediente_id', id)
@@ -471,37 +483,58 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
         .maybeSingle(),
     ])
 
-    const sae = saeRes.data as any
+    const mov = movRes.data as any
+    const notif = notifRes.data as any
     const seg = segRes.data as any
-    const saeTs = sae ? (sae.fecha_emision ?? sae.created_at) : null
-    const segTs = seg ? seg.created_at : null
 
-    if (!sae && !seg) return { result: { found: false } }
+    type Cand = { ts: string; payload: Record<string, unknown> }
+    const candidates: Cand[] = []
 
-    // Devolver la más reciente
-    if (sae && (!seg || saeTs >= segTs)) {
-      return {
-        result: {
-          found: true,
-          fuente: 'sae',
-          fecha: saeTs,
-          tipo: sae.tipo,
-          titulo: sae.titulo,
-          resumen: sae.ia_resumen,
-          prioridad: sae.prioridad,
+    if (mov) {
+      candidates.push({
+        ts: mov.fecha ?? '',
+        payload: {
+          fuente: 'sae_movement',
+          fecha: mov.fecha,
+          titulo: mov.titulo,
+          cuerpo: mov.cuerpo ? String(mov.cuerpo).slice(0, 500) : null,
+          tipo_movimiento: mov.tipo_movimiento,
+          resumen_ia: mov.ai_summary,
+          tiene_documentos: mov.tiene_documentos,
+          es_clave: mov.is_key,
+          es_audiencia: mov.is_audiencia,
         },
-      }
+      })
     }
-    return {
-      result: {
-        found: true,
-        fuente: 'seguimiento',
-        fecha: seg.created_at,
-        canal: seg.canal,
-        observacion: seg.observacion,
-        autor: seg.autor ? `${seg.autor.nombre} ${seg.autor.apellido}` : null,
-      },
+    if (notif) {
+      candidates.push({
+        ts: notif.fecha_emision ?? notif.created_at,
+        payload: {
+          fuente: 'sae_notificacion',
+          fecha: notif.fecha_emision ?? notif.created_at,
+          tipo: notif.tipo,
+          titulo: notif.titulo,
+          resumen: notif.ia_resumen,
+          prioridad: notif.prioridad,
+        },
+      })
     }
+    if (seg) {
+      candidates.push({
+        ts: seg.created_at,
+        payload: {
+          fuente: 'seguimiento_interno',
+          fecha: seg.created_at,
+          canal: seg.canal,
+          observacion: seg.observacion,
+          autor: seg.autor ? `${seg.autor.nombre} ${seg.autor.apellido}` : null,
+        },
+      })
+    }
+
+    if (candidates.length === 0) return { result: { found: false } }
+    candidates.sort((a, b) => b.ts.localeCompare(a.ts))
+    return { result: { found: true, ...candidates[0].payload } }
   },
 
   list_actuaciones_sae: async (admin, user, args) => {
@@ -513,19 +546,31 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
       return { error: 'No tenés permiso' }
     }
 
-    const { data } = await admin
-      .from('sae_notificaciones')
-      .select('id, fecha_emision, tipo, titulo, ia_resumen, prioridad, leida')
+    let q = admin
+      .from('sae_movements')
+      .select('id, fecha, titulo, cuerpo, tipo_movimiento, ai_summary, tiene_documentos, is_key, is_audiencia')
       .eq('expediente_id', id)
-      .order('fecha_emision', { ascending: false, nullsFirst: false })
+
+    if (args.solo_claves) q = q.eq('is_key', true)
+
+    const { data } = await q
+      .order('fecha', { ascending: false, nullsFirst: false })
+      .order('synced_at', { ascending: false })
       .limit(limit)
 
     return {
       result: {
         count: (data ?? []).length,
-        items: (data ?? []).map((n: any) => ({
-          id: n.id, fecha: n.fecha_emision, tipo: n.tipo,
-          titulo: n.titulo, resumen: n.ia_resumen, prioridad: n.prioridad, leida: n.leida,
+        items: (data ?? []).map((m: any) => ({
+          id: m.id,
+          fecha: m.fecha,
+          titulo: m.titulo,
+          cuerpo: m.cuerpo ? String(m.cuerpo).slice(0, 300) : null,
+          tipo: m.tipo_movimiento,
+          resumen_ia: m.ai_summary,
+          tiene_documentos: m.tiene_documentos,
+          es_clave: m.is_key,
+          es_audiencia: m.is_audiencia,
         })),
       },
     }
