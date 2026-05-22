@@ -196,11 +196,11 @@ async function resolveProfile(
 export const BOGABOT_TOOLS = [
   {
     name: 'search_expediente',
-    description: 'Busca expedientes por número, número SAE, carátula o nombre/apellido del cliente. Devuelve hasta `limit` matches con info resumida. Útil cuando el usuario menciona un cliente o expediente por nombre.',
+    description: 'Busca expedientes por número, número SAE, carátula o nombre/apellido del cliente. La tool entiende los separadores judiciales típicos en la consulta: "Rossi con Sosa", "Rossi c/ Sosa", "Rossi vs Sosa", "Rossi contra Sosa" → busca carátulas que contengan AMBAS partes (actor y demandado). Devuelve hasta `limit` matches con info resumida.',
     input_schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Texto a buscar — puede ser número (ej. "EXP-2026-0042"), apellido o palabras de la carátula' },
+        query: { type: 'string', description: 'Texto a buscar — número (ej. "EXP-2026-0042"), apellido, palabras de la carátula, o frase con "con/c-slash/vs/contra" para buscar por actor y demandado simultáneamente' },
         limit: { type: 'integer', description: 'Máximo de resultados a devolver', default: 5, minimum: 1, maximum: 20 },
       },
       required: ['query'],
@@ -322,12 +322,22 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     const q = String(args.query ?? '').trim()
     const limit = Math.min(Math.max(Number(args.limit ?? 5), 1), 20)
     if (!q) return { error: 'query vacía' }
-    const term = `%${q.replace(/[%_\\]/g, '')}%`
 
     const allowedIds = await getAllowedExpedienteIds(admin, user)
     if (allowedIds && allowedIds.length === 0) {
       return { result: { count: 0, items: [] } }
     }
+
+    // Detectar separadores judiciales en la consulta (con, c/, contra, vs,
+    // versus, v., &, /). Si hay >=2 partes, busco carátula que las contenga
+    // a TODAS — interpreta "Rossi con Sosa", "Rossi vs Sosa", etc.
+    const SEPARATORS = /\b(con|contra|vs|versus|v\.s\.)\b|\s+c\/\s*|\s*\/\s*/gi
+    const partes = q
+      .split(SEPARATORS)
+      .map(s => (s || '').trim())
+      .filter(s => s.length >= 2 && !/^(con|contra|vs|versus|v\.s\.)$/i.test(s))
+
+    const term = `%${q.replace(/[%_\\]/g, '')}%`
 
     // Buscar por número/carátula. ORDEN IMPORTANTE: filtros (.or, .in, .is)
     // ANTES de .limit() o el chain pierde .or().
@@ -335,14 +345,26 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
       .from('expedientes')
       .select('id, numero, numero_sae, caratula, estado_interno, prioridad, clientes:clientes(apellido, nombre)')
       .is('deleted_at', null)
-      .or(`numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`)
+
+    if (partes.length >= 2) {
+      // Multi-parte: carátula debe contener TODAS las partes (AND).
+      for (const p of partes) {
+        const t = `%${p.replace(/[%_\\]/g, '')}%`
+        q1 = q1.ilike('caratula', t)
+      }
+    } else {
+      // Single: número o carátula o numero_sae.
+      q1 = q1.or(`numero.ilike.${term},numero_sae.ilike.${term},caratula.ilike.${term}`)
+    }
+
     if (allowedIds) q1 = q1.in('id', allowedIds)
     const { data: direct } = await q1.limit(limit)
 
     let results = (direct ?? []) as any[]
 
-    // Suplementar con búsqueda por cliente si faltan
-    if (results.length < limit) {
+    // Suplementar con búsqueda por cliente si faltan (solo en consultas
+    // single-parte; para multi-parte el match por carátula ya es bueno).
+    if (results.length < limit && partes.length < 2) {
       const { data: clientes } = await admin
         .from('clientes')
         .select('id')
