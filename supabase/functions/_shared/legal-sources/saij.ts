@@ -22,21 +22,36 @@ import type {
   LegalDocFull,
 } from './types.ts'
 
-const BASE_URL = 'https://www.saij.gob.ar'
+// SAIJ bloquea IPs cloud (incluido Supabase Edge). Si está configurado
+// SAIJ_PROXY_URL apuntamos ahí — un proxy en una IP residencial argentina
+// que reenvía las requests con auth por X-Proxy-Token.
+const DIRECT_BASE_URL = 'https://www.saij.gob.ar'
+const PROXY_URL = Deno.env.get('SAIJ_PROXY_URL') ?? ''
+const PROXY_TOKEN = Deno.env.get('SAIJ_PROXY_TOKEN') ?? ''
+const USE_PROXY = PROXY_URL.length > 0
+const BASE_URL = USE_PROXY ? `${PROXY_URL.replace(/\/$/, '')}/proxy` : DIRECT_BASE_URL
+
 const TIMEOUT_MS = 30_000
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
-const COMMON_HEADERS: HeadersInit = {
-  'User-Agent': USER_AGENT,
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
-  'Origin': BASE_URL,
-  'Referer': `${BASE_URL}/`,
-}
+const COMMON_HEADERS: HeadersInit = USE_PROXY
+  ? {
+      'X-Proxy-Token': PROXY_TOKEN,
+      'Accept': 'application/json, text/plain, */*',
+    }
+  : {
+      'User-Agent': USER_AGENT,
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+      'Origin': DIRECT_BASE_URL,
+      'Referer': `${DIRECT_BASE_URL}/`,
+    }
 
 // ─── HTTP con retries y timeout ──────────────────────────────────────────
 async function saijFetch(path: string, params: Record<string, string>): Promise<unknown> {
-  const url = new URL(path, BASE_URL)
+  // URL constructor necesita el path como segundo arg "absolute". Si BASE_URL
+  // termina sin slash y path empieza con /, queda bien.
+  const url = new URL(BASE_URL + (path.startsWith('/') ? path : '/' + path))
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
   const MAX_RETRIES = 3
