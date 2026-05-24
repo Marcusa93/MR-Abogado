@@ -30,6 +30,22 @@ const EMBEDDING_BATCH_SIZE = 32
 const MAX_CHUNK_CHARS = 16000
 const MIN_CHUNK_CHARS = 100
 
+// ── Helpers compartidos ────────────────────────────────────────────────────
+
+function detectarFuenteUrl(url: string): { source: 'infoleg' | 'saij'; sourceDocId: string } | null {
+  const infoleg = url.match(/servicios\.infoleg\.gob\.ar\/infolegInternet\/verNorma\.do[^"\s]*[?&]id=(\d+)/i)
+  if (infoleg) return { source: 'infoleg', sourceDocId: infoleg[1] }
+  const saij = url.match(/saij\.gob\.ar\/(?:detalle[^?]*\?[^#]*id=)?([a-z0-9-]{20,})/i)
+  if (saij) return { source: 'saij', sourceDocId: saij[1] }
+  return null
+}
+
+async function sha256Hex(s: string): Promise<string> {
+  const buf = new TextEncoder().encode(s)
+  const hash = await crypto.subtle.digest('SHA-256', buf)
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 // ── Chunker ────────────────────────────────────────────────────────────────
 
 const ARTICLE_LINE_REGEX = /^ART[ÍI]CULO\s+((?:\d+|[IVXLCDM]+)(?:\s*[°º])?(?:\s*BIS)?(?:\s+[A-Z])?)\s*[:.\-)]?\s*/i
@@ -285,7 +301,7 @@ async function createEmbeddings(inputs: string[], apiKey: string): Promise<numbe
 
 // ── Pipeline principal ─────────────────────────────────────────────────────
 
-async function processDocument(documentoId: string, apiKey: string): Promise<void> {
+async function processDocument(documentoId: string, apiKey: string, presetText?: string): Promise<void> {
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -305,16 +321,20 @@ async function processDocument(documentoId: string, apiKey: string): Promise<voi
       .single()
     if (docErr || !doc) throw new Error(`Documento no encontrado: ${docErr?.message}`)
 
-    // 3) Descargar archivo
-    const { data: file, error: dlErr } = await admin
-      .storage.from('normativa-originales').download(doc.source_file_path)
-    if (dlErr || !file) throw new Error(`No se pudo descargar el archivo: ${dlErr?.message}`)
-    const buffer = new Uint8Array(await file.arrayBuffer())
-
-    // 4) Extraer texto
-    const rawText = await extractTextFromFile(buffer, doc.source_mime_type, doc.source_file_name)
+    // 3+4) Obtener texto: o ya lo trajimos (URL/paste) o lo extraemos del archivo
+    let rawText: string
+    if (presetText) {
+      rawText = presetText
+    } else {
+      if (!doc.source_file_path) throw new Error('Documento sin archivo y sin texto preset')
+      const { data: file, error: dlErr } = await admin
+        .storage.from('normativa-originales').download(doc.source_file_path)
+      if (dlErr || !file) throw new Error(`No se pudo descargar el archivo: ${dlErr?.message}`)
+      const buffer = new Uint8Array(await file.arrayBuffer())
+      rawText = await extractTextFromFile(buffer, doc.source_mime_type ?? 'application/octet-stream', doc.source_file_name ?? 'unknown')
+    }
     if (!rawText || rawText.trim().length < 200) {
-      throw new Error('No se pudo extraer texto del documento. ¿Es un PDF escaneado? Solo aceptamos PDFs nativamente digitales.')
+      throw new Error('Texto muy corto (<200 chars). Si es un PDF escaneado, convertí a PDF digital o pegá el texto.')
     }
 
     // 5) Chunkear
@@ -405,30 +425,150 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = await req.json() as { documento_id?: string }
-    if (!body.documento_id) {
-      return new Response(JSON.stringify({ error: 'documento_id requerido' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const body = await req.json() as {
+      documento_id?: string
+      mode?: 'url' | 'paste'
+      url?: string
+      texto?: string
+      titulo?: string
+      tipo?: string
+      numero?: string
+      jurisdiccion?: string
+      fuente?: string
+      fecha?: string
+    }
+
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // ── Rama 1: modo legacy (upload via cliente, recibe documento_id) ──
+    if (body.documento_id && !body.mode) {
+      const { data: doc, error: docErr } = await userClient
+        .from('normativa_documentos')
+        .select('id')
+        .eq('id', body.documento_id)
+        .single()
+      if (docErr || !doc) {
+        return new Response(JSON.stringify({ error: 'Documento no encontrado o sin acceso' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // @ts-ignore EdgeRuntime es global en Supabase Edge Functions
+      EdgeRuntime.waitUntil(processDocument(body.documento_id, apiKey))
+      return new Response(JSON.stringify({ accepted: true, documento_id: body.documento_id }), {
+        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // Validar ownership con RLS implícito
-    const { data: doc, error: docErr } = await userClient
-      .from('normativa_documentos')
-      .select('id')
-      .eq('id', body.documento_id)
-      .single()
-    if (docErr || !doc) {
-      return new Response(JSON.stringify({ error: 'Documento no encontrado o sin acceso' }), {
-        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // ── Rama 2: modo URL ──
+    if (body.mode === 'url') {
+      if (!body.url) {
+        return new Response(JSON.stringify({ error: 'url requerida' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const detect = detectarFuenteUrl(body.url)
+      if (!detect) {
+        return new Response(JSON.stringify({ error: 'URL no soportada. Soportadas: InfoLEG, SAIJ.' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const supaUrl = Deno.env.get('SUPABASE_URL')!
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const lookupRes = await fetch(`${supaUrl}/functions/v1/legal-lookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+        body: JSON.stringify({
+          source: detect.source, tool: 'getDocument',
+          args: { source_doc_id: detect.sourceDocId },
+          on_behalf_of_user_id: user.id,
+        }),
+      })
+      const lookupData = await lookupRes.json()
+      if (!lookupData?.ok) {
+        return new Response(JSON.stringify({ error: `Extracción ${detect.source} falló: ${lookupData?.error}` }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const remoto = lookupData.result as Record<string, any>
+      const texto = (remoto.texto_completo ?? '').toString().trim()
+      if (texto.length < 200) {
+        return new Response(JSON.stringify({ error: 'Texto remoto muy corto (<200 chars). Probá pegar el texto manual.' }), {
+          status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const titulo = body.titulo?.trim() || remoto.titulo || remoto.caratula || 'Norma importada'
+      const checksum = await sha256Hex(texto)
+      const { data: doc, error: insErr } = await admin
+        .from('normativa_documentos')
+        .insert({
+          user_id: user.id, titulo, tipo: body.tipo?.trim() || (remoto.metadata?.tipo_norma ?? 'norma'),
+          numero: body.numero || remoto.metadata?.numero || null,
+          jurisdiccion: body.jurisdiccion || remoto.jurisdiccion || null,
+          fuente: body.fuente || detect.source, fecha: body.fecha || remoto.fecha || null,
+          source: detect.source, source_doc_id: detect.sourceDocId, source_url: body.url,
+          checksum, estado: 'pendiente',
+        }).select('id').single()
+      if (insErr) {
+        if (insErr.code === '23505') {
+          return new Response(JSON.stringify({ error: 'Esta norma ya estaba en tu corpus' }), {
+            status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(JSON.stringify({ error: insErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // @ts-ignore EdgeRuntime
+      EdgeRuntime.waitUntil(processDocument(doc.id, apiKey, texto))
+      return new Response(JSON.stringify({ accepted: true, documento_id: doc.id, source: detect.source }), {
+        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // @ts-ignore: EdgeRuntime es global en Supabase Edge Functions
-    EdgeRuntime.waitUntil(processDocument(body.documento_id, apiKey))
+    // ── Rama 3: modo paste ──
+    if (body.mode === 'paste') {
+      if (!body.texto || body.texto.trim().length < 200) {
+        return new Response(JSON.stringify({ error: 'texto muy corto (mínimo 200 chars)' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!body.titulo?.trim() || !body.tipo?.trim()) {
+        return new Response(JSON.stringify({ error: 'titulo y tipo requeridos para paste' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const texto = body.texto.trim()
+      const checksum = await sha256Hex(texto)
+      const { data: doc, error: insErr } = await admin
+        .from('normativa_documentos')
+        .insert({
+          user_id: user.id, titulo: body.titulo.trim(), tipo: body.tipo.trim(),
+          numero: body.numero?.trim() || null, jurisdiccion: body.jurisdiccion?.trim() || null,
+          fuente: body.fuente?.trim() || 'Texto pegado', fecha: body.fecha || null,
+          source: 'manual_paste', checksum, estado: 'pendiente',
+        }).select('id').single()
+      if (insErr) {
+        if (insErr.code === '23505') {
+          return new Response(JSON.stringify({ error: 'Esta norma ya estaba en tu corpus' }), {
+            status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(JSON.stringify({ error: insErr.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      // @ts-ignore EdgeRuntime
+      EdgeRuntime.waitUntil(processDocument(doc.id, apiKey, texto))
+      return new Response(JSON.stringify({ accepted: true, documento_id: doc.id, source: 'manual_paste' }), {
+        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    return new Response(JSON.stringify({ accepted: true, documento_id: body.documento_id }), {
-      status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ error: 'Body inválido: pasá documento_id o mode (url|paste).' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (e) {

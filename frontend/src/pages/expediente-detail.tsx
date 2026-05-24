@@ -19,6 +19,7 @@ import { TabActuaciones } from '@/components/expedientes/tab-actuaciones'
 import { TabActuacionesClaves } from '@/components/expedientes/tab-actuaciones-claves'
 import { TabEscritos } from '@/components/expedientes/tab-escritos'
 import { TabNormativa } from '@/components/expedientes/tab-normativa'
+import { TabJurisprudencia } from '@/components/expedientes/tab-jurisprudencia'
 import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
@@ -51,6 +52,7 @@ import {
   Star,
   PenLine,
   BookMarked,
+  Gavel,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 
@@ -67,6 +69,7 @@ const TABS = [
   { id: 'documentos', label: 'Documentos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
   { id: 'escritos', label: 'Escritos', icon: PenLine, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
   { id: 'normativa', label: 'Normativa', icon: BookMarked, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'jurisprudencia', label: 'Jurisprudencia', icon: Gavel, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'notas', label: 'Notas', icon: MessageSquareText, activeClasses: 'border-pink-400 text-pink-400', badgeClasses: 'bg-pink-500/15 text-pink-400' },
   { id: 'timeline', label: 'Timeline', icon: Clock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
@@ -373,6 +376,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'documentos' && <TabDocumentos expedienteId={id!} />}
         {activeTab === 'escritos' && <TabEscritos expedienteId={id!} />}
         {activeTab === 'normativa' && <TabNormativa expedienteId={id!} />}
+        {activeTab === 'jurisprudencia' && <TabJurisprudencia expedienteId={id!} />}
         {activeTab === 'notas' && <ComentariosPanel expedienteId={id!} />}
         {activeTab === 'timeline' && (
           <Card title="Línea de tiempo">

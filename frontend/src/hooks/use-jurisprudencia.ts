@@ -230,6 +230,33 @@ export function useFijarJurisprudencia() {
   })
 }
 
+// ── Búsqueda RAG (jurisprudencia afín) ──────────────────────────
+export interface MatchJurisprudenciaResult {
+  chunk_id: number
+  documento_id: string
+  caratula: string | null
+  tribunal: string | null
+  fecha: string | null
+  seccion: string
+  score: number
+  fragmento: string
+}
+
+export function useBuscarJurisprudenciaAfin() {
+  return useMutation<MatchJurisprudenciaResult[], Error, { query: string; limit?: number; seccion?: string }>({
+    mutationFn: async ({ query, limit, seccion }) => {
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean; results?: MatchJurisprudenciaResult[]; error?: string
+      }>('match-jurisprudencia', {
+        body: { query, limit: limit ?? 5, seccion: seccion ?? 'cualquiera' },
+      })
+      if (error) throw error
+      if (!data?.ok) throw new Error(data?.error ?? 'búsqueda falló')
+      return data.results ?? []
+    },
+  })
+}
+
 export function useDesfijarJurisprudencia() {
   const qc = useQueryClient()
   return useMutation<void, Error, { expedienteId: string; documentoId: string }>({

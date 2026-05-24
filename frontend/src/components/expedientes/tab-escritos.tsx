@@ -5,8 +5,9 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
   PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles, FileSearch,
-  AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck,
+  AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck, Gavel,
 } from 'lucide-react'
+import { SugerirJurisprudenciaDialog } from './sugerir-jurisprudencia-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
@@ -507,6 +508,44 @@ function EscritoEditorModal({
   const [estado, setEstado] = useState<Escrito['estado']>(escrito.estado)
   const [dirty, setDirty] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
+  // Tracking del párrafo donde insertar citas. Si no hay foco activo, va al
+  // último párrafo no vacío.
+  const [activeParrafo, setActiveParrafo] = useState<{ si: number; pi: number } | null>(null)
+  const [sugerirOpen, setSugerirOpen] = useState(false)
+
+  // Texto que pre-llena la búsqueda de jurisprudencia: párrafo activo o último
+  const defaultQuery = (() => {
+    if (activeParrafo) {
+      return contenido.secciones?.[activeParrafo.si]?.parrafos?.[activeParrafo.pi] ?? ''
+    }
+    for (let si = (contenido.secciones?.length ?? 0) - 1; si >= 0; si--) {
+      const sec = contenido.secciones[si]
+      for (let pi = (sec.parrafos?.length ?? 0) - 1; pi >= 0; pi--) {
+        const p = sec.parrafos[pi]?.trim() ?? ''
+        if (p.length >= 20) return p
+      }
+    }
+    return ''
+  })()
+
+  const insertarEnParrafoActivo = (texto: string) => {
+    // Si no hay activo, agarro la última sección y agrego al último párrafo
+    let si = activeParrafo?.si ?? -1
+    let pi = activeParrafo?.pi ?? -1
+    if (si < 0 || pi < 0) {
+      si = (contenido.secciones?.length ?? 1) - 1
+      pi = (contenido.secciones?.[si]?.parrafos?.length ?? 1) - 1
+    }
+    if (si < 0 || pi < 0) return
+    setContenido(c => ({
+      ...c,
+      secciones: c.secciones.map((s, i) => i !== si ? s : {
+        ...s,
+        parrafos: s.parrafos.map((p, j) => j !== pi ? p : `${p.trimEnd()}${texto}`),
+      }),
+    }))
+    setDirty(true)
+  }
 
   const handleSave = () => {
     update.mutate(
@@ -636,6 +675,14 @@ function EscritoEditorModal({
             Guardar
           </button>
           <button
+            onClick={() => setSugerirOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
+            title="Buscar jurisprudencia afín al párrafo activo"
+          >
+            <Gavel className="h-3 w-3" />
+            Jurisprudencia
+          </button>
+          <button
             onClick={handlePrint}
             className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
           >
@@ -691,8 +738,14 @@ function EscritoEditorModal({
                     key={pi}
                     value={p}
                     onChange={(e) => updateParrafo(si, pi, e.target.value)}
+                    onFocus={() => setActiveParrafo({ si, pi })}
                     rows={Math.max(2, Math.ceil(p.length / 80))}
-                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-500/40 focus:outline-none resize-none"
+                    className={cn(
+                      'w-full rounded border bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-500/40 focus:outline-none resize-none',
+                      activeParrafo?.si === si && activeParrafo?.pi === pi
+                        ? 'border-amber-500/50'
+                        : 'border-white/10'
+                    )}
                   />
                 ))}
               </div>
@@ -707,6 +760,13 @@ function EscritoEditorModal({
           </div>
         </div>
       </div>
+
+      <SugerirJurisprudenciaDialog
+        open={sugerirOpen}
+        onClose={() => setSugerirOpen(false)}
+        defaultQuery={defaultQuery}
+        onInsertar={insertarEnParrafoActivo}
+      />
     </div>
   )
 }

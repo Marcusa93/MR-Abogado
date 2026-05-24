@@ -12,9 +12,12 @@ export interface NormativaDocumento {
   fecha: string | null
   jurisdiccion: string | null
   fuente: string | null
-  source_file_path: string
-  source_file_name: string
-  source_mime_type: string
+  source_file_path: string | null
+  source_file_name: string | null
+  source_mime_type: string | null
+  source: 'manual_upload' | 'manual_paste' | 'infoleg' | 'saij' | 'csjn' | 'otro'
+  source_doc_id: string | null
+  source_url: string | null
   estado: 'pendiente' | 'procesando' | 'indexado' | 'error'
   error_message: string | null
   chunk_count: number
@@ -182,6 +185,60 @@ export function useUploadNormativa() {
   })
 }
 
+// ── Ingesta desde URL (InfoLEG / SAIJ) ──────────────────────────
+export interface IngestaUrlInput {
+  url: string
+  titulo?: string
+  tipo?: string
+  numero?: string
+  jurisdiccion?: string
+  fuente?: string
+  fecha?: string
+}
+
+export function useIngestaNormativaUrl() {
+  const qc = useQueryClient()
+  return useMutation<{ documento_id: string }, Error, IngestaUrlInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await supabase.functions.invoke<{ accepted: boolean; documento_id: string; error?: string }>(
+        'normativa-ingest',
+        { body: { mode: 'url', ...input } }
+      )
+      if (error) throw error
+      if (!data || !data.accepted) throw new Error(data?.error ?? 'ingesta falló')
+      return { documento_id: data.documento_id }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['normativa-list'] }),
+  })
+}
+
+// ── Ingesta desde texto pegado ──────────────────────────────────
+export interface IngestaPasteInput {
+  texto: string
+  titulo: string
+  tipo: string
+  numero?: string
+  jurisdiccion?: string
+  fuente?: string
+  fecha?: string
+}
+
+export function useIngestaNormativaPaste() {
+  const qc = useQueryClient()
+  return useMutation<{ documento_id: string }, Error, IngestaPasteInput>({
+    mutationFn: async (input) => {
+      const { data, error } = await supabase.functions.invoke<{ accepted: boolean; documento_id: string; error?: string }>(
+        'normativa-ingest',
+        { body: { mode: 'paste', ...input } }
+      )
+      if (error) throw error
+      if (!data || !data.accepted) throw new Error(data?.error ?? 'ingesta falló')
+      return { documento_id: data.documento_id }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['normativa-list'] }),
+  })
+}
+
 export function useReindexNormativa() {
   const qc = useQueryClient()
   return useMutation<void, Error, string>({
@@ -205,8 +262,11 @@ export function useDeleteNormativa() {
   const qc = useQueryClient()
   return useMutation<void, Error, NormativaDocumento>({
     mutationFn: async (doc) => {
-      // Storage cleanup primero (no se cascadea desde el row)
-      await supabase.storage.from('normativa-originales').remove([doc.source_file_path]).catch(() => {})
+      // Storage cleanup primero (no se cascadea desde el row).
+      // En modo url/paste no hay archivo: nada que borrar.
+      if (doc.source_file_path) {
+        await supabase.storage.from('normativa-originales').remove([doc.source_file_path]).catch(() => {})
+      }
       const { error } = await supabase.from('normativa_documentos' as never).delete().eq('id', doc.id)
       if (error) throw error
     },
