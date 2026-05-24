@@ -97,16 +97,38 @@ function extractText(contenido: unknown): string {
   if (typeof contenido === 'string') return contenido
   if (!contenido || typeof contenido !== 'object') return ''
   const c = contenido as Record<string, unknown>
+
+  // Forma estándar de los escritos generados por `escritos-generate`:
+  // { titulo, caratula, encabezado_juez, secciones: [{titulo, parrafos[]}], citas }
+  if (Array.isArray(c.secciones)) {
+    const partes: string[] = []
+    if (typeof c.encabezado_juez === 'string') partes.push(c.encabezado_juez)
+    if (typeof c.caratula === 'string') partes.push(`Carátula: ${c.caratula}`)
+    if (typeof c.titulo === 'string') partes.push(c.titulo.toUpperCase())
+    for (const s of c.secciones as any[]) {
+      if (typeof s === 'string') { partes.push(s); continue }
+      const lines: string[] = []
+      if (s?.titulo) lines.push(String(s.titulo).toUpperCase())
+      if (Array.isArray(s?.parrafos)) {
+        for (const p of s.parrafos) lines.push(String(p))
+      }
+      if (typeof s?.texto === 'string') lines.push(s.texto)
+      if (typeof s?.contenido === 'string') lines.push(s.contenido)
+      partes.push(lines.join('\n'))
+    }
+    if (Array.isArray(c.citas) && (c.citas as any[]).length > 0) {
+      partes.push('Citas: ' + (c.citas as any[]).map(x =>
+        typeof x === 'string' ? x : (x?.norma || x?.texto || JSON.stringify(x))
+      ).join('; '))
+    }
+    return partes.filter(Boolean).join('\n\n')
+  }
+
   if (typeof c.texto === 'string') return c.texto
   if (typeof c.contenido === 'string') return c.contenido
   if (typeof c.html === 'string') return c.html.replace(/<[^>]+>/g, ' ')
   if (typeof c.markdown === 'string') return c.markdown
-  if (Array.isArray(c.secciones)) {
-    return (c.secciones as any[]).map(s => {
-      if (typeof s === 'string') return s
-      return [s?.titulo, s?.texto, s?.contenido].filter(Boolean).join('\n')
-    }).join('\n\n')
-  }
+
   return JSON.stringify(contenido).slice(0, 30000)
 }
 
