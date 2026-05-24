@@ -2,9 +2,11 @@
 
 import type { LegalSource } from './types.ts'
 import { saijSource } from './saij.ts'
+import { infolegSource } from './infoleg.ts'
 
 export const LEGAL_SOURCES: Record<string, LegalSource> = {
   saij: saijSource,
+  infoleg: infolegSource,
 }
 
 export function getSource(id: string): LegalSource | null {

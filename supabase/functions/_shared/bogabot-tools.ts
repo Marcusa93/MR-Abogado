@@ -312,6 +312,31 @@ export const BOGABOT_TOOLS = [
   },
   // ─── Tools jurídicas externas (SAIJ via legal-lookup) ──────────────
   {
+    name: 'buscar_jurisprudencia_local',
+    description: 'Busca fallos en el corpus PROPIO del usuario (jurisprudencia que ya subió a la app vía URL/upload/paste). Búsqueda semántica por significado, no por keywords. SIEMPRE usar PRIMERO esta antes de buscar_jurisprudencia (SAIJ), porque acá están los fallos curados que importan a SU práctica. Devuelve fragmentos relevantes con carátula, tribunal, sección del fallo (encabezado/considerandos/resuelve) y score de similitud.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Concepto, planteo o pregunta jurídica. Ej: "daño punitivo plataformas digitales", "carga dinámica de la prueba", "responsabilidad solidaria del distribuidor"' },
+        seccion: { type: 'string', enum: ['encabezado', 'considerandos', 'resuelve', 'cualquiera'], description: 'Filtrar por sección del fallo. "considerandos" para ver razonamiento; "resuelve" para ver el dispositivo. Default: cualquiera.' },
+        limit: { type: 'integer', default: 5, minimum: 1, maximum: 15 },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'buscar_normativa_local',
+    description: 'Busca en la normativa PROPIA del usuario (leyes/decretos/códigos ya subidos a la app). Búsqueda semántica. SIEMPRE usar PRIMERO esta antes de buscar_normativa (InfoLEG/SAIJ). Útil para "qué dice mi corpus sobre X", citar normativa en un escrito, verificar artículos específicos. Devuelve fragmentos relevantes con título, tipo, número y score.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Concepto o pregunta legal. Ej: "responsabilidad del proveedor por riesgo", "plazo de prescripción acciones del consumidor"' },
+        limit: { type: 'integer', default: 5, minimum: 1, maximum: 15 },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'buscar_jurisprudencia',
     description: 'Busca fallos judiciales en SAIJ (Sistema Argentino de Información Jurídica). Útil cuando el usuario pregunta por jurisprudencia, fallos similares, doctrina judicial sobre un tema. Devuelve hasta 10 fallos con carátula, tribunal, fecha y resumen.',
     input_schema: {
@@ -353,6 +378,23 @@ export const BOGABOT_TOOLS = [
         text: { type: 'string', description: 'La cita tal como la escribió el usuario o aparece en un escrito' },
       },
       required: ['text'],
+    },
+  },
+  {
+    name: 'agregar_jurisprudencia',
+    description: 'Agrega un fallo al corpus PROPIO del usuario para que quede indexado y buscable después con buscar_jurisprudencia_local. Acepta URL de InfoLEG/SAIJ, o texto completo del fallo pegado. Usalo cuando el usuario diga "agregá este fallo", "subí esta sentencia", "indexá esto", o cuando pegue un link a un fallo. Opcional: metadata (carátula, tribunal, fecha) que sobreescribe la extraída automáticamente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Link al fallo en InfoLEG (servicios.infoleg.gob.ar/verNorma.do?id=N) o SAIJ (saij.gob.ar/<uuid>). Usar este O texto.' },
+        texto: { type: 'string', description: 'Texto completo del fallo pegado. Mínimo 100 caracteres. Usar este O url.' },
+        caratula: { type: 'string', description: 'Carátula del fallo. Opcional: si no se da, se extrae de la fuente.' },
+        tribunal: { type: 'string', description: 'Tribunal que dictó el fallo. Ej: "CSJN", "CNCom. Sala C", "STJ Tucumán Sala Civil".' },
+        fecha: { type: 'string', description: 'Fecha del fallo YYYY-MM-DD.' },
+        jurisdiccion: { type: 'string', description: '"Nacional", "Federal", "Local" o provincia.' },
+        tipo: { type: 'string', enum: ['sentencia', 'auto', 'fallo_plenario', 'sumario', 'dictamen', 'otro'] },
+        sumario: { type: 'string', description: 'Sumario breve del fallo. Opcional.' },
+      },
     },
   },
 ] as const
@@ -868,7 +910,85 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
     }
   },
 
-  // ─── Handlers de tools jurídicas (proxy a legal-lookup) ────────────
+  // ─── Handlers de búsqueda LOCAL (RAG sobre el corpus del usuario) ──
+  buscar_jurisprudencia_local: async (admin, user, args) => {
+    const query = String(args.query ?? '').trim()
+    if (!query) return { error: 'query vacía' }
+    const limit = Math.min(Math.max(Number(args.limit ?? 5), 1), 15)
+    const seccion = String(args.seccion ?? 'cualquiera')
+    try {
+      const emb = await embedQuery(query)
+      const { data: chunks, error } = await (admin.rpc as any)('match_jurisprudencia_chunks', {
+        query_embedding: emb,
+        filter_user_id: user.user_id,
+        match_count: limit * 2, // pedimos extra para filtrar por sección si hace falta
+      })
+      if (error) return { error: `RAG falló: ${error.message}` }
+      let rows = (chunks ?? []) as Array<{
+        chunk_id: number; documento_id: string; contenido: string;
+        metadata: { seccion?: string; caratula?: string; tribunal?: string; fecha?: string };
+        score: number;
+      }>
+      if (seccion !== 'cualquiera') {
+        rows = rows.filter(r => r.metadata?.seccion === seccion)
+      }
+      rows = rows.slice(0, limit)
+      return {
+        result: {
+          count: rows.length,
+          chunks: rows.map(r => ({
+            caratula: r.metadata?.caratula ?? null,
+            tribunal: r.metadata?.tribunal ?? null,
+            fecha: r.metadata?.fecha ?? null,
+            seccion: r.metadata?.seccion ?? 'otro',
+            score: Number(r.score.toFixed(4)),
+            fragmento: r.contenido,
+            link: `/jurisprudencia/${r.documento_id}`,
+          })),
+        },
+      }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'búsqueda local falló' }
+    }
+  },
+
+  buscar_normativa_local: async (admin, user, args) => {
+    const query = String(args.query ?? '').trim()
+    if (!query) return { error: 'query vacía' }
+    const limit = Math.min(Math.max(Number(args.limit ?? 5), 1), 15)
+    try {
+      const emb = await embedQuery(query)
+      const { data: chunks, error } = await (admin.rpc as any)('match_normativa_chunks', {
+        query_embedding: emb,
+        filter_user_id: user.user_id,
+        match_count: limit,
+      })
+      if (error) return { error: `RAG falló: ${error.message}` }
+      const rows = (chunks ?? []) as Array<{
+        chunk_id: number; documento_id: string; contenido: string;
+        metadata: Record<string, unknown>; score: number;
+      }>
+      return {
+        result: {
+          count: rows.length,
+          chunks: rows.map(r => ({
+            titulo: r.metadata?.titulo_documento ?? null,
+            tipo: r.metadata?.tipo ?? null,
+            numero: r.metadata?.numero ?? null,
+            articulo: r.metadata?.articulo ?? null,
+            seccion: r.metadata?.seccion ?? null,
+            score: Number(r.score.toFixed(4)),
+            fragmento: r.contenido,
+            link: `/normativa/${r.documento_id}`,
+          })),
+        },
+      }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'búsqueda local falló' }
+    }
+  },
+
+  // ─── Handlers de tools jurídicas externas (proxy a legal-lookup) ───
   buscar_jurisprudencia: async (_admin, user, args) => {
     return await callLegalLookup(user.user_id, 'saij', 'searchJurisprudencia', {
       query: args.query, jurisdiccion: args.jurisdiccion, tribunal: args.tribunal,
@@ -878,16 +998,100 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
   },
 
   buscar_normativa: async (_admin, user, args) => {
-    return await callLegalLookup(user.user_id, 'saij', 'searchLegislacion', {
+    // Para legislación nacional usamos InfoLEG (Ministerio de Justicia) que
+    // es la fuente oficial y tiene texto buscable. SAIJ queda como fallback.
+    return await callLegalLookup(user.user_id, 'infoleg', 'searchLegislacion', {
       query: args.query, jurisdiccion: args.jurisdiccion, tipo: args.tipo,
       estado_vigencia: args.estado_vigencia, materia: args.materia,
+      fecha_desde: args.fecha_desde, fecha_hasta: args.fecha_hasta,
       limit: args.limit ?? 5,
     })
   },
 
   resolver_cita_legal: async (_admin, user, args) => {
-    return await callLegalLookup(user.user_id, 'saij', 'resolveCitation', { text: args.text })
+    return await callLegalLookup(user.user_id, 'infoleg', 'resolveCitation', { text: args.text })
   },
+
+  agregar_jurisprudencia: async (_admin, user, args) => {
+    const hasUrl = typeof args.url === 'string' && args.url.trim().length > 0
+    const hasTexto = typeof args.texto === 'string' && args.texto.trim().length >= 100
+    if (!hasUrl && !hasTexto) {
+      return { error: 'Se requiere url o texto (>=100 chars).' }
+    }
+    if (hasUrl && hasTexto) {
+      return { error: 'Pasá url O texto, no ambos.' }
+    }
+
+    const body: Record<string, unknown> = {
+      mode: hasUrl ? 'url' : 'paste',
+      on_behalf_of_user_id: user.user_id,
+    }
+    if (hasUrl) body.url = args.url.trim()
+    else body.texto = args.texto.trim()
+    if (args.caratula) body.caratula = String(args.caratula)
+    if (args.tribunal) body.tribunal = String(args.tribunal)
+    if (args.fecha) body.fecha = String(args.fecha)
+    if (args.jurisdiccion) body.jurisdiccion = String(args.jurisdiccion)
+    if (args.tipo) body.tipo = String(args.tipo)
+    if (args.sumario) body.sumario = String(args.sumario)
+
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const res = await fetch(`${supabaseUrl}/functions/v1/jurisprudencia-ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        return { error: data?.error ?? `jurisprudencia-ingest ${res.status}` }
+      }
+      return {
+        result: {
+          documento_id: data.documento_id,
+          caratula: data.caratula,
+          chunk_count: data.chunk_count,
+          source: data.source,
+          already_exists: data.already_exists ?? false,
+          link: `/jurisprudencia/${data.documento_id}`,
+          mensaje: data.already_exists
+            ? 'Este fallo ya estaba en tu corpus.'
+            : `Fallo indexado en ${data.chunk_count} fragmentos. Ya podés buscarlo con buscar_jurisprudencia_local.`,
+        },
+      }
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'ingesta falló' }
+    }
+  },
+}
+
+// Helper: genera un embedding vector(1536) para una query libre vía
+// OpenRouter (text-embedding-3-small). Usado por las tools _local.
+async function embedQuery(query: string): Promise<number[]> {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY')
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada')
+  const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://app.marcorossi.com.ar',
+      'X-Title': 'MR Abogado BogaBot RAG',
+    },
+    body: JSON.stringify({ model: 'openai/text-embedding-3-small', input: [query] }),
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`embeddings ${res.status}: ${txt.slice(0, 200)}`)
+  }
+  const data = await res.json() as { data?: Array<{ embedding: number[] }> }
+  const emb = data.data?.[0]?.embedding
+  if (!emb) throw new Error('respuesta de embeddings vacía')
+  return emb
 }
 
 // Helper: invoca legal-lookup con service_role y propaga el user_id real

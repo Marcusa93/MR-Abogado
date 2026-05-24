@@ -17,6 +17,7 @@ import {
   ChevronsRight,
   Activity,
   BookMarked,
+  Gavel,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -44,6 +45,7 @@ const navItems: readonly NavItem[] = [
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, badgeKey: 'notificaciones' },
   { href: '/informes', label: 'Informes', icon: BarChart3 },
   { href: '/normativa', label: 'Normativa', icon: BookMarked },
+  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]

@@ -43,6 +43,8 @@ const ImportarExcelPage = lazyWithRetry(() => import('@/pages/importar-excel'))
 const ImportarSaePage = lazyWithRetry(() => import('@/pages/importar-sae'))
 const NormativaPage = lazyWithRetry(() => import('@/pages/normativa'))
 const NormativaDetailPage = lazyWithRetry(() => import('@/pages/normativa-detail'))
+const JurisprudenciaPage = lazyWithRetry(() => import('@/pages/jurisprudencia'))
+const JurisprudenciaDetailPage = lazyWithRetry(() => import('@/pages/jurisprudencia-detail'))
 const NotificacionesSaePage = lazyWithRetry(() => import('@/pages/notificaciones-sae'))
 const NotificacionesPage = lazyWithRetry(() => import('@/pages/notificaciones'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
@@ -123,6 +125,8 @@ export const router = createBrowserRouter([
       { path: 'importar-sae', element: <SuspenseWrapper><ImportarSaePage /></SuspenseWrapper> },
       { path: 'normativa', element: <SuspenseWrapper><NormativaPage /></SuspenseWrapper> },
       { path: 'normativa/:id', element: <SuspenseWrapper><NormativaDetailPage /></SuspenseWrapper> },
+      { path: 'jurisprudencia', element: <SuspenseWrapper><JurisprudenciaPage /></SuspenseWrapper> },
+      { path: 'jurisprudencia/:id', element: <SuspenseWrapper><JurisprudenciaDetailPage /></SuspenseWrapper> },
       { path: 'notificaciones-sae', element: <SuspenseWrapper><NotificacionesSaePage /></SuspenseWrapper> },
       { path: 'notificaciones', element: <SuspenseWrapper><NotificacionesPage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout
