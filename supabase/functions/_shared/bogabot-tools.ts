@@ -310,6 +310,51 @@ export const BOGABOT_TOOLS = [
       required: ['tarea_ref'],
     },
   },
+  // ─── Tools jurídicas externas (SAIJ via legal-lookup) ──────────────
+  {
+    name: 'buscar_jurisprudencia',
+    description: 'Busca fallos judiciales en SAIJ (Sistema Argentino de Información Jurídica). Útil cuando el usuario pregunta por jurisprudencia, fallos similares, doctrina judicial sobre un tema. Devuelve hasta 10 fallos con carátula, tribunal, fecha y resumen.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto libre — palabras clave, partes, materia (ej. "responsabilidad médica daño moral")' },
+        jurisdiccion: { type: 'string', description: 'Filtro opcional: "Nacional", "Federal", "Local", o nombre de provincia' },
+        tribunal: { type: 'string', description: 'Filtro opcional por tribunal específico' },
+        materia: { type: 'string', description: 'Rama del derecho: "Civil", "Laboral", "Penal", "Comercial", "Administrativo", "Constitucional", "Procesal"' },
+        fecha_desde: { type: 'string', description: 'YYYY-MM-DD opcional' },
+        fecha_hasta: { type: 'string', description: 'YYYY-MM-DD opcional' },
+        limit: { type: 'integer', default: 5, minimum: 1, maximum: 20 },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'buscar_normativa',
+    description: 'Busca legislación (leyes, decretos, códigos, resoluciones) en SAIJ. Útil para verificar normativa vigente, encontrar artículos específicos, ver decretos sobre un tema.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Número de norma o tema (ej. "Ley 24240", "daños y perjuicios")' },
+        jurisdiccion: { type: 'string', description: '"Nacional", "Federal", "Local"' },
+        tipo: { type: 'string', description: 'Filtro: "Ley", "Decreto", "Ley/Código", "Resolución"' },
+        estado_vigencia: { type: 'string', description: 'Filtro: "Vigente, de alcance general" para solo vigente' },
+        materia: { type: 'string', description: 'Tema/rama (mismas opciones que jurisprudencia)' },
+        limit: { type: 'integer', default: 5, minimum: 1, maximum: 20 },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'resolver_cita_legal',
+    description: 'Resuelve una cita textual (ej. "Ley 24.240", "art. 1738 CCCN", "Código Civil y Comercial") al documento real en SAIJ. Devuelve texto completo + metadata.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'La cita tal como la escribió el usuario o aparece en un escrito' },
+      },
+      required: ['text'],
+    },
+  },
 ] as const
 
 // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -822,4 +867,54 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
       },
     }
   },
+
+  // ─── Handlers de tools jurídicas (proxy a legal-lookup) ────────────
+  buscar_jurisprudencia: async (_admin, user, args) => {
+    return await callLegalLookup(user.user_id, 'saij', 'searchJurisprudencia', {
+      query: args.query, jurisdiccion: args.jurisdiccion, tribunal: args.tribunal,
+      materia: args.materia, fecha_desde: args.fecha_desde, fecha_hasta: args.fecha_hasta,
+      limit: args.limit ?? 5,
+    })
+  },
+
+  buscar_normativa: async (_admin, user, args) => {
+    return await callLegalLookup(user.user_id, 'saij', 'searchLegislacion', {
+      query: args.query, jurisdiccion: args.jurisdiccion, tipo: args.tipo,
+      estado_vigencia: args.estado_vigencia, materia: args.materia,
+      limit: args.limit ?? 5,
+    })
+  },
+
+  resolver_cita_legal: async (_admin, user, args) => {
+    return await callLegalLookup(user.user_id, 'saij', 'resolveCitation', { text: args.text })
+  },
+}
+
+// Helper: invoca legal-lookup con service_role y propaga el user_id real
+// para que esa función pueda rate-limit y loguear correctamente.
+async function callLegalLookup(
+  userId: string,
+  source: string,
+  tool: string,
+  args: Record<string, unknown>,
+): Promise<ToolHandlerResult> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const res = await fetch(`${supabaseUrl}/functions/v1/legal-lookup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ source, tool, args, on_behalf_of_user_id: userId }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.ok) {
+      return { error: data?.error ?? `legal-lookup ${res.status}` }
+    }
+    return { result: data.result }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'legal-lookup failed' }
+  }
 }
