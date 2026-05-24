@@ -27,6 +27,17 @@ function json(body: unknown, status = 200) {
   })
 }
 
+function decodeJwtRole(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.role === 'string' ? payload.role : null
+  } catch {
+    return null
+  }
+}
+
 // ─── Cargar archivos del skill ────────────────────────────────────────────
 
 async function readSkillFile(name: string): Promise<string> {
@@ -160,15 +171,31 @@ async function handleDiagnose(req: Request): Promise<Response> {
   if (!authHeader) return json({ error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: { user }, error: authErr } = await userClient.auth.getUser()
-  if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const isServiceRole = token === serviceKey || decodeJwtRole(token) === 'service_role'
 
-  const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+  let userId: string
+  if (isServiceRole) {
+    // Llamada interna o de testing — requiere on_behalf_of_user_id en el body
+    const peekBody = await req.clone().json().catch(() => null) as any
+    if (!peekBody?.on_behalf_of_user_id) {
+      return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+    }
+    userId = peekBody.on_behalf_of_user_id
+  } else {
+    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user }, error: authErr } = await userClient.auth.getUser()
+    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    userId = user.id
+  }
+
+  const admin = createClient(supabaseUrl, serviceKey)
   const { data: profile } = await admin
-    .from('profiles').select('rol').eq('id', user.id).single()
+    .from('profiles').select('rol').eq('id', userId).single()
+  const user = { id: userId }
   const rol = (profile as any)?.rol ?? 'COLABORADOR'
   const isStaff = ['DIRECTOR', 'ADMIN'].includes(String(rol).toUpperCase())
 

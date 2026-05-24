@@ -28,6 +28,20 @@ function json(body: unknown, status = 200) {
   })
 }
 
+// Decodifica el claim `role` del JWT sin validar firma. Lo usamos solo
+// para detectar service_role vs user (no para autorizar — eso lo hace
+// la validación contra Supabase auth).
+function decodeJwtRole(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.role === 'string' ? payload.role : null
+  } catch {
+    return null
+  }
+}
+
 async function logLookup(
   admin: any,
   payload: {
@@ -56,7 +70,9 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-  const isServiceRole = token === serviceKey
+  // Detectamos service_role decodificando el claim del JWT (más robusto que
+  // comparar strings, porque el vault puede tener una copia stale).
+  const isServiceRole = token === serviceKey || decodeJwtRole(token) === 'service_role'
 
   const body = await req.json().catch(() => null) as {
     source?: string; tool?: string; args?: unknown; on_behalf_of_user_id?: string
