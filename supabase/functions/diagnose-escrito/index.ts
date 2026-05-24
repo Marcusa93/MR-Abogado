@@ -146,6 +146,16 @@ async function canViewExpediente(admin: any, userId: string, expedienteId: strin
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  try {
+    return await handleDiagnose(req)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'error desconocido'
+    console.error('[diagnose-escrito] unhandled exception:', msg, e instanceof Error ? e.stack : '')
+    return json({ ok: false, error: 'Excepción del servidor', detail: msg.slice(0, 400) }, 200)
+  }
+})
+
+async function handleDiagnose(req: Request): Promise<Response> {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'No autorizado' }, 401)
 
@@ -242,21 +252,52 @@ Deno.serve(async (req) => {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
-    return json({ error: `LLM ${res.status}: ${errText.slice(0, 400)}` }, 500)
+    console.error('[diagnose-escrito] LLM error', res.status, errText.slice(0, 500))
+    return json({ ok: false, error: `LLM ${res.status}`, detail: errText.slice(0, 400) }, 200)
   }
 
-  const data = await res.json()
+  let data: any
+  try {
+    data = await res.json()
+  } catch (e) {
+    console.error('[diagnose-escrito] response no es JSON', e)
+    return json({ ok: false, error: 'Respuesta del LLM no es JSON' }, 200)
+  }
+
   const content = data?.choices?.[0]?.message?.content
-  if (!content) return json({ error: 'Respuesta vacía del modelo' }, 500)
+  if (!content) {
+    console.error('[diagnose-escrito] respuesta vacía', JSON.stringify(data).slice(0, 500))
+    return json({ ok: false, error: 'Respuesta vacía del modelo', detail: JSON.stringify(data).slice(0, 400) }, 200)
+  }
+
+  // Robusto: a veces el modelo envuelve el JSON en markdown ```json ... ```
+  // o agrega texto antes/después. Sacamos el primer {…} balanceado.
+  let jsonString = String(content).trim()
+  const fencedMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fencedMatch) jsonString = fencedMatch[1].trim()
+  if (!jsonString.startsWith('{')) {
+    const firstBrace = jsonString.indexOf('{')
+    if (firstBrace > 0) jsonString = jsonString.slice(firstBrace)
+  }
+  // Si hay texto trailing, cortamos en el último } balanceado
+  if (jsonString.endsWith('}')) {
+    // ok
+  } else {
+    const lastBrace = jsonString.lastIndexOf('}')
+    if (lastBrace > 0) jsonString = jsonString.slice(0, lastBrace + 1)
+  }
 
   let diagnostico: any
   try {
-    diagnostico = JSON.parse(content)
-  } catch (_e) {
+    diagnostico = JSON.parse(jsonString)
+  } catch (e) {
+    console.error('[diagnose-escrito] JSON parse failed:', e instanceof Error ? e.message : 'unknown')
+    console.error('[diagnose-escrito] raw content (first 1000):', String(content).slice(0, 1000))
     return json({
+      ok: false,
       error: 'El modelo devolvió un JSON inválido',
-      raw: String(content).slice(0, 1000),
-    }, 500)
+      raw: String(content).slice(0, 800),
+    }, 200)
   }
 
   return json({
@@ -267,4 +308,4 @@ Deno.serve(async (req) => {
     generated_at: new Date().toISOString(),
     diagnostico,
   })
-})
+}

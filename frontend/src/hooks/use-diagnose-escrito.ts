@@ -49,7 +49,11 @@ export function useDiagnoseEscrito() {
         body: input,
       })
       if (error) throw new Error(error.message || 'Error invocando diagnóstico')
-      if (!data?.ok) throw new Error((data as any)?.error || 'Respuesta inválida')
+      if (!data?.ok) {
+        const d = data as any
+        const detail = d?.detail ? ` (${String(d.detail).slice(0, 200)})` : ''
+        throw new Error((d?.error || 'Respuesta inválida') + detail)
+      }
       return data
     },
   })
