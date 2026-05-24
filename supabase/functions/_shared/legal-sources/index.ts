@@ -3,10 +3,12 @@
 import type { LegalSource } from './types.ts'
 import { saijSource } from './saij.ts'
 import { infolegSource } from './infoleg.ts'
+import { justucumanSource } from './justucuman.ts'
 
 export const LEGAL_SOURCES: Record<string, LegalSource> = {
   saij: saijSource,
   infoleg: infolegSource,
+  justucuman: justucumanSource,
 }
 
 export function getSource(id: string): LegalSource | null {

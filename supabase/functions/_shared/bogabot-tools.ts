@@ -336,23 +336,10 @@ export const BOGABOT_TOOLS = [
       required: ['query'],
     },
   },
-  {
-    name: 'buscar_jurisprudencia',
-    description: 'Busca fallos judiciales en SAIJ (Sistema Argentino de Información Jurídica). Útil cuando el usuario pregunta por jurisprudencia, fallos similares, doctrina judicial sobre un tema. Devuelve hasta 10 fallos con carátula, tribunal, fecha y resumen.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'Texto libre — palabras clave, partes, materia (ej. "responsabilidad médica daño moral")' },
-        jurisdiccion: { type: 'string', description: 'Filtro opcional: "Nacional", "Federal", "Local", o nombre de provincia' },
-        tribunal: { type: 'string', description: 'Filtro opcional por tribunal específico' },
-        materia: { type: 'string', description: 'Rama del derecho: "Civil", "Laboral", "Penal", "Comercial", "Administrativo", "Constitucional", "Procesal"' },
-        fecha_desde: { type: 'string', description: 'YYYY-MM-DD opcional' },
-        fecha_hasta: { type: 'string', description: 'YYYY-MM-DD opcional' },
-        limit: { type: 'integer', default: 5, minimum: 1, maximum: 20 },
-      },
-      required: ['query'],
-    },
-  },
+  // NOTA: `buscar_jurisprudencia` (SAIJ externo) está desactivado hasta resolver
+  // el bug del campo `contenido` vacío en el índice público de SAIJ (task #43).
+  // Mientras tanto, la ÚNICA fuente de jurisprudencia es `buscar_jurisprudencia_local`
+  // (RAG sobre el corpus subido por el usuario).
   {
     name: 'buscar_normativa',
     description: 'Busca legislación (leyes, decretos, códigos, resoluciones) en SAIJ. Útil para verificar normativa vigente, encontrar artículos específicos, ver decretos sobre un tema.',
@@ -378,6 +365,18 @@ export const BOGABOT_TOOLS = [
         text: { type: 'string', description: 'La cita tal como la escribió el usuario o aparece en un escrito' },
       },
       required: ['text'],
+    },
+  },
+  {
+    name: 'buscar_jurisprudencia_tucuman',
+    description: 'Busca fallos del Poder Judicial de Tucumán EN VIVO (portal oficial juris.justucuman.gov.ar). Útil cuando el usuario pregunta por jurisprudencia tucumana específica que probablemente NO esté en su corpus subido. Usa AND con 2-3 términos clave + re-rank semántico de los resultados. Tip: usá queries cortas (2-3 palabras MUY específicas) — el portal hace AND estricto y queries largas devuelven 0. Después de buscar, podés ofrecer al usuario indexar uno de los fallos con agregar_jurisprudencia (pegando el texto de su sumario).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Texto libre. Ideal: 2-3 palabras significativas (ej. "daño punitivo banco", "responsabilidad médica", "alquiler suspensión"). Los stopwords y palabras < 4 chars se filtran automáticamente.' },
+        limit: { type: 'integer', default: 5, minimum: 1, maximum: 15, description: 'Cantidad de fallos a devolver después del re-rank. Default 5.' },
+      },
+      required: ['query'],
     },
   },
   {
@@ -1010,6 +1009,33 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
 
   resolver_cita_legal: async (_admin, user, args) => {
     return await callLegalLookup(user.user_id, 'infoleg', 'resolveCitation', { text: args.text })
+  },
+
+  buscar_jurisprudencia_tucuman: async (_admin, user, args) => {
+    const limit = Math.min(Math.max(Number(args.limit ?? 5), 1), 15)
+    const res = await callLegalLookup(user.user_id, 'justucuman', 'searchJurisprudencia', {
+      query: args.query,
+      limit: 30,          // traemos 30 para tener material que re-rankear
+      rerank: true,
+      top_n: limit,       // devolvemos al modelo solo los top
+    })
+    if ('error' in res) return res
+    const r = res.result as { total?: number; results?: Array<{ caratula: string | null; tribunal: string | null; fecha: string | null; resumen: string | null; score: number; source_doc_id: string }> }
+    return {
+      result: {
+        total_portal: r.total ?? 0,
+        count: r.results?.length ?? 0,
+        fuente: 'JusTucumán (Poder Judicial de Tucumán)',
+        resultados: (r.results ?? []).map(x => ({
+          caratula: x.caratula,
+          tribunal: x.tribunal,
+          fecha: x.fecha,
+          score: Number((x.score * 100).toFixed(0)) + '%',
+          sumario: x.resumen,
+          id_interno: x.source_doc_id,
+        })),
+      },
+    }
   },
 
   agregar_jurisprudencia: async (_admin, user, args) => {

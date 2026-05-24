@@ -136,7 +136,17 @@ Deno.serve(async (req) => {
     const args = (body.args ?? {}) as any
     switch (body.tool) {
       case 'searchJurisprudencia':
-        result = await source.searchJurisprudencia(args); break
+        result = await source.searchJurisprudencia(args)
+        // Re-rank semántico opcional: el portal puede ordenar por fecha pero
+        // no por relevancia. Pedimos embeddings y reordenamos por similitud.
+        if (args.rerank === true && result && typeof result === 'object') {
+          const r = result as any
+          if (Array.isArray(r.results) && r.results.length > 1) {
+            r.results = await rerankBySimilarity(args.query ?? '', r.results)
+            if (args.top_n) r.results = r.results.slice(0, Number(args.top_n))
+          }
+        }
+        break
       case 'searchLegislacion':
         result = await source.searchLegislacion(args); break
       case 'searchDoctrina':
@@ -175,6 +185,59 @@ Deno.serve(async (req) => {
 
   return json({ ok: true, source: body.source, tool: body.tool, cached: false, latency_ms: latency, result })
 })
+
+// ── Re-rank con embeddings (opcional, costo ~$0.001 por búsqueda) ─────────
+// Cuando se pide searchJurisprudencia con rerank: true, el portal puede
+// devolver 50 resultados ordenados por fecha pero no por relevancia.
+// Acá generamos embedding de la query + de cada sumario, y reordenamos por
+// similitud cosine.
+async function rerankBySimilarity(
+  query: string,
+  results: Array<{ resumen: string | null; caratula: string | null; [k: string]: unknown }>,
+): Promise<typeof results> {
+  if (results.length <= 1) return results
+  const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')
+  if (!openrouterKey) return results // sin key, mantenemos el orden original
+
+  // Construir corpus a embebedar: query + caratula+sumario de cada resultado
+  const inputs = [query.trim()]
+  for (const r of results) {
+    const text = `${r.caratula ?? ''}\n${r.resumen ?? ''}`.trim() || '(sin texto)'
+    inputs.push(text.slice(0, 2000)) // truncado defensivo
+  }
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${openrouterKey}`,
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
+        'X-Title': 'MR Abogado legal-lookup re-rank',
+      },
+      body: JSON.stringify({ model: 'openai/text-embedding-3-small', input: inputs }),
+    })
+    if (!res.ok) return results
+    const data = await res.json() as { data?: Array<{ embedding: number[]; index: number }> }
+    const embeddings = (data.data ?? []).sort((a, b) => a.index - b.index).map(d => d.embedding)
+    if (embeddings.length !== inputs.length) return results
+
+    const queryEmb = embeddings[0]
+    const dot = (a: number[], b: number[]) => a.reduce((s, x, i) => s + x * b[i], 0)
+    const norm = (a: number[]) => Math.sqrt(a.reduce((s, x) => s + x * x, 0))
+    const queryNorm = norm(queryEmb)
+
+    const scored = results.map((r, i) => {
+      const docEmb = embeddings[i + 1]
+      const sim = dot(queryEmb, docEmb) / (queryNorm * norm(docEmb) || 1)
+      return { ...r, score: Number(sim.toFixed(4)) }
+    })
+    scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    return scored
+  } catch {
+    return results
+  }
+}
 
 function countResults(result: unknown): number {
   if (!result || typeof result !== 'object') return 0
