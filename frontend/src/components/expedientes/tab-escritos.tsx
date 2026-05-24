@@ -4,7 +4,7 @@ import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
-  PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles,
+  PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles, FileSearch,
   AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
@@ -16,6 +16,7 @@ import {
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
+import { DiagnosticoModal } from './diagnostico-modal'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
@@ -726,6 +727,7 @@ export function TabEscritos({ expedienteId }: Props) {
   const [nuevoOpen, setNuevoOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Escrito | null>(null)
+  const [diagnosticando, setDiagnosticando] = useState<Escrito | null>(null)
 
   const clavesCount = useMemo(() => {
     return movements.filter(m => {
@@ -814,6 +816,13 @@ export function TabEscritos({ expedienteId }: Props) {
                   {esc.estado}
                 </span>
                 <button
+                  onClick={() => setDiagnosticando(esc)}
+                  className="shrink-0 inline-flex items-center gap-1 rounded p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+                  title="Diagnosticar con skill jurídico argentino"
+                >
+                  <FileSearch className="h-3 w-3" />
+                </button>
+                <button
                   onClick={() => setConfirmDelete(esc)}
                   className="shrink-0 rounded p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-rose-400 hover:bg-white/10 transition-colors"
                   title="Eliminar"
@@ -870,6 +879,17 @@ export function TabEscritos({ expedienteId }: Props) {
         variant="danger"
         isPending={deleteMut.isPending}
       />
+
+      {diagnosticando && (
+        <DiagnosticoModal
+          input={{
+            escrito_id: diagnosticando.id,
+            titulo: diagnosticando.titulo,
+            tipo: diagnosticando.tipo,
+          }}
+          onClose={() => setDiagnosticando(null)}
+        />
+      )}
     </>
   )
 }
