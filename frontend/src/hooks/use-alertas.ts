@@ -83,7 +83,7 @@ export function useResolverAlerta() {
   return useMutation({
     mutationFn: async (alertaId: string) => {
       const { data, error } = await supabase.rpc('resolver_alerta', {
-        alerta_id: alertaId,
+        p_alerta_id: alertaId,
       })
 
       if (error) throw error

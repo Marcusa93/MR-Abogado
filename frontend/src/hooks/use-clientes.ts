@@ -243,7 +243,7 @@ export function useDeleteCliente() {
   return useMutation({
     mutationFn: async (clienteId: string) => {
       const { data, error } = await supabase.rpc('soft_delete_cliente', {
-        cliente_id: clienteId,
+        p_cliente_id: clienteId,
       })
       if (error) throw error
       return data
