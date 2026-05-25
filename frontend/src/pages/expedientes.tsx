@@ -91,11 +91,18 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
     tareas: expediente.tareas ?? [],
   })
 
+  const clienteFull = cliente ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim() : ''
+  const title = expediente.caratula || clienteFull || expediente.numero || '-'
+
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
       className={cn(
-        'glass-card rounded-xl p-4 cursor-pointer border-l-[3px] transition-all hover:scale-[1.01]',
+        'group w-full text-left rounded-xl p-4 cursor-pointer transition-all',
+        'border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80',
+        'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
+        'border-l-[3px]',
         getExpedienteRowClass({
           estado_interno: expediente.estado_interno,
           audiencias: expediente.audiencias ?? [],
@@ -107,21 +114,33 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
         <SemaforoBadge color={semaforoColor} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
-            {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
+            {title}
           </p>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {expediente.numero && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+              {expediente.numero}
+            </p>
+          )}
+          {clienteFull && title !== clienteFull && (
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 truncate">{clienteFull}</p>
+          )}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             <EstadoBadge estado={expediente.estado_interno} compact />
             <PrioridadBadge prioridad={expediente.prioridad} compact />
+            {tipo && (
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300">
+                {tipo.nombre}
+              </span>
+            )}
           </div>
-          {tipo && <p className="text-[11px] text-zinc-700 dark:text-zinc-200 mt-1 font-medium">{tipo.nombre}</p>}
         </div>
         {cliente?.telefono && (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
             <WhatsAppButton phone={cliente.telefono} variant="icon" />
           </div>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -210,18 +229,47 @@ export default function ExpedientesPage() {
   }, [])
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Expedientes
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Gestiona todos los expedientes del estudio.
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            {data ? `${data.count} en total · gestión del estudio` : 'Gestión del estudio'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Vista toggle */}
+          <div className="hidden sm:flex items-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              className={cn(
+                'rounded-md p-1.5 transition-colors',
+                viewMode === 'table'
+                  ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
+                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
+              )}
+              title="Vista tabla"
+              aria-pressed={viewMode === 'table'}
+            >
+              <LayoutList className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              className={cn(
+                'rounded-md p-1.5 transition-colors',
+                viewMode === 'cards'
+                  ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
+                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
+              )}
+              title="Vista tarjetas"
+              aria-pressed={viewMode === 'cards'}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
           <button
             onClick={async () => {
               setCsvLoading(true)
@@ -235,47 +283,24 @@ export default function ExpedientesPage() {
               }
             }}
             disabled={csvLoading}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
           >
             {csvLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {csvLoading ? 'Exportando...' : 'Exportar CSV'}
+            <span className="hidden sm:inline">{csvLoading ? 'Exportando…' : 'Exportar CSV'}</span>
           </button>
-          {/* View toggle */}
-          <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
-            <button
-              onClick={() => setViewMode('table')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'table' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
-              )}
-              title="Vista tabla"
-            >
-              <LayoutList className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'cards' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
-              )}
-              title="Vista tarjetas"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-          </div>
           <button
             onClick={() => navigate('/importar-sae')}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+            className="flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
           >
             <Database className="h-4 w-4" />
             <span className="hidden sm:inline">Importar SAE</span>
           </button>
           <button
             onClick={() => navigate('/expedientes/nuevo')}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:opacity-90 transition-colors"
+            className="flex min-h-[38px] items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-opacity"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Nuevo Expediente</span>
+            <span className="hidden sm:inline">Nuevo expediente</span>
             <span className="sm:hidden">Nuevo</span>
           </button>
         </div>
@@ -366,7 +391,7 @@ export default function ExpedientesPage() {
             </div>
           )}
 
-          {/* Card view */}
+          {/* Card view — siempre en mobile, opt-in en sm+ */}
           {viewMode === 'cards' ? (
             <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
               {data.data.map((expediente) => (
@@ -378,8 +403,20 @@ export default function ExpedientesPage() {
               ))}
             </div>
           ) : (
-          /* Table container */
-          <div className={cn("glass-card rounded-xl overflow-auto max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
+          <>
+            {/* En mobile siempre cards aunque viewMode='table' */}
+            <div className={cn("grid grid-cols-1 gap-3 sm:hidden", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
+              {data.data.map((expediente) => (
+                <ExpedienteCard
+                  key={expediente.id}
+                  expediente={expediente}
+                  onClick={() => navigate(`/expedientes/${expediente.id}`)}
+                />
+              ))}
+            </div>
+
+          {/* Table container — solo sm+ */}
+          <div className={cn("hidden sm:block rounded-xl overflow-auto border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-white dark:bg-zinc-900/80">
                 <tr className="border-b border-zinc-200 dark:border-white/5">
@@ -555,6 +592,7 @@ export default function ExpedientesPage() {
               </tbody>
             </table>
           </div>
+          </>
           )}
 
           {/* Pagination */}

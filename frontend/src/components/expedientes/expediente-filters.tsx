@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Search, X, SlidersHorizontal } from 'lucide-react'
+import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
@@ -45,24 +45,49 @@ export function ExpedienteFilters({
   }, [onChange, filters.pageSize])
 
   const selectClass =
-    'h-8 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm text-zinc-800 dark:text-zinc-200 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+    'h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 text-sm text-zinc-800 dark:text-zinc-200 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20'
+
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className={cn('space-y-3', className)}>
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
+        {/* Search — siempre visible */}
         <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 dark:text-zinc-300" />
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             placeholder="Buscar por número, carátula, cliente..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            className="h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20"
           />
         </div>
 
+        {/* Mobile toggle */}
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="sm:hidden flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          aria-expanded={expanded}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filtros
+          {activeFilterCount > 0 && (
+            <span className="ml-1 rounded-full bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)] px-1.5 text-[10px] font-semibold">
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
+        </button>
+      </div>
+
+      {/* Filtros: colapsables en mobile, siempre visibles en sm+ */}
+      <div className={cn(
+        'flex flex-wrap items-center gap-2',
+        expanded ? 'flex' : 'hidden sm:flex',
+      )}>
         {/* Estado */}
         <select
           value={filters.estado_interno ?? ''}
