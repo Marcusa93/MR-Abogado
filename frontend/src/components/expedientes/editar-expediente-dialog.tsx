@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useUpdateExpediente, useTiposTramite } from '@/hooks/use-expedientes'
 import type { ExpedienteDetail } from '@/hooks/use-expedientes'
+import { useCliente } from '@/hooks/use-clientes'
+import { ClienteCombobox } from '@/components/clientes/cliente-combobox'
 import { toast } from '@/stores/toast-store'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
 import type { Prioridad } from '@/types/enums'
-import { X, Loader2, Save } from 'lucide-react'
+import { X, Loader2, Save, AlertCircle } from 'lucide-react'
 
 const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
@@ -25,6 +28,12 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
   const [caratula, setCaratula] = useState(expediente.caratula ?? '')
   const [observaciones, setObservaciones] = useState(expediente.observaciones ?? '')
   const [numeroSae, setNumeroSae] = useState((expediente as any).numero_sae ?? '')
+  const [clienteId, setClienteId] = useState(expediente.cliente_id ?? '')
+
+  // Trae el cliente actual para detectar si es placeholder
+  const { data: clienteActual } = useCliente(expediente.cliente_id ?? undefined)
+  const esPlaceholder = clienteActual?.apellido === 'Importado SAE'
+  const clienteCambio = clienteId !== (expediente.cliente_id ?? '')
 
   // Reset state when expediente changes
   useEffect(() => {
@@ -34,13 +43,19 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
       setCaratula(expediente.caratula ?? '')
       setObservaciones(expediente.observaciones ?? '')
       setNumeroSae((expediente as any).numero_sae ?? '')
+      setClienteId(expediente.cliente_id ?? '')
     }
   }, [open, expediente])
 
   const handleSubmit = async () => {
+    if (!clienteId) {
+      toast.error('Seleccioná un cliente')
+      return
+    }
     try {
       await update.mutateAsync({
         id: expediente.id,
+        cliente_id: clienteId,
         tipo_tramite_id: tipoTramiteId || undefined,
         prioridad,
         caratula: caratula.trim() || null,
@@ -70,6 +85,37 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
         </div>
 
         <div className="space-y-4">
+          {/* Cliente */}
+          <div>
+            <label className={labelClass}>
+              Cliente
+              {esPlaceholder && !clienteCambio && (
+                <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 normal-case">
+                  <AlertCircle className="h-3 w-3" /> Cliente actual es placeholder SAE
+                </span>
+              )}
+            </label>
+            <ClienteCombobox
+              value={clienteId}
+              onChange={setClienteId}
+              currentId={expediente.cliente_id ?? undefined}
+            />
+            {esPlaceholder && (
+              <p className="mt-1 text-xs text-amber-600/80 dark:text-amber-400/80">
+                Este expediente apunta a un placeholder importado de SAE. Cambialo al cliente real
+                (buscalo arriba) o consolidalo desde{' '}
+                <Link to="/clientes/resolver" onClick={onClose} className="underline hover:text-amber-700 dark:hover:text-amber-300">
+                  Resolver duplicados
+                </Link>.
+              </p>
+            )}
+            {clienteCambio && (
+              <p className="mt-1 text-xs text-violet-600 dark:text-violet-400">
+                ⚠️ Vas a mover este expediente a otro cliente al guardar.
+              </p>
+            )}
+          </div>
+
           {/* Caratula */}
           <div>
             <label className={labelClass}>Carátula</label>

@@ -4,7 +4,8 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
-import { useClientes, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
+import { Link } from 'react-router-dom'
+import { useClientes, useClientesPlaceholderPendientes, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
 import { exportClientePDF } from '@/lib/utils/export-client-pdf'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { timeAgo } from '@/lib/utils/date-helpers'
@@ -24,6 +25,8 @@ import {
   FolderOpen,
   Clock,
   Download,
+  AlertCircle,
+  ArrowRight,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -176,6 +179,9 @@ export default function ClientesPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Banner duplicados pendientes */}
+      <PlaceholdersBanner />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -274,5 +280,37 @@ export default function ClientesPage() {
         </>
       )}
     </div>
+  )
+}
+
+// ─── Banner: placeholders SAE pendientes de consolidación ──────────────────
+
+function PlaceholdersBanner() {
+  const { data: placeholders = [] } = useClientesPlaceholderPendientes()
+  if (placeholders.length === 0) return null
+
+  const totalExp = placeholders.reduce((sum, p) => sum + p.expedientes_count, 0)
+
+  return (
+    <Link
+      to="/clientes/resolver"
+      className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 hover:bg-amber-500/10 transition-colors group"
+    >
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+            {placeholders.length} cliente{placeholders.length === 1 ? '' : 's'} placeholder pendiente{placeholders.length === 1 ? '' : 's'} de consolidación
+          </p>
+          <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+            Vienen de importaciones SAE sin cliente real asociado · {totalExp} expediente{totalExp === 1 ? '' : 's'} en total
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 text-sm font-medium text-amber-700 dark:text-amber-400 group-hover:gap-1.5 transition-all flex-shrink-0">
+        <span className="hidden sm:inline">Resolver</span>
+        <ArrowRight className="h-4 w-4" />
+      </div>
+    </Link>
   )
 }

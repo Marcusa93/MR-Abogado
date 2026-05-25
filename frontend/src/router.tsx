@@ -31,6 +31,7 @@ const ExpedienteDetailPage = lazyWithRetry(() => import('@/pages/expediente-deta
 const NuevoExpedientePage = lazyWithRetry(() => import('@/pages/nuevo-expediente'))
 const ClientesPage = lazyWithRetry(() => import('@/pages/clientes'))
 const ClienteDetailPage = lazyWithRetry(() => import('@/pages/cliente-detail'))
+const ResolverClientesPage = lazyWithRetry(() => import('@/pages/resolver-clientes'))
 const NuevoClientePage = lazyWithRetry(() => import('@/pages/nuevo-cliente'))
 const KanbanPage = lazyWithRetry(() => import('@/pages/kanban'))
 const TareasPage = lazyWithRetry(() => import('@/pages/tareas'))
@@ -113,6 +114,7 @@ export const router = createBrowserRouter([
       { path: 'expedientes/:id', element: <SuspenseWrapper><ExpedienteDetailPage /></SuspenseWrapper> },
       { path: 'clientes', element: <SuspenseWrapper><ClientesPage /></SuspenseWrapper> },
       { path: 'clientes/nuevo', element: <SuspenseWrapper><NuevoClientePage /></SuspenseWrapper> },
+      { path: 'clientes/resolver', element: <SuspenseWrapper><ResolverClientesPage /></SuspenseWrapper> },
       { path: 'clientes/:id', element: <SuspenseWrapper><ClienteDetailPage /></SuspenseWrapper> },
       { path: 'kanban', element: <SuspenseWrapper><KanbanPage /></SuspenseWrapper> },
       { path: 'tareas', element: <SuspenseWrapper><TareasPage /></SuspenseWrapper> },

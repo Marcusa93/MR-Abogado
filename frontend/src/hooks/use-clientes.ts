@@ -253,3 +253,95 @@ export function useDeleteCliente() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// Placeholders SAE pendientes de consolidación (migración 057)
+// ---------------------------------------------------------------------------
+
+export interface ClientePlaceholderPendiente {
+  id: string
+  apellido: string
+  nombre: string
+  dni: string
+  expedientes_count: number
+  caratulas: string[] | null
+  created_at: string
+}
+
+export function useClientesPlaceholderPendientes() {
+  const supabase = createClient()
+  return useQuery<ClientePlaceholderPendiente[]>({
+    queryKey: ['clientes', 'placeholders'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'clientes_placeholder_pendientes' as never,
+      )
+      if (error) throw error
+      return (data ?? []) as unknown as ClientePlaceholderPendiente[]
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Autocomplete con conteo de expedientes (migración 057)
+// ---------------------------------------------------------------------------
+
+export interface ClienteAutocompleteRow {
+  id: string
+  apellido: string
+  nombre: string
+  dni: string
+  cuil: string | null
+  expedientes_count: number
+  es_placeholder: boolean
+}
+
+export function useBuscarClientesAutocomplete(termino: string, limit = 20) {
+  const supabase = createClient()
+  return useQuery<ClienteAutocompleteRow[]>({
+    queryKey: ['clientes', 'autocomplete', termino, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'buscar_clientes_por_termino' as never,
+        { p_termino: termino, p_limit: limit } as never,
+      )
+      if (error) throw error
+      return (data ?? []) as unknown as ClienteAutocompleteRow[]
+    },
+    enabled: true,
+    staleTime: 30_000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Merge: consolida cliente_from → cliente_to (DIRECTOR only)
+// ---------------------------------------------------------------------------
+
+export interface MergeClientesResult {
+  ok: boolean
+  from_cliente_id: string
+  to_cliente_id: string
+  expedientes_movidos: number
+  adjuntos_movidos: number
+  contactos_movidos: number
+}
+
+export function useMergeClientes() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation<MergeClientesResult, Error, { from_cliente_id: string; to_cliente_id: string }>({
+    mutationFn: async (input) => {
+      const { data, error } = await supabase.rpc('merge_clientes' as never, {
+        p_from_cliente_id: input.from_cliente_id,
+        p_to_cliente_id: input.to_cliente_id,
+      } as never)
+      if (error) throw error
+      return data as unknown as MergeClientesResult
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['clientes'] })
+      queryClient.invalidateQueries({ queryKey: clientesKeys.detail(vars.to_cliente_id) })
+      queryClient.invalidateQueries({ queryKey: ['expedientes'] })
+    },
+  })
+}
