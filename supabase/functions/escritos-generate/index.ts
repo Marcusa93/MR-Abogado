@@ -315,6 +315,112 @@ async function getRelevantNormativa(
   return { pinned: pinnedChunks, retrieved: retrievedChunks }
 }
 
+// ── RAG: recuperación de jurisprudencia ────────────────────────────────────
+
+interface JurisprudenciaChunk {
+  chunk_id: number
+  documento_id: string
+  contenido: string
+  metadata: Record<string, unknown>
+  score: number
+  was_pinned: boolean
+}
+
+interface JurisRagBundle {
+  pinned: JurisprudenciaChunk[]
+  retrieved: JurisprudenciaChunk[]
+}
+
+async function getRelevantJurisprudencia(
+  serviceClient: ReturnType<typeof createClient>,
+  expedienteId: string,
+  userId: string,
+  query: string,
+  apiKey: string,
+): Promise<JurisRagBundle> {
+  // 1) Fallos fijados al expediente
+  const { data: pinned, error: pinnedErr } = await serviceClient
+    .from('expediente_jurisprudencia')
+    .select('documento_id')
+    .eq('expediente_id', expedienteId)
+  if (pinnedErr) console.error('[escritos-generate] pinned jurisprudencia error', pinnedErr)
+  const pinnedDocIds = (pinned ?? []).map(p => (p as { documento_id: string }).documento_id)
+
+  // 2) Chunks de los fallos fijados (sin retrieval, van todos)
+  let pinnedChunks: JurisprudenciaChunk[] = []
+  if (pinnedDocIds.length > 0) {
+    const { data: rows, error: chunksErr } = await serviceClient
+      .from('jurisprudencia_chunks')
+      .select('id, documento_id, contenido, metadata')
+      .in('documento_id', pinnedDocIds)
+      .order('documento_id')
+      .order('orden')
+      .limit(RAG_MAX_PINNED_CHUNKS)
+    if (chunksErr) {
+      console.error('[escritos-generate] pinned jurisprudencia chunks error', chunksErr)
+    } else {
+      pinnedChunks = (rows ?? []).map(r => {
+        const row = r as { id: number; documento_id: string; contenido: string; metadata: Record<string, unknown> }
+        return {
+          chunk_id: row.id, documento_id: row.documento_id,
+          contenido: row.contenido, metadata: row.metadata ?? {},
+          score: 1, was_pinned: true,
+        }
+      })
+    }
+  }
+
+  // 3) Retrieval semántico sobre el resto del corpus de fallos
+  let retrievedChunks: JurisprudenciaChunk[] = []
+  const embedding = await createQueryEmbedding(query, apiKey)
+  if (embedding) {
+    const { data: matches, error: matchErr } = await serviceClient.rpc('match_jurisprudencia_chunks', {
+      query_embedding: embedding,
+      filter_user_id: userId,
+      match_count: RAG_MATCH_COUNT,
+      exclude_documento_ids: pinnedDocIds,
+    })
+    if (matchErr) {
+      console.error('[escritos-generate] match_jurisprudencia_chunks error', matchErr)
+    } else {
+      const all = (matches ?? []).map(m => {
+        const row = m as { chunk_id: number; documento_id: string; contenido: string; metadata: Record<string, unknown>; score: number }
+        return {
+          chunk_id: row.chunk_id, documento_id: row.documento_id,
+          contenido: row.contenido, metadata: row.metadata ?? {},
+          score: row.score, was_pinned: false,
+        }
+      })
+      const strong = all.filter(m => m.score >= RAG_STRONG_THRESHOLD)
+      retrievedChunks = strong.length > 0
+        ? strong.slice(0, RAG_STRONG_TOPK)
+        : all.filter(m => m.score >= RAG_WEAK_THRESHOLD).slice(0, RAG_WEAK_TOPK)
+    }
+  }
+
+  return { pinned: pinnedChunks, retrieved: retrievedChunks }
+}
+
+function formatJurisprudenciaForPrompt(bundle: JurisRagBundle): string {
+  const all = [...bundle.pinned, ...bundle.retrieved]
+  if (all.length === 0) return ''
+  const entries = all.map(c => {
+    const tag = c.was_pinned ? 'FIJADA' : `RECUPERADA (score ${c.score.toFixed(2)})`
+    const meta: string[] = []
+    if (c.metadata.caratula) meta.push(String(c.metadata.caratula))
+    if (c.metadata.tribunal) meta.push(String(c.metadata.tribunal))
+    if (c.metadata.fecha) meta.push(String(c.metadata.fecha))
+    if (c.metadata.seccion) meta.push(`§ ${c.metadata.seccion}`)
+    return `### chunk_id ${c.chunk_id} · ${tag} · ${meta.join(' — ') || 'sin metadata'}
+${c.contenido}`
+  }).join('\n\n')
+
+  return `\n## Jurisprudencia aplicable
+Los siguientes fragmentos provienen de fallos del propio corpus del usuario. Tenelos en cuenta para fundar tus argumentos. Cuando uses uno, indicalo en el array "citas" del JSON con su \`chunk_id\` y el fragmento citado. La sección del fallo (encabezado/considerandos/resuelve) marca si es razonamiento o dispositivo.
+
+${entries}`
+}
+
 function formatNormativaForPrompt(bundle: RagBundle): string {
   const all = [...bundle.pinned, ...bundle.retrieved]
   if (all.length === 0) return ''
@@ -457,9 +563,17 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
     ].filter(Boolean).join(' — ')
 
-    const rag = await getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey)
-    const validChunkIds = new Set<number>([...rag.pinned, ...rag.retrieved].map(c => c.chunk_id))
+    // En paralelo: normativa + jurisprudencia (dos RAGs independientes)
+    const [rag, jurisRag] = await Promise.all([
+      getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
+      getRelevantJurisprudencia(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
+    ])
+    const validChunkIds = new Set<number>([
+      ...rag.pinned, ...rag.retrieved,
+      ...jurisRag.pinned, ...jurisRag.retrieved,
+    ].map(c => c.chunk_id))
     const normativaCtx = formatNormativaForPrompt(rag)
+    const jurisprudenciaCtx = formatJurisprudenciaForPrompt(jurisRag)
 
     // 7) Armar system prompt
     const systemPrompt = [
@@ -483,6 +597,8 @@ ${expedienteCtx}
 ${clavesCtx}
 
 ${normativaCtx}
+
+${jurisprudenciaCtx}
 
 ${abogadoCtx}
 

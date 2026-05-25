@@ -57,6 +57,7 @@ FLOWS TÍPICOS:
 - "Tareas de Pérez" → search_expediente(query: "Pérez") → si 1 match → list_tareas(expediente_id: ...). Si varios, listá y pedí.
 - "Qué tengo esta semana" → list_tareas({ fecha_hasta: hoy+7d }) y list_audiencias({ desde: hoy, hasta: hoy+7d })
 - "Mis notif SAE no leídas" → list_notif_sae() con defaults
+- "¿Qué le falta a la causa de Pérez para redactar?" / "¿Está listo el expediente X?" → auditar_expediente(expediente_ref: "Pérez"). Devuelve qué contexto tiene cargado (actuaciones claves, normativa fijada, jurisprudencia fijada) y si está listo para alimentar la generación de un escrito. Resumí la info en bullets con ✓/⚠/○ tal como vienen en readiness.
 
 CONSULTAS JURÍDICAS — ORDEN DE PREFERENCIA:
 

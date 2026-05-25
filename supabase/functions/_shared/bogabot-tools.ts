@@ -380,6 +380,17 @@ export const BOGABOT_TOOLS = [
     },
   },
   {
+    name: 'auditar_expediente',
+    description: 'Te dice qué contexto tiene una causa LISTO para alimentar la generación de escritos: actuaciones claves marcadas, normativa fijada, jurisprudencia fijada, audiencias próximas, tareas pendientes. Usalo cuando el usuario pregunte "qué le falta a esta causa", "qué tengo en X expediente", "¿está listo para redactar?", o cuando esté por generar un escrito y querés mostrarle de qué contexto disponés.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_ref: { type: 'string', description: 'Carátula, número de expediente, número SAE o nombre del cliente. Se resuelve a un expediente concreto.' },
+      },
+      required: ['expediente_ref'],
+    },
+  },
+  {
     name: 'agregar_jurisprudencia',
     description: 'Agrega un fallo al corpus PROPIO del usuario para que quede indexado y buscable después con buscar_jurisprudencia_local. Acepta URL de InfoLEG/SAIJ, o texto completo del fallo pegado. Usalo cuando el usuario diga "agregá este fallo", "subí esta sentencia", "indexá esto", o cuando pegue un link a un fallo. Opcional: metadata (carátula, tribunal, fecha) que sobreescribe la extraída automáticamente.',
     input_schema: {
@@ -1009,6 +1020,87 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
 
   resolver_cita_legal: async (_admin, user, args) => {
     return await callLegalLookup(user.user_id, 'infoleg', 'resolveCitation', { text: args.text })
+  },
+
+  auditar_expediente: async (admin, user, args) => {
+    const ref = String(args.expediente_ref ?? '').trim()
+    if (!ref) return { error: 'expediente_ref vacío' }
+
+    const exp = await resolveExpediente(admin, ref, user)
+    if ('error' in exp) return { error: exp.error }
+
+    const expedienteId = exp.id
+
+    // Contadores en paralelo
+    const [claves, normFij, jurisFij, normCorpus, jurisCorpus, audiencias, tareasPend] = await Promise.all([
+      admin.from('sae_movements').select('id', { count: 'exact', head: true })
+        .eq('expediente_id', expedienteId).eq('is_key', true),
+      admin.from('expediente_normativa').select('documento_id, nota, documento:normativa_documentos(titulo, tipo, numero)')
+        .eq('expediente_id', expedienteId).limit(20),
+      admin.from('expediente_jurisprudencia').select('documento_id, nota, documento:jurisprudencia_documentos(caratula, tribunal, fecha)')
+        .eq('expediente_id', expedienteId).limit(20),
+      admin.from('normativa_documentos').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.user_id).eq('estado', 'indexado'),
+      admin.from('jurisprudencia_documentos').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.user_id).eq('estado', 'indexado'),
+      admin.from('audiencias').select('fecha, hora, motivo')
+        .eq('expediente_id', expedienteId).gte('fecha', new Date().toISOString().slice(0, 10))
+        .order('fecha').limit(5),
+      admin.from('tareas').select('id, titulo, fecha_vencimiento, prioridad')
+        .eq('expediente_id', expedienteId).in('estado', ['PENDIENTE', 'EN_PROGRESO']).limit(20),
+    ])
+
+    const normFijList = (normFij.data ?? []).map((r: any) => ({
+      titulo: Array.isArray(r.documento) ? r.documento[0]?.titulo : r.documento?.titulo,
+      tipo: Array.isArray(r.documento) ? r.documento[0]?.tipo : r.documento?.tipo,
+      numero: Array.isArray(r.documento) ? r.documento[0]?.numero : r.documento?.numero,
+      nota: r.nota,
+    }))
+    const jurisFijList = (jurisFij.data ?? []).map((r: any) => ({
+      caratula: Array.isArray(r.documento) ? r.documento[0]?.caratula : r.documento?.caratula,
+      tribunal: Array.isArray(r.documento) ? r.documento[0]?.tribunal : r.documento?.tribunal,
+      fecha: Array.isArray(r.documento) ? r.documento[0]?.fecha : r.documento?.fecha,
+      nota: r.nota,
+    }))
+
+    const clavesCount = claves.count ?? 0
+    const normTotalCorpus = normCorpus.count ?? 0
+    const jurisTotalCorpus = jurisCorpus.count ?? 0
+    const audienciasProx = audiencias.data ?? []
+    const tareas = tareasPend.data ?? []
+
+    // Diagnóstico simple: qué está LISTO para alimentar un escrito
+    const readiness: string[] = []
+    if (clavesCount === 0) readiness.push('⚠ Sin actuaciones marcadas como CLAVE — el escrito no tendrá contexto procesal del expediente.')
+    else readiness.push(`✓ ${clavesCount} actuación${clavesCount === 1 ? '' : 'es'} clave${clavesCount === 1 ? '' : 's'}.`)
+
+    if (normFijList.length === 0 && normTotalCorpus === 0) readiness.push('⚠ Sin normativa fijada y corpus de normativa vacío — el escrito no podrá citar normas. Subí leyes/códigos en /normativa.')
+    else if (normFijList.length === 0) readiness.push(`○ Sin normativa FIJADA al expediente (hay ${normTotalCorpus} en tu corpus que pueden entrar por RAG).`)
+    else readiness.push(`✓ ${normFijList.length} norma${normFijList.length === 1 ? '' : 's'} fijada${normFijList.length === 1 ? '' : 's'}.`)
+
+    if (jurisFijList.length === 0 && jurisTotalCorpus === 0) readiness.push('○ Sin jurisprudencia fijada y corpus vacío — el escrito irá sin precedentes (no es bloqueante).')
+    else if (jurisFijList.length === 0) readiness.push(`○ Sin jurisprudencia FIJADA (hay ${jurisTotalCorpus} fallos en tu corpus que pueden entrar por RAG).`)
+    else readiness.push(`✓ ${jurisFijList.length} fallo${jurisFijList.length === 1 ? '' : 's'} fijado${jurisFijList.length === 1 ? '' : 's'}.`)
+
+    return {
+      result: {
+        expediente: { id: expedienteId, label: exp.label },
+        listo_para_escrito: clavesCount > 0,
+        readiness,
+        actuaciones_claves: { count: clavesCount },
+        normativa: {
+          fijadas: normFijList,
+          corpus_total: normTotalCorpus,
+        },
+        jurisprudencia: {
+          fijados: jurisFijList,
+          corpus_total: jurisTotalCorpus,
+        },
+        proximas_audiencias: audienciasProx,
+        tareas_pendientes: tareas,
+        link_expediente: `/expedientes/${expedienteId}`,
+      },
+    }
   },
 
   buscar_jurisprudencia_tucuman: async (_admin, user, args) => {
