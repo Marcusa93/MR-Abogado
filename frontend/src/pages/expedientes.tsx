@@ -152,7 +152,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 // URL ↔ Filter sync helpers
 // ---------------------------------------------------------------------------
 
-const FILTER_PARAMS = ['tipo_tramite_id', 'estado_interno', 'prioridad', 'search', 'sortBy', 'sortOrder', 'page'] as const
+const FILTER_PARAMS = ['tipo_tramite_id', 'estado_interno', 'abogado_id', 'prioridad', 'search', 'sortBy', 'sortOrder', 'page'] as const
 
 function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   const f: ExpedientesFilters = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
@@ -160,9 +160,8 @@ function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   if (tipo) f.tipo_tramite_id = tipo
   const estado = params.get('estado_interno')
   if (estado) f.estado_interno = estado as any
-  // TODO: filter by expediente_miembros when supported
-  // const abogado = params.get('abogado_id')
-  // if (abogado) f.abogado_id = abogado
+  const abogado = params.get('abogado_id')
+  if (abogado) f.abogado_id = abogado
   const prioridad = params.get('prioridad')
   if (prioridad) f.prioridad = prioridad as any
   const search = params.get('search')
@@ -476,7 +475,7 @@ export default function ExpedientesPage() {
                   const tipo = expediente.tipos_tramite
                   // Find the primary responsible (first member with rol='abogado')
                   const miembros = (expediente.miembros ?? []) as any[]
-                  const abogadoMembro = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
+                  const abogadoMembro = (expediente as any).abogado_responsable ?? miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
                   const initials = cliente
                     ? `${(cliente.apellido?.[0] ?? '').toUpperCase()}${(cliente.nombre?.[0] ?? '').toUpperCase()}`
                     : '??'

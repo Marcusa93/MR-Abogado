@@ -236,118 +236,109 @@ export function DashboardView({
   const nextTurno = metrics?.turnos_proximos?.[0] ?? null
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <section className="dashboard-hero px-6 py-7 sm:px-8 lg:px-10 lg:py-10">
-        <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_390px] lg:items-end">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
+      <section className="dashboard-hero px-4 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-9">
+        <div className="relative z-10 grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1.3fr)_390px] lg:items-end">
+          {/* Texto + CTAs */}
           <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/72">
-              <span className="h-2 w-2 rounded-full bg-white/80 animate-pulse-subtle" />
-              Estudio · estrategia · datos
-            </span>
-            <h1 className="mt-5 text-[clamp(2.4rem,6vw,4.4rem)] font-black leading-[1.02] tracking-tight text-white">
-              {greeting}, {userName}.{' '}
-              <span className="bg-gradient-to-r from-white via-[rgb(204,222,231)] to-[rgb(87,124,142)] bg-clip-text text-transparent">
-                Controlá el estudio con una vista hecha para decidir rápido.
-              </span>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white">
+              {greeting}, {userName}.
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/72 sm:text-base">
-              {subtitle}. Expedientes, plazos, actuaciones y alertas en una misma lectura operativa,
-              con el tono sobrio y técnico del estudio.
+            <p className="mt-2 text-sm leading-relaxed text-white/70 sm:text-base">
+              {subtitle}.
             </p>
 
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-5 flex flex-wrap gap-2">
               <Link
                 to="/expedientes/nuevo"
-                className="btn-interactive inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-[#07131f]"
+                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-[#07131f]"
               >
                 <Plus className="h-4 w-4" />
                 Nuevo expediente
               </Link>
               <Link
                 to="/tareas"
-                className="btn-interactive inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/14 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/88"
+                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
               >
                 <CheckSquare className="h-4 w-4" />
-                Revisar tareas
+                Tareas
               </Link>
               <Link
                 to="/agenda"
-                className="btn-interactive inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/14 bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/88"
+                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
               >
                 <CalendarClock className="h-4 w-4" />
-                Ver agenda
+                Agenda
               </Link>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-medium text-white/58">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-white/55" />
-                {todayLabel}
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-white/55" />
-                {pipelineCounts?.total ?? 0} expedientes en seguimiento
-              </span>
-            </div>
+            <p className="mt-4 text-xs font-medium text-white/55">{todayLabel}</p>
           </div>
 
-          <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 backdrop-blur-md">
-            <img
-              src="/logo/mr-monograma-blanco.svg"
-              alt="MR"
-              className="pointer-events-none absolute right-4 top-4 h-16 w-16 opacity-[0.08]"
-            />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/48">
-              Snapshot del estudio
+          {/* Snapshot — info accionable, todo clickable */}
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">
+              Resumen del estudio
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-              <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Expedientes activos</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-white/68" />
-                  <span className="text-2xl font-black text-white">{pipelineCounts?.total ?? 0}</span>
+            <div className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-2.5">
+              <Link
+                to="/expedientes"
+                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
+              >
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Expedientes activos</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold text-white">{pipelineCounts?.total ?? 0}</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
                 </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Alertas abiertas</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-white/68" />
-                  <span className="text-2xl font-black text-white">{alertas?.length ?? 0}</span>
+              </Link>
+              <Link
+                to="/alertas"
+                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
+              >
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Alertas abiertas</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold text-white">{alertas?.length ?? 0}</span>
+                  <Bell className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
                 </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Vencen en 48h</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-white/68" />
-                  <span className="text-2xl font-black text-white">{prodMetrics?.tareasProximas48h ?? 0}</span>
+              </Link>
+              <Link
+                to="/tareas"
+                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
+              >
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Vencen en 48h</p>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-xl sm:text-2xl font-bold text-white">{prodMetrics?.tareasProximas48h ?? 0}</span>
+                  <Zap className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
                 </div>
-              </div>
+              </Link>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">Próximo turno</p>
+            {/* Próximo turno — clickable a agenda */}
+            <Link
+              to="/agenda"
+              className="btn-interactive mt-3 block rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 hover:bg-white/[0.08] hover:border-white/20 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">Próximo turno</p>
                   {nextTurno ? (
                     <>
-                      <p className="mt-2 text-sm font-semibold text-white">
+                      <p className="mt-1 text-sm font-semibold text-white truncate">
                         {nextTurno.cliente_nombre} {nextTurno.cliente_apellido}
                       </p>
-                      <p className="mt-1 text-xs text-white/62">
+                      <p className="mt-0.5 text-xs text-white/60 truncate">
                         {TIPO_TURNO_LABELS[nextTurno.tipo_turno as keyof typeof TIPO_TURNO_LABELS] ?? nextTurno.tipo_turno}
                         {' · '}{nextTurno.fecha}
                         {nextTurno.hora ? ` · ${nextTurno.hora.slice(0, 5)}` : ''}
                       </p>
                     </>
                   ) : (
-                    <p className="mt-2 text-sm text-white/62">No hay turnos programados.</p>
+                    <p className="mt-1 text-sm text-white/55">Sin turnos programados</p>
                   )}
                 </div>
-                <div className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] font-semibold text-white/72">
-                  {metrics?.tasa_exito ?? 0}% éxito
-                </div>
+                <ArrowRight className="h-4 w-4 text-white/40 mt-0.5 flex-shrink-0" />
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -362,7 +353,6 @@ export function DashboardView({
       <SectionHeading
         eyebrow="operación diaria"
         title="Lo inmediato del estudio"
-        description="Tareas personales, audiencias y próximos vencimientos en una lectura corta."
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -375,8 +365,7 @@ export function DashboardView({
 
       <SectionHeading
         eyebrow="radar sae"
-        title="Prueba electrónica y movimiento judicial"
-        description="Detección asistida por IA para seguir actuaciones y plazos antes de que se conviertan en urgencias."
+        title="Movimiento judicial"
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -388,8 +377,7 @@ export function DashboardView({
 
       <SectionHeading
         eyebrow="pipeline activo"
-        title="Estado real de los expedientes"
-        description="Embudo operativo del estudio y tabla de seguimiento para intervenir rápido."
+        title="Estado de los expedientes"
       />
 
       {pipelineCounts && pipelineCounts.total > 0 && (
@@ -411,8 +399,7 @@ export function DashboardView({
 
       <SectionHeading
         eyebrow="rendimiento"
-        title="Señales de productividad y alertas"
-        description="Métrica operativa para sostener ritmo, detectar fricciones y no perder foco."
+        title="Productividad y alertas"
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -423,6 +410,7 @@ export function DashboardView({
               value={prodMetrics.tareasProximas48h}
               icon={<Zap className="h-4 w-4" />}
               tone={prodMetrics.tareasProximas48h > 0 ? 'warning' : 'accent'}
+              to="/tareas"
             />
             <ProductivityCard
               title="Prom. resolución"
@@ -440,6 +428,7 @@ export function DashboardView({
               value={prodMetrics.expedientesEstancados}
               icon={<AlertTriangle className="h-4 w-4" />}
               tone={prodMetrics.expedientesEstancados > 0 ? 'danger' : 'accent'}
+              to="/expedientes"
             />
           </div>
         )}
@@ -461,19 +450,19 @@ function SectionHeading({
 }: {
   eyebrow: string
   title: string
-  description: string
+  description?: string
 }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div className="max-w-3xl">
-        <p className="dashboard-eyebrow">{eyebrow}</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-zinc-950 dark:text-zinc-50">
-          {title}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-300">
+    <div className="flex flex-col gap-1">
+      <p className="dashboard-eyebrow">{eyebrow}</p>
+      <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+        {title}
+      </h2>
+      {description && (
+        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
           {description}
         </p>
-      </div>
+      )}
     </div>
   )
 }
@@ -484,12 +473,14 @@ function ProductivityCard({
   icon,
   tone,
   tooltip,
+  to,
 }: {
   title: string
   value: number | string
   icon: React.ReactNode
   tone: 'accent' | 'warning' | 'success' | 'danger'
   tooltip?: string
+  to?: string
 }) {
   const toneClasses = {
     accent: 'dashboard-stat-orb',
@@ -498,22 +489,34 @@ function ProductivityCard({
     danger: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
   }
 
-  return (
-    <div className="dashboard-panel rounded-[1.4rem] px-4 py-4">
-      <div className="flex items-center gap-3">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="dashboard-eyebrow text-[10px]">{title}</p>
-          <p
-            className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-zinc-50"
-            title={tooltip}
-          >
-            {value}
-          </p>
-        </div>
+  const content = (
+    <div className="flex items-center gap-3">
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
+        {icon}
       </div>
+      <div className="min-w-0 flex-1">
+        <p className="dashboard-eyebrow text-[10px]">{title}</p>
+        <p
+          className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-zinc-50"
+          title={tooltip}
+        >
+          {value}
+        </p>
+      </div>
+      {to && <ArrowRight className="h-3.5 w-3.5 text-zinc-400 shrink-0" />}
+    </div>
+  )
+
+  if (to) {
+    return (
+      <Link to={to} className="dashboard-panel block rounded-[1.4rem] px-4 py-4 hover:border-white/20 transition-colors">
+        {content}
+      </Link>
+    )
+  }
+  return (
+    <div className="dashboard-panel rounded-[1.4rem] px-4 py-4" title={tooltip}>
+      {content}
     </div>
   )
 }
@@ -561,19 +564,23 @@ function PipelineFunnelBar({ counts }: { counts: Record<PipelineCategory, number
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         {items.map(({ cat, count, pct }) => (
-          <div key={cat} className="flex items-center gap-1.5">
+          <Link
+            key={cat}
+            to={`/expedientes?categoria=${cat}`}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 -mx-2 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors"
+          >
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: FUNNEL_COLORS[cat].hex }}
             />
-            <span className="text-xs text-zinc-500 dark:text-zinc-300 whitespace-nowrap">
+            <span className="text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
               {COLOR_CONFIG[cat].label}
             </span>
-            <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{count}</span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-600">({pct}%)</span>
-          </div>
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{count}</span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">({pct}%)</span>
+          </Link>
         ))}
       </div>
     </div>

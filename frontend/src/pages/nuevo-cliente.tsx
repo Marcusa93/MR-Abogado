@@ -117,7 +117,7 @@ export default function NuevoClientePage() {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Nuevo Cliente
         </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
@@ -388,7 +388,7 @@ export default function NuevoClientePage() {
           <button
             onClick={handleSubmit}
             disabled={createCliente.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-5 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-5 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {createCliente.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

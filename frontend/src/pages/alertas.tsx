@@ -276,7 +276,7 @@ export default function AlertasPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Alertas
         </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">

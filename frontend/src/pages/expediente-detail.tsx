@@ -55,6 +55,7 @@ import {
   BookMarked,
   Gavel,
   Sparkles,
+  MoreHorizontal,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 
@@ -98,6 +99,7 @@ export default function ExpedienteDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [quickActionsOpen, setQuickActionsOpen] = useState(false)
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false)
   const [seguimientoDialogOpen, setSeguimientoDialogOpen] = useState(false)
   const [turnoDialogOpen, setTurnoDialogOpen] = useState(false)
   const [tareaDialogOpen, setTareaDialogOpen] = useState(false)
@@ -158,86 +160,108 @@ export default function ExpedienteDetailPage() {
           ]} />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div>
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+        <div className="flex flex-col gap-3">
+          {/* Línea 1: carátula + badges */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
                 {expediente.caratula || (expediente as any).numero}
               </h1>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
+              <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (
-                  <span className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold">
-                    SAE: {(expediente as any).numero_sae}
+                  <span className="text-amber-600 dark:text-amber-400 font-mono font-semibold">
+                    SAE · {(expediente as any).numero_sae}
                   </span>
                 )}
               </div>
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                <EstadoBadge estado={expediente.estado_interno} />
+                <PrioridadBadge prioridad={expediente.prioridad} />
+              </div>
             </div>
-            <EstadoBadge estado={expediente.estado_interno} />
-            <PrioridadBadge prioridad={expediente.prioridad} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(expediente.clientes as any)?.telefono && (
-              <WhatsAppButtons
-                telefono={(expediente.clientes as any).telefono}
-                telefonoAlt={(expediente.clientes as any).telefono_alternativo}
-                clienteNombre={`${(expediente.clientes as any).nombre} ${(expediente.clientes as any).apellido}`}
-                context={{
-                  tipo: expediente.estado_interno === 'FINALIZADO' ? 'resolucion'
-                    : 'seguimiento',
-                  tipoTramite: (expediente.tipos_tramite as any)?.nombre,
-                  estado: expediente.estado_interno.replace(/_/g, ' ').toLowerCase(),
-                } as WhatsAppContext}
-                variant="badge"
-              />
-            )}
-            <button
-              onClick={async () => {
-                setGeneratingPdf(true)
-                try {
-                  await exportTramitePDF(expediente)
-                } finally {
-                  setGeneratingPdf(false)
-                }
-              }}
-              disabled={generatingPdf}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors disabled:opacity-50"
-              title="Descargar resumen del trámite para el cliente"
-            >
-              {generatingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              Resumen PDF
-            </button>
-            <button
-              onClick={() => setDescargarExpedienteOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-300 hover:bg-cyan-500/20 transition-colors"
-              title="Descargar expediente completo (portada + actuaciones + PDFs adjuntos en uno solo)"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Expediente completo
-            </button>
-            <button
-              onClick={() => setEstadoDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Cambiar estado
-            </button>
-            <button
-              onClick={() => setEditDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
-            >
-              <Edit className="h-3.5 w-3.5" />
-              Editar
-            </button>
-            {isAdmin && (
+
+            {/* Acciones */}
+            <div className="flex items-center gap-1.5 flex-wrap sm:flex-shrink-0">
+              {(expediente.clientes as any)?.telefono && (
+                <WhatsAppButtons
+                  telefono={(expediente.clientes as any).telefono}
+                  telefonoAlt={(expediente.clientes as any).telefono_alternativo}
+                  clienteNombre={`${(expediente.clientes as any).nombre} ${(expediente.clientes as any).apellido}`}
+                  context={{
+                    tipo: expediente.estado_interno === 'FINALIZADO' ? 'resolucion' : 'seguimiento',
+                    tipoTramite: (expediente.tipos_tramite as any)?.nombre,
+                    estado: expediente.estado_interno.replace(/_/g, ' ').toLowerCase(),
+                  } as WhatsAppContext}
+                  variant="badge"
+                />
+              )}
+              {/* CTAs principales — siempre visibles */}
               <button
-                onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+                onClick={() => setEstadoDialogOpen(true)}
+                className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Eliminar
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Estado</span>
+                <span className="sm:hidden text-xs">Estado</span>
               </button>
-            )}
+              <button
+                onClick={() => setEditDialogOpen(true)}
+                className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+              >
+                <Edit className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Editar</span>
+              </button>
+              {/* "..." menú con acciones secundarias (descargas + eliminar) */}
+              <div className="relative">
+                <button
+                  onClick={() => setMoreActionsOpen(v => !v)}
+                  className="flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                  aria-label="Más acciones"
+                  aria-expanded={moreActionsOpen}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+                {moreActionsOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMoreActionsOpen(false)} />
+                    <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+                      <button
+                        onClick={async () => {
+                          setMoreActionsOpen(false)
+                          setGeneratingPdf(true)
+                          try { await exportTramitePDF(expediente) } finally { setGeneratingPdf(false) }
+                        }}
+                        disabled={generatingPdf}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-50"
+                      >
+                        {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        Resumen PDF cliente
+                      </button>
+                      <button
+                        onClick={() => { setMoreActionsOpen(false); setDescargarExpedienteOpen(true) }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                      >
+                        <Download className="h-4 w-4" />
+                        Expediente completo (PDF)
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <div className="border-t border-zinc-200 dark:border-white/10" />
+                          <button
+                            onClick={() => { setMoreActionsOpen(false); setConfirmDelete(true) }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/5"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar expediente
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -259,7 +283,7 @@ export default function ExpedienteDetailPage() {
 
           return (
             <>
-              <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
                 <Timer className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">En estado actual</p>
@@ -268,7 +292,7 @@ export default function ExpedienteDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
                 <ListTodo className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Tareas pend.</p>
@@ -277,7 +301,7 @@ export default function ExpedienteDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
                 <CalendarClock className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Próx. audiencia</p>
@@ -288,7 +312,7 @@ export default function ExpedienteDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
                 <User className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Responsable</p>
@@ -303,7 +327,7 @@ export default function ExpedienteDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-white/10 sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
+      <div className="border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
         <nav className="flex gap-1 overflow-x-auto -mb-px no-scrollbar">
           {TABS.map((tab) => {
             const Icon = tab.icon

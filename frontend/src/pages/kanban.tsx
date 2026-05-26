@@ -621,7 +621,7 @@ export default function KanbanPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Tablero de Estados
           </h1>
           <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -655,7 +655,7 @@ export default function KanbanPage() {
           </p>
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 transition-colors"
+            className="inline-flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-colors"
           >
             Reintentar
           </button>

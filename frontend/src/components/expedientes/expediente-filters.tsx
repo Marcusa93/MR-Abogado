@@ -4,6 +4,9 @@ import { cn } from '@/lib/utils'
 import { ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
 import { useTiposTramite } from '@/hooks/use-expedientes'
+import { useTeamMembers } from '@/hooks/use-team-members'
+import { useAuthStore } from '@/stores/auth-store'
+import { isDirector } from '@/lib/utils/display-rol'
 import type { ExpedientesFilters } from '@/hooks/use-expedientes'
 
 interface ExpedienteFiltersProps {
@@ -19,6 +22,9 @@ export function ExpedienteFilters({
 }: ExpedienteFiltersProps) {
   const [searchValue, setSearchValue] = useState(filters.search ?? '')
   const { data: tiposTramite } = useTiposTramite()
+  const { data: teamMembers } = useTeamMembers()
+  const profile = useAuthStore((s) => s.profile)
+  const canFilterByAbogado = isDirector(profile)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Debounced search — fires 400ms after user stops typing
@@ -35,6 +41,7 @@ export function ExpedienteFilters({
   const activeFilterCount = [
     filters.estado_interno,
     filters.tipo_tramite_id,
+    filters.abogado_id,
     filters.prioridad,
     filters.search,
   ].filter(Boolean).length
@@ -148,7 +155,29 @@ export function ExpedienteFilters({
           ))}
         </select>
 
-        {/* TODO: Responsable filter removed — abogado_id no longer exists on expedientes */}
+        {/* Abogado / vínculo SAE */}
+        {canFilterByAbogado && (
+          <select
+            value={filters.abogado_id ?? ''}
+            onChange={(e) =>
+              onChange({
+                ...filters,
+                abogado_id: e.target.value || null,
+                page: 1,
+              })
+            }
+            className={selectClass}
+          >
+            <option value="">Todos los abogados</option>
+            {teamMembers
+              ?.filter((m) => ['DIRECTOR', 'ADMIN', 'ABOGADO', 'COLABORADOR'].includes(m.rol))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {[m.apellido, m.nombre].filter(Boolean).join(', ') || m.email}
+                </option>
+              ))}
+          </select>
+        )}
 
         {/* Clear */}
         {activeFilterCount > 0 && (
@@ -185,6 +214,20 @@ export function ExpedienteFilters({
               color="violet"
               onRemove={() =>
                 onChange({ ...filters, tipo_tramite_id: null, page: 1 })
+              }
+            />
+          )}
+          {filters.abogado_id && (
+            <FilterBadge
+              label={
+                (() => {
+                  const m = teamMembers?.find((member) => member.id === filters.abogado_id)
+                  return m ? ([m.apellido, m.nombre].filter(Boolean).join(', ') || m.email) : 'Abogado'
+                })()
+              }
+              color="indigo"
+              onRemove={() =>
+                onChange({ ...filters, abogado_id: null, page: 1 })
               }
             />
           )}

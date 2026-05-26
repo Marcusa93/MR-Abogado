@@ -191,16 +191,16 @@ export default function TareasPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Tareas
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
-            Gestiona las tareas de todos los expedientes.
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Tareas pendientes y completadas del estudio
           </p>
         </div>
         <button
           onClick={() => setCrearDialogOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 shrink-0"
+          className="flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-opacity shrink-0"
         >
           <Plus className="h-4 w-4" />
           Nueva tarea
