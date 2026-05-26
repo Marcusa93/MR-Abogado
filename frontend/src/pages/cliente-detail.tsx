@@ -387,31 +387,33 @@ function ExpedientesGroup({
           <li
             key={exp.id}
             onClick={() => navigate(`/expedientes/${exp.id}`)}
-            className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
+            className="px-4 py-3 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-              <FileText className="h-4 w-4 text-amber-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                {exp.caratula || exp.numero}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{exp.numero}</span>
-                {(exp.fecha_alta || exp.fecha_inicio) && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600 text-xs">·</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {timeAgo(exp.fecha_alta ?? exp.fecha_inicio) ?? formatDate(exp.fecha_alta ?? exp.fecha_inicio)}
-                    </span>
-                  </>
-                )}
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+                <FileText className="h-4 w-4 text-amber-500" />
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <EstadoBadge estado={exp.estado_interno} compact />
-              <PrioridadBadge prioridad={exp.prioridad} compact />
-              <ChevronRight className="h-4 w-4 text-zinc-400" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 break-words line-clamp-2">
+                  {exp.caratula || exp.numero}
+                </p>
+                <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+                  {exp.numero && <span className="font-mono">{exp.numero}</span>}
+                  {(exp.fecha_alta || exp.fecha_inicio) && (
+                    <>
+                      {exp.numero && <span className="text-zinc-300 dark:text-zinc-600">·</span>}
+                      <span>
+                        {timeAgo(exp.fecha_alta ?? exp.fecha_inicio) ?? formatDate(exp.fecha_alta ?? exp.fecha_inicio)}
+                      </span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <EstadoBadge estado={exp.estado_interno} compact />
+                  <PrioridadBadge prioridad={exp.prioridad} compact />
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
             </div>
           </li>
         ))}
