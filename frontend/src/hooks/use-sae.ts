@@ -248,6 +248,37 @@ export function useSetMovementAudiencia() {
   })
 }
 
+// ─── Marcado "olé": señal de aprecio (alimenta el aprendizaje) ──────────────
+
+export function useSetMovementOle() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movementId: string; isOle: boolean; expedienteId: string }) => {
+      const { error } = await supabase.rpc('marcar_ole' as any, {
+        p_movement_id: input.movementId,
+        p_ole: input.isOle,
+      })
+      if (error) throw error
+    },
+    onMutate: async ({ movementId, isOle, expedienteId }) => {
+      await queryClient.cancelQueries({ queryKey: ['sae-movements', expedienteId] })
+      const prev = queryClient.getQueryData<SaeMovement[]>(['sae-movements', expedienteId])
+      if (prev) {
+        queryClient.setQueryData<SaeMovement[]>(['sae-movements', expedienteId],
+          prev.map(m => m.id === movementId ? { ...m, is_ole: isOle } as SaeMovement : m))
+      }
+      return { prev }
+    },
+    onError: (_err, vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['sae-movements', vars.expedienteId], ctx.prev)
+    },
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expedienteId] })
+    },
+  })
+}
+
 // ─── Helpers de detección de adjuntos de audio/video ────────────────────────
 // Whisper acepta tanto audio como video (extrae el audio del contenedor).
 // Formatos soportados oficialmente: mp3, mp4, mpeg, mpga, m4a, wav, webm.
@@ -464,9 +495,10 @@ export function useGenerateBrief() {
 // ─── Document download hook ──────────────────────────────────────────────────
 
 export interface SaeDocumentRequest {
-  procid: string
-  jurisdictionId: number
-  histid: string
+  movementId?: string
+  procid?: string
+  jurisdictionId?: number
+  histid?: string
   fileName: string
 }
 
@@ -510,6 +542,8 @@ export interface SaeCaseItem {
   caratula: string
   ya_importado: boolean
   expediente_id?: string
+  ya_existe_en_estudio?: boolean
+  vinculado_a_mi?: boolean
 }
 
 export function useSaeListProceedings() {

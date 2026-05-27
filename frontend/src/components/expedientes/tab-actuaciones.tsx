@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -173,6 +173,7 @@ function ActuacionRow({
   isAnalyzing,
   onToggleKey,
   onToggleAudiencia,
+  onToggleOle,
 }: {
   movement: SaeMovement
   isNew: boolean
@@ -182,6 +183,7 @@ function ActuacionRow({
   isAnalyzing: boolean
   onToggleKey: (movement: SaeMovement) => void
   onToggleAudiencia: (movement: SaeMovement) => void
+  onToggleOle: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -260,6 +262,25 @@ function ActuacionRow({
                     : hasAudioAttachment(movement)
                       ? 'text-cyan-500/50 hover:text-cyan-400'
                       : 'text-zinc-600 dark:text-zinc-300 hover:text-cyan-400'
+              )}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleOle(movement) }}
+            className="p-1 rounded hover:bg-white/10 transition-colors"
+            title={
+              (movement as SaeMovement & { is_ole?: boolean }).is_ole
+                ? 'Olé: actuación ejemplar (click para desmarcar). El sistema aprende de las que marcás.'
+                : 'Marcar con "olé": actuación que vale recordar. Alimenta el aprendizaje cross-expedientes.'
+            }
+          >
+            <Sparkles
+              className={cn(
+                'h-4 w-4 transition-colors',
+                (movement as SaeMovement & { is_ole?: boolean }).is_ole
+                  ? 'fill-violet-400/30 text-violet-400'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-violet-400'
               )}
             />
           </button>
@@ -430,6 +451,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const analyze = useAnalyzeMovements()
   const setMovementKey = useSetMovementKey()
   const setMovementAudiencia = useSetMovementAudiencia()
+  const setMovementOle = useSetMovementOle()
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
 
   const handleToggleKey = (movement: SaeMovement) => {
@@ -454,6 +476,19 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     setMovementAudiencia.mutate(
       { movementId: movement.id, isAudiencia: next, expedienteId },
       {
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar'),
+      },
+    )
+  }
+
+  const handleToggleOle = (movement: SaeMovement) => {
+    const current = (movement as SaeMovement & { is_ole?: boolean }).is_ole === true
+    setMovementOle.mutate(
+      { movementId: movement.id, isOle: !current, expedienteId },
+      {
+        onSuccess: () => {
+          if (!current) toast.success('¡Olé! El sistema va a aprender de esta actuación.')
+        },
         onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo actualizar'),
       },
     )
@@ -552,7 +587,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       return
     }
     document.mutate(
-      { procid, jurisdictionId, histid, fileName: att.fileName },
+      { movementId: m.id, procid, jurisdictionId, histid, fileName: att.fileName },
       {
         onSuccess: ({ objectUrl }) => setViewer((v) => ({ ...v, objectUrl, error: null })),
         onError: (err) => setViewer((v) => ({ ...v, error: err instanceof Error ? err.message : 'No se pudo descargar el documento.' })),
@@ -888,6 +923,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       isAnalyzing={analyzingIds.has(m.id)}
                       onToggleKey={handleToggleKey}
                       onToggleAudiencia={handleToggleAudiencia}
+                      onToggleOle={handleToggleOle}
                     />
                   ))}
                 </div>
