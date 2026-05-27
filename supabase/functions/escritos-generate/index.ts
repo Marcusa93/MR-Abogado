@@ -660,6 +660,10 @@ Redactá el escrito siguiendo el formato JSON indicado.`
         titulo: String(tituloFinal),
         tipo: body.tipo,
         contenido,
+        // Snapshot inmutable de lo que generó la IA. Sirve para diffear
+        // contra la versión final con correcciones del abogado y extraer
+        // aprendizajes al firmar (ver escrito-extraer-aprendizajes).
+        contenido_original: contenido,
         contexto_movement_ids: claves.map(c => c.id),
         instrucciones_usuario: body.instrucciones ?? null,
         registro_tonal: registro.nombre,

@@ -18,6 +18,7 @@ import {
   Activity,
   BookMarked,
   Gavel,
+  Brain,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ const navItems: readonly NavItem[] = [
   { href: '/informes', label: 'Informes', icon: BarChart3 },
   { href: '/normativa', label: 'Normativa', icon: BookMarked },
   { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel },
+  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]
@@ -120,7 +122,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 no-scrollbar">
-        {navItems.filter((item) => !item.adminOnly || profile?.rol === 'ADMIN').map((item) => {
+        {navItems.filter((item) => !item.adminOnly || profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR').map((item) => {
           const isActive = pathname.startsWith(item.href)
           const Icon = item.icon
 
