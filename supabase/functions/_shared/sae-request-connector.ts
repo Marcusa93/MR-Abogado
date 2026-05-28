@@ -169,6 +169,75 @@ export interface SaeCase {
   rawEntry?: Record<string, unknown>
 }
 
+// Scrapea el estado de trámite desde la página HTML del SAE.
+// Endpoint: https://consultaexpedientes.justucuman.gov.ar/{fuero}/expediente/{numero}/historia
+// La sesión ya autenticada (cookies) sirve para esta página también.
+// Retorna ej. { estado: "NO EN LETRA (PARA RESOLVER)", desde: "2026-05-27" }
+const SAE_HTML_BASE = 'https://consultaexpedientes.justucuman.gov.ar'
+
+// Detectores de fuero → path. Si el fuero no matchea, probamos varios.
+const FUERO_TO_PATH: Record<string, string> = {
+  civil: 'civil',
+  comercial: 'comercial',
+  'civil_y_comercial': 'civil',
+  'civil y comercial': 'civil',
+  laboral: 'laboral',
+  trabajo: 'laboral',
+  penal: 'penal',
+  familia: 'familia',
+  administrativo: 'administrativo',
+  contencioso: 'administrativo',
+  previsional: 'previsional',
+}
+
+export async function fetchEstadoOrganismoFromHistoria(
+  numeroSae: string,
+  fuero: string | null,
+  session: SaeSession,
+): Promise<{ estado: string; desde: string | null; via_fuero: string } | null> {
+  const encoded = encodeURIComponent(numeroSae)
+  // Lista ordenada de fueros a probar. Si tenemos hint, ese va primero.
+  const fueroHint = fuero ? FUERO_TO_PATH[fuero.toLowerCase()] : null
+  const ordered = [fueroHint, 'civil', 'laboral', 'comercial', 'familia', 'penal', 'administrativo', 'previsional']
+    .filter((v, i, arr) => v && arr.indexOf(v) === i) as string[]
+
+  const baseHeaders = new Headers({
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    Referer: `${SAE_HTML_BASE}/`,
+  })
+  if (session.cookies.length) baseHeaders.set('Cookie', session.cookies.join('; '))
+  if (session.headers?.Authorization) baseHeaders.set('Authorization', session.headers.Authorization)
+
+  for (const f of ordered) {
+    const url = `${SAE_HTML_BASE}/${f}/expediente/${encoded}/historia`
+    try {
+      const res = await fetch(url, { headers: baseHeaders, redirect: 'follow' })
+      if (!res.ok) continue
+      const html = await res.text()
+      // Patrón: el bloque del estado aparece dentro de un div/p con texto como:
+      //   "NO EN LETRA (PARA RESOLVER) Desde el 27/05/2026"
+      // Tiene letras mayúsculas + paréntesis opcional + " Desde el dd/mm/yyyy".
+      const m = html.match(/([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s()]{3,80}?)\s+Desde\s+el\s+(\d{2}\/\d{2}\/\d{4})/i)
+      if (!m) {
+        // Variante sin fecha (algunos estados pueden venir sin "Desde el")
+        const m2 = html.match(/<[^>]*class="[^"]*"[^>]*>\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s()]{8,80})\s*<\/[^>]+>/)
+        if (!m2) continue
+        return { estado: m2[1].trim(), desde: null, via_fuero: f }
+      }
+      const [, estadoRaw, fechaStr] = m
+      const fechaMatch = fechaStr.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+      const desde = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null
+      return { estado: estadoRaw.trim(), desde, via_fuero: f }
+    } catch (e) {
+      console.error('[fetchEstadoOrganismoFromHistoria] err en', url, e)
+      continue
+    }
+  }
+  return null
+}
+
 // Texto literal del estado del expediente en el organismo
 // (ej "NO EN LETRA (PARA RESOLVER)") + fecha desde la que está así.
 // Probamos múltiples names porque el API SAE no documenta esto.

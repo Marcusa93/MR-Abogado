@@ -7,6 +7,7 @@ import {
   fetchCaseHistory,
   fetchStoryBody,
   extractEstadoFromEntry,
+  fetchEstadoOrganismoFromHistoria,
   SaeError,
   type SaeSession,
 } from '../_shared/sae-request-connector.ts'
@@ -148,7 +149,7 @@ Deno.serve(async (req) => {
     // ── Expediente ──────────────────────────────────────────────────────────
     const { data: exp, error: expError } = await serviceClient
       .from('expedientes')
-      .select('id, numero_sae, estado_sae')
+      .select('id, numero_sae, estado_sae, fuero')
       .eq('id', expediente_id)
       .single()
     if (expError || !exp) return json({ error: 'Expediente no encontrado' }, 404)
@@ -262,13 +263,33 @@ Deno.serve(async (req) => {
       }
 
       // Refrescar estado del expediente desde el entry crudo del SAE
+      let estadoOrganismo: string | null = null
+      let estadoOrganismoDesde: string | null = null
       if (proceedingEntry) {
         const { estado, desde } = extractEstadoFromEntry(proceedingEntry)
+        estadoOrganismo = estado
+        estadoOrganismoDesde = desde
+      }
+      // Fallback: si el API no trae el estado (caso real confirmado), lo
+      // sacamos scrapeando la página HTML pública del SAE
+      // (consultaexpedientes.justucuman.gov.ar/{fuero}/expediente/{N}/historia)
+      if (!estadoOrganismo) {
+        const scraped = await fetchEstadoOrganismoFromHistoria(
+          exp.numero_sae,
+          (exp as { fuero?: string | null }).fuero ?? null,
+          session,
+        )
+        if (scraped) {
+          estadoOrganismo = scraped.estado
+          estadoOrganismoDesde = scraped.desde
+        }
+      }
+      if (estadoOrganismo || proceedingEntry) {
         await serviceClient
           .from('expedientes')
           .update({
-            estado_organismo: estado,
-            estado_organismo_desde: desde,
+            estado_organismo: estadoOrganismo,
+            estado_organismo_desde: estadoOrganismoDesde,
             sae_proceeding_entry: proceedingEntry,
             updated_at: new Date().toISOString(),
           } as never)
