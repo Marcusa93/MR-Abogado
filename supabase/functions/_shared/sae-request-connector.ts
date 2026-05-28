@@ -214,24 +214,43 @@ export async function fetchEstadoOrganismoFromHistoria(
     const url = `${SAE_HTML_BASE}/${f}/expediente/${encoded}/historia`
     try {
       const res = await fetch(url, { headers: baseHeaders, redirect: 'follow' })
+      console.log('[scrape-estado]', f, '→', res.status, 'final-url:', res.url, 'len:', res.headers.get('content-length'))
       if (!res.ok) continue
       const html = await res.text()
-      // Patrón: el bloque del estado aparece dentro de un div/p con texto como:
-      //   "NO EN LETRA (PARA RESOLVER) Desde el 27/05/2026"
-      // Tiene letras mayúsculas + paréntesis opcional + " Desde el dd/mm/yyyy".
+      // Buscar "NO EN LETRA" / "EN LETRA" / "EN ACUERDO" / "PARA RESOLVER" / etc
+      // en el HTML para diagnóstico: si está, hay match seguro.
+      const hasEnLetraText = /EN LETRA|PARA RESOLVER|EN ACUERDO|EN DESPACHO|EN CASILLERO/i.test(html)
+      console.log('[scrape-estado]', f, 'tiene marcador estado:', hasEnLetraText, 'html_size:', html.length)
+
+      // Patrón 1: "EN LETRA (PARA RESOLVER) Desde el 27/05/2026"
       const m = html.match(/([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s()]{3,80}?)\s+Desde\s+el\s+(\d{2}\/\d{2}\/\d{4})/i)
-      if (!m) {
-        // Variante sin fecha (algunos estados pueden venir sin "Desde el")
-        const m2 = html.match(/<[^>]*class="[^"]*"[^>]*>\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s()]{8,80})\s*<\/[^>]+>/)
-        if (!m2) continue
-        return { estado: m2[1].trim(), desde: null, via_fuero: f }
+      if (m) {
+        const [, estadoRaw, fechaStr] = m
+        const fechaMatch = fechaStr.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+        const desde = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null
+        console.log('[scrape-estado] MATCH', f, '→', estadoRaw.trim(), 'desde', desde)
+        return { estado: estadoRaw.trim(), desde, via_fuero: f }
       }
-      const [, estadoRaw, fechaStr] = m
-      const fechaMatch = fechaStr.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-      const desde = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2]}-${fechaMatch[1]}` : null
-      return { estado: estadoRaw.trim(), desde, via_fuero: f }
+      // Patrón 2: sin "Desde el" — solo el texto en un div/span con clase
+      if (hasEnLetraText) {
+        const m2 = html.match(/>\s*((?:NO\s+)?EN\s+(?:LETRA|ACUERDO|DESPACHO|CASILLERO|RESOLVER|TRAMITE)(?:\s*\([^)]+\))?)\s*</i)
+        if (m2) {
+          console.log('[scrape-estado] MATCH-2', f, '→', m2[1].trim())
+          return { estado: m2[1].trim(), desde: null, via_fuero: f }
+        }
+      }
+      // Diagnóstico: logueo un sample del HTML alrededor de "Letra" o "Resolver"
+      if (hasEnLetraText) {
+        const idx = html.search(/EN LETRA|PARA RESOLVER|EN ACUERDO/i)
+        const sample = html.slice(Math.max(0, idx - 150), idx + 300).replace(/\s+/g, ' ')
+        console.log('[scrape-estado] HTML sample:', sample)
+      } else {
+        // Si no hay marcador, ver si es login page
+        const isLogin = /<form[^>]*action[^>]*(?:login|auth)/i.test(html) || /password/i.test(html.slice(0, 5000))
+        console.log('[scrape-estado] sin marcador. parece login?', isLogin, 'first 200:', html.slice(0, 200))
+      }
     } catch (e) {
-      console.error('[fetchEstadoOrganismoFromHistoria] err en', url, e)
+      console.error('[scrape-estado] err en', url, e)
       continue
     }
   }
@@ -240,8 +259,22 @@ export async function fetchEstadoOrganismoFromHistoria(
 
 // Texto literal del estado del expediente en el organismo
 // (ej "NO EN LETRA (PARA RESOLVER)") + fecha desde la que está así.
-// Probamos múltiples names porque el API SAE no documenta esto.
+// El API real de SAE Tucumán lo expone como `ultimo_tramite` en el campo
+// `proceeding` del response de /user/proceedings/history, con formato:
+//   "NO EN LETRA (PARA RESOLVER) Desde el 27/05/2026"
+// Acá lo parseamos junto con otros nombres por compatibilidad futura.
 export function extractEstadoFromEntry(entry: Record<string, unknown>): { estado: string | null; desde: string | null } {
+  // 1) Campo combinado "ESTADO Desde el dd/mm/yyyy" (caso real de SAE)
+  const ultimoTramite = entry.ultimo_tramite ?? entry.ultimoTramite
+  if (typeof ultimoTramite === 'string' && ultimoTramite.trim()) {
+    const m = ultimoTramite.match(/^(.+?)\s+Desde\s+el\s+(\d{2})\/(\d{2})\/(\d{4})\s*$/i)
+    if (m) {
+      return { estado: m[1].trim(), desde: `${m[4]}-${m[3]}-${m[2]}` }
+    }
+    return { estado: ultimoTramite.trim(), desde: null }
+  }
+
+  // 2) Campos separados estado + fecha
   const candidates = [
     entry.state, entry.estado, entry.situacion, entry.cur_state, entry.cur_status,
     entry.estado_actual, entry.tramite, entry.tramite_estado, entry.tramiteEstado,
@@ -251,7 +284,6 @@ export function extractEstadoFromEntry(entry: Record<string, unknown>): { estado
   for (const c of candidates) {
     if (typeof c === 'string' && c.trim()) { estado = c.trim(); break }
   }
-  // Fecha "desde": probamos varios nombres también
   const fechaCandidates = [
     entry.state_since, entry.estado_desde, entry.estadoDesde,
     entry.tramite_desde, entry.fecha_estado, entry.fechaEstado,
@@ -260,7 +292,6 @@ export function extractEstadoFromEntry(entry: Record<string, unknown>): { estado
   let desde: string | null = null
   for (const c of fechaCandidates) {
     if (typeof c === 'string' && c.trim()) {
-      // Normalizar dd/mm/yyyy → yyyy-mm-dd
       const m = c.match(/(\d{2})\/(\d{2})\/(\d{4})/)
       desde = m ? `${m[3]}-${m[2]}-${m[1]}` : c.trim()
       break
@@ -374,6 +405,41 @@ export async function fetchCaseHistory(procid: string, jurisdictionId: number, s
       archivos: Array.isArray(s.archivos) ? s.archivos : undefined,
       vinculos: Array.isArray(s.vinculos) ? s.vinculos : undefined,
     }))
+}
+
+// Variante de fetchCaseHistory que también devuelve el ROOT del payload
+// (no solo el array de stories). El estado de trámite (NO EN LETRA, etc)
+// suele venir como property del root al lado de stories.
+export async function fetchProceedingHistoryWithMeta(
+  procid: string,
+  jurisdictionId: number,
+  session: SaeSession,
+): Promise<{ root: Record<string, unknown>; stories: SaeStory[] } | null> {
+  const url = new URL(`${SAE_API_URL}/user/proceedings/history`)
+  url.searchParams.set('jurisdiction', String(jurisdictionId))
+  url.searchParams.set('proceeding', procid)
+
+  const res = await fetch(url.toString(), { method: 'GET', headers: apiHeaders(session) })
+  if (!res.ok) return null
+
+  const payload = await tryJson<unknown>(res)
+  if (!payload || typeof payload !== 'object') return null
+
+  const p = payload as Record<string, unknown>
+  const dataObj = (p.data && typeof p.data === 'object' ? p.data : p) as Record<string, unknown>
+  const stories = Array.isArray(dataObj.stories) ? dataObj.stories : unwrapArray(payload)
+
+  const mapped: SaeStory[] = stories
+    .filter((s): s is Record<string, unknown> => Boolean(s) && typeof s === 'object')
+    .map(s => ({
+      histid: String(s.histid ?? s.id ?? crypto.randomUUID()),
+      fecha: String(s.fechaDeposito ?? s.fecha ?? ''),
+      dscr: String(s.dscr ?? s.title ?? s.titulo ?? ''),
+      archivos: Array.isArray(s.archivos) ? s.archivos : undefined,
+      vinculos: Array.isArray(s.vinculos) ? s.vinculos : undefined,
+    }))
+
+  return { root: dataObj, stories: mapped }
 }
 
 export async function fetchStoryBody(procid: string, jurisdictionId: number, histid: string, session: SaeSession): Promise<string | undefined> {

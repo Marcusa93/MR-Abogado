@@ -5,6 +5,7 @@ import {
   authenticateWithSae,
   findCaseByNumber,
   fetchCaseHistory,
+  fetchProceedingHistoryWithMeta,
   fetchStoryBody,
   extractEstadoFromEntry,
   fetchEstadoOrganismoFromHistoria,
@@ -270,9 +271,26 @@ Deno.serve(async (req) => {
         estadoOrganismo = estado
         estadoOrganismoDesde = desde
       }
-      // Fallback: si el API no trae el estado (caso real confirmado), lo
-      // sacamos scrapeando la página HTML pública del SAE
-      // (consultaexpedientes.justucuman.gov.ar/{fuero}/expediente/{N}/historia)
+
+      // El estado viene en root.proceeding.ultimo_tramite del response de
+      // /user/proceedings/history (confirmado empíricamente).
+      let historyRoot: Record<string, unknown> | null = null
+      if (!estadoOrganismo && procid && jurisdictionId) {
+        const historyMeta = await fetchProceedingHistoryWithMeta(procid, jurisdictionId, session)
+        if (historyMeta) {
+          historyRoot = historyMeta.root
+          const proceeding = (historyMeta.root.proceeding && typeof historyMeta.root.proceeding === 'object')
+            ? historyMeta.root.proceeding as Record<string, unknown>
+            : historyMeta.root
+          const { estado, desde } = extractEstadoFromEntry(proceeding)
+          if (estado) {
+            estadoOrganismo = estado
+            estadoOrganismoDesde = desde
+          }
+        }
+      }
+
+      // Fallback: scrape de la página HTML pública del SAE
       if (!estadoOrganismo) {
         const scraped = await fetchEstadoOrganismoFromHistoria(
           exp.numero_sae,
@@ -284,13 +302,17 @@ Deno.serve(async (req) => {
           estadoOrganismoDesde = scraped.desde
         }
       }
-      if (estadoOrganismo || proceedingEntry) {
+
+      if (estadoOrganismo || proceedingEntry || historyRoot) {
         await serviceClient
           .from('expedientes')
           .update({
             estado_organismo: estadoOrganismo,
             estado_organismo_desde: estadoOrganismoDesde,
-            sae_proceeding_entry: proceedingEntry,
+            // Guardamos el root del history (con TODAS las keys del API) — mejor
+            // material para diagnóstico que el entry de /user/proceedings que
+            // solo trae id/unit/cover/number/procid/jurisdiction.
+            sae_proceeding_entry: historyRoot ?? proceedingEntry,
             updated_at: new Date().toISOString(),
           } as never)
           .eq('id', expediente_id)
