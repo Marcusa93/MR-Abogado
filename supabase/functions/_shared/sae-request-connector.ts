@@ -164,6 +164,40 @@ export interface SaeCase {
   jurisdictionId: number
   caseNumber: string
   caption: string
+  /** Entry crudo del API /user/proceedings — útil para extraer campos extra
+   *  como estado de trámite, situación, fecha de cambio, etc. */
+  rawEntry?: Record<string, unknown>
+}
+
+// Texto literal del estado del expediente en el organismo
+// (ej "NO EN LETRA (PARA RESOLVER)") + fecha desde la que está así.
+// Probamos múltiples names porque el API SAE no documenta esto.
+export function extractEstadoFromEntry(entry: Record<string, unknown>): { estado: string | null; desde: string | null } {
+  const candidates = [
+    entry.state, entry.estado, entry.situacion, entry.cur_state, entry.cur_status,
+    entry.estado_actual, entry.tramite, entry.tramite_estado, entry.tramiteEstado,
+    entry.statusText, entry.estado_texto, entry.estado_descripcion,
+  ]
+  let estado: string | null = null
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) { estado = c.trim(); break }
+  }
+  // Fecha "desde": probamos varios nombres también
+  const fechaCandidates = [
+    entry.state_since, entry.estado_desde, entry.estadoDesde,
+    entry.tramite_desde, entry.fecha_estado, entry.fechaEstado,
+    entry.state_date, entry.cur_state_date,
+  ]
+  let desde: string | null = null
+  for (const c of fechaCandidates) {
+    if (typeof c === 'string' && c.trim()) {
+      // Normalizar dd/mm/yyyy → yyyy-mm-dd
+      const m = c.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+      desde = m ? `${m[3]}-${m[2]}-${m[1]}` : c.trim()
+      break
+    }
+  }
+  return { estado, desde }
 }
 
 export async function findCaseByNumber(caseNumber: string, session: SaeSession, jurisdictionHint?: string): Promise<SaeCase | null> {
@@ -226,6 +260,7 @@ export async function findCaseByNumber(caseNumber: string, session: SaeSession, 
       jurisdictionId: j.id,
       caseNumber: String(entry.nro_expediente ?? entry.number ?? caseNumber),
       caption: String(entry.cover ?? entry.caratula ?? entry.caption ?? ''),
+      rawEntry: entry,
     }
   }
 

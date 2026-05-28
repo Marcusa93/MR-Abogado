@@ -1,10 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
 import {
   authenticateWithSae,
   findCaseByNumber,
   fetchCaseHistory,
   fetchStoryBody,
+  extractEstadoFromEntry,
   SaeError,
   type SaeSession,
 } from '../_shared/sae-request-connector.ts'
@@ -28,7 +30,7 @@ function apiHeaders(session: SaeSession): Headers {
 async function findCaseInUserProceedings(
   numeroSae: string,
   session: SaeSession,
-): Promise<{ procid: string; jurisdictionId: number } | null> {
+): Promise<{ procid: string; jurisdictionId: number; entry: Record<string, unknown> } | null> {
   const res = await fetch(`${SAE_API_URL}/user`, { method: 'GET', headers: apiHeaders(session) })
   if (!res.ok) return null
   const payload = await res.json().catch(() => null) as unknown
@@ -43,7 +45,7 @@ async function findCaseInUserProceedings(
     if (num !== numeroSae) continue
     const procid = String(e.procid ?? e.id ?? '').trim()
     const jurisdictionId = Number(e.jurisdictionId ?? e.jurisdiction_id ?? 0)
-    if (procid && jurisdictionId > 0) return { procid, jurisdictionId }
+    if (procid && jurisdictionId > 0) return { procid, jurisdictionId, entry: e }
   }
   return null
 }
@@ -100,6 +102,26 @@ function json(body: unknown, status = 200) {
   })
 }
 
+async function canSyncExpedienteSae(
+  anonClient: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }> },
+  expedienteId: string,
+): Promise<boolean> {
+  const { data, error } = await anonClient.rpc('can_sync_expediente_sae', {
+    p_expediente_id: expedienteId,
+  })
+  if (!error) return Boolean(data)
+
+  // Hotfix de compatibilidad: la migración multiabogado puede no estar aplicada
+  // todavía en producción. En ese caso conservamos el comportamiento anterior.
+  const message = error.message ?? ''
+  if (error.code === 'PGRST202' || message.includes('can_sync_expediente_sae')) {
+    console.warn('[sae-sync] can_sync_expediente_sae unavailable; using legacy sync permission')
+    return true
+  }
+
+  throw error
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -132,6 +154,9 @@ Deno.serve(async (req) => {
     if (expError || !exp) return json({ error: 'Expediente no encontrado' }, 404)
     if (!exp.numero_sae) return json({ error: 'El expediente no tiene número SAE configurado' }, 400)
 
+    const canSync = await canSyncExpedienteSae(anonClient, expediente_id)
+    if (!canSync) return json({ error: 'Sin permisos para sincronizar este expediente SAE' }, 403)
+
     // ── Credenciales SAE ────────────────────────────────────────────────────
     const { data: cred, error: credError } = await serviceClient
       .from('sae_credentials')
@@ -143,7 +168,10 @@ Deno.serve(async (req) => {
     if (!cred) return json({ error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
     if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas' }, 400)
 
-    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    const password = await readSaePassword(cred.encrypted_secret, {
+      serviceClient,
+      userId: user.id,
+    })
     if (!password) {
       return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
@@ -174,27 +202,52 @@ Deno.serve(async (req) => {
       let procid: string | null = null
       let jurisdictionId: number | null = null
 
-      // Buscar en movimientos existentes primero
-      const { data: existingMovements } = await serviceClient
-        .from('sae_movements')
-        .select('sae_case_id, raw_payload')
+      // Usar primero el vínculo SAE propio del usuario si ya existe. Esto
+      // evita depender de credenciales de otro abogado cuando el expediente
+      // local está compartido por numero_sae.
+      const { data: ownLink } = await serviceClient
+        .from('expediente_sae_links')
+        .select('procid, jurisdiction_id')
+        .eq('profile_id', user.id)
+        .eq('provider', 'justucuman')
         .eq('expediente_id', expediente_id)
-        .not('sae_case_id', 'is', null)
-        .limit(1)
+        .maybeSingle()
 
-      if (existingMovements?.length) {
-        procid = existingMovements[0].sae_case_id
-        const rp = existingMovements[0].raw_payload as Record<string, unknown>
-        jurisdictionId = typeof rp?.jurisdiction_id === 'number' ? rp.jurisdiction_id : null
+      if (ownLink?.procid && ownLink.jurisdiction_id != null) {
+        procid = ownLink.procid
+        jurisdictionId = ownLink.jurisdiction_id
       }
 
-      // Si no hay movimientos previos, buscar primero en /api/user (rápido, una sola llamada)
+      // Buscar en movimientos existentes primero
       if (!procid || !jurisdictionId) {
-        const fromUserList = await findCaseInUserProceedings(exp.numero_sae, session)
-        if (fromUserList) {
+        const { data: existingMovements } = await serviceClient
+          .from('sae_movements')
+          .select('sae_case_id, raw_payload')
+          .eq('expediente_id', expediente_id)
+          .not('sae_case_id', 'is', null)
+          .limit(1)
+
+        if (existingMovements?.length) {
+          procid = existingMovements[0].sae_case_id
+          const rp = existingMovements[0].raw_payload as Record<string, unknown>
+          const rawJurisdictionId = rp?.jurisdiction_id
+          jurisdictionId = typeof rawJurisdictionId === 'number' ? rawJurisdictionId
+            : typeof rawJurisdictionId === 'string' ? Number(rawJurisdictionId) || null
+            : null
+        }
+      }
+
+      // Buscar siempre en /api/user (rápido, una sola llamada) para
+      // capturar el entry actual con su estado de trámite, incluso si
+      // ya tenemos procid+jurisdictionId. Eso permite refrescar estado_organismo.
+      let proceedingEntry: Record<string, unknown> | null = null
+      const fromUserList = await findCaseInUserProceedings(exp.numero_sae, session)
+      if (fromUserList) {
+        if (!procid || !jurisdictionId) {
           procid = fromUserList.procid
           jurisdictionId = fromUserList.jurisdictionId
         }
+        proceedingEntry = fromUserList.entry
       }
 
       // Fallback: escanear por jurisdicción (lento, sólo si /api/user no lo trae)
@@ -205,16 +258,51 @@ Deno.serve(async (req) => {
         }
         procid = found.procid
         jurisdictionId = found.jurisdictionId
+        proceedingEntry = found.rawEntry ?? null
       }
+
+      // Refrescar estado del expediente desde el entry crudo del SAE
+      if (proceedingEntry) {
+        const { estado, desde } = extractEstadoFromEntry(proceedingEntry)
+        await serviceClient
+          .from('expedientes')
+          .update({
+            estado_organismo: estado,
+            estado_organismo_desde: desde,
+            sae_proceeding_entry: proceedingEntry,
+            updated_at: new Date().toISOString(),
+          } as never)
+          .eq('id', expediente_id)
+      }
+
+      await serviceClient
+        .from('expediente_sae_links')
+        .upsert({
+          expediente_id,
+          profile_id: user.id,
+          provider: 'justucuman',
+          numero_sae: exp.numero_sae,
+          procid,
+          jurisdiction_id: jurisdictionId,
+          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as never, { onConflict: 'profile_id,provider,numero_sae' } as never)
 
       // ── Obtener historial ─────────────────────────────────────────────────
       const stories = await fetchCaseHistory(procid, jurisdictionId, session)
 
       if (!stories.length) {
+        const syncedAt = new Date().toISOString()
         await serviceClient
           .from('sae_sync_logs')
-          .update({ status: 'exitoso', finished_at: new Date().toISOString(), nuevas_actuaciones: 0, duplicadas: 0 })
+          .update({ status: 'exitoso', finished_at: syncedAt, nuevas_actuaciones: 0, duplicadas: 0 })
           .eq('id', logId)
+        await serviceClient
+          .from('expediente_sae_links')
+          .update({ last_sync_at: syncedAt, updated_at: syncedAt } as never)
+          .eq('profile_id', user.id)
+          .eq('provider', 'justucuman')
+          .eq('expediente_id', expediente_id)
         return json({ success: true, nuevas: 0, duplicadas: 0, message: 'El expediente no tiene actuaciones registradas en SAE.' })
       }
 
@@ -348,6 +436,13 @@ Deno.serve(async (req) => {
         .from('sae_credentials')
         .update({ last_sync_at: new Date().toISOString() })
         .eq('id', cred.id)
+
+      await serviceClient
+        .from('expediente_sae_links')
+        .update({ last_sync_at: new Date().toISOString(), updated_at: new Date().toISOString() } as never)
+        .eq('profile_id', user.id)
+        .eq('provider', 'justucuman')
+        .eq('expediente_id', expediente_id)
 
       // ── Finalizar log ────────────────────────────────────────────────────
       await serviceClient

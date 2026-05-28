@@ -178,6 +178,20 @@ export default function ExpedienteDetailPage() {
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <EstadoBadge estado={expediente.estado_interno} />
                 <PrioridadBadge prioridad={expediente.prioridad} />
+                {(expediente as any).estado_organismo && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+                    title={`Estado actual en el juzgado según SAE${(expediente as any).estado_organismo_desde ? ` · desde el ${new Date((expediente as any).estado_organismo_desde).toLocaleDateString('es-AR')}` : ''}`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {(expediente as any).estado_organismo}
+                    {(expediente as any).estado_organismo_desde && (
+                      <span className="font-normal opacity-80">
+                        · desde {new Date((expediente as any).estado_organismo_desde).toLocaleDateString('es-AR')}
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
             </div>
 
