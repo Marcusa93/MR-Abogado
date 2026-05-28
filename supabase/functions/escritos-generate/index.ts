@@ -441,6 +441,82 @@ Las siguientes piezas normativas son las ÚNICAS que podés citar. Cada una tien
 ${entries}`
 }
 
+// ── Aprendizajes aprobados (capa 2 del rulebook) ───────────────────────────
+// Lee aprendizajes_rulebook que el abogado aprobó (proposed=false) y que
+// son aplicables al contexto del escrito. Aplicabilidad:
+//   - scope='personal' AND owner_id=user
+//   - scope='universal' (curados por DIRECTOR, visibles para todos)
+//   - scope='compartido' AND user en aprendizajes_compartidos
+//   - target_kind compatible con el contexto (tipo_proceso, fuero, estilo, general)
+
+interface AprendizajeAplicable {
+  id: string
+  target_kind: string
+  target_ref_text: string | null
+  contenido: string
+  confidence: 'baja' | 'media' | 'alta'
+  observed_in_cases: number
+  scope: string
+}
+
+async function getAprendizajesAplicables(
+  serviceClient: ReturnType<typeof createClient>,
+  userId: string,
+  fuero: string | null,
+  tipoProcesoId: string | null,
+): Promise<AprendizajeAplicable[]> {
+  // Query manual con todas las reglas. Le pedimos hasta 30 y dejamos que
+  // el orden por confidence × observed las priorice. Después tomamos top 10.
+  const { data, error } = await serviceClient
+    .from('aprendizajes_rulebook')
+    .select('id, target_kind, target_ref_text, contenido, confidence, observed_in_cases, scope, owner_id, tipo_proceso_id')
+    .eq('is_active', true)
+    .eq('proposed', false)
+    .or([
+      `and(scope.eq.personal,owner_id.eq.${userId})`,
+      `scope.eq.universal`,
+      `and(scope.eq.compartido,owner_id.eq.${userId})`,
+    ].join(','))
+    .order('confidence', { ascending: false })  // 'alta' > 'media' > 'baja' alfabético inverso
+    .order('observed_in_cases', { ascending: false })
+    .limit(30)
+  if (error) {
+    console.error('[escritos-generate] aprendizajes error', error)
+    return []
+  }
+  const rows = (data ?? []) as Array<AprendizajeAplicable & { tipo_proceso_id: string | null }>
+  // Filtro de aplicabilidad al contexto
+  const filtered = rows.filter(r => {
+    if (r.target_kind === 'general' || r.target_kind === 'estilo') return true
+    if (r.target_kind === 'fuero' && fuero && r.target_ref_text === fuero) return true
+    if (r.target_kind === 'tipo_proceso' && tipoProcesoId && r.tipo_proceso_id === tipoProcesoId) return true
+    return false
+  })
+  // Re-order: confidence (alta/media/baja) — usamos un map para que sea correcto
+  const confOrder: Record<string, number> = { alta: 3, media: 2, baja: 1 }
+  filtered.sort((a, b) => {
+    const c = (confOrder[b.confidence] ?? 0) - (confOrder[a.confidence] ?? 0)
+    if (c !== 0) return c
+    return b.observed_in_cases - a.observed_in_cases
+  })
+  return filtered.slice(0, 10)
+}
+
+function formatAprendizajesForPrompt(aprendizajes: AprendizajeAplicable[]): string {
+  if (aprendizajes.length === 0) return ''
+  const entries = aprendizajes.map((a, i) => {
+    const meta: string[] = [`${a.target_kind}`]
+    if (a.target_ref_text) meta.push(a.target_ref_text)
+    meta.push(`confianza ${a.confidence}`)
+    meta.push(`${a.observed_in_cases} ${a.observed_in_cases === 1 ? 'caso' : 'casos'}`)
+    return `${i + 1}. [${meta.join(' · ')}] ${a.contenido}`
+  }).join('\n')
+  return `\n## Aprendizajes acumulados del abogado
+Estos son patrones que el sistema aprendió de tu práctica anterior (correcciones a escritos, citas que usás recurrentemente, actuaciones que marcaste con olé). APLICALOS cuando sea relevante. Los de alta confianza tienen prioridad sobre los de baja.
+
+${entries}`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -499,7 +575,7 @@ Deno.serve(async (req) => {
     // 3) Cargar expediente
     const { data: expRaw, error: expError } = await serviceClient
       .from('expedientes')
-      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, cliente:clientes(nombre, apellido)')
+      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
       .eq('id', body.expediente_id)
       .single()
     if (expError || !expRaw) return json({ error: 'Expediente no encontrado' }, 404)
@@ -563,10 +639,11 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
     ].filter(Boolean).join(' — ')
 
-    // En paralelo: normativa + jurisprudencia (dos RAGs independientes)
-    const [rag, jurisRag] = await Promise.all([
+    // En paralelo: normativa + jurisprudencia + aprendizajes
+    const [rag, jurisRag, aprendizajes] = await Promise.all([
       getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
       getRelevantJurisprudencia(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
+      getAprendizajesAplicables(serviceClient, user.id, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
     ])
     const validChunkIds = new Set<number>([
       ...rag.pinned, ...rag.retrieved,
@@ -574,6 +651,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
     ].map(c => c.chunk_id))
     const normativaCtx = formatNormativaForPrompt(rag)
     const jurisprudenciaCtx = formatJurisprudenciaForPrompt(jurisRag)
+    const aprendizajesCtx = formatAprendizajesForPrompt(aprendizajes)
 
     // 7) Armar system prompt
     const systemPrompt = [
@@ -599,6 +677,8 @@ ${clavesCtx}
 ${normativaCtx}
 
 ${jurisprudenciaCtx}
+
+${aprendizajesCtx}
 
 ${abogadoCtx}
 

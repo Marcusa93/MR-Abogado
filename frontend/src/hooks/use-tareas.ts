@@ -421,15 +421,21 @@ export function useCreateTarea() {
 
         // El dispatch (push/email) lo dispara automáticamente el trigger
         // alertas_dispatch_notification (migración 00045) tras el INSERT.
-        await supabase.from('alertas').insert({
-          tipo: 'TAREA_ASIGNADA',
-          titulo,
-          mensaje,
-          expediente_id: data.expediente_id,
-          usuario_id: data.asignado_a,
-          link: `/expedientes/${data.expediente_id}`,
-          payload: { tarea_id: data.id },
-        } as never)
+        // (Se ejecuta dentro de try/catch porque si falla acá, la tarea
+        // ya está creada y no queremos romper la mutation entera.)
+        try {
+          await supabase.from('alertas').insert({
+            tipo: 'TAREA_ASIGNADA',
+            titulo,
+            mensaje,
+            expediente_id: data.expediente_id,
+            destinatario_id: data.asignado_a,
+            payload: { tarea_id: data.id, link: `/expedientes/${data.expediente_id}` },
+          } as never)
+        } catch (e) {
+          // Best effort: la notificación falló pero la tarea sí quedó.
+          console.error('[useCreateTarea] insert alerta TAREA_ASIGNADA falló', e)
+        }
       }
 
       // Create MENCION alerts for @mentioned users in description
@@ -441,17 +447,20 @@ export function useCreateTarea() {
           (m) => m.userId !== currentUserId && m.userId !== data.asignado_a,
         )
         if (toNotify.length > 0) {
-          await supabase.from('alertas').insert(
-            toNotify.map((m) => ({
-              tipo: 'MENCION' as const,
-              titulo: `${authorName} te mencionó en una tarea`,
-              mensaje: data.descripcion!.substring(0, 200),
-              expediente_id: data.expediente_id,
-              usuario_id: m.userId,
-              link: `/expedientes/${data.expediente_id}`,
-              payload: { tarea_id: data.id },
-            })) as never,
-          )
+          try {
+            await supabase.from('alertas').insert(
+              toNotify.map((m) => ({
+                tipo: 'MENCION' as const,
+                titulo: `${authorName} te mencionó en una tarea`,
+                mensaje: data.descripcion!.substring(0, 200),
+                expediente_id: data.expediente_id,
+                destinatario_id: m.userId,
+                payload: { tarea_id: data.id, link: `/expedientes/${data.expediente_id}` },
+              })) as never,
+            )
+          } catch (e) {
+            console.error('[useCreateTarea] insert alertas MENCION falló', e)
+          }
         }
       }
 
