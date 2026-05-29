@@ -21,6 +21,7 @@ export type SortField = 'caratula' | 'estado_interno' | 'prioridad' | 'fecha_alt
 export interface ExpedientesFilters {
   estado_interno?: EstadoInterno | null
   tipo_tramite_id?: string | null
+  abogado_id?: string | null
   prioridad?: Prioridad | null
   search?: string | null
   page?: number
@@ -32,6 +33,7 @@ export interface ExpedientesFilters {
 export type ExpedienteWithRelations = Tables<'expedientes'> & {
   clientes: Tables<'clientes'> | null
   tipos_tramite: Tables<'tipos_tramite'> | null
+  abogado_responsable?: Pick<Tables<'profiles'>, 'id' | 'nombre' | 'apellido' | 'rol'> | null
   miembros: { rol: string; perfil: { nombre: string; apellido: string } | null }[]
   // Minimal data for semáforo computation
   audiencias: Pick<Tables<'audiencias'>, 'id' | 'estado' | 'fecha'>[]
@@ -101,6 +103,49 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
         return { data: [], count: 0, page, pageSize, totalPages: 0 }
       }
 
+      let visibilityIds = allowedIds
+
+      if (filters.abogado_id) {
+        const abogadoId = filters.abogado_id
+        const [links, miembros, own] = await Promise.all([
+          (supabase.from as any)('expediente_sae_links')
+            .select('expediente_id')
+            .eq('profile_id', abogadoId),
+          supabase
+            .from('expediente_miembros')
+            .select('expediente_id')
+            .eq('profile_id', abogadoId),
+          supabase
+            .from('expedientes')
+            .select('id')
+            .or(`abogado_responsable_id.eq.${abogadoId},created_by.eq.${abogadoId}`)
+            .is('deleted_at', null),
+        ])
+
+        const abogadoIds = new Set<string>()
+        for (const row of ((links.data ?? []) as unknown as Array<{ expediente_id: string }>)) {
+          abogadoIds.add(row.expediente_id)
+        }
+        for (const row of ((miembros.data ?? []) as Array<{ expediente_id: string }>)) {
+          abogadoIds.add(row.expediente_id)
+        }
+        for (const row of ((own.data ?? []) as Array<{ id: string }>)) {
+          abogadoIds.add(row.id)
+        }
+
+        const ids = [...abogadoIds]
+        if (visibilityIds) {
+          const visible = new Set(visibilityIds)
+          visibilityIds = ids.filter((id) => visible.has(id))
+        } else {
+          visibilityIds = ids
+        }
+
+        if (visibilityIds.length === 0) {
+          return { data: [], count: 0, page, pageSize, totalPages: 0 }
+        }
+      }
+
       let query = supabase
         .from('expedientes')
         .select(
@@ -108,6 +153,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           *,
           clientes (id, nombre, apellido, telefono),
           tipos_tramite (id, nombre),
+          abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
           audiencias (id, estado, fecha),
           tareas (id, estado)
@@ -115,7 +161,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           { count: 'exact' }
         )
         .is('deleted_at', null)
-      if (allowedIds) query = query.in('id', allowedIds)
+      if (visibilityIds) query = query.in('id', visibilityIds)
       query = query.order(sortBy, { ascending: sortOrder === 'asc' })
 
       // Apply filters
@@ -170,7 +216,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
       const totalCount = count ?? 0
 
       return {
-        data: (data ?? []) as ExpedienteWithRelations[],
+        data: (data ?? []) as unknown as ExpedienteWithRelations[],
         count: totalCount,
         page,
         pageSize,

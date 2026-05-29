@@ -30,6 +30,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
@@ -227,7 +228,10 @@ Deno.serve(async (req) => {
     if (credErr || !credRow) return json({ error: 'Credenciales SAE no configuradas', code: 'NO_SAE_CREDS' }, 412)
 
     const cred = credRow as { username: string; encrypted_secret: string | null; status: string }
-    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    const password = await readSaePassword(cred.encrypted_secret, {
+      serviceClient: admin,
+      userId: user.id,
+    })
     if (!password) return json({ error: 'Credenciales SAE inválidas', code: 'BAD_SAE_CREDS' }, 412)
 
     // 3) Login al SAE

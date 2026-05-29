@@ -48,6 +48,7 @@ export default function ImportarSaePage() {
   const selectedRows = selectableRows.filter(r => r.selected)
   const someSelected = selectedRows.length > 0
   const alreadyImportedCount = rows.filter(r => r.ya_importado).length
+  const existingStudyCount = rows.filter(r => !r.ya_importado && r.ya_existe_en_estudio).length
   const newCount = selectableRows.length
   const errorCount = importMutation.data?.results.filter(r => !r.success).length ?? 0
 
@@ -137,14 +138,14 @@ export default function ImportarSaePage() {
         setRows(prev =>
           prev.map(r =>
             importedNros.has(r.numero_sae)
-              ? { ...r, ya_importado: true, selected: false, expediente_id: result.results.find(res => res.numero_sae === r.numero_sae)?.expediente_id }
+              ? { ...r, ya_importado: true, vinculado_a_mi: true, selected: false, expediente_id: result.results.find(res => res.numero_sae === r.numero_sae)?.expediente_id }
               : r
           )
         )
 
         if (errores === 0) {
           toast.success(
-            `${exitosos} expediente${exitosos !== 1 ? 's' : ''} importado${exitosos !== 1 ? 's' : ''}`,
+            `${exitosos} expediente${exitosos !== 1 ? 's' : ''} importado${exitosos !== 1 ? 's' : ''}/vinculado${exitosos !== 1 ? 's' : ''}`,
             'La importación se completó exitosamente.'
           )
         } else {
@@ -312,6 +313,9 @@ export default function ImportarSaePage() {
                 {alreadyImportedCount > 0 && (
                   <span className="text-zinc-500 dark:text-zinc-400"> ({alreadyImportedCount} ya importados)</span>
                 )}
+                {existingStudyCount > 0 && (
+                  <span className="text-zinc-500 dark:text-zinc-400"> · {existingStudyCount} ya existen en el estudio</span>
+                )}
               </span>
             </div>
 
@@ -338,8 +342,8 @@ export default function ImportarSaePage() {
                 {isImporting
                   ? 'Importando...'
                   : someSelected
-                  ? `Importar ${selectedRows.length} seleccionado${selectedRows.length !== 1 ? 's' : ''}`
-                  : 'Importar seleccionados'}
+                  ? `Importar/vincular ${selectedRows.length} seleccionado${selectedRows.length !== 1 ? 's' : ''}`
+                  : 'Importar/vincular seleccionados'}
               </button>
             </div>
           </div>
@@ -368,7 +372,7 @@ export default function ImportarSaePage() {
             <div className="flex items-center gap-1.5 flex-wrap">
               {([
                 ['all', 'Todos', rows.length],
-                ['new', 'Nuevos', newCount],
+                ['new', 'Nuevos / por vincular', newCount],
                 ['imported', 'Ya importados', alreadyImportedCount],
                 ...(errorCount > 0 ? [['error', 'Con error', errorCount] as [StatusFilter, string, number]] : []),
               ] as [StatusFilter, string, number][]).map(([key, label, count]) => (
@@ -497,6 +501,10 @@ export default function ImportarSaePage() {
                             ) : row.ya_importado ? (
                               <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
                                 Ya importado
+                              </span>
+                            ) : row.ya_existe_en_estudio ? (
+                              <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-400">
+                                Existe en estudio · vincular
                               </span>
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-400">

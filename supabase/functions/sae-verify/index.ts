@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { authenticateWithSae, SaeError } from '../_shared/sae-request-connector.ts'
 
 function json(body: unknown, status = 200) {
@@ -35,7 +36,10 @@ Deno.serve(async (req) => {
     if (credError) throw credError
     if (!cred) return json({ error: 'No tenés credenciales SAE configuradas.' }, 400)
 
-    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    const password = await readSaePassword(cred.encrypted_secret, {
+      serviceClient,
+      userId: user.id,
+    })
     if (!password) {
       return json({ error: 'No se pudo recuperar la contraseña. Reingresá tus credenciales.' }, 500)
     }

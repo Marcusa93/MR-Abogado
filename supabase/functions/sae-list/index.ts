@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
+import { isMissingSchemaObject } from '../_shared/supabase-compat.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
@@ -207,7 +209,10 @@ Deno.serve(async (req) => {
     if (!cred) return json({ error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
     if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas.' }, 400)
 
-    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    const password = await readSaePassword(cred.encrypted_secret, {
+      serviceClient,
+      userId: user.id,
+    })
     if (!password) {
       return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
@@ -224,16 +229,58 @@ Deno.serve(async (req) => {
 
     const proceedings = await fetchMyProceedings(session)
 
+    const validUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    const now = new Date().toISOString()
+    const allowlistRows = proceedings
+      .filter(p => p.numero_sae)
+      .map(p => ({
+        profile_id: user.id,
+        provider: 'justucuman',
+        numero_sae: p.numero_sae,
+        procid: p.procid,
+        jurisdiction_id: p.jurisdictionId || null,
+        caratula: p.caratula,
+        expires_at: validUntil,
+        updated_at: now,
+      }))
+
+    if (allowlistRows.length > 0) {
+      const { error: allowlistError } = await serviceClient
+        .from('sae_import_allowlist')
+        .upsert(allowlistRows as never, { onConflict: 'profile_id,provider,numero_sae' } as never)
+      if (allowlistError) {
+        console.error('[sae-list] allowlist upsert error', allowlistError)
+      }
+    }
+
     const numerosSae = proceedings.map(p => p.numero_sae).filter(Boolean)
     let importedMap: Record<string, string> = {}
+    let existingStudyMap: Record<string, string> = {}
     if (numerosSae.length > 0) {
+      const { data: ownLinks, error: ownLinksError } = await serviceClient
+        .from('expediente_sae_links')
+        .select('expediente_id, numero_sae')
+        .eq('profile_id', user.id)
+        .eq('provider', 'justucuman')
+        .in('numero_sae', numerosSae)
+      const legacyLinksUnavailable = ownLinksError && isMissingSchemaObject(ownLinksError, 'expediente_sae_links')
+      if (ownLinksError && !legacyLinksUnavailable) {
+        console.error('[sae-list] own links lookup error', ownLinksError)
+      }
+      if (ownLinks) {
+        for (const link of ownLinks as { expediente_id: string; numero_sae: string }[]) {
+          if (link.numero_sae) importedMap[link.numero_sae] = link.expediente_id
+        }
+      }
+
       const { data: existingExps } = await serviceClient
         .from('expedientes')
         .select('id, numero_sae')
         .in('numero_sae', numerosSae)
+        .is('deleted_at', null)
       if (existingExps) {
         for (const exp of existingExps) {
-          if (exp.numero_sae) importedMap[exp.numero_sae] = exp.id
+          if (exp.numero_sae) existingStudyMap[exp.numero_sae] = exp.id
         }
       }
     }
@@ -243,8 +290,10 @@ Deno.serve(async (req) => {
       jurisdictionId: p.jurisdictionId,
       numero_sae: p.numero_sae,
       caratula: p.caratula,
-      ya_importado: p.numero_sae in importedMap,
-      expediente_id: importedMap[p.numero_sae] ?? undefined,
+      ya_importado: p.numero_sae in importedMap || p.numero_sae in existingStudyMap,
+      expediente_id: importedMap[p.numero_sae] ?? existingStudyMap[p.numero_sae] ?? undefined,
+      ya_existe_en_estudio: p.numero_sae in existingStudyMap,
+      vinculado_a_mi: p.numero_sae in importedMap || p.numero_sae in existingStudyMap,
     }))
 
     return json({ cases })

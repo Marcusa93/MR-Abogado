@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { isMissingSchemaObject } from '../_shared/supabase-compat.ts'
 
 interface ImportCase {
   procid: string
@@ -21,6 +22,10 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+function shouldRetryLegacyCreateExpediente(error: unknown): boolean {
+  return isMissingSchemaObject(error, 'create_expediente_sae')
 }
 
 Deno.serve(async (req) => {
@@ -64,11 +69,22 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const { data, error } = await anonClient.rpc('create_expediente_sae' as never, {
+        let { data, error } = await anonClient.rpc('create_expediente_sae' as never, {
           p_numero_sae: c.numero_sae,
           p_caratula: c.caratula,
           p_cliente_id: c.cliente_id ?? null,
+          p_procid: c.procid,
+          p_jurisdiction_id: c.jurisdictionId,
         })
+        if (error && shouldRetryLegacyCreateExpediente(error)) {
+          const legacy = await anonClient.rpc('create_expediente_sae' as never, {
+            p_numero_sae: c.numero_sae,
+            p_caratula: c.caratula,
+            p_cliente_id: c.cliente_id ?? null,
+          })
+          data = legacy.data
+          error = legacy.error
+        }
 
         if (error) {
           console.error('[sae-import] RPC error for', c.numero_sae, JSON.stringify(error))

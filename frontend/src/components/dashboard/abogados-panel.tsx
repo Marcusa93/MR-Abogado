@@ -35,12 +35,26 @@ function useAbogadosStats(enabled: boolean) {
 
       const rows: AbogadoStats[] = []
       for (const p of (profiles ?? []) as any[]) {
-        // Expedientes donde es responsable
-        const { count: expCount } = await supabase
-          .from('expedientes')
-          .select('id', { count: 'exact', head: true })
-          .eq('abogado_responsable_id', p.id)
-          .is('deleted_at', null)
+        const [links, miembros, own] = await Promise.all([
+          (supabase.from as any)('expediente_sae_links')
+            .select('expediente_id')
+            .eq('profile_id', p.id),
+          supabase
+            .from('expediente_miembros')
+            .select('expediente_id')
+            .eq('profile_id', p.id),
+          supabase
+            .from('expedientes')
+            .select('id')
+            .or(`abogado_responsable_id.eq.${p.id},created_by.eq.${p.id}`)
+            .is('deleted_at', null),
+        ])
+
+        const expIdSet = new Set<string>()
+        for (const row of ((links.data ?? []) as Array<{ expediente_id: string }>)) expIdSet.add(row.expediente_id)
+        for (const row of ((miembros.data ?? []) as Array<{ expediente_id: string }>)) expIdSet.add(row.expediente_id)
+        for (const row of ((own.data ?? []) as Array<{ id: string }>)) expIdSet.add(row.id)
+        const expIds = [...expIdSet]
 
         // Tareas asignadas pendientes / vencidas
         const { data: tareas } = await supabase
@@ -52,13 +66,7 @@ function useAbogadosStats(enabled: boolean) {
         const pendientes = tareasArr.length
         const vencidas = tareasArr.filter(t => t.fecha_vencimiento && t.fecha_vencimiento < today).length
 
-        // Audiencias en próximos 14 días en expedientes donde es responsable
-        const { data: expedientesIds } = await supabase
-          .from('expedientes')
-          .select('id')
-          .eq('abogado_responsable_id', p.id)
-          .is('deleted_at', null)
-        const expIds = ((expedientesIds ?? []) as any[]).map(e => e.id)
+        // Audiencias en próximos 14 días en expedientes vinculados al abogado
         let audCount = 0
         if (expIds.length > 0) {
           const { count } = await supabase
@@ -76,7 +84,7 @@ function useAbogadosStats(enabled: boolean) {
           nombre: p.nombre ?? '',
           apellido: p.apellido ?? '',
           rol: p.rol,
-          expedientes: expCount ?? 0,
+          expedientes: expIds.length,
           tareas_pendientes: pendientes,
           tareas_vencidas: vencidas,
           audiencias_proximas: audCount,
@@ -121,32 +129,34 @@ export function AbogadosPanel() {
               const fullName = `${a.apellido}, ${a.nombre}`.trim()
               const initials = ((a.nombre?.[0] ?? '') + (a.apellido?.[0] ?? '')).toUpperCase()
               return (
-                <li
-                  key={a.id}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] px-3 py-2.5"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
-                      {fullName}
-                    </p>
-                    <p className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400">
-                      {a.rol === 'DIRECTOR' ? 'Director' : a.rol === 'ABOGADO' ? 'Abogado' : 'Colaborador'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 sm:gap-4 text-xs shrink-0">
-                    <Stat icon={Briefcase} value={a.expedientes} label="Expedientes" tone="amber" />
-                    <Stat
-                      icon={CheckSquare}
-                      value={a.tareas_pendientes}
-                      label="Tareas"
-                      tone={a.tareas_vencidas > 0 ? 'rose' : 'cyan'}
-                      hint={a.tareas_vencidas > 0 ? `${a.tareas_vencidas} vencidas` : undefined}
-                    />
-                    <Stat icon={CalendarClock} value={a.audiencias_proximas} label="Audiencias" tone="violet" />
-                  </div>
+                <li key={a.id}>
+                  <Link
+                    to={`/expedientes?abogado_id=${a.id}`}
+                    className="flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] px-3 py-2.5"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
+                        {fullName}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wider font-medium text-zinc-500 dark:text-zinc-400">
+                        {a.rol === 'DIRECTOR' ? 'Director' : a.rol === 'ABOGADO' ? 'Abogado' : 'Colaborador'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 sm:gap-4 text-xs shrink-0">
+                      <Stat icon={Briefcase} value={a.expedientes} label="Expedientes" tone="amber" />
+                      <Stat
+                        icon={CheckSquare}
+                        value={a.tareas_pendientes}
+                        label="Tareas"
+                        tone={a.tareas_vencidas > 0 ? 'rose' : 'cyan'}
+                        hint={a.tareas_vencidas > 0 ? `${a.tareas_vencidas} vencidas` : undefined}
+                      />
+                      <Stat icon={CalendarClock} value={a.audiencias_proximas} label="Audiencias" tone="violet" />
+                    </div>
+                  </Link>
                 </li>
               )
             })}

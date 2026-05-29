@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
-import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
+import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
 import {
@@ -214,7 +214,7 @@ function ActuacionRow({
           canExpand ? 'hover:bg-white/5 cursor-pointer' : 'cursor-default'
         )}
       >
-        <div className="shrink-0 mt-0.5 flex flex-col gap-0.5 -ml-1">
+        <div className="shrink-0 mt-0.5 flex flex-col gap-0.5 -ml-1 pr-2 border-r border-white/[0.04]">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleKey(movement) }}
@@ -315,54 +315,56 @@ function ActuacionRow({
             )}
           </p>
 
-          {/* AI summary inline (no need to expand) */}
-          {aiSummary && (
-            <p className="mt-2 text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
-              <Sparkles className="h-3 w-3 shrink-0 mt-[2px] text-violet-400" />
-              <span className="flex-1">{aiSummary}</span>
-            </p>
-          )}
-
-          {/* AI chips: dates, deadlines, parties */}
+          {/* Bloque IA: summary + chips + acción sugerida, agrupados */}
           {hasAi && (
-            <div className="mt-1.5 flex items-center flex-wrap gap-1.5">
-              {aiExtracted?.fechas?.map((f, i) => (
-                <span key={`f-${i}`} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300" title={f.descripcion}>
-                  <Calendar className="h-2.5 w-2.5" />
-                  {f.tipo}: {formatDate(f.fecha_iso)}
-                </span>
-              ))}
-              {aiExtracted?.plazos?.map((p, i) => (
-                <span key={`p-${i}`} className="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] text-orange-300" title={p.descripcion}>
-                  <Clock className="h-2.5 w-2.5" />
-                  {p.dias} {p.habiles ? 'días háb.' : 'días'}
-                  {p.vence_aprox && <span className="opacity-80">· vence {formatDate(p.vence_aprox)}</span>}
-                </span>
-              ))}
-              {aiExtracted?.partes && aiExtracted.partes.length > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400" title={aiExtracted.partes.join(', ')}>
-                  <Users className="h-2.5 w-2.5" />
-                  {aiExtracted.partes.length} {aiExtracted.partes.length === 1 ? 'parte' : 'partes'}
-                </span>
+            <div className="mt-2 rounded-md border border-violet-500/15 bg-violet-500/[0.04] px-2.5 py-2 space-y-1.5">
+              {aiSummary && (
+                <p className="text-xs text-zinc-300 leading-snug flex items-start gap-1.5">
+                  <Sparkles className="h-3 w-3 shrink-0 mt-[2px] text-violet-400" />
+                  <span className="flex-1">{aiSummary}</span>
+                </p>
               )}
-            </div>
-          )}
 
-          {/* Suggested action button */}
-          {aiAction && (
-            <div className="mt-2">
-              <button
-                onClick={(e) => { e.stopPropagation(); onCreateFromSuggestion(aiAction) }}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-125',
-                  PRIORIDAD_COLORS[aiAction.prioridad],
-                )}
-                title={aiAction.descripcion}
-              >
-                <Plus className="h-3 w-3" />
-                Crear {aiAction.tipo}: {aiAction.titulo}
-                <span className="ml-1 opacity-70">· {aiAction.prioridad.toLowerCase()}</span>
-              </button>
+              {(aiExtracted?.fechas?.length || aiExtracted?.plazos?.length || aiExtracted?.partes?.length) ? (
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {aiExtracted?.fechas?.map((f, i) => (
+                    <span key={`f-${i}`} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300" title={f.descripcion}>
+                      <Calendar className="h-2.5 w-2.5" />
+                      {f.tipo}: {formatDate(f.fecha_iso)}
+                    </span>
+                  ))}
+                  {aiExtracted?.plazos?.map((p, i) => (
+                    <span key={`p-${i}`} className="inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] text-orange-300" title={p.descripcion}>
+                      <Clock className="h-2.5 w-2.5" />
+                      {p.dias} {p.habiles ? 'días háb.' : 'días'}
+                      {p.vence_aprox && <span className="opacity-80">· vence {formatDate(p.vence_aprox)}</span>}
+                    </span>
+                  ))}
+                  {aiExtracted?.partes && aiExtracted.partes.length > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400" title={aiExtracted.partes.join(', ')}>
+                      <Users className="h-2.5 w-2.5" />
+                      {aiExtracted.partes.length} {aiExtracted.partes.length === 1 ? 'parte' : 'partes'}
+                    </span>
+                  )}
+                </div>
+              ) : null}
+
+              {aiAction && (
+                <div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCreateFromSuggestion(aiAction) }}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-125',
+                      PRIORIDAD_COLORS[aiAction.prioridad],
+                    )}
+                    title={aiAction.descripcion}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Crear {aiAction.tipo}: {aiAction.titulo}
+                    <span className="ml-1 opacity-70">· {aiAction.prioridad.toLowerCase()}</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -432,6 +434,59 @@ function ActuacionRow({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Stat grid (SAE-specific summary) ─────────────────────────────────────────
+
+function relativeDaysLabel(fecha: string | null | undefined): string {
+  const d = daysAgo(fecha)
+  if (d == null) return '—'
+  if (d === 0) return 'Hoy'
+  if (d === 1) return 'Ayer'
+  if (d < 30) return `hace ${d} d.`
+  if (d < 365) return `hace ${Math.round(d / 30)} m.`
+  return `hace ${Math.round(d / 365)} a.`
+}
+
+function SaeStat({
+  icon: Icon,
+  label,
+  value,
+  sublabel,
+  tone = 'default',
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: React.ReactNode
+  sublabel?: React.ReactNode
+  tone?: 'default' | 'violet' | 'rose' | 'cyan' | 'muted'
+}) {
+  const valueClass = {
+    default: 'text-zinc-800 dark:text-zinc-100',
+    violet: 'text-violet-400',
+    rose: 'text-rose-300',
+    cyan: 'text-cyan-300',
+    muted: 'text-zinc-600 dark:text-zinc-400',
+  }[tone]
+  const iconClass = {
+    default: 'text-zinc-500 dark:text-zinc-300',
+    violet: 'text-violet-400',
+    rose: 'text-rose-400',
+    cyan: 'text-cyan-400',
+    muted: 'text-zinc-600 dark:text-zinc-500',
+  }[tone]
+  return (
+    <div className="flex items-start gap-2 px-3 py-2">
+      <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', iconClass)} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>
+        <p className={cn('text-sm font-semibold leading-tight truncate', valueClass)}>{value}</p>
+        {sublabel && (
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">{sublabel}</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -546,6 +601,11 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     return movements.find((m) => m.tipo_movimiento === 'sentencia')
   }, [movements])
 
+  const lastMovement = useMemo(() => {
+    // movements ya viene ordenado por fecha desc desde el hook
+    return movements[0] ?? null
+  }, [movements])
+
   const newCount = useMemo(() => {
     if (!lastViewedRef.current) return 0
     const cutoff = lastViewedRef.current
@@ -566,12 +626,6 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   }, [movements, search, tipoFilter])
 
   const groups = useMemo(() => groupByDate(filtered), [filtered])
-
-  const topTypes = useMemo(() => {
-    return Object.entries(countsByType)
-      .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
-      .slice(0, 4) as [MovementType, number][]
-  }, [countsByType])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -745,9 +799,16 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       title="Actuaciones SAE"
       headerRight={
         <div className="flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-cyan-400"
+            title="Número SAE del expediente"
+          >
+            <Info className="h-3 w-3" />
+            {numeroSae}
+          </span>
           {ultimaSincronizacion && (
-            <span className="hidden sm:block text-xs text-zinc-500 dark:text-zinc-400 mr-1">
-              Última sync: {formatDateTime(ultimaSincronizacion)}
+            <span className="hidden md:block text-[11px] text-zinc-500 dark:text-zinc-400">
+              Sync: {formatDateTime(ultimaSincronizacion)}
             </span>
           )}
           {pendingAnalysisIds.length > 0 && (
@@ -781,32 +842,37 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       }
     >
       <div className="space-y-4">
-        {/* ── Inteligencia del expediente (Fase 2) ── */}
-        <SaeIntelligencePanel expedienteId={expedienteId} />
-
-        {/* ── Summary header ── */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-mono font-medium text-cyan-400">
-            <Info className="h-3 w-3" />
-            SAE: {numeroSae}
-          </span>
-          {movements.length > 0 && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              <span className="font-medium text-zinc-300">{movements.length}</span> actuaciones
-            </span>
-          )}
-          {topTypes.map(([tipo, count]) => (
-            <span key={tipo} className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[tipo])}>
-              <MovementIcon tipo={tipo} />
-              {count} {TIPO_LABELS[tipo].toLowerCase()}{count !== 1 ? 's' : ''}
-            </span>
-          ))}
-          {lastSentencia && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-auto">
-              Última sentencia: <span className="text-rose-300">{formatDate(lastSentencia.fecha)}</span>
-            </span>
-          )}
-        </div>
+        {/* ── Stat grid: resumen SAE de un vistazo ── */}
+        {movements.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] divide-x divide-y sm:divide-y-0 divide-cyan-500/10 overflow-hidden">
+            <SaeStat
+              icon={Database}
+              label="Actuaciones"
+              value={movements.length}
+            />
+            <SaeStat
+              icon={Sparkles}
+              label="Sin analizar"
+              value={pendingAnalysisIds.length}
+              sublabel={pendingAnalysisIds.length > 0 ? 'pendientes IA' : 'todo al día'}
+              tone={pendingAnalysisIds.length > 0 ? 'violet' : 'muted'}
+            />
+            <SaeStat
+              icon={Clock}
+              label="Última actuación"
+              value={lastMovement ? relativeDaysLabel(lastMovement.fecha) : '—'}
+              sublabel={lastMovement ? TIPO_LABELS[lastMovement.tipo_movimiento] : null}
+              tone={lastMovement ? 'cyan' : 'muted'}
+            />
+            <SaeStat
+              icon={Gavel}
+              label="Última sentencia"
+              value={lastSentencia ? formatDate(lastSentencia.fecha) : '—'}
+              sublabel={lastSentencia ? relativeDaysLabel(lastSentencia.fecha) : 'sin sentencias'}
+              tone={lastSentencia ? 'rose' : 'muted'}
+            />
+          </div>
+        )}
 
         {/* ── New since last visit banner ── */}
         {newCount > 0 && !isLoading && (
@@ -817,6 +883,9 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
             </span>
           </div>
         )}
+
+        {/* ── Inteligencia del expediente — bajo el stat grid, colapsable internamente ── */}
+        <SaeIntelligencePanel expedienteId={expedienteId} />
 
         {/* ── Search + filters ── */}
         {movements.length > 0 && (

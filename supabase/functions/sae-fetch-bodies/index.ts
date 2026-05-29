@@ -10,6 +10,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { authenticateWithSae, fetchStoryBody, SaeError } from '../_shared/sae-request-connector.ts'
 
 const MAX_PER_CALL = 60
@@ -70,7 +71,10 @@ Deno.serve(async (req) => {
     if (!cred) return json({ error: 'No tenés credenciales SAE configuradas' }, 400)
     if (cred.status === 'desactivado') return json({ error: 'Credenciales SAE desactivadas' }, 400)
 
-    const password = cred.encrypted_secret ? atob(cred.encrypted_secret) : null
+    const password = await readSaePassword(cred.encrypted_secret, {
+      serviceClient,
+      userId: user.id,
+    })
     if (!password) return json({ error: 'No se pudo recuperar la contraseña SAE' }, 500)
 
     // Fetch movements that need body

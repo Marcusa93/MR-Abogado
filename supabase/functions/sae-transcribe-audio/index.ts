@@ -12,6 +12,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions'
@@ -244,7 +245,10 @@ Deno.serve(async (req) => {
         .maybeSingle()
       if (!cred) return json({ error: 'No tenés credenciales SAE configuradas' }, 400)
       const credRow = cred as unknown as { username: string; encrypted_secret: string | null }
-      const password = credRow.encrypted_secret ? atob(credRow.encrypted_secret) : null
+      const password = await readSaePassword(credRow.encrypted_secret, {
+        serviceClient,
+        userId: user.id,
+      })
       if (!password) return json({ error: 'No se pudo recuperar la contraseña SAE' }, 500)
 
       const result = await downloadFromSae(body.movement_id, body.file_name, serviceClient, credRow.username, password)

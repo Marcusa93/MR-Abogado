@@ -67,7 +67,7 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
       return
     }
     document.mutate(
-      { procid, jurisdictionId, histid, fileName: att.fileName },
+      { movementId: m.id, procid, jurisdictionId, histid, fileName: att.fileName },
       {
         onSuccess: ({ objectUrl }) => setViewer((v) => ({ ...v, objectUrl, error: null })),
         onError: (err) => setViewer((v) => ({ ...v, error: err instanceof Error ? err.message : 'No se pudo descargar el documento.' })),
@@ -492,4 +492,3 @@ function ActuacionAudienciaRow({
     </div>
   )
 }
-

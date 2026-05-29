@@ -151,6 +151,7 @@ export function usePanelExpedientes(abogadoId?: string | null) {
           *,
           clientes (id, nombre, apellido, telefono),
           tipos_tramite (id, nombre),
+          abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
           audiencias (id, estado, fecha),
           tareas (id, estado)
@@ -161,13 +162,32 @@ export function usePanelExpedientes(abogadoId?: string | null) {
         .limit(500)
 
       if (abogadoId) {
-        // TODO: filter by expediente_miembros
-        // query = query.eq('abogado_id', abogadoId)
+        const [links, miembros, own] = await Promise.all([
+          (supabase.from as any)('expediente_sae_links')
+            .select('expediente_id')
+            .eq('profile_id', abogadoId),
+          supabase
+            .from('expediente_miembros')
+            .select('expediente_id')
+            .eq('profile_id', abogadoId),
+          supabase
+            .from('expedientes')
+            .select('id')
+            .or(`abogado_responsable_id.eq.${abogadoId},created_by.eq.${abogadoId}`)
+            .is('deleted_at', null),
+        ])
+        const ids = new Set<string>()
+        for (const row of ((links.data ?? []) as Array<{ expediente_id: string }>)) ids.add(row.expediente_id)
+        for (const row of ((miembros.data ?? []) as Array<{ expediente_id: string }>)) ids.add(row.expediente_id)
+        for (const row of ((own.data ?? []) as Array<{ id: string }>)) ids.add(row.id)
+        const allIds = [...ids]
+        if (allIds.length === 0) return []
+        query = query.in('id', allIds)
       }
 
       const { data, error } = await query
       if (error) throw error
-      return (data ?? []) as ExpedienteWithRelations[]
+      return (data ?? []) as unknown as ExpedienteWithRelations[]
     },
     staleTime: 30_000,
   })

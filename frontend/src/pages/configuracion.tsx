@@ -755,6 +755,7 @@ function ThemeSection() {
 // ---------------------------------------------------------------------------
 
 const ROL_COLORS: Record<string, string> = {
+  DIRECTOR: 'bg-amber-900/30 text-amber-400',
   ADMIN: 'bg-rose-900/30 text-rose-400',
   ABOGADO: 'bg-blue-900/30 text-blue-400',
 }
@@ -1392,7 +1393,7 @@ function CatalogoEditor({
 
 export default function ConfiguracionPage() {
   const { profile } = useAuth()
-  const isAdmin = profile?.rol === 'ADMIN'
+  const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -26,6 +26,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import * as cheerio from 'npm:cheerio@1.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { readSaePassword } from '../_shared/sae-credentials.ts'
+import { isMissingSchemaObject } from '../_shared/supabase-compat.ts'
 import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
@@ -570,7 +572,25 @@ Deno.serve(async (req) => {
       stats.skip_reasons.push({ profile_id: p.id, reason: `status_no_activo (${cred.status})` })
       continue
     }
-    const password = atob(cred.encrypted_secret)
+    let password: string | null
+    try {
+      password = await readSaePassword(cred.encrypted_secret, {
+        serviceClient: admin,
+        userId: p.id,
+      })
+    } catch (e) {
+      stats.profiles_skipped++
+      stats.skip_reasons.push({
+        profile_id: p.id,
+        reason: e instanceof Error ? e.message : 'credenciales_invalidas',
+      })
+      continue
+    }
+    if (!password) {
+      stats.profiles_skipped++
+      stats.skip_reasons.push({ profile_id: p.id, reason: 'credenciales_sin_password' })
+      continue
+    }
 
     // 3) Login al SAE
     let session: SaeSession
@@ -653,17 +673,34 @@ Deno.serve(async (req) => {
 
     if (nuevas.length === 0) continue
 
-    // 6) Vincular cada nueva con expediente local por numero_sae
+    // 6) Vincular cada nueva con expediente local por el vínculo SAE propio
+    // del perfil. El expediente local puede estar compartido por otros abogados.
     const numerosExp = nuevas.map(n => n.numero_expediente).filter((x): x is string => Boolean(x))
     const expByNumero = new Map<string, string>()
     if (numerosExp.length > 0) {
-      const { data: exps } = await admin
-        .from('expedientes')
-        .select('id, numero_sae')
+      const { data: links, error: linksError } = await admin
+        .from('expediente_sae_links')
+        .select('expediente_id, numero_sae')
+        .eq('profile_id', p.id)
+        .eq('provider', 'justucuman')
         .in('numero_sae', numerosExp)
-        .eq('created_by', p.id)
-      for (const e of (exps ?? []) as { id: string; numero_sae: string | null }[]) {
-        if (e.numero_sae) expByNumero.set(e.numero_sae, e.id)
+      const legacyLinksUnavailable = linksError && isMissingSchemaObject(linksError, 'expediente_sae_links')
+      if (linksError && !legacyLinksUnavailable) {
+        console.error('[sae-poll-notificaciones] links lookup error', linksError)
+      }
+      if (links?.length) {
+        for (const link of (links ?? []) as { expediente_id: string; numero_sae: string | null }[]) {
+          if (link.numero_sae) expByNumero.set(link.numero_sae, link.expediente_id)
+        }
+      } else if (legacyLinksUnavailable) {
+        const { data: existingExps } = await admin
+          .from('expedientes')
+          .select('id, numero_sae')
+          .in('numero_sae', numerosExp)
+          .is('deleted_at', null)
+        for (const exp of (existingExps ?? []) as { id: string; numero_sae: string | null }[]) {
+          if (exp.numero_sae) expByNumero.set(exp.numero_sae, exp.id)
+        }
       }
     }
 

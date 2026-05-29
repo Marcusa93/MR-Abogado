@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Sparkles, Clock, Calendar, Users, Plus, RefreshCw, Loader2,
   Gavel, ChevronDown, ChevronUp, AlertCircle,
@@ -135,22 +135,69 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
   const hasAnyContent = brief || plazos.length > 0 || partes.length > 0 || ultimaSentencia || fechasClave.length > 0
   const hasMovements = movements.length > 0
 
+  // Colapsable, recordado por expediente. Si no hay contenido, default colapsado.
+  const storageKey = `sae-intel-collapsed-${expedienteId}`
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    const stored = window.localStorage.getItem(storageKey)
+    if (stored !== null) return stored === '1'
+    return !hasAnyContent
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(storageKey, collapsed ? '1' : '0')
+  }, [collapsed, storageKey])
+
   if (!hasMovements) return null
 
   return (
     <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.03] overflow-hidden">
-      <div className="px-4 py-3 border-b border-violet-500/10 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-400" />
-          <h3 className="text-sm font-semibold text-violet-200">Inteligencia del expediente</h3>
-          <span className="text-[10px] text-violet-500/80">
-            {analyzedCount}/{movements.length} actuaciones con IA
-          </span>
-        </div>
+      <div className="px-4 py-3 border-b border-violet-500/10 flex items-center justify-between gap-3">
         <button
+          type="button"
+          onClick={() => setCollapsed(v => !v)}
+          className="flex items-center gap-2 min-w-0 flex-1 text-left rounded-md -m-1 p-1 hover:bg-violet-500/[0.05] transition-colors"
+          aria-expanded={!collapsed}
+          aria-controls="sae-intel-body"
+        >
+          {collapsed ? (
+            <ChevronDown className="h-4 w-4 text-violet-400/70 shrink-0" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-violet-400/70 shrink-0" />
+          )}
+          <Sparkles className="h-4 w-4 text-violet-400 shrink-0" />
+          <h3 className="text-sm font-semibold text-violet-200 truncate">Inteligencia del expediente</h3>
+          <span className="text-[10px] text-violet-500/80 shrink-0">
+            {analyzedCount}/{movements.length} con IA
+          </span>
+          {collapsed && hasAnyContent && (
+            <span className="hidden sm:flex items-center gap-2 ml-2 text-[10px] text-violet-300/70 shrink-0">
+              {plazos.length > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <Clock className="h-2.5 w-2.5" />
+                  {plazos.length} plazo{plazos.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {fechasClave.length > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <Calendar className="h-2.5 w-2.5" />
+                  {fechasClave.length} fecha{fechasClave.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {partes.length > 0 && (
+                <span className="inline-flex items-center gap-0.5">
+                  <Users className="h-2.5 w-2.5" />
+                  {partes.length} parte{partes.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
           onClick={handleGenerateBrief}
           disabled={generateBrief.isPending}
-          className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
           title={brief ? 'Regenerar brief con info actualizada (~10¢)' : 'Generar brief del expediente con IA (~10¢)'}
         >
           {generateBrief.isPending ? (
@@ -162,7 +209,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
         </button>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div id="sae-intel-body" className={cn('p-4 space-y-4', collapsed && 'hidden')}>
         {/* ── Brief / TL;DR ── */}
         {brief ? (
           <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
