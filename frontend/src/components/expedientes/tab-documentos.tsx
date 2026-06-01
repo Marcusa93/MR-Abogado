@@ -3,6 +3,7 @@ import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useAdjuntos, useUploadAdjunto, useDeleteAdjunto } from '@/hooks/use-adjuntos'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
 import { formatDate } from '@/lib/utils/date-helpers'
@@ -244,9 +245,16 @@ function UploadDialog({
 // Main component
 // ---------------------------------------------------------------------------
 
-function getPublicUrl(storagePath: string): string {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  return `${supabaseUrl}/storage/v1/object/public/adjuntos/${storagePath}`
+// El bucket `adjuntos` es privado: usamos signed URLs (60 min) en vez de public URL.
+async function getSignedUrl(storagePath: string): Promise<string> {
+  const supabase = createClient()
+  const { data, error } = await supabase.storage
+    .from('adjuntos')
+    .createSignedUrl(storagePath, 3600)
+  if (error || !data?.signedUrl) {
+    throw new Error(error?.message || 'No se pudo generar URL de acceso')
+  }
+  return data.signedUrl
 }
 
 export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
@@ -285,18 +293,27 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
     ? (adjuntos ?? []).filter((adj: any) => (adj.categoria || 'sin categoría') === filterCategoria)
     : (adjuntos ?? [])
 
-  const handleDownload = (storagePath: string, nombreOriginal: string) => {
-    const url = getPublicUrl(storagePath)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = nombreOriginal
-    a.target = '_blank'
-    a.click()
+  const handleDownload = async (storagePath: string, nombreOriginal: string) => {
+    try {
+      const url = await getSignedUrl(storagePath)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreOriginal
+      a.target = '_blank'
+      a.click()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo descargar el archivo')
+    }
   }
 
-  const handlePreview = (storagePath: string, name: string) => {
-    setPreviewUrl(getPublicUrl(storagePath))
-    setPreviewName(name)
+  const handlePreview = async (storagePath: string, name: string) => {
+    try {
+      const url = await getSignedUrl(storagePath)
+      setPreviewUrl(url)
+      setPreviewName(name)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo abrir el archivo')
+    }
   }
 
   const handleDeleteConfirm = useCallback(async () => {
