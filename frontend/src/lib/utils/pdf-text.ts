@@ -1,12 +1,17 @@
 // Extracción de texto de un PDF en el browser usando pdfjs-dist.
 // Lazy-loaded para no inflar el bundle inicial.
 
-const MAX_CHARS = 30_000 // ~7-8K tokens, controla costo de IA
+const DEFAULT_MAX_CHARS = 30_000 // ~7-8K tokens, controla costo de IA
 
 export interface PdfTextResult {
   text: string
   pages: number
   truncated: boolean
+}
+
+export interface ExtractOptions {
+  /** Tope de caracteres a extraer. Default 30_000 (SAE actuaciones). Para adjuntos legales conviene 80-100K. */
+  maxChars?: number
 }
 
 let workerInitialized = false
@@ -20,7 +25,8 @@ async function ensureWorker() {
   workerInitialized = true
 }
 
-export async function extractPdfText(blobOrUrl: Blob | string): Promise<PdfTextResult> {
+export async function extractPdfText(blobOrUrl: Blob | string, options: ExtractOptions = {}): Promise<PdfTextResult> {
+  const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS
   await ensureWorker()
   const pdfjs = await import('pdfjs-dist')
 
@@ -47,8 +53,8 @@ export async function extractPdfText(blobOrUrl: Blob | string): Promise<PdfTextR
       .replace(/\s+/g, ' ')
       .trim()
 
-    if (totalLen + pageText.length > MAX_CHARS) {
-      const remaining = MAX_CHARS - totalLen
+    if (totalLen + pageText.length > maxChars) {
+      const remaining = maxChars - totalLen
       if (remaining > 0) parts.push(pageText.slice(0, remaining))
       truncated = true
       break

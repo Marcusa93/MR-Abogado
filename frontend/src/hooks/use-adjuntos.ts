@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Tables, TablesInsert } from '@/types/database.types'
 import { expedientesKeys } from '@/hooks/use-expedientes'
+import { extractPdfText } from '@/lib/utils/pdf-text'
+
+// Categorías que disparan análisis IA automático al subir.
+const AUTO_ANALYZE_CATEGORIAS = new Set(['demanda', 'contestacion', 'sentencia', 'resolucion', 'apelacion'])
 
 // ---------------------------------------------------------------------------
 // useAdjuntos — lista de archivos adjuntos de un expediente
@@ -141,11 +145,136 @@ export function useUploadAdjunto() {
         await supabase.storage.from('adjuntos').remove([storageName]).catch(() => {})
         throw error
       }
+
+      // Auto-trigger análisis IA si la categoría lo amerita. Fire-and-forget:
+      // si falla, el adjunto ya está guardado y el usuario puede reintentar
+      // manualmente con el botón "Analizar con IA".
+      if (categoria && AUTO_ANALYZE_CATEGORIAS.has(categoria) && data?.id) {
+        void analyzeInBackground({
+          supabase,
+          adjuntoId: data.id,
+          expedienteId,
+          pdfFile: file,
+          queryClient,
+        })
+      }
+
       return data
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adjuntos', variables.expedienteId] })
       queryClient.invalidateQueries({ queryKey: expedientesKeys.detail(variables.expedienteId) })
+    },
+  })
+}
+
+// Extrae texto del PDF y llama a analyze-adjunto en background.
+// No throws: errores se persisten en adjuntos.ai_error por la edge function.
+async function analyzeInBackground({
+  supabase,
+  adjuntoId,
+  expedienteId,
+  pdfFile,
+  queryClient,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+  adjuntoId: string
+  expedienteId: string
+  pdfFile: File | Blob
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  queryClient: any
+}) {
+  try {
+    const { text } = await extractPdfText(pdfFile, { maxChars: 100_000 })
+    if (!text.trim()) return
+    await supabase.functions.invoke('analyze-adjunto', {
+      body: { adjunto_id: adjuntoId, document_text: text },
+    })
+  } catch (err) {
+    console.warn('[analyzeInBackground] falló', err)
+  } finally {
+    queryClient.invalidateQueries({ queryKey: ['adjuntos', expedienteId] })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// useAnalyzeAdjunto — análisis manual (botón "Analizar con IA")
+// ---------------------------------------------------------------------------
+
+export function useAnalyzeAdjunto() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      adjuntoId,
+      expedienteId,
+      storagePath,
+      force = false,
+    }: {
+      adjuntoId: string
+      expedienteId: string
+      storagePath: string
+      force?: boolean
+    }) => {
+      // Bajar el PDF vía signed URL y extraer texto en el cliente.
+      const { data: signed, error: signError } = await supabase.storage
+        .from('adjuntos')
+        .createSignedUrl(storagePath, 300)
+      if (signError || !signed?.signedUrl) {
+        throw new Error(signError?.message || 'No se pudo acceder al archivo.')
+      }
+
+      const { text } = await extractPdfText(signed.signedUrl, { maxChars: 100_000 })
+      if (!text.trim()) {
+        throw new Error('El PDF no tiene texto extraíble (probablemente escaneado). No se puede analizar con IA.')
+      }
+
+      const { data, error } = await supabase.functions.invoke('analyze-adjunto', {
+        body: { adjunto_id: adjuntoId, document_text: text, force },
+      })
+      if (error) throw new Error(error.message || 'Error al analizar')
+      if (data?.error) throw new Error(data.error)
+      return data as { success: boolean; cached?: boolean; summary?: string; extracted?: unknown; model?: string }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['adjuntos', variables.expedienteId] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useChatAdjunto — pregunta puntual al doc (Q&A grounded en el texto)
+// ---------------------------------------------------------------------------
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export function useChatAdjunto() {
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      adjuntoId,
+      question,
+      history = [],
+      documentText,
+    }: {
+      adjuntoId: string
+      question: string
+      history?: ChatMessage[]
+      /** Texto del PDF si ya lo tenés extraído. Si no, la function usa ai_full_text de la BD. */
+      documentText?: string
+    }) => {
+      const { data, error } = await supabase.functions.invoke('chat-adjunto', {
+        body: { adjunto_id: adjuntoId, question, history, document_text: documentText },
+      })
+      if (error) throw new Error(error.message || 'Error al consultar')
+      if (data?.error) throw new Error(data.error)
+      return data as { answer: string; model: string; truncated?: boolean }
     },
   })
 }
