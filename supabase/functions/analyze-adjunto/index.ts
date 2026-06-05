@@ -104,6 +104,22 @@ Deno.serve(async (req) => {
         })
         .eq('id', adjuntoId)
 
+      // Auto-trigger ingest para búsqueda cross-expediente. Fire-and-forget:
+      // si falla, el análisis ya quedó persistido y se puede reingestar manual.
+      if (fullTextToStore) {
+        try {
+          const projectUrl = Deno.env.get('SUPABASE_URL')!
+          const authHeader = req.headers.get('Authorization') ?? ''
+          fetch(`${projectUrl}/functions/v1/adjuntos-ingest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+            body: JSON.stringify({ adjunto_id: adjuntoId }),
+          }).catch((err) => console.warn('[analyze-adjunto] ingest trigger falló', err))
+        } catch (err) {
+          console.warn('[analyze-adjunto] no se pudo disparar ingest', err)
+        }
+      }
+
       return json({
         success: true,
         cached: false,

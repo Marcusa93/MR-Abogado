@@ -23,6 +23,7 @@ import { TabJurisprudencia } from '@/components/expedientes/tab-jurisprudencia'
 import { TabVisionIa } from '@/components/expedientes/tab-vision-ia'
 import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
+import { ExpedienteSimilaresPanel } from '@/components/expedientes/expediente-similares-panel'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
@@ -339,6 +340,9 @@ export default function ExpedienteDetailPage() {
           )
         })()}
       </div>
+
+      {/* Expedientes parecidos en tu corpus (cross-expediente, colapsable) */}
+      <ExpedienteSimilaresPanel expedienteId={id!} />
 
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
