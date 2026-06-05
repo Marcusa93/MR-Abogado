@@ -19,6 +19,7 @@ import {
   BookMarked,
   Gavel,
   Brain,
+  Mic2,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -48,6 +49,7 @@ const navItems: readonly NavItem[] = [
   { href: '/normativa', label: 'Normativa', icon: BookMarked },
   { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel },
   { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain },
+  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2 },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]

@@ -127,6 +127,24 @@ Deno.serve(async (req) => {
       })
       .eq('id', tRow.id)
 
+    // Auto-trigger del ingest para búsqueda semántica. Fire-and-forget:
+    // si falla, el analyze no se rompe y el usuario puede reingestar manual.
+    try {
+      const projectUrl = Deno.env.get('SUPABASE_URL')!
+      const authHeader = req.headers.get('Authorization') ?? ''
+      // No esperamos la respuesta para no bloquear el analyze
+      fetch(`${projectUrl}/functions/v1/audiencias-transcripts-ingest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+        },
+        body: JSON.stringify({ transcript_id: tRow.id }),
+      }).catch((err) => console.warn('[sae-analyze-transcript] ingest trigger falló', err))
+    } catch (err) {
+      console.warn('[sae-analyze-transcript] no se pudo disparar ingest', err)
+    }
+
     return json({ analysis })
 
   } catch (err) {
