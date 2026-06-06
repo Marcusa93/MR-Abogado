@@ -20,7 +20,9 @@ import {
   Gavel,
   Brain,
   Mic2,
+  Wallet,
 } from 'lucide-react'
+import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -35,6 +37,7 @@ interface NavItem {
   icon: typeof LayoutDashboard
   badgeKey?: BadgeKey
   adminOnly?: boolean
+  cajaOnly?: boolean
 }
 
 const navItems: readonly NavItem[] = [
@@ -50,6 +53,7 @@ const navItems: readonly NavItem[] = [
   { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel },
   { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain },
   { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2 },
+  { href: '/caja', label: 'Caja', icon: Wallet, cajaOnly: true },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]
@@ -58,6 +62,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const { pathname } = useLocation()
   const profile = useAuthStore((s) => s.profile)
   const badges = useSidebarBadges()
+  const { data: tieneAccesoCaja } = useTieneAccesoCaja()
 
   const badgeCounts: Record<BadgeKey, number> = {
     tareas: badges.tareasVencidas,
@@ -124,7 +129,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 no-scrollbar">
-        {navItems.filter((item) => !item.adminOnly || profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR').map((item) => {
+        {navItems.filter((item) => {
+          if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
+          if (item.cajaOnly && !tieneAccesoCaja) return false
+          return true
+        }).map((item) => {
           const isActive = pathname.startsWith(item.href)
           const Icon = item.icon
 
