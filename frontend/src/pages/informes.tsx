@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { InformesCommandCenter } from '@/components/informes/informes-command-center'
+import { cn } from '@/lib/utils'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -26,6 +28,7 @@ import {
   DollarSign,
   BarChart3,
   CalendarDays,
+  Sparkles,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -201,6 +204,7 @@ function fmtMoney(n: number): string {
 // ---------------------------------------------------------------------------
 
 export default function InformesPage() {
+  const [view, setView] = useState<'ia' | 'clasico'>('ia')
   const navigate = useNavigate()
   const { data: porEstado, isLoading: l1, isError: e1, refetch: r1 } = useExpedientesPorEstado()
   const { data: porMes, isLoading: l2, isError: e2, refetch: r2 } = useExpedientesPorMes()
@@ -245,35 +249,68 @@ export default function InformesPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Informes
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
-            Reportes y estadísticas del estudio — datos históricos
+            {view === 'ia' ? 'Tablero en vivo con el corpus IA del estudio' : 'Reportes clásicos del estudio — datos históricos'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            <FileText className="h-4 w-4" />
-            Exportar PDF
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Toggle de vista */}
+          <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+            <button
+              onClick={() => setView('ia')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'ia'
+                  ? 'bg-violet-500/20 text-violet-200'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Tablero IA
+            </button>
+            <button
+              onClick={() => setView('clasico')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                view === 'clasico'
+                  ? 'bg-cyan-500/20 text-cyan-200'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              )}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Clásico
+            </button>
+          </div>
+          {view === 'clasico' && (
+            <>
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                CSV
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={isLoading}
+                className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 transition-colors"
+              >
+                <FileText className="h-4 w-4" />
+                Exportar PDF
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {isLoading ? (
+      {view === 'ia' ? (
+        <InformesCommandCenter />
+      ) : isLoading ? (
         <TableSkeleton rows={6} columns={4} />
       ) : isError ? (
         <ErrorState
