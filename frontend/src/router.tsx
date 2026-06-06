@@ -3,6 +3,14 @@ import { AuthGuard } from '@/components/auth/auth-guard'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { AppSplash } from '@/components/shared/app-splash'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
+import { useAuthStore } from '@/stores/auth-store'
+
+// Landing condicional por rol: SECRETARIA arranca en /hoy, el resto en /dashboard.
+function HomeRedirect() {
+  const profile = useAuthStore((s) => s.profile)
+  if (profile?.rol === 'SECRETARIA') return <Navigate to="/hoy" replace />
+  return <Navigate to="/dashboard" replace />
+}
 
 // Lazy load pages with automatic retry on chunk load failure (after deploys)
 import { lazy, Suspense, type ComponentType } from 'react'
@@ -49,6 +57,8 @@ const JurisprudenciaDetailPage = lazyWithRetry(() => import('@/pages/jurispruden
 const AprendizajesPage = lazyWithRetry(() => import('@/pages/aprendizajes'))
 const BuscarAudienciasPage = lazyWithRetry(() => import('@/pages/buscar-audiencias'))
 const CajaPage = lazyWithRetry(() => import('@/pages/caja'))
+const HoyPage = lazyWithRetry(() => import('@/pages/hoy'))
+const ContenidosPage = lazyWithRetry(() => import('@/pages/contenidos'))
 const NotificacionesSaePage = lazyWithRetry(() => import('@/pages/notificaciones-sae'))
 const NotificacionesPage = lazyWithRetry(() => import('@/pages/notificaciones'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
@@ -108,8 +118,8 @@ export const router = createBrowserRouter([
       </AuthGuard>
     ),
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'panel', element: <Navigate to="/dashboard" replace /> },
+      { index: true, element: <HomeRedirect /> },
+      { path: 'panel', element: <HomeRedirect /> },
       { path: 'dashboard', element: <SuspenseWrapper><DashboardPage /></SuspenseWrapper> },
       { path: 'expedientes', element: <SuspenseWrapper><ExpedientesPage /></SuspenseWrapper> },
       // FIX: rutas específicas ANTES de :id para que no capturen "nuevo" como ID
@@ -135,6 +145,8 @@ export const router = createBrowserRouter([
       { path: 'aprendizajes', element: <SuspenseWrapper><AprendizajesPage /></SuspenseWrapper> },
       { path: 'buscar-audiencias', element: <SuspenseWrapper><BuscarAudienciasPage /></SuspenseWrapper> },
       { path: 'caja', element: <SuspenseWrapper><CajaPage /></SuspenseWrapper> },
+      { path: 'hoy', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'contenidos', element: <SuspenseWrapper><ContenidosPage /></SuspenseWrapper> },
       { path: 'notificaciones-sae', element: <SuspenseWrapper><NotificacionesSaePage /></SuspenseWrapper> },
       { path: 'notificaciones', element: <SuspenseWrapper><NotificacionesPage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout

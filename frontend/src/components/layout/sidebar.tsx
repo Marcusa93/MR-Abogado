@@ -21,6 +21,8 @@ import {
   Brain,
   Mic2,
   Wallet,
+  Sun,
+  Sparkles,
 } from 'lucide-react'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
@@ -38,21 +40,28 @@ interface NavItem {
   badgeKey?: BadgeKey
   adminOnly?: boolean
   cajaOnly?: boolean
+  /** Si true, este item se oculta a la SECRETARIA. */
+  hideForSecretaria?: boolean
+  /** Si true, este item solo se muestra a SECRETARIA. */
+  secretariaOnly?: boolean
 }
 
 const navItems: readonly NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  // Para SECRETARIA: "Hoy" es la landing
+  { href: '/hoy', label: 'Hoy', icon: Sun, secretariaOnly: true },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hideForSecretaria: true },
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/expedientes', label: 'Expedientes', icon: FolderOpen },
-  { href: '/kanban', label: 'Tablero', icon: Columns3 },
+  { href: '/kanban', label: 'Tablero', icon: Columns3, hideForSecretaria: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, badgeKey: 'agenda' },
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, badgeKey: 'notificaciones' },
-  { href: '/informes', label: 'Informes', icon: BarChart3 },
-  { href: '/normativa', label: 'Normativa', icon: BookMarked },
-  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel },
-  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain },
-  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2 },
+  { href: '/contenidos', label: 'Contenidos', icon: Sparkles },
+  { href: '/informes', label: 'Informes', icon: BarChart3, hideForSecretaria: true },
+  { href: '/normativa', label: 'Normativa', icon: BookMarked, hideForSecretaria: true },
+  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel, hideForSecretaria: true },
+  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain, hideForSecretaria: true },
+  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2, hideForSecretaria: true },
   { href: '/caja', label: 'Caja', icon: Wallet, cajaOnly: true },
   { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
   { href: '/configuracion', label: 'Configuración', icon: Settings },
@@ -130,8 +139,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 no-scrollbar">
         {navItems.filter((item) => {
+          const esSecretaria = profile?.rol === 'SECRETARIA'
           if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
           if (item.cajaOnly && !tieneAccesoCaja) return false
+          if (item.hideForSecretaria && esSecretaria) return false
+          if (item.secretariaOnly && !esSecretaria) return false
           return true
         }).map((item) => {
           const isActive = pathname.startsWith(item.href)
