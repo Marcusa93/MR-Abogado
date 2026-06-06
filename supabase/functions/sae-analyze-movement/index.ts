@@ -120,6 +120,22 @@ Deno.serve(async (req) => {
           })
           .eq('id', m.id)
         results.push({ id: m.id, success: true, summary: analysis.summary })
+
+        // Si es sentencia/decreto con cuerpo sustancial, disparar extracción
+        // de aprendizaje. Fire-and-forget.
+        if ((m.tipo_movimiento === 'sentencia' || m.tipo_movimiento === 'decreto') && (m.cuerpo?.length ?? 0) >= 400) {
+          try {
+            const projectUrl = Deno.env.get('SUPABASE_URL')!
+            const authHeader = req.headers.get('Authorization') ?? ''
+            fetch(`${projectUrl}/functions/v1/extract-aprendizaje-sentencia`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+              body: JSON.stringify({ source: 'movement', source_id: m.id }),
+            }).catch((err) => console.warn('[sae-analyze-movement] aprendizaje trigger falló', err))
+          } catch (err) {
+            console.warn('[sae-analyze-movement] no se pudo disparar aprendizaje', err)
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Error IA desconocido'
         console.error('[sae-analyze-movement]', m.id, msg)

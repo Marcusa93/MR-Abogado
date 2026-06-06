@@ -89,6 +89,27 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
             <Sparkles className="h-3 w-3" /> Propuesto por IA
           </span>
         )}
+        {(() => {
+          const src = (a.contenido_estructurado as { source?: { type?: string; expediente_id?: string; auto?: boolean } } | null)?.source
+          if (!src?.auto) return null
+          const label = src.type === 'movement' ? 'IA — sentencia SAE' : 'IA — sentencia subida'
+          return (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+                <Sparkles className="h-3 w-3" /> {label}
+              </span>
+              {src.expediente_id && (
+                <Link
+                  to={`/expedientes/${src.expediente_id}`}
+                  className="text-[10px] text-cyan-300 hover:text-cyan-200 underline truncate"
+                  title="Ver expediente origen"
+                >
+                  → expediente
+                </Link>
+              )}
+            </>
+          )
+        })()}
         <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', targetCls)}>
           {TARGET_KIND_LABEL[a.target_kind]}
         </span>

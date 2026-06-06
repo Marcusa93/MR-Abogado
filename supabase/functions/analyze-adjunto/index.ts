@@ -104,8 +104,8 @@ Deno.serve(async (req) => {
         })
         .eq('id', adjuntoId)
 
-      // Auto-trigger ingest para búsqueda cross-expediente. Fire-and-forget:
-      // si falla, el análisis ya quedó persistido y se puede reingestar manual.
+      // Auto-trigger ingest para búsqueda cross-expediente + extracción de
+      // aprendizaje si es sentencia. Fire-and-forget.
       if (fullTextToStore) {
         try {
           const projectUrl = Deno.env.get('SUPABASE_URL')!
@@ -115,8 +115,17 @@ Deno.serve(async (req) => {
             headers: { 'Content-Type': 'application/json', Authorization: authHeader },
             body: JSON.stringify({ adjunto_id: adjuntoId }),
           }).catch((err) => console.warn('[analyze-adjunto] ingest trigger falló', err))
+
+          const tipo = (analysis.extracted as { tipo_documento?: string } | undefined)?.tipo_documento
+          if (tipo === 'sentencia' || tipo === 'resolucion' || tipo === 'apelacion') {
+            fetch(`${projectUrl}/functions/v1/extract-aprendizaje-sentencia`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+              body: JSON.stringify({ source: 'adjunto', source_id: adjuntoId }),
+            }).catch((err) => console.warn('[analyze-adjunto] aprendizaje trigger falló', err))
+          }
         } catch (err) {
-          console.warn('[analyze-adjunto] no se pudo disparar ingest', err)
+          console.warn('[analyze-adjunto] no se pudieron disparar triggers', err)
         }
       }
 

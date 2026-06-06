@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { sanitizeForPostgrest } from '@/lib/utils/sanitize-search'
 import { cn } from '@/lib/utils'
+import { useGlobalSearch } from '@/hooks/use-global-search'
 import {
   Search,
   FolderOpen,
@@ -18,6 +19,11 @@ import {
   ArrowRight,
   CornerDownLeft,
   Loader2,
+  BookMarked,
+  Gavel,
+  Mic2,
+  FileText,
+  Sparkles,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -26,11 +32,15 @@ import {
 
 interface SearchResult {
   id: string
-  type: 'expediente' | 'cliente' | 'tarea' | 'turno' | 'page'
+  type: 'expediente' | 'cliente' | 'tarea' | 'turno' | 'page' | 'normativa' | 'jurisprudencia' | 'audiencia_transcript' | 'adjunto'
   title: string
   subtitle?: string
   icon: typeof FolderOpen
   href: string
+  /** Para items semánticos, snippet a mostrar bajo el subtitle. */
+  snippet?: string
+  /** % de match semántico (0-100). */
+  score?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -172,12 +182,83 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null)
 
   const { data: searchResults, isFetching } = useCommandSearch(debouncedSearch)
+  const { data: semanticResults, isFetching: isFetchingSemantic } = useGlobalSearch(debouncedSearch)
+  const isAnyFetching = isFetching || isFetchingSemantic
 
   // Debounce search
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search), 250)
     return () => clearTimeout(timeout)
   }, [search])
+
+  // Convertir resultados semánticos en SearchResult
+  const semanticItems = useMemo<SearchResult[]>(() => {
+    if (!semanticResults) return []
+    const out: SearchResult[] = []
+
+    for (const a of semanticResults.adjuntos) {
+      const expId = String(a.meta.expediente_id ?? '')
+      const car = (a.meta.expediente_caratula as string | null) || (a.meta.expediente_numero as string | null) || 'Expediente'
+      const tipo = (a.meta.tipo_documento as string | null) || null
+      out.push({
+        id: `adj-${a.chunk_id}`,
+        type: 'adjunto',
+        title: tipo ? `${tipo.charAt(0).toUpperCase()}${tipo.slice(1)} · ${car}` : car,
+        subtitle: 'Documento del expediente',
+        icon: FileText,
+        href: expId ? `/expedientes/${expId}#documentos` : '/expedientes',
+        snippet: a.snippet,
+        score: Math.round(a.score * 100),
+      })
+    }
+
+    for (const t of semanticResults.audiencias) {
+      const expId = String(t.meta.expediente_id ?? '')
+      const car = (t.meta.expediente_caratula as string | null) || (t.meta.expediente_numero as string | null) || 'Audiencia'
+      out.push({
+        id: `aud-${t.chunk_id}`,
+        type: 'audiencia_transcript',
+        title: car,
+        subtitle: 'Transcripción de audiencia',
+        icon: Mic2,
+        href: expId ? `/expedientes/${expId}#audiencias` : '/buscar-audiencias',
+        snippet: t.snippet,
+        score: Math.round(t.score * 100),
+      })
+    }
+
+    for (const n of semanticResults.normativa) {
+      const docId = String(n.meta.documento_id ?? '')
+      const m = n.meta as { titulo?: string; tipo?: string }
+      out.push({
+        id: `norm-${n.chunk_id}`,
+        type: 'normativa',
+        title: m.titulo || 'Documento de normativa',
+        subtitle: m.tipo || 'Normativa',
+        icon: BookMarked,
+        href: docId ? `/normativa/${docId}` : '/normativa',
+        snippet: n.snippet,
+        score: Math.round(n.score * 100),
+      })
+    }
+
+    for (const j of semanticResults.jurisprudencia) {
+      const docId = String(j.meta.documento_id ?? '')
+      const m = j.meta as { caratula?: string; tribunal?: string }
+      out.push({
+        id: `juris-${j.chunk_id}`,
+        type: 'jurisprudencia',
+        title: m.caratula || 'Fallo',
+        subtitle: m.tribunal || 'Jurisprudencia',
+        icon: Gavel,
+        href: docId ? `/jurisprudencia/${docId}` : '/jurisprudencia',
+        snippet: j.snippet,
+        score: Math.round(j.score * 100),
+      })
+    }
+
+    return out
+  }, [semanticResults])
 
   // Build the results list
   const items = useMemo(() => {
@@ -190,8 +271,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const matchingPages = PAGES.filter((p) =>
       p.title.toLowerCase().includes(search.toLowerCase())
     )
-    return [...dbResults, ...matchingPages]
-  }, [search, searchResults])
+    return [...dbResults, ...semanticItems, ...matchingPages]
+  }, [search, searchResults, semanticItems])
 
   // Reset active index when items change
   useEffect(() => {
@@ -247,7 +328,17 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // Group results by type
   const grouped = items.reduce(
     (acc, item) => {
-      const GROUP_LABELS: Record<string, string> = { expediente: 'Expedientes', cliente: 'Clientes', tarea: 'Tareas', turno: 'Turnos', page: 'Páginas' }
+      const GROUP_LABELS: Record<string, string> = {
+        expediente: 'Expedientes',
+        cliente: 'Clientes',
+        tarea: 'Tareas',
+        turno: 'Turnos',
+        adjunto: 'Documentos del expediente',
+        audiencia_transcript: 'En transcripciones de audiencia',
+        normativa: 'Normativa',
+        jurisprudencia: 'Jurisprudencia',
+        page: 'Páginas',
+      }
       const group = GROUP_LABELS[item.type] ?? 'Otros'
       if (!acc[group]) acc[group] = []
       acc[group].push(item)
@@ -274,7 +365,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         >
           {/* Search input */}
           <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-            {isFetching ? (
+            {isAnyFetching ? (
               <Loader2 className="h-5 w-5 shrink-0 text-amber-400 animate-spin" />
             ) : (
               <Search className="h-5 w-5 shrink-0 text-zinc-600 dark:text-zinc-300" />
@@ -284,17 +375,23 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar expedientes, clientes, tareas, turnos..."
+              placeholder="Buscar carátulas, normativa, jurisprudencia, audiencias, documentos…"
               className="flex-1 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:outline-none"
             />
+            {semanticResults?.semantic_used && (
+              <span className="hidden sm:inline-flex items-center gap-1 rounded bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
+                <Sparkles className="h-2.5 w-2.5" />
+                IA
+              </span>
+            )}
             <kbd className="hidden items-center rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-700 dark:text-zinc-300 sm:inline-flex">
               ESC
             </kbd>
           </div>
 
           {/* Results */}
-          <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
-            {items.length === 0 && search.trim().length >= 2 && !isFetching && (
+          <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-2">
+            {items.length === 0 && search.trim().length >= 2 && !isAnyFetching && (
               <div className="py-8 text-center text-sm text-zinc-700 dark:text-zinc-300">
                 No se encontraron resultados para &ldquo;{search}&rdquo;
               </div>
@@ -330,8 +427,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         {item.subtitle && (
                           <p className="truncate text-xs text-zinc-700 dark:text-zinc-300">{item.subtitle}</p>
                         )}
+                        {item.snippet && (
+                          <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-600 dark:text-zinc-400 leading-snug">
+                            {item.snippet}
+                          </p>
+                        )}
                       </div>
-                      {idx === activeIndex && (
+                      {item.score != null && (
+                        <span className="shrink-0 text-[10px] font-mono text-violet-300/80 self-start mt-1">
+                          {item.score}%
+                        </span>
+                      )}
+                      {idx === activeIndex && !item.score && (
                         <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-50" />
                       )}
                     </button>
