@@ -59,6 +59,7 @@ const BuscarAudienciasPage = lazyWithRetry(() => import('@/pages/buscar-audienci
 const CajaPage = lazyWithRetry(() => import('@/pages/caja'))
 const HoyPage = lazyWithRetry(() => import('@/pages/hoy'))
 const ContenidosPage = lazyWithRetry(() => import('@/pages/contenidos'))
+const ContactosProfesionalesPage = lazyWithRetry(() => import('@/pages/contactos-profesionales'))
 const NotificacionesSaePage = lazyWithRetry(() => import('@/pages/notificaciones-sae'))
 const NotificacionesPage = lazyWithRetry(() => import('@/pages/notificaciones'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
@@ -147,6 +148,7 @@ export const router = createBrowserRouter([
       { path: 'caja', element: <SuspenseWrapper><CajaPage /></SuspenseWrapper> },
       { path: 'hoy', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
       { path: 'contenidos', element: <SuspenseWrapper><ContenidosPage /></SuspenseWrapper> },
+      { path: 'contactos-profesionales', element: <SuspenseWrapper><ContactosProfesionalesPage /></SuspenseWrapper> },
       { path: 'notificaciones-sae', element: <SuspenseWrapper><NotificacionesSaePage /></SuspenseWrapper> },
       { path: 'notificaciones', element: <SuspenseWrapper><NotificacionesPage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout

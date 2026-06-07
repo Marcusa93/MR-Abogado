@@ -26,6 +26,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronRight,
+  UserCog,
 } from 'lucide-react'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
@@ -74,6 +75,7 @@ const navItems: readonly NavItem[] = [
   // CASOS — todo lo del expediente
   { href: '/clientes', label: 'Clientes', icon: Users, group: 'casos' },
   { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'casos' },
+  { href: '/contactos-profesionales', label: 'Profesionales', icon: UserCog, group: 'casos', hideForSecretaria: true },
   // Tablero queda disponible vía URL /kanban pero oculto del menú (vista alternativa de Expedientes)
 
   // INTELIGENCIA — corpus IA (cerrado por default)
