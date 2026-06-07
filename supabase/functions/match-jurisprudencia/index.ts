@@ -19,9 +19,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')!
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
-    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -44,21 +44,21 @@ async function embedQuery(query: string): Promise<number[]> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ ok: false, error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { ok: false, error: 'No autorizado' }, 401)
 
   const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
     global: { headers: { Authorization: authHeader } },
   })
   const { data: { user }, error: authErr } = await userClient.auth.getUser()
-  if (authErr || !user) return json({ ok: false, error: 'Token inválido' }, 401)
+  if (authErr || !user) return json(req, { ok: false, error: 'Token inválido' }, 401)
 
   const body = await req.json().catch(() => null) as {
     query?: string; limit?: number; seccion?: string
   } | null
   if (!body || !body.query || body.query.trim().length < 3) {
-    return json({ ok: false, error: 'query muy corta (min 3 chars)' }, 400)
+    return json(req, { ok: false, error: 'query muy corta (min 3 chars)' }, 400)
   }
 
   try {
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       filter_user_id: user.id,
       match_count: limit * 2,
     })
-    if (error) return json({ ok: false, error: `RAG falló: ${error.message}` }, 500)
+    if (error) return json(req, { ok: false, error: `RAG falló: ${error.message}` }, 500)
 
     let rows = (chunks ?? []) as Array<{
       chunk_id: number; documento_id: string; contenido: string;
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     }
     rows = rows.slice(0, limit)
 
-    return json({
+    return json(req, {
       ok: true,
       count: rows.length,
       results: rows.map(r => ({
@@ -99,6 +99,6 @@ Deno.serve(async (req) => {
       })),
     })
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : 'búsqueda falló' }, 500)
+    return json(req, { ok: false, error: e instanceof Error ? e.message : 'búsqueda falló' }, 500)
   }
 })

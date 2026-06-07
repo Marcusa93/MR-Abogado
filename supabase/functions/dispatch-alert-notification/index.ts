@@ -23,10 +23,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { shouldNotify, NOTIF_EVENTS, type NotifPrefs } from '../_shared/notif-events.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -69,13 +69,13 @@ function renderEmailHtml(titulo: string, mensaje: string, urlAbs: string | null)
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   // Auth: aceptamos dos modos
   //   1. JWT de usuario autenticado (legacy: invocado desde el cliente)
   //   2. Service role key (trigger DB vía pg_net — el camino preferido)
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -88,11 +88,11 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     )
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
   }
 
   const body = await req.json().catch(() => null) as DispatchInput | null
-  if (!body) return json({ error: 'Body inválido' }, 400)
+  if (!body) return json(req, { error: 'Body inválido' }, 400)
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       .select('id, tipo, titulo, mensaje, usuario_id, link, expediente_id')
       .eq('id', body.alerta_id)
       .single()
-    if (error || !alerta) return json({ error: 'Alerta no encontrada' }, 404)
+    if (error || !alerta) return json(req, { error: 'Alerta no encontrada' }, 404)
     const a = alerta as AlertaRow
     alertaId = a.id
     tipo = a.tipo
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     url = a.link
   } else {
     if (!body.tipo || !body.usuario_id || !body.titulo) {
-      return json({ error: 'Faltan campos (tipo, usuario_id, titulo)' }, 400)
+      return json(req, { error: 'Faltan campos (tipo, usuario_id, titulo)' }, 400)
     }
     tipo = body.tipo
     usuario_id = body.usuario_id
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
 
   // Validar que el evento sea uno conocido
   const event = NOTIF_EVENTS.find(e => e.key === tipo)
-  if (!event) return json({ ok: true, skipped: 'tipo_desconocido' })
+  if (!event) return json(req, { ok: true, skipped: 'tipo_desconocido' })
 
   // Traer prefs y email del destinatario
   const { data: profileRow, error: profErr } = await admin
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
     .select('email, notif_prefs')
     .eq('id', usuario_id)
     .single()
-  if (profErr || !profileRow) return json({ error: 'Usuario destinatario no encontrado' }, 404)
+  if (profErr || !profileRow) return json(req, { error: 'Usuario destinatario no encontrado' }, 404)
 
   const profile = profileRow as { email: string | null; notif_prefs: NotifPrefs | null }
   const wantsPush = shouldNotify(profile.notif_prefs, tipo, 'push')
@@ -248,5 +248,5 @@ Deno.serve(async (req) => {
     await recordDispatch('email', 'skipped', 'pref_off')
   }
 
-  return json({ ok: true, tipo, usuario_id, ...result })
+  return json(req, { ok: true, tipo, usuario_id, ...result })
 })

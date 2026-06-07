@@ -14,7 +14,7 @@ const DEFAULT_MODEL = 'openai/gpt-4o-mini'
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders(req) })
   }
 
   try {
@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: 'OPENROUTER_API_KEY not configured on server' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Token inválido' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (!messages || !Array.isArray(messages)) {
       return new Response(
         JSON.stringify({ error: 'messages array is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       const errText = await openRouterRes.text().catch(() => '')
       return new Response(
         JSON.stringify({ error: `OpenRouter error ${openRouterRes.status}` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 502, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     if (stream) {
       return new Response(openRouterRes.body, {
         headers: {
-          ...corsHeaders,
+          ...corsHeaders(req),
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
@@ -102,12 +102,12 @@ Deno.serve(async (req) => {
     // Non-streaming: return JSON
     const data = await openRouterRes.json()
     return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
     })
   } catch (err) {
     return new Response(
       JSON.stringify({ error: 'Internal proxy error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
     )
   }
 })

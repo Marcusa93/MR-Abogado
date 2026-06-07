@@ -12,10 +12,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -78,11 +78,11 @@ interface ExpedienteHit {
 const DEFAULT_TIPOS = ['demanda', 'contestacion', 'sentencia', 'resolucion', 'apelacion']
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -90,13 +90,13 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { expediente_id?: string; limit?: number; tipos?: string[] }
       | null
     const expedienteId = body?.expediente_id
-    if (!expedienteId) return json({ error: 'Falta expediente_id' }, 400)
+    if (!expedienteId) return json(req, { error: 'Falta expediente_id' }, 400)
     const limit = Math.min(Math.max(body?.limit ?? 5, 1), 15)
     const tipos = Array.isArray(body?.tipos) && body!.tipos!.length > 0 ? body!.tipos! : DEFAULT_TIPOS
 
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     })
 
     if (relevantSources.length === 0) {
-      return json({
+      return json(req, {
         source_summaries: [],
         results: [],
         message: 'Este expediente todavía no tiene adjuntos analizados (demanda/contestación/sentencia). Subí y analizá uno para que el sistema busque expedientes similares.',
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     if (seed.ai_full_text) queryParts.push(seed.ai_full_text.slice(0, 1500))
 
     const queryText = queryParts.join('\n\n').trim()
-    if (!queryText) return json({ error: 'No hay texto de referencia en este expediente.' }, 400)
+    if (!queryText) return json(req, { error: 'No hay texto de referencia en este expediente.' }, 400)
 
     const queryEmbedding = await embedQuery(queryText, apiKey)
 
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
 
     const rows = (matches ?? []) as MatchRow[]
     if (rows.length === 0) {
-      return json({
+      return json(req, {
         source_summaries: relevantSources.slice(0, 3).map(s => s.ai_summary ?? ''),
         results: [],
         message: 'No encontré expedientes similares en tu corpus aún. A medida que subas y analices más demandas/sentencias, esta sección se va a ir poblando.',
@@ -229,13 +229,13 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.top_score - a.top_score)
       .slice(0, limit)
 
-    return json({
+    return json(req, {
       source_summaries: relevantSources.slice(0, 3).map(s => s.ai_summary ?? ''),
       results,
     })
 
   } catch (err) {
     console.error('[expediente-similares]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

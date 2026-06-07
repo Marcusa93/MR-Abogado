@@ -35,10 +35,10 @@ interface AiAnalysis {
   puntos_clave: string[]
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -54,11 +54,11 @@ function validateAnalysis(obj: unknown): AiAnalysis {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -66,10 +66,10 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as { transcript_id?: string } | null
-    if (!body?.transcript_id) return json({ error: 'transcript_id requerido' }, 400)
+    if (!body?.transcript_id) return json(req, { error: 'transcript_id requerido' }, 400)
 
     // Read via RLS to verify ownership
     const { data: t, error: tErr } = await anonClient
@@ -77,9 +77,9 @@ Deno.serve(async (req) => {
       .select('id, transcript, expediente_id')
       .eq('id', body.transcript_id)
       .maybeSingle()
-    if (tErr || !t) return json({ error: 'Transcripción no encontrada o sin permisos' }, 404)
+    if (tErr || !t) return json(req, { error: 'Transcripción no encontrada o sin permisos' }, 404)
     const tRow = t as unknown as { id: string; transcript: string | null; expediente_id: string }
-    if (!tRow.transcript?.trim()) return json({ error: 'La transcripción está vacía' }, 400)
+    if (!tRow.transcript?.trim()) return json(req, { error: 'La transcripción está vacía' }, 400)
 
     const aiRes = await fetch(OPENROUTER_URL, {
       method: 'POST',
@@ -103,12 +103,12 @@ Deno.serve(async (req) => {
 
     if (!aiRes.ok) {
       const text = await aiRes.text()
-      return json({ error: `OpenRouter ${aiRes.status}: ${text.slice(0, 200)}` }, 502)
+      return json(req, { error: `OpenRouter ${aiRes.status}: ${text.slice(0, 200)}` }, 502)
     }
 
     const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
     const content = payload.choices?.[0]?.message?.content
-    if (!content) return json({ error: 'OpenRouter no devolvió contenido' }, 502)
+    if (!content) return json(req, { error: 'OpenRouter no devolvió contenido' }, 502)
 
     const parsed = JSON.parse(content)
     const analysis = validateAnalysis(parsed)
@@ -152,10 +152,10 @@ Deno.serve(async (req) => {
       console.warn('[sae-analyze-transcript] no se pudieron disparar triggers', err)
     }
 
-    return json({ analysis })
+    return json(req, { analysis })
 
   } catch (err) {
     console.error('[sae-analyze-transcript]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

@@ -17,10 +17,10 @@ interface ImportResult {
   error?: string
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -29,7 +29,7 @@ function shouldRetryLegacyCreateExpediente(error: unknown): boolean {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     // ── Auth ─────────────────────────────────────────────────────────────────
@@ -40,19 +40,19 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     // ── Parse body ────────────────────────────────────────────────────────────
     let body: { cases?: ImportCase[] }
     try {
       body = await req.json()
     } catch {
-      return json({ error: 'Body JSON inválido' }, 400)
+      return json(req, { error: 'Body JSON inválido' }, 400)
     }
 
     const cases = body.cases
     if (!Array.isArray(cases) || cases.length === 0) {
-      return json({ error: 'Se requiere un array "cases" con al menos un elemento.' }, 400)
+      return json(req, { error: 'Se requiere un array "cases" con al menos un elemento.' }, 400)
     }
 
     // ── Importar cada expediente ───────────────────────────────────────────────
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     const exitosos = results.filter(r => r.success).length
     const errores = results.filter(r => !r.success).length
 
-    return json({
+    return json(req, {
       results,
       total: results.length,
       exitosos,
@@ -122,6 +122,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[sae-import]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

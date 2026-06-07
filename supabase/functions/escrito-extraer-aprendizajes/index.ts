@@ -25,9 +25,9 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')!
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
-    status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -135,11 +135,11 @@ async function callExtractor(diff: string): Promise<AprendizajeCandidato[]> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ ok: false, error: 'No autorizado' }, 401)
+    if (!authHeader) return json(req, { ok: false, error: 'No autorizado' }, 401)
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     const isServiceRole = token === serviceKey || decodeJwtRole(token) === 'service_role'
 
@@ -147,20 +147,20 @@ Deno.serve(async (req) => {
       escrito_id?: string
       on_behalf_of_user_id?: string
     } | null
-    if (!body?.escrito_id) return json({ ok: false, error: 'escrito_id requerido' }, 400)
+    if (!body?.escrito_id) return json(req, { ok: false, error: 'escrito_id requerido' }, 400)
 
     const admin = createClient(supabaseUrl, serviceKey)
 
     let userId: string
     if (isServiceRole) {
-      if (!body.on_behalf_of_user_id) return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      if (!body.on_behalf_of_user_id) return json(req, { ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
       userId = body.on_behalf_of_user_id
     } else {
       const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
         global: { headers: { Authorization: authHeader } },
       })
       const { data: { user }, error: authErr } = await userClient.auth.getUser()
-      if (authErr || !user) return json({ ok: false, error: 'Token inválido' }, 401)
+      if (authErr || !user) return json(req, { ok: false, error: 'Token inválido' }, 401)
       userId = user.id
     }
 
@@ -170,12 +170,12 @@ Deno.serve(async (req) => {
       .select('id, user_id, tipo, contenido, contenido_original, expediente_id')
       .eq('id', body.escrito_id)
       .single()
-    if (escErr || !escrito) return json({ ok: false, error: 'Escrito no encontrado' }, 404)
+    if (escErr || !escrito) return json(req, { ok: false, error: 'Escrito no encontrado' }, 404)
     if ((escrito as { user_id: string }).user_id !== userId) {
-      return json({ ok: false, error: 'Sin permisos sobre este escrito' }, 403)
+      return json(req, { ok: false, error: 'Sin permisos sobre este escrito' }, 403)
     }
     if (!(escrito as { contenido_original?: unknown }).contenido_original) {
-      return json({ ok: true, skipped: true, reason: 'Sin contenido_original (escrito previo a la migración 062). Nada que diffear.' })
+      return json(req, { ok: true, skipped: true, reason: 'Sin contenido_original (escrito previo a la migración 062). Nada que diffear.' })
     }
 
     // 2) Diffear
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     const finalText = flattenEscrito((escrito as { contenido: unknown }).contenido)
     const diff = summarizeDiff(origText, finalText)
     if (diff.changed_chars < MIN_DIFF_CHARS) {
-      return json({ ok: true, skipped: true, reason: `Diff muy chico (${diff.changed_chars} chars). Mínimo ${MIN_DIFF_CHARS}.` })
+      return json(req, { ok: true, skipped: true, reason: `Diff muy chico (${diff.changed_chars} chars). Mínimo ${MIN_DIFF_CHARS}.` })
     }
 
     // 3) Cargar contexto del expediente (tipo de proceso, fuero) para enriquecer aprendizajes
@@ -199,11 +199,11 @@ Deno.serve(async (req) => {
       candidatos = await callExtractor(diff.resumen)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      return json({ ok: false, error: msg }, 502)
+      return json(req, { ok: false, error: msg }, 502)
     }
 
     if (candidatos.length === 0) {
-      return json({ ok: true, aprendizajes_extraidos: 0, reason: 'El LLM no encontró patrones reusables.' })
+      return json(req, { ok: true, aprendizajes_extraidos: 0, reason: 'El LLM no encontró patrones reusables.' })
     }
 
     // 5) Por cada candidato: primero intentar dedupe con aprendizajes
@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
       detalles.push({ status: 'nuevo', contenido: c.contenido })
     }
 
-    return json({
+    return json(req, {
       ok: true,
       escrito_id: body.escrito_id,
       nuevos_propuestos: nuevos,
@@ -259,6 +259,6 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[escrito-extraer-aprendizajes] unhandled', msg)
-    return json({ ok: false, error: msg }, 500)
+    return json(req, { ok: false, error: msg }, 500)
   }
 })

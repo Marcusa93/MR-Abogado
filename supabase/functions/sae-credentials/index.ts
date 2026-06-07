@@ -13,15 +13,15 @@ async function encryptPassword(plaintext: string, keyHex: string): Promise<strin
   return btoa(String.fromCharCode(...combined))
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const anonClient = createClient(
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -47,11 +47,11 @@ Deno.serve(async (req) => {
         .eq('profile_id', user.id)
         .eq('provider', provider)
       if (error) throw error
-      return json({ success: true })
+      return json(req, { success: true })
     }
 
     if (!username || !password) {
-      return json({ error: 'Se requieren usuario y contraseña' }, 400)
+      return json(req, { error: 'Se requieren usuario y contraseña' }, 400)
     }
 
     const encryptionKey = Deno.env.get('SAE_ENCRYPTION_KEY')
@@ -72,9 +72,9 @@ Deno.serve(async (req) => {
 
     if (error) throw error
 
-    return json({ success: true, credential: data })
+    return json(req, { success: true, credential: data })
   } catch (err) {
     console.error('[sae-credentials]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

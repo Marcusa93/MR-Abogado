@@ -3,15 +3,15 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { authenticateWithSae, SaeError } from '../_shared/sae-request-connector.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const anonClient = createClient(
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -34,14 +34,14 @@ Deno.serve(async (req) => {
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credError) throw credError
-    if (!cred) return json({ error: 'No tenés credenciales SAE configuradas.' }, 400)
+    if (!cred) return json(req, { error: 'No tenés credenciales SAE configuradas.' }, 400)
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
       userId: user.id,
     })
     if (!password) {
-      return json({ error: 'No se pudo recuperar la contraseña. Reingresá tus credenciales.' }, 500)
+      return json(req, { error: 'No se pudo recuperar la contraseña. Reingresá tus credenciales.' }, 500)
     }
 
     try {
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         .update({ status: 'activo', last_login_at: new Date().toISOString(), last_error: null })
         .eq('id', cred.id)
 
-      return json({ success: true })
+      return json(req, { success: true })
 
     } catch (saeErr) {
       const msg = saeErr instanceof SaeError ? saeErr.message : 'Error al conectar con SAE'
@@ -64,11 +64,11 @@ Deno.serve(async (req) => {
         .eq('id', cred.id)
 
       // Return 400 so the client can read the error body (non-2xx → data=null in supabase-js)
-      return json({ error: msg, error_code: code }, 400)
+      return json(req, { error: msg, error_code: code }, 400)
     }
 
   } catch (err) {
     console.error('[sae-verify]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

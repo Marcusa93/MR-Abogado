@@ -178,10 +178,10 @@ interface MovementRow {
   } | null
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -518,11 +518,11 @@ ${entries}`
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -530,7 +530,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as {
       expediente_id?: string
@@ -540,8 +540,8 @@ Deno.serve(async (req) => {
       template_id?: string | null
     } | null
 
-    if (!body?.expediente_id) return json({ error: 'expediente_id requerido' }, 400)
-    if (!body?.tipo?.trim()) return json({ error: 'tipo de escrito requerido' }, 400)
+    if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
+    if (!body?.tipo?.trim()) return json(req, { error: 'tipo de escrito requerido' }, 400)
 
     // 1) Verificar acceso al expediente (RLS-respecting client)
     const { data: expAuth, error: authExpError } = await anonClient
@@ -549,7 +549,7 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('id', body.expediente_id)
       .maybeSingle()
-    if (authExpError || !expAuth) return json({ error: 'Expediente no encontrado o sin permisos' }, 404)
+    if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -562,11 +562,11 @@ Deno.serve(async (req) => {
       .select('nombre, apellido, matricula, matricula_libro, matricula_folio, domicilio_legal, telefono, email, casillero_notif, cuit')
       .eq('id', user.id)
       .single()
-    if (profileError || !profileRaw) return json({ error: 'Perfil del abogado no encontrado' }, 404)
+    if (profileError || !profileRaw) return json(req, { error: 'Perfil del abogado no encontrado' }, 404)
 
     const profile = profileRaw as Profile
     if (!profile.matricula || !profile.domicilio_legal || !profile.cuit) {
-      return json({
+      return json(req, {
         error: 'Completá tus datos profesionales en Configuración antes de generar escritos (matrícula, domicilio legal, CUIT).',
         code: 'PROFILE_INCOMPLETE',
       }, 412)
@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
       .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
       .eq('id', body.expediente_id)
       .single()
-    if (expError || !expRaw) return json({ error: 'Expediente no encontrado' }, 404)
+    if (expError || !expRaw) return json(req, { error: 'Expediente no encontrado' }, 404)
     const exp = expRaw as unknown as ExpedienteRow
 
     // 4) Cargar movimientos y filtrar a SOLO claves
@@ -709,12 +709,12 @@ Redactá el escrito siguiendo el formato JSON indicado.`
 
     if (!aiRes.ok) {
       const txt = await aiRes.text()
-      return json({ error: `OpenRouter ${aiRes.status}: ${txt.slice(0, 300)}` }, 502)
+      return json(req, { error: `OpenRouter ${aiRes.status}: ${txt.slice(0, 300)}` }, 502)
     }
 
     const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
     const raw = payload.choices?.[0]?.message?.content?.trim()
-    if (!raw) return json({ error: 'El modelo no devolvió contenido' }, 502)
+    if (!raw) return json(req, { error: 'El modelo no devolvió contenido' }, 502)
 
     let contenido: unknown
     try {
@@ -725,7 +725,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       try {
         contenido = JSON.parse(stripped)
       } catch {
-        return json({ error: 'El modelo devolvió JSON inválido', raw: raw.slice(0, 500) }, 502)
+        return json(req, { error: 'El modelo devolvió JSON inválido', raw: raw.slice(0, 500) }, 502)
       }
     }
 
@@ -754,7 +754,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
 
     if (insertError) {
       console.error('[escritos-generate] insert error', insertError)
-      return json({ error: `No se pudo guardar el escrito: ${insertError.message}` }, 500)
+      return json(req, { error: `No se pudo guardar el escrito: ${insertError.message}` }, 500)
     }
 
     const escritoId = (escrito as { id: string }).id
@@ -797,7 +797,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
     }
 
-    return json({
+    return json(req, {
       escrito_id: escritoId,
       contenido,
       modelo: DEFAULT_MODEL,
@@ -811,6 +811,6 @@ Redactá el escrito siguiendo el formato JSON indicado.`
 
   } catch (err) {
     console.error('[escritos-generate]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

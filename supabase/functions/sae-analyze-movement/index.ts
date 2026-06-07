@@ -6,10 +6,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { analyzeMovementWithAI, shouldAnalyzeMovement } from '../_shared/sae-ai-analyzer.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -23,12 +23,12 @@ interface MovementRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) {
-      return json({ error: 'OPENROUTER_API_KEY no está configurada en Edge Functions secrets.' }, 500)
+      return json(req, { error: 'OPENROUTER_API_KEY no está configurada en Edge Functions secrets.' }, 500)
     }
 
     const anonClient = createClient(
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | {
@@ -54,13 +54,13 @@ Deno.serve(async (req) => {
       : body?.movement_id
         ? [body.movement_id]
         : []
-    if (!ids.length) return json({ error: 'Especificá movement_id o movement_ids.' }, 400)
-    if (ids.length > 25) return json({ error: 'Máximo 25 actuaciones por llamada.' }, 400)
+    if (!ids.length) return json(req, { error: 'Especificá movement_id o movement_ids.' }, 400)
+    if (ids.length > 25) return json(req, { error: 'Máximo 25 actuaciones por llamada.' }, 400)
 
     const documentText = typeof body?.document_text === 'string' ? body.document_text.trim() : undefined
     const documentFileNames = Array.isArray(body?.document_file_names) ? body.document_file_names.filter((s): s is string => typeof s === 'string') : undefined
     if (documentText && ids.length > 1) {
-      return json({ error: 'document_text solo se acepta con un único movement_id.' }, 400)
+      return json(req, { error: 'document_text solo se acepta con un único movement_id.' }, 400)
     }
 
     const serviceClient = createClient(
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       .select('id, expediente_id, titulo, cuerpo, tipo_movimiento, fecha')
       .in('id', ids)
     if (fetchError) throw fetchError
-    if (!movements || movements.length === 0) return json({ error: 'No se encontraron las actuaciones.' }, 404)
+    if (!movements || movements.length === 0) return json(req, { error: 'No se encontraron las actuaciones.' }, 404)
 
     // Authorization: ensure the user owns (or is member of) every expediente involved
     const expedienteIds = [...new Set(movements.map((m: MovementRow) => m.expediente_id))]
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     const ownedSet = new Set((ownedExps ?? []).map((e: { id: string }) => e.id))
     const allowedMovements = (movements as MovementRow[]).filter(m => ownedSet.has(m.expediente_id))
     if (allowedMovements.length !== movements.length) {
-      return json({ error: 'No tenés permiso sobre alguna de las actuaciones.' }, 403)
+      return json(req, { error: 'No tenés permiso sobre alguna de las actuaciones.' }, 403)
     }
 
     const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean }[] = []
@@ -170,10 +170,10 @@ Deno.serve(async (req) => {
     const failed = results.filter(r => !r.success && !r.skipped).length
     const skipped = results.filter(r => r.skipped).length
 
-    return json({ results, analyzed, failed, skipped })
+    return json(req, { results, analyzed, failed, skipped })
 
   } catch (err) {
     console.error('[sae-analyze-movement]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

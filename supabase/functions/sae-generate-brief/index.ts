@@ -46,19 +46,19 @@ interface MovementRow {
   cuerpo: string | null
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -66,10 +66,10 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as { expediente_id?: string } | null
-    if (!body?.expediente_id) return json({ error: 'expediente_id requerido' }, 400)
+    if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
 
     // Verify ownership via RLS-respecting client
     const { data: expedienteAuth, error: authExpError } = await anonClient
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('id', body.expediente_id)
       .maybeSingle()
-    if (authExpError || !expedienteAuth) return json({ error: 'Expediente no encontrado o sin permisos' }, 404)
+    if (authExpError || !expedienteAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, cliente:clientes(nombre, apellido)')
       .eq('id', body.expediente_id)
       .single()
-    if (expError || !exp) return json({ error: 'Expediente no encontrado' }, 404)
+    if (expError || !exp) return json(req, { error: 'Expediente no encontrado' }, 404)
 
     const expRow = exp as unknown as ExpedienteRow
 
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     const movs = (movements ?? []) as unknown as MovementRow[]
 
     if (movs.length === 0) {
-      return json({ error: 'El expediente no tiene actuaciones SAE para resumir.' }, 400)
+      return json(req, { error: 'El expediente no tiene actuaciones SAE para resumir.' }, 400)
     }
 
     // Build context
@@ -162,12 +162,12 @@ ${movContext}`
 
     if (!aiRes.ok) {
       const txt = await aiRes.text()
-      return json({ error: `OpenRouter ${aiRes.status}: ${txt.slice(0, 200)}` }, 502)
+      return json(req, { error: `OpenRouter ${aiRes.status}: ${txt.slice(0, 200)}` }, 502)
     }
 
     const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
     const brief = payload.choices?.[0]?.message?.content?.trim()
-    if (!brief) return json({ error: 'OpenRouter no devolvió contenido' }, 502)
+    if (!brief) return json(req, { error: 'OpenRouter no devolvió contenido' }, 502)
 
     const generatedAt = new Date().toISOString()
     await serviceClient
@@ -181,10 +181,10 @@ ${movContext}`
       })
       .eq('id', body.expediente_id)
 
-    return json({ brief, model: DEFAULT_MODEL, generated_at: generatedAt })
+    return json(req, { brief, model: DEFAULT_MODEL, generated_at: generatedAt })
 
   } catch (err) {
     console.error('[sae-generate-brief]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

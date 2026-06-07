@@ -396,12 +396,12 @@ async function processDocument(documentoId: string, apiKey: string, presetText?:
 // ── HTTP handler ────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY no configurada' }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
     })
   }
 
@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       })
     }
 
@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: 'Token inválido' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       })
     }
 
@@ -452,13 +452,13 @@ Deno.serve(async (req) => {
         .single()
       if (docErr || !doc) {
         return new Response(JSON.stringify({ error: 'Documento no encontrado o sin acceso' }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       // @ts-ignore EdgeRuntime es global en Supabase Edge Functions
       EdgeRuntime.waitUntil(processDocument(body.documento_id, apiKey))
       return new Response(JSON.stringify({ accepted: true, documento_id: body.documento_id }), {
-        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 202, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       })
     }
 
@@ -466,13 +466,13 @@ Deno.serve(async (req) => {
     if (body.mode === 'url') {
       if (!body.url) {
         return new Response(JSON.stringify({ error: 'url requerida' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       const detect = detectarFuenteUrl(body.url)
       if (!detect) {
         return new Response(JSON.stringify({ error: 'URL no soportada. Soportadas: InfoLEG, SAIJ.' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       const supaUrl = Deno.env.get('SUPABASE_URL')!
@@ -489,14 +489,14 @@ Deno.serve(async (req) => {
       const lookupData = await lookupRes.json()
       if (!lookupData?.ok) {
         return new Response(JSON.stringify({ error: `Extracción ${detect.source} falló: ${lookupData?.error}` }), {
-          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 502, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       const remoto = lookupData.result as Record<string, any>
       const texto = (remoto.texto_completo ?? '').toString().trim()
       if (texto.length < 200) {
         return new Response(JSON.stringify({ error: 'Texto remoto muy corto (<200 chars). Probá pegar el texto manual.' }), {
-          status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 422, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       const titulo = body.titulo?.trim() || remoto.titulo || remoto.caratula || 'Norma importada'
@@ -514,17 +514,17 @@ Deno.serve(async (req) => {
       if (insErr) {
         if (insErr.code === '23505') {
           return new Response(JSON.stringify({ error: 'Esta norma ya estaba en tu corpus' }), {
-            status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 409, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
           })
         }
         return new Response(JSON.stringify({ error: insErr.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       // @ts-ignore EdgeRuntime
       EdgeRuntime.waitUntil(processDocument(doc.id, apiKey, texto))
       return new Response(JSON.stringify({ accepted: true, documento_id: doc.id, source: detect.source }), {
-        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 202, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       })
     }
 
@@ -532,12 +532,12 @@ Deno.serve(async (req) => {
     if (body.mode === 'paste') {
       if (!body.texto || body.texto.trim().length < 200) {
         return new Response(JSON.stringify({ error: 'texto muy corto (mínimo 200 chars)' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       if (!body.titulo?.trim() || !body.tipo?.trim()) {
         return new Response(JSON.stringify({ error: 'titulo y tipo requeridos para paste' }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       const texto = body.texto.trim()
@@ -553,28 +553,28 @@ Deno.serve(async (req) => {
       if (insErr) {
         if (insErr.code === '23505') {
           return new Response(JSON.stringify({ error: 'Esta norma ya estaba en tu corpus' }), {
-            status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 409, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
           })
         }
         return new Response(JSON.stringify({ error: insErr.message }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
         })
       }
       // @ts-ignore EdgeRuntime
       EdgeRuntime.waitUntil(processDocument(doc.id, apiKey, texto))
       return new Response(JSON.stringify({ accepted: true, documento_id: doc.id, source: 'manual_paste' }), {
-        status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 202, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       })
     }
 
     return new Response(JSON.stringify({ error: 'Body inválido: pasá documento_id o mode (url|paste).' }), {
-      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
     })
 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
     })
   }
 })

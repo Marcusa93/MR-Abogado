@@ -31,10 +31,10 @@ const MODEL = 'anthropic/claude-sonnet-4'
 const MAX_ITERATIONS = 6
 const MAX_TOKENS = 2048
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -128,17 +128,17 @@ interface ChatMessage {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
     global: { headers: { Authorization: authHeader } },
   })
   const { data: { user }, error: authErr } = await userClient.auth.getUser()
-  if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+  if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
 
   // Cargar profile para saber el rol
   const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -157,11 +157,11 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => null)
   if (!body || !Array.isArray(body.messages)) {
-    return json({ error: 'body.messages requerido' }, 400)
+    return json(req, { error: 'body.messages requerido' }, 400)
   }
 
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-  if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+  if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
   // Armar mensajes iniciales con system + contexto de página
   const pageCtxMsg = body.page_context
@@ -211,18 +211,18 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
-      return json({ error: `LLM ${res.status}: ${errText.slice(0, 400)}` }, 500)
+      return json(req, { error: `LLM ${res.status}: ${errText.slice(0, 400)}` }, 500)
     }
 
     const data = await res.json()
     const msg = data?.choices?.[0]?.message
-    if (!msg) return json({ error: 'Respuesta vacía del LLM' }, 500)
+    if (!msg) return json(req, { error: 'Respuesta vacía del LLM' }, 500)
 
     const toolCalls = msg.tool_calls as ChatMessage['tool_calls']
 
     // No hay más tool calls → respuesta final
     if (!toolCalls || toolCalls.length === 0) {
-      return json({
+      return json(req, {
         reply: msg.content ?? '',
         pending_action: pendingAction,
         tool_calls: traceOut,
@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
   }
 
   // Llegamos al límite de iteraciones
-  return json({
+  return json(req, {
     reply: 'Quedé en un loop demasiado largo. Intentá replantear la consulta.',
     pending_action: pendingAction,
     tool_calls: traceOut,

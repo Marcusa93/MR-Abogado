@@ -6,10 +6,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { analyzeAdjuntoWithAI } from '../_shared/adjunto-ai-analyzer.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -23,12 +23,12 @@ interface AdjuntoRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) {
-      return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+      return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
     }
 
     const anonClient = createClient(
@@ -37,15 +37,15 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { adjunto_id?: string; document_text?: string; force?: boolean }
       | null
     const adjuntoId = body?.adjunto_id
     const documentText = typeof body?.document_text === 'string' ? body.document_text : ''
-    if (!adjuntoId) return json({ error: 'Falta adjunto_id' }, 400)
-    if (!documentText.trim()) return json({ error: 'Falta document_text (probable PDF escaneado).' }, 400)
+    if (!adjuntoId) return json(req, { error: 'Falta adjunto_id' }, 400)
+    if (!documentText.trim()) return json(req, { error: 'Falta document_text (probable PDF escaneado).' }, 400)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       .is('deleted_at', null)
       .maybeSingle()
     if (ownedError) throw ownedError
-    if (!ownedRows) return json({ error: 'Adjunto no encontrado o sin permisos.' }, 404)
+    if (!ownedRows) return json(req, { error: 'Adjunto no encontrado o sin permisos.' }, 404)
 
     const adj = ownedRows as AdjuntoRow
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         .select('ai_summary, ai_extracted, ai_model')
         .eq('id', adjuntoId)
         .single()
-      return json({
+      return json(req, {
         success: true,
         cached: true,
         summary: existing?.ai_summary ?? '',
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({
+      return json(req, {
         success: true,
         cached: false,
         summary: analysis.summary,
@@ -157,11 +157,11 @@ Deno.serve(async (req) => {
           ai_analyzed_at: new Date().toISOString(),
         })
         .eq('id', adjuntoId)
-      return json({ success: false, error: msg }, 502)
+      return json(req, { success: false, error: msg }, 502)
     }
 
   } catch (err) {
     console.error('[analyze-adjunto] fatal', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

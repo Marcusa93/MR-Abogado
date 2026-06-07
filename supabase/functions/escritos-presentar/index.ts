@@ -37,10 +37,10 @@ const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -168,11 +168,11 @@ function parseForm(html: string, formUrl: string): FormMetadata {
 // ─── HTTP handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'No autorizado' }, 401)
+    if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     )
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
 
     const body = await req.json().catch(() => null) as {
       escrito_id?: string
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       dry_run?: boolean   // si true: hace login + GET form, NO submit; devuelve categorías reales
     } | null
 
-    if (!body?.escrito_id) return json({ error: 'escrito_id requerido' }, 400)
+    if (!body?.escrito_id) return json(req, { error: 'escrito_id requerido' }, 400)
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
       .select('id, user_id, expediente_id, titulo, estado, pdf_firmado_path, expediente:expedientes(id, numero_sae, caratula, fuero)')
       .eq('id', body.escrito_id)
       .single()
-    if (escErr || !escritoRow) return json({ error: 'Escrito no encontrado' }, 404)
+    if (escErr || !escritoRow) return json(req, { error: 'Escrito no encontrado' }, 404)
 
     const escrito = escritoRow as unknown as {
       id: string; user_id: string; expediente_id: string; titulo: string;
@@ -211,12 +211,12 @@ Deno.serve(async (req) => {
       expediente: { id: string; numero_sae: string | null; caratula: string | null; fuero: string | null } | null
     }
 
-    if (escrito.user_id !== user.id) return json({ error: 'Sin permisos sobre este escrito' }, 403)
+    if (escrito.user_id !== user.id) return json(req, { error: 'Sin permisos sobre este escrito' }, 403)
     if (!body.dry_run && escrito.estado !== 'firmado') {
-      return json({ error: 'El escrito debe estar firmado para presentarlo. Adjuntá el PDF firmado primero.', code: 'NOT_SIGNED' }, 412)
+      return json(req, { error: 'El escrito debe estar firmado para presentarlo. Adjuntá el PDF firmado primero.', code: 'NOT_SIGNED' }, 412)
     }
     if (!escrito.expediente?.numero_sae) {
-      return json({ error: 'El expediente no tiene número SAE asociado', code: 'NO_NUMERO_SAE' }, 412)
+      return json(req, { error: 'El expediente no tiene número SAE asociado', code: 'NO_NUMERO_SAE' }, 412)
     }
 
     // 2) Credenciales SAE del usuario
@@ -225,14 +225,14 @@ Deno.serve(async (req) => {
       .select('username, encrypted_secret, status')
       .eq('profile_id', user.id)
       .maybeSingle()
-    if (credErr || !credRow) return json({ error: 'Credenciales SAE no configuradas', code: 'NO_SAE_CREDS' }, 412)
+    if (credErr || !credRow) return json(req, { error: 'Credenciales SAE no configuradas', code: 'NO_SAE_CREDS' }, 412)
 
     const cred = credRow as { username: string; encrypted_secret: string | null; status: string }
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient: admin,
       userId: user.id,
     })
-    if (!password) return json({ error: 'Credenciales SAE inválidas', code: 'BAD_SAE_CREDS' }, 412)
+    if (!password) return json(req, { error: 'Credenciales SAE inválidas', code: 'BAD_SAE_CREDS' }, 412)
 
     // 3) Login al SAE
     let session: SaeSession
@@ -240,18 +240,18 @@ Deno.serve(async (req) => {
       session = await authenticateWithSae({ username: cred.username, password })
     } catch (e) {
       const code = e instanceof SaeError ? e.code : 'SAE_AUTH_UNKNOWN'
-      return json({ error: e instanceof Error ? e.message : 'Login SAE falló', code }, 502)
+      return json(req, { error: e instanceof Error ? e.message : 'Login SAE falló', code }, 502)
     }
 
     // 4) Resolver expediente en el SAE → procid + jurisdictionId + fueroSlug
     const resolved = await resolveExpedienteInSae(escrito.expediente.numero_sae, session)
-    if (!resolved) return json({ error: 'Expediente no encontrado entre los del usuario en el SAE', code: 'EXP_NOT_FOUND' }, 404)
+    if (!resolved) return json(req, { error: 'Expediente no encontrado entre los del usuario en el SAE', code: 'EXP_NOT_FOUND' }, 404)
 
     // 5) GET al form de presentación
     const formUrl = `${PORTAL_BASE}/ingreso-escritos/create/${resolved.fueroSlug}/${resolved.procid}/${resolved.jurisdictionId}`
     const formRes = await fetch(formUrl, { headers: portalHeaders(session) })
     if (!formRes.ok) {
-      return json({
+      return json(req, {
         error: `El portal devolvió ${formRes.status} al abrir el form de presentación`,
         code: 'FORM_FETCH_FAILED',
         form_url: formUrl,
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
 
     // Dry-run: devuelve metadata para que el frontend muestre categorías reales
     if (body.dry_run) {
-      return json({
+      return json(req, {
         ok: true,
         dry_run: true,
         form_url: formUrl,
@@ -281,13 +281,13 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (!body.categoria?.trim()) return json({ error: 'categoria requerida' }, 400)
-    if (!body.descripcion?.trim()) return json({ error: 'descripcion requerida' }, 400)
+    if (!body.categoria?.trim()) return json(req, { error: 'categoria requerida' }, 400)
+    if (!body.descripcion?.trim()) return json(req, { error: 'descripcion requerida' }, 400)
 
     // 6) Matchear la categoría pedida con el value del <option>
     const categoriaId = form.categorias.get(normalizeKey(body.categoria))
     if (!categoriaId) {
-      return json({
+      return json(req, {
         error: `Categoría no encontrada en el portal: "${body.categoria}". Categorías disponibles: ${categoriasList.map(c => c.nombre).join(', ')}`,
         code: 'CATEGORIA_INVALID',
         categorias: categoriasList,
@@ -295,13 +295,13 @@ Deno.serve(async (req) => {
     }
 
     // 7) Bajar el PDF firmado del bucket
-    if (!escrito.pdf_firmado_path) return json({ error: 'No hay PDF firmado adjunto' }, 412)
+    if (!escrito.pdf_firmado_path) return json(req, { error: 'No hay PDF firmado adjunto' }, 412)
     const { data: pdfFile, error: pdfErr } = await admin
       .storage.from('escritos-firmados').download(escrito.pdf_firmado_path)
-    if (pdfErr || !pdfFile) return json({ error: `No se pudo bajar el PDF firmado: ${pdfErr?.message}` }, 500)
+    if (pdfErr || !pdfFile) return json(req, { error: `No se pudo bajar el PDF firmado: ${pdfErr?.message}` }, 500)
     const pdfBuffer = new Uint8Array(await pdfFile.arrayBuffer())
     if (pdfBuffer.byteLength > 7864320) {
-      return json({ error: 'El PDF excede el límite de 7.5 MB del portal del SAE', code: 'PDF_TOO_LARGE' }, 413)
+      return json(req, { error: 'El PDF excede el límite de 7.5 MB del portal del SAE', code: 'PDF_TOO_LARGE' }, 413)
     }
 
     // 8) POST multipart al endpoint del portal
@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
     const errorMatch = submitText.match(/alert[-_](?:danger|error)[^>]*>\s*([^<]{5,300})</i)
                     ?? submitText.match(/<div[^>]*class="[^"]*error[^"]*"[^>]*>\s*([^<]{5,300})</i)
     if (!submitRes.ok || errorMatch) {
-      return json({
+      return json(req, {
         error: errorMatch?.[1]?.trim() || `Portal devolvió ${submitRes.status}`,
         code: 'SUBMIT_FAILED',
         status: submitRes.status,
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     } as never).eq('id', escrito.id)
 
-    return json({
+    return json(req, {
       ok: true,
       escrito_id: escrito.id,
       nro_comprobante: comprobante,
@@ -385,6 +385,6 @@ Deno.serve(async (req) => {
 
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return json({ error: msg, code: 'INTERNAL' }, 500)
+    return json(req, { error: msg, code: 'INTERNAL' }, 500)
   }
 })

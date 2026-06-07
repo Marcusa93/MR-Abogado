@@ -22,10 +22,10 @@ const GROQ_WHISPER_MODEL = 'whisper-large-v3-turbo' // 25 MB cap, español ok
 const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -202,13 +202,13 @@ async function transcribe(audio: ArrayBuffer, fileName: string, opts: { groqKey?
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const groqKey = Deno.env.get('GROQ_API_KEY')
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!groqKey && !openaiKey) {
-      return json({ error: 'Configurá GROQ_API_KEY (recomendado) o OPENAI_API_KEY en Edge Functions secrets' }, 500)
+      return json(req, { error: 'Configurá GROQ_API_KEY (recomendado) o OPENAI_API_KEY en Edge Functions secrets' }, 500)
     }
 
     const anonClient = createClient(
@@ -217,12 +217,12 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as RequestBody | null
-    if (!body || !body.source) return json({ error: 'Body inválido' }, 400)
+    if (!body || !body.source) return json(req, { error: 'Body inválido' }, 400)
     if (body.source !== 'sae_attachment' && body.source !== 'upload') {
-      return json({ error: 'source debe ser "sae_attachment" o "upload"' }, 400)
+      return json(req, { error: 'source debe ser "sae_attachment" o "upload"' }, 400)
     }
 
     const serviceClient = createClient(
@@ -243,13 +243,13 @@ Deno.serve(async (req) => {
         .eq('profile_id', user.id)
         .eq('provider', 'justucuman')
         .maybeSingle()
-      if (!cred) return json({ error: 'No tenés credenciales SAE configuradas' }, 400)
+      if (!cred) return json(req, { error: 'No tenés credenciales SAE configuradas' }, 400)
       const credRow = cred as unknown as { username: string; encrypted_secret: string | null }
       const password = await readSaePassword(credRow.encrypted_secret, {
         serviceClient,
         userId: user.id,
       })
-      if (!password) return json({ error: 'No se pudo recuperar la contraseña SAE' }, 500)
+      if (!password) return json(req, { error: 'No se pudo recuperar la contraseña SAE' }, 500)
 
       const result = await downloadFromSae(body.movement_id, body.file_name, serviceClient, credRow.username, password)
       audioBytes = result.bytes
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
           .eq('id', body.movement_id)
           .single()
         const mRow = m as unknown as { expediente_id: string } | null
-        if (!mRow) return json({ error: 'Actuación no encontrada' }, 404)
+        if (!mRow) return json(req, { error: 'Actuación no encontrada' }, 404)
         expedienteId = mRow.expediente_id
         movementId = body.movement_id
       } else if (body.audiencia_id) {
@@ -276,11 +276,11 @@ Deno.serve(async (req) => {
           .eq('id', body.audiencia_id)
           .single()
         const aRow = a as unknown as { expediente_id: string } | null
-        if (!aRow) return json({ error: 'Audiencia no encontrada' }, 404)
+        if (!aRow) return json(req, { error: 'Audiencia no encontrada' }, 404)
         expedienteId = aRow.expediente_id
         audienciaId = body.audiencia_id
       } else {
-        return json({ error: 'Para source=upload se requiere movement_id o audiencia_id' }, 400)
+        return json(req, { error: 'Para source=upload se requiere movement_id o audiencia_id' }, 400)
       }
     }
 
@@ -337,7 +337,7 @@ Deno.serve(async (req) => {
     if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(backgroundWork)
     else void backgroundWork // fallback para devs locales
 
-    return json({
+    return json(req, {
       transcript_id: transcriptId,
       status: 'transcribing',
       message: 'Transcripción en proceso. Vas a verla cuando termine (~30s-2min).',
@@ -346,6 +346,6 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error('[sae-transcribe-audio]', err)
     const msg = err instanceof SaeError ? err.message : err instanceof Error ? err.message : 'Error interno'
-    return json({ error: msg }, 500)
+    return json(req, { error: msg }, 500)
   }
 })

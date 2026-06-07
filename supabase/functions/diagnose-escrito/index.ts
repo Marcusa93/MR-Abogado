@@ -20,10 +20,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'anthropic/claude-sonnet-4'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -155,20 +155,20 @@ async function canViewExpediente(admin: any, userId: string, expedienteId: strin
 // ─── HTTP handler ─────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     return await handleDiagnose(req)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'error desconocido'
     console.error('[diagnose-escrito] unhandled exception:', msg, e instanceof Error ? e.stack : '')
-    return json({ ok: false, error: 'Excepción del servidor', detail: msg.slice(0, 400) }, 200)
+    return json(req, { ok: false, error: 'Excepción del servidor', detail: msg.slice(0, 400) }, 200)
   }
 })
 
 async function handleDiagnose(req: Request): Promise<Response> {
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -180,7 +180,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
     // Llamada interna o de testing — requiere on_behalf_of_user_id en el body
     const peekBody = await req.clone().json().catch(() => null) as any
     if (!peekBody?.on_behalf_of_user_id) {
-      return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      return json(req, { ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
     }
     userId = peekBody.on_behalf_of_user_id
   } else {
@@ -188,7 +188,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
     userId = user.id
   }
 
@@ -206,7 +206,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
     tipo?: string
     area?: string
   } | null
-  if (!body) return json({ error: 'Body inválido' }, 400)
+  if (!body) return json(req, { error: 'Body inválido' }, 400)
 
   let textoEscrito = ''
   let escritoMeta: { id?: string; titulo?: string; tipo?: string; expediente_id?: string } = {}
@@ -217,10 +217,10 @@ async function handleDiagnose(req: Request): Promise<Response> {
       .select('id, titulo, tipo, contenido, expediente_id')
       .eq('id', body.escrito_id)
       .single()
-    if (error || !escrito) return json({ error: 'Escrito no encontrado' }, 404)
+    if (error || !escrito) return json(req, { error: 'Escrito no encontrado' }, 404)
 
     if (escrito.expediente_id && !(await canViewExpediente(admin, user.id, escrito.expediente_id, isStaff))) {
-      return json({ error: 'No tenés permiso para ver este expediente' }, 403)
+      return json(req, { error: 'No tenés permiso para ver este expediente' }, 403)
     }
 
     textoEscrito = extractText((escrito as any).contenido)
@@ -234,15 +234,15 @@ async function handleDiagnose(req: Request): Promise<Response> {
     textoEscrito = body.contenido
     escritoMeta = { titulo: body.titulo, tipo: body.tipo }
   } else {
-    return json({ error: 'Falta escrito_id o contenido' }, 400)
+    return json(req, { error: 'Falta escrito_id o contenido' }, 400)
   }
 
   if (!textoEscrito || textoEscrito.trim().length < 50) {
-    return json({ error: 'El escrito está vacío o es muy corto para diagnosticar' }, 400)
+    return json(req, { error: 'El escrito está vacío o es muy corto para diagnosticar' }, 400)
   }
 
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-  if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+  if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
   const userPrompt = [
     escritoMeta.titulo && `TÍTULO DEL ESCRITO: ${escritoMeta.titulo}`,
@@ -280,7 +280,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[diagnose-escrito] LLM error', res.status, errText.slice(0, 500))
-    return json({ ok: false, error: `LLM ${res.status}`, detail: errText.slice(0, 400) }, 200)
+    return json(req, { ok: false, error: `LLM ${res.status}`, detail: errText.slice(0, 400) }, 200)
   }
 
   let data: any
@@ -288,13 +288,13 @@ async function handleDiagnose(req: Request): Promise<Response> {
     data = await res.json()
   } catch (e) {
     console.error('[diagnose-escrito] response no es JSON', e)
-    return json({ ok: false, error: 'Respuesta del LLM no es JSON' }, 200)
+    return json(req, { ok: false, error: 'Respuesta del LLM no es JSON' }, 200)
   }
 
   const content = data?.choices?.[0]?.message?.content
   if (!content) {
     console.error('[diagnose-escrito] respuesta vacía', JSON.stringify(data).slice(0, 500))
-    return json({ ok: false, error: 'Respuesta vacía del modelo', detail: JSON.stringify(data).slice(0, 400) }, 200)
+    return json(req, { ok: false, error: 'Respuesta vacía del modelo', detail: JSON.stringify(data).slice(0, 400) }, 200)
   }
 
   // Robusto: a veces el modelo envuelve el JSON en markdown ```json ... ```
@@ -320,14 +320,14 @@ async function handleDiagnose(req: Request): Promise<Response> {
   } catch (e) {
     console.error('[diagnose-escrito] JSON parse failed:', e instanceof Error ? e.message : 'unknown')
     console.error('[diagnose-escrito] raw content (first 1000):', String(content).slice(0, 1000))
-    return json({
+    return json(req, {
       ok: false,
       error: 'El modelo devolvió un JSON inválido',
       raw: String(content).slice(0, 800),
     }, 200)
   }
 
-  return json({
+  return json(req, {
     ok: true,
     escrito: escritoMeta,
     area_aplicada: body.area ?? 'civil',

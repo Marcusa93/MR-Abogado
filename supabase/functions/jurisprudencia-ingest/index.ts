@@ -30,10 +30,10 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const openrouterKey = Deno.env.get('OPENROUTER_API_KEY')!
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -116,10 +116,10 @@ async function sha256Hex(s: string): Promise<string> {
 
 // ─── Handler ────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ ok: false, error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { ok: false, error: 'No autorizado' }, 401)
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
   const isServiceRole = token === serviceKey || decodeJwtRole(token) === 'service_role'
 
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
   let userId: string
   if (isServiceRole) {
     if (!body?.on_behalf_of_user_id) {
-      return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      return json(req, { ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
     }
     userId = body.on_behalf_of_user_id
   } else {
@@ -153,14 +153,14 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ ok: false, error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { ok: false, error: 'Token inválido' }, 401)
     userId = user.id
   }
   const user = { id: userId }
 
-  if (!body || !body.mode) return json({ ok: false, error: 'Body requiere { mode, ... }' }, 400)
+  if (!body || !body.mode) return json(req, { ok: false, error: 'Body requiere { mode, ... }' }, 400)
   if (!['url', 'paste', 'upload'].includes(body.mode)) {
-    return json({ ok: false, error: `mode inválido: ${body.mode}` }, 400)
+    return json(req, { ok: false, error: `mode inválido: ${body.mode}` }, 400)
   }
 
   // Metadata acumulada con prioridad: lo que vino en el body > lo que detectó la fuente
@@ -185,16 +185,16 @@ Deno.serve(async (req) => {
   try {
     if (body.mode === 'paste') {
       if (!body.texto || body.texto.trim().length < 100) {
-        return json({ ok: false, error: 'texto muy corto (mínimo 100 chars)' }, 400)
+        return json(req, { ok: false, error: 'texto muy corto (mínimo 100 chars)' }, 400)
       }
       texto = body.texto.trim()
       meta.source = 'manual_paste'
       if (!meta.caratula) meta.caratula = 'Fallo (sin carátula)'
     }
     else if (body.mode === 'url') {
-      if (!body.url) return json({ ok: false, error: 'url requerida' }, 400)
+      if (!body.url) return json(req, { ok: false, error: 'url requerida' }, 400)
       const detect = detectarFuente(body.url)
-      if (!detect) return json({ ok: false, error: 'Fuente no reconocida. Soportadas: InfoLEG (servicios.infoleg.gob.ar/verNorma.do?id=N), SAIJ (saij.gob.ar/<uuid>).' }, 400)
+      if (!detect) return json(req, { ok: false, error: 'Fuente no reconocida. Soportadas: InfoLEG (servicios.infoleg.gob.ar/verNorma.do?id=N), SAIJ (saij.gob.ar/<uuid>).' }, 400)
 
       const lookupRes = await fetch(`${supabaseUrl}/functions/v1/legal-lookup`, {
         method: 'POST',
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
       })
       const lookupData = await lookupRes.json()
       if (!lookupData?.ok) {
-        return json({ ok: false, error: `Extracción falló (${detect.source}): ${lookupData?.error ?? 'desconocido'}` }, 502)
+        return json(req, { ok: false, error: `Extracción falló (${detect.source}): ${lookupData?.error ?? 'desconocido'}` }, 502)
       }
       const doc = lookupData.result as Record<string, any>
       texto = (doc.texto_completo ?? '').toString().trim()
@@ -222,10 +222,10 @@ Deno.serve(async (req) => {
       meta.sumario   = meta.sumario   ?? doc.resumen
     }
     else if (body.mode === 'upload') {
-      if (!body.file_path) return json({ ok: false, error: 'file_path requerido' }, 400)
+      if (!body.file_path) return json(req, { ok: false, error: 'file_path requerido' }, 400)
       const { data: file, error: dlErr } = await admin
         .storage.from('jurisprudencia-originales').download(body.file_path)
-      if (dlErr || !file) return json({ ok: false, error: `No se pudo bajar el archivo: ${dlErr?.message}` }, 400)
+      if (dlErr || !file) return json(req, { ok: false, error: `No se pudo bajar el archivo: ${dlErr?.message}` }, 400)
       const buffer = new Uint8Array(await file.arrayBuffer())
       const mime = body.mime_type ?? 'application/octet-stream'
       texto = (await extractTextFromFile(buffer, mime, body.file_name ?? body.file_path)).trim()
@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
     }
 
     if (texto.length < 100) {
-      return json({ ok: false, error: 'Texto extraído muy corto (<100 chars). Revisá la fuente.' }, 400)
+      return json(req, { ok: false, error: 'Texto extraído muy corto (<100 chars). Revisá la fuente.' }, 400)
     }
 
     // Dedupe por checksum
@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
       .eq('checksum', checksum)
       .maybeSingle()
     if (existing) {
-      return json({
+      return json(req, {
         ok: true, already_exists: true,
         documento_id: existing.id,
         caratula: existing.caratula,
@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
       .select('id')
       .single()
     if (insErr || !doc) {
-      return json({ ok: false, error: `Insertando documento: ${insErr?.message}` }, 500)
+      return json(req, { ok: false, error: `Insertando documento: ${insErr?.message}` }, 500)
     }
     const docId = doc.id
 
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
       await admin.from('jurisprudencia_documentos').update({
         estado: 'error', error_message: 'El chunker no produjo chunks.',
       }).eq('id', docId)
-      return json({ ok: false, error: 'No se generaron chunks (texto muy corto o vacío).' }, 422)
+      return json(req, { ok: false, error: 'No se generaron chunks (texto muy corto o vacío).' }, 422)
     }
 
     // Embeddings en lotes
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
       await admin.from('jurisprudencia_documentos').update({
         estado: 'error', error_message: chunkErr.message,
       }).eq('id', docId)
-      return json({ ok: false, error: `Insertando chunks: ${chunkErr.message}` }, 500)
+      return json(req, { ok: false, error: `Insertando chunks: ${chunkErr.message}` }, 500)
     }
 
     // Marcar indexado
@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
       chunk_count: chunks.length,
     }).eq('id', docId)
 
-    return json({
+    return json(req, {
       ok: true,
       documento_id: docId,
       caratula: meta.caratula,
@@ -341,6 +341,6 @@ Deno.serve(async (req) => {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    return json({ ok: false, error: msg }, 500)
+    return json(req, { ok: false, error: msg }, 500)
   }
 })

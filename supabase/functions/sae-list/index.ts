@@ -175,15 +175,15 @@ async function fetchMyProceedings(session: SaeSession): Promise<ProceedingEntry[
   return results
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const anonClient = createClient(
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -206,15 +206,15 @@ Deno.serve(async (req) => {
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credError) throw credError
-    if (!cred) return json({ error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
-    if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas.' }, 400)
+    if (!cred) return json(req, { error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
+    if (cred.status === 'desactivado') return json(req, { error: 'Las credenciales SAE están desactivadas.' }, 400)
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
       userId: user.id,
     })
     if (!password) {
-      return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
+      return json(req, { error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
 
     const session = await authenticateWithSae({
@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
       vinculado_a_mi: p.numero_sae in importedMap || p.numero_sae in existingStudyMap,
     }))
 
-    return json({ cases })
+    return json(req, { cases })
 
   } catch (err) {
     console.error('[sae-list]', err)
@@ -304,6 +304,6 @@ Deno.serve(async (req) => {
     const errCode = err instanceof SaeError ? err.code : 'UNKNOWN'
     const authCodes = ['SAE_AUTH_INVALID_CREDENTIALS', 'SAE_AUTH_REJECTED', 'SAE_AUTH_CSRF_MISSING', 'SAE_AUTH_SESSION_REJECTED']
     const status = err instanceof SaeError && authCodes.includes(err.code) ? 400 : 500
-    return json({ error: errMsg, error_code: errCode }, status)
+    return json(req, { error: errMsg, error_code: errCode }, status)
   }
 })

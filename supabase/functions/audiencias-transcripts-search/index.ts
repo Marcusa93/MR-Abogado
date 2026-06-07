@@ -9,10 +9,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -56,11 +56,11 @@ interface TranscriptHit {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -68,14 +68,14 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { query?: string; limit?: number; expediente_id?: string }
       | null
     const query = typeof body?.query === 'string' ? body.query.trim() : ''
-    if (!query) return json({ error: 'Falta query' }, 400)
-    if (query.length > 500) return json({ error: 'Query demasiado larga (máx 500 caracteres).' }, 400)
+    if (!query) return json(req, { error: 'Falta query' }, 400)
+    if (query.length > 500) return json(req, { error: 'Query demasiado larga (máx 500 caracteres).' }, 400)
 
     const matchCount = Math.min(Math.max(body?.limit ?? 24, 1), 50)
     const filterExpedienteId = body?.expediente_id ?? null
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
 
     const rows = (matches ?? []) as MatchRow[]
     if (rows.length === 0) {
-      return json({ results: [] })
+      return json(req, { results: [] })
     }
 
     // Enriquezco con metadata de cada transcript (caratula, fecha)
@@ -151,10 +151,10 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => b.top_score - a.top_score)
 
-    return json({ results })
+    return json(req, { results })
 
   } catch (err) {
     console.error('[audiencias-transcripts-search]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

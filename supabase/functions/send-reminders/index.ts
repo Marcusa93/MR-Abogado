@@ -47,10 +47,10 @@ function inDays(days: number): string {
   return target.toISOString().slice(0, 10)
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -64,15 +64,15 @@ interface Reminder {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     // ── Auth ────────────────────────────────────────────────────────────
     const cronSecret = Deno.env.get('CRON_SECRET')
-    if (!cronSecret) return json({ error: 'CRON_SECRET no configurado' }, 500)
+    if (!cronSecret) return json(req, { error: 'CRON_SECRET no configurado' }, 500)
 
     const auth = req.headers.get('x-cron-secret') ?? ''
-    if (auth !== cronSecret) return json({ error: 'No autorizado' }, 401)
+    if (auth !== cronSecret) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => ({})) as { dry_run?: boolean }
     const dryRun = body?.dry_run === true
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
       const subject = Deno.env.get('VAPID_SUBJECT')
       if (!publicKey || !privateKey || !subject) {
-        return json({ error: 'VAPID no configurado' }, 500)
+        return json(req, { error: 'VAPID no configurado' }, 500)
       }
       webpush.setVapidDetails(subject, publicKey, privateKey)
     }
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
     }
 
     if (reminders.length === 0) {
-      return json({ ok: true, reminders: 0, sent: 0, dryRun })
+      return json(req, { ok: true, reminders: 0, sent: 0, dryRun })
     }
 
     // ── Agrupar por user_id ─────────────────────────────────────────────
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     }
 
     if (dryRun) {
-      return json({
+      return json(req, {
         ok: true,
         dryRun: true,
         reminders: reminders.length,
@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
       await admin.from('push_subscriptions').delete().in('endpoint', removedEndpoints)
     }
 
-    return json({
+    return json(req, {
       ok: true,
       reminders: reminders.length,
       users: byUser.size,
@@ -256,6 +256,6 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('[send-reminders]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

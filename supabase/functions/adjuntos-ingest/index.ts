@@ -13,10 +13,10 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 const EMBEDDING_BATCH = 32
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -40,11 +40,11 @@ async function createEmbeddings(inputs: string[], apiKey: string): Promise<numbe
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -52,11 +52,11 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as { adjunto_id?: string } | null
     const adjuntoId = body?.adjunto_id
-    if (!adjuntoId) return json({ error: 'Falta adjunto_id' }, 400)
+    if (!adjuntoId) return json(req, { error: 'Falta adjunto_id' }, 400)
 
     // RLS-aware fetch via anon client
     const { data: adj, error: adjErr } = await anonClient
@@ -66,12 +66,12 @@ Deno.serve(async (req) => {
       .is('deleted_at', null)
       .maybeSingle()
     if (adjErr) throw adjErr
-    if (!adj) return json({ error: 'Adjunto no encontrado o sin permisos.' }, 404)
+    if (!adj) return json(req, { error: 'Adjunto no encontrado o sin permisos.' }, 404)
     if (!adj.ai_full_text?.trim()) {
-      return json({ error: 'Adjunto sin ai_full_text — analizalo con IA primero.' }, 400)
+      return json(req, { error: 'Adjunto sin ai_full_text — analizalo con IA primero.' }, 400)
     }
     if (!adj.expediente_id) {
-      return json({ error: 'Adjunto sin expediente_id — no se puede indexar.' }, 400)
+      return json(req, { error: 'Adjunto sin expediente_id — no se puede indexar.' }, 400)
     }
 
     const tipoDocumento = typeof (adj.ai_extracted as { tipo_documento?: string } | null)?.tipo_documento === 'string'
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
 
     const chunks = chunkTranscript(adj.ai_full_text)
     if (chunks.length === 0) {
-      return json({ success: true, chunks_created: 0, message: 'Texto vacío tras normalización.' })
+      return json(req, { success: true, chunks_created: 0, message: 'Texto vacío tras normalización.' })
     }
 
     const serviceClient = createClient(
@@ -116,10 +116,10 @@ Deno.serve(async (req) => {
       inserted += rows.length
     }
 
-    return json({ success: true, chunks_created: inserted, adjunto_id: adjuntoId })
+    return json(req, { success: true, chunks_created: inserted, adjunto_id: adjuntoId })
 
   } catch (err) {
     console.error('[adjuntos-ingest]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

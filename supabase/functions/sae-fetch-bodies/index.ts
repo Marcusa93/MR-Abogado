@@ -15,10 +15,10 @@ import { authenticateWithSae, fetchStoryBody, SaeError } from '../_shared/sae-re
 
 const MAX_PER_CALL = 60
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -31,7 +31,7 @@ interface MovementRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const anonClient = createClient(
@@ -40,12 +40,12 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { expediente_id?: string; movement_ids?: string[] }
       | null
-    if (!body?.expediente_id) return json({ error: 'expediente_id requerido' }, 400)
+    if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
 
     // Verify expediente ownership via RLS-respecting client
     const { data: ownExp, error: ownErr } = await anonClient
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('id', body.expediente_id)
       .maybeSingle()
-    if (ownErr || !ownExp) return json({ error: 'Expediente no encontrado o sin permisos' }, 404)
+    if (ownErr || !ownExp) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -68,14 +68,14 @@ Deno.serve(async (req) => {
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credErr) throw credErr
-    if (!cred) return json({ error: 'No tenés credenciales SAE configuradas' }, 400)
-    if (cred.status === 'desactivado') return json({ error: 'Credenciales SAE desactivadas' }, 400)
+    if (!cred) return json(req, { error: 'No tenés credenciales SAE configuradas' }, 400)
+    if (cred.status === 'desactivado') return json(req, { error: 'Credenciales SAE desactivadas' }, 400)
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
       userId: user.id,
     })
-    if (!password) return json({ error: 'No se pudo recuperar la contraseña SAE' }, 500)
+    if (!password) return json(req, { error: 'No se pudo recuperar la contraseña SAE' }, 500)
 
     // Fetch movements that need body
     let query = serviceClient
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const total = pending.length
 
     if (total === 0) {
-      return json({ fetched: 0, failed: 0, skipped: 0, total: 0 })
+      return json(req, { fetched: 0, failed: 0, skipped: 0, total: 0 })
     }
 
     // Auth to SAE once for the whole batch
@@ -136,11 +136,11 @@ Deno.serve(async (req) => {
       }))
     }
 
-    return json({ fetched, failed, skipped, total })
+    return json(req, { fetched, failed, skipped, total })
 
   } catch (err) {
     console.error('[sae-fetch-bodies]', err)
     const code = err instanceof SaeError ? err.code : 'UNKNOWN'
-    return json({ error: err instanceof Error ? err.message : 'Error interno', error_code: code }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno', error_code: code }, 500)
   }
 })

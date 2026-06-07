@@ -97,10 +97,10 @@ function parseDate(value: string): string | null {
   return normalized.slice(0, 10)
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -125,7 +125,7 @@ async function canSyncExpedienteSae(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const startedAt = new Date().toISOString()
 
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     )
 
     const { expediente_id } = await req.json()
-    if (!expediente_id) return json({ error: 'expediente_id requerido' }, 400)
+    if (!expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
 
     // ── Expediente ──────────────────────────────────────────────────────────
     const { data: exp, error: expError } = await serviceClient
@@ -153,11 +153,11 @@ Deno.serve(async (req) => {
       .select('id, numero_sae, estado_sae, fuero')
       .eq('id', expediente_id)
       .single()
-    if (expError || !exp) return json({ error: 'Expediente no encontrado' }, 404)
-    if (!exp.numero_sae) return json({ error: 'El expediente no tiene número SAE configurado' }, 400)
+    if (expError || !exp) return json(req, { error: 'Expediente no encontrado' }, 404)
+    if (!exp.numero_sae) return json(req, { error: 'El expediente no tiene número SAE configurado' }, 400)
 
     const canSync = await canSyncExpedienteSae(anonClient, expediente_id)
-    if (!canSync) return json({ error: 'Sin permisos para sincronizar este expediente SAE' }, 403)
+    if (!canSync) return json(req, { error: 'Sin permisos para sincronizar este expediente SAE' }, 403)
 
     // ── Credenciales SAE ────────────────────────────────────────────────────
     const { data: cred, error: credError } = await serviceClient
@@ -167,15 +167,15 @@ Deno.serve(async (req) => {
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credError) throw credError
-    if (!cred) return json({ error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
-    if (cred.status === 'desactivado') return json({ error: 'Las credenciales SAE están desactivadas' }, 400)
+    if (!cred) return json(req, { error: 'No tenés credenciales SAE. Configurálas en Ajustes.' }, 400)
+    if (cred.status === 'desactivado') return json(req, { error: 'Las credenciales SAE están desactivadas' }, 400)
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
       userId: user.id,
     })
     if (!password) {
-      return json({ error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
+      return json(req, { error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
     }
 
     // ── Crear log de sincronización ──────────────────────────────────────────
@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
       if (!procid || !jurisdictionId) {
         const found = await findCaseByNumber(exp.numero_sae, session)
         if (!found) {
-          return json({ error: `No se encontró el expediente ${exp.numero_sae} en SAE. Verificá el número.` }, 404)
+          return json(req, { error: `No se encontró el expediente ${exp.numero_sae} en SAE. Verificá el número.` }, 404)
         }
         procid = found.procid
         jurisdictionId = found.jurisdictionId
@@ -346,7 +346,7 @@ Deno.serve(async (req) => {
           .eq('profile_id', user.id)
           .eq('provider', 'justucuman')
           .eq('expediente_id', expediente_id)
-        return json({ success: true, nuevas: 0, duplicadas: 0, message: 'El expediente no tiene actuaciones registradas en SAE.' })
+        return json(req, { success: true, nuevas: 0, duplicadas: 0, message: 'El expediente no tiene actuaciones registradas en SAE.' })
       }
 
       // Ordenar por fecha desc, tomar las más recientes
@@ -493,7 +493,7 @@ Deno.serve(async (req) => {
         .update({ status: 'exitoso', finished_at: new Date().toISOString(), nuevas_actuaciones: nuevas, duplicadas })
         .eq('id', logId)
 
-      return json({ success: true, nuevas, duplicadas, total: stories.length })
+      return json(req, { success: true, nuevas, duplicadas, total: stories.length })
 
     } catch (innerErr) {
       const errMsg = innerErr instanceof SaeError
@@ -516,11 +516,11 @@ Deno.serve(async (req) => {
           .eq('id', logId)
       }
 
-      return json({ error: errMsg, error_code: errCode }, 500)
+      return json(req, { error: errMsg, error_code: errCode }, 500)
     }
 
   } catch (err) {
     console.error('[sae-sync]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

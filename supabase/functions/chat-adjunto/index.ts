@@ -19,10 +19,10 @@ REGLAS:
 - Si la pregunta requiere comparar con OTROS expedientes u otro documento, decí que necesitás contexto fuera de este documento.
 - Castellano rioplatense formal jurídico (no vos voseante coloquial — usá "usted" o impersonal).`
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -38,11 +38,11 @@ function isValidMsg(m: unknown): m is Msg {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -50,16 +50,16 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { adjunto_id?: string; question?: string; history?: unknown[]; document_text?: string }
       | null
     const adjuntoId = body?.adjunto_id
     const question = typeof body?.question === 'string' ? body.question.trim() : ''
-    if (!adjuntoId) return json({ error: 'Falta adjunto_id' }, 400)
-    if (!question) return json({ error: 'Falta question' }, 400)
-    if (question.length > 2000) return json({ error: 'Pregunta demasiado larga (máx 2000 caracteres).' }, 400)
+    if (!adjuntoId) return json(req, { error: 'Falta adjunto_id' }, 400)
+    if (!question) return json(req, { error: 'Falta question' }, 400)
+    if (question.length > 2000) return json(req, { error: 'Pregunta demasiado larga (máx 2000 caracteres).' }, 400)
 
     const history = Array.isArray(body?.history) ? body.history.filter(isValidMsg).slice(-8) : []
 
@@ -71,14 +71,14 @@ Deno.serve(async (req) => {
       .is('deleted_at', null)
       .maybeSingle()
     if (adjErr) throw adjErr
-    if (!adj) return json({ error: 'Adjunto no encontrado o sin permisos.' }, 404)
+    if (!adj) return json(req, { error: 'Adjunto no encontrado o sin permisos.' }, 404)
 
     // Resolver texto: priorizo el que mande el frontend, si no uso el guardado.
     const providedText = typeof body?.document_text === 'string' ? body.document_text.trim() : ''
     const docText = providedText || (typeof adj.ai_full_text === 'string' ? adj.ai_full_text : '')
 
     if (!docText.trim()) {
-      return json({
+      return json(req, {
         error: 'No tengo el texto del documento. Analizalo primero con "Analizar con IA" o reenvialo extrayendo en el frontend.',
         needs_text: true,
       }, 400)
@@ -123,17 +123,17 @@ A continuación responderé preguntas sobre este documento.`,
     if (!res.ok) {
       const txt = await res.text()
       console.error('[chat-adjunto] openrouter error', res.status, txt.slice(0, 200))
-      return json({ error: `Error del modelo (${res.status})` }, 502)
+      return json(req, { error: `Error del modelo (${res.status})` }, 502)
     }
 
     const payload = await res.json() as { choices?: { message?: { content?: string } }[] }
     const answer = payload.choices?.[0]?.message?.content?.trim()
-    if (!answer) return json({ error: 'El modelo no devolvió respuesta.' }, 502)
+    if (!answer) return json(req, { error: 'El modelo no devolvió respuesta.' }, 502)
 
-    return json({ answer, model: MODEL, truncated })
+    return json(req, { answer, model: MODEL, truncated })
 
   } catch (err) {
     console.error('[chat-adjunto] fatal', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

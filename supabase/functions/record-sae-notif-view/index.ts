@@ -17,10 +17,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -30,20 +30,20 @@ interface Body {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
     global: { headers: { Authorization: authHeader } },
   })
   const { data: { user }, error: authErr } = await userClient.auth.getUser()
-  if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+  if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
 
   const body = await req.json().catch(() => null) as Body | null
-  if (!body?.notif_id) return json({ error: 'Falta notif_id' }, 400)
+  if (!body?.notif_id) return json(req, { error: 'Falta notif_id' }, 400)
 
   // IP real del cliente (Supabase pone X-Forwarded-For)
   const xff = req.headers.get('x-forwarded-for') ?? ''
@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  if (notifErr) return json({ error: notifErr.message }, 500)
-  if (!notif) return json({ error: 'Notif no encontrada' }, 404)
+  if (notifErr) return json(req, { error: notifErr.message }, 500)
+  if (!notif) return json(req, { error: 'Notif no encontrada' }, 404)
 
   // 2. UPDATE leida=true (si no estaba ya)
   if (!notif.leida) {
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       .from('sae_notificaciones')
       .update({ leida: true, leida_at: new Date().toISOString() })
       .eq('id', body.notif_id)
-    if (updErr) return json({ error: updErr.message }, 500)
+    if (updErr) return json(req, { error: updErr.message }, 500)
   }
 
   // 3. INSERT view (siempre, aunque la notif ya estaba leída — para tener
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     },
   })
 
-  if (insErr) return json({ error: insErr.message }, 500)
+  if (insErr) return json(req, { error: insErr.message }, 500)
 
-  return json({ ok: true, viewed_at: new Date().toISOString(), ip })
+  return json(req, { ok: true, viewed_at: new Date().toISOString(), ip })
 })

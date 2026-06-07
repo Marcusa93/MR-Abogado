@@ -21,10 +21,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { getSource, buildCacheKey, readCache, writeCache, maybeGc, USER_RATE_LIMIT_PER_MIN } from '../_shared/legal-sources/index.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -62,10 +62,10 @@ async function logLookup(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ ok: false, error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { ok: false, error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     source?: string; tool?: string; args?: unknown; on_behalf_of_user_id?: string
   } | null
   if (!body || !body.source || !body.tool) {
-    return json({ ok: false, error: 'Body requiere { source, tool, args }' }, 400)
+    return json(req, { ok: false, error: 'Body requiere { source, tool, args }' }, 400)
   }
 
   let userId: string | null = null
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     // Llamado interno (ej. desde bogabot-agent): se requiere identificar
     // al user real para rate-limit y log.
     if (!body.on_behalf_of_user_id) {
-      return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      return json(req, { ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
     }
     userId = body.on_behalf_of_user_id
   } else {
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ ok: false, error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { ok: false, error: 'Token inválido' }, 401)
     userId = user.id
   }
 
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
   const source = getSource(body.source)
   if (!source) {
-    return json({ ok: false, error: `Source desconocido: ${body.source}` }, 400)
+    return json(req, { ok: false, error: `Source desconocido: ${body.source}` }, 400)
   }
 
   // ── Rate limit por user ────────────────────────────────────────────
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       user_id: user.id, source: body.source, tool: body.tool, args: body.args ?? {},
       status: 'rate_limited',
     })
-    return json({ ok: false, error: `Rate limit: máx ${USER_RATE_LIMIT_PER_MIN} requests/min` }, 429)
+    return json(req, { ok: false, error: `Rate limit: máx ${USER_RATE_LIMIT_PER_MIN} requests/min` }, 429)
   }
 
   // ── Cache lookup ───────────────────────────────────────────────────
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       user_id: user.id, source: body.source, tool: body.tool, args: body.args ?? {},
       status: 'cache_hit', result_count: resultCount, latency_ms: 0,
     })
-    return json({ ok: true, source: body.source, tool: body.tool, cached: true, result: cached })
+    return json(req, { ok: true, source: body.source, tool: body.tool, cached: true, result: cached })
   }
 
   // ── Invocar el handler del source ──────────────────────────────────
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
         if (!args.text) throw new Error('args.text requerido')
         result = await source.resolveCitation(args.text); break
       default:
-        return json({ ok: false, error: `Tool desconocida: ${body.tool}` }, 400)
+        return json(req, { ok: false, error: `Tool desconocida: ${body.tool}` }, 400)
     }
   } catch (e) {
     const latency = Date.now() - t0
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
       user_id: user.id, source: body.source, tool: body.tool, args: body.args ?? {},
       status: 'error', latency_ms: latency, error_msg: msg.slice(0, 500),
     })
-    return json({ ok: false, error: msg }, 502)
+    return json(req, { ok: false, error: msg }, 502)
   }
 
   const latency = Date.now() - t0
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
   ])
   maybeGc(admin)  // opportunistic cleanup
 
-  return json({ ok: true, source: body.source, tool: body.tool, cached: false, latency_ms: latency, result })
+  return json(req, { ok: true, source: body.source, tool: body.tool, cached: false, latency_ms: latency, result })
 })
 
 // ── Re-rank con embeddings (opcional, costo ~$0.001 por búsqueda) ─────────

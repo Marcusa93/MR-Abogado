@@ -52,10 +52,10 @@ function resolveDownloadUrl(payload: unknown): string | undefined {
   try { return new URL(candidate, SAE_CONSULTA_URL).toString() } catch { return undefined }
 }
 
-function jsonError(message: string, status = 500, code?: string) {
+function jsonError(req: Request, message: string, status = 500, code?: string) {
   return new Response(JSON.stringify({ error: message, error_code: code }), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -76,11 +76,11 @@ function safeFileName(fileName: string): string {
     .slice(0, 120) || 'documento-sae'
 }
 
-function fileResponse(binary: ArrayBuffer, mimeType: string, fileName: string) {
+function fileResponse(req: Request, binary: ArrayBuffer, mimeType: string, fileName: string) {
   return new Response(binary, {
     status: 200,
     headers: {
-      ...corsHeaders,
+      ...corsHeaders(req),
       'Content-Type': mimeType,
       'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
       'Cache-Control': 'private, max-age=300',
@@ -89,7 +89,7 @@ function fileResponse(binary: ArrayBuffer, mimeType: string, fileName: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const anonClient = createClient(
@@ -98,14 +98,14 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return jsonError('No autorizado', 401)
+    if (authError || !user) return jsonError(req, 'No autorizado', 401)
 
     const body = await req.json().catch(() => null) as
       | { movementId?: string; movement_id?: string; procid?: string; jurisdictionId?: number; histid?: string; fileName?: string }
       | null
     const movementId = body?.movementId ?? body?.movement_id
     if (!body?.fileName || (!movementId && (!body?.procid || !body.jurisdictionId || !body.histid))) {
-      return jsonError('Faltan parámetros: movementId o procid/jurisdictionId/histid, y fileName', 400)
+      return jsonError(req, 'Faltan parámetros: movementId o procid/jurisdictionId/histid, y fileName', 400)
     }
 
     const serviceClient = createClient(
@@ -125,14 +125,14 @@ Deno.serve(async (req) => {
         .eq('id', movementId)
         .single()
 
-      if (movementError || !movement) return jsonError('Actuación SAE no encontrada', 404)
+      if (movementError || !movement) return jsonError(req, 'Actuación SAE no encontrada', 404)
 
       expedienteId = movement.expediente_id
       const { data: canView, error: canViewError } = await (anonClient.rpc as any)('can_view_expediente', {
         p_expediente_id: expedienteId,
       })
       if (canViewError) throw canViewError
-      if (!canView) return jsonError('Sin permisos sobre esta actuación', 403)
+      if (!canView) return jsonError(req, 'Sin permisos sobre esta actuación', 403)
 
       const { data: cached, error: cacheLookupError } = await serviceClient
         .from('sae_document_cache')
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
           .from('sae-documents')
           .download(cached.storage_path)
         if (!cacheError && cachedFile) {
-          return fileResponse(
+          return fileResponse(req, 
             await cachedFile.arrayBuffer(),
             cached.mime_type ?? cachedFile.type ?? 'application/pdf',
             body.fileName,
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       }
 
       if (!ownLink && !legacyLinksUnavailable) {
-        return jsonError('El documento todavía no está cacheado. Debe descargarlo o sincronizarlo un abogado que tenga este expediente en su SAE.', 403)
+        return jsonError(req, 'El documento todavía no está cacheado. Debe descargarlo o sincronizarlo un abogado que tenga este expediente en su SAE.', 403)
       }
 
       const rawPayload = movement.raw_payload as Record<string, unknown> | null
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
     }
 
     if (!procid || !jurisdictionId || !histid) {
-      return jsonError('Falta información de la actuación para descargar el archivo.', 400)
+      return jsonError(req, 'Falta información de la actuación para descargar el archivo.', 400)
     }
 
     const { data: cred, error: credError } = await serviceClient
@@ -196,14 +196,14 @@ Deno.serve(async (req) => {
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credError) throw credError
-    if (!cred) return jsonError('No tenés credenciales SAE.', 400)
-    if (cred.status === 'desactivado') return jsonError('Las credenciales SAE están desactivadas.', 400)
+    if (!cred) return jsonError(req, 'No tenés credenciales SAE.', 400)
+    if (cred.status === 'desactivado') return jsonError(req, 'Las credenciales SAE están desactivadas.', 400)
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
       userId: user.id,
     })
-    if (!password) return jsonError('No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.', 500)
+    if (!password) return jsonError(req, 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.', 500)
 
     const session = await authenticateWithSae({ username: cred.username, password })
 
@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
     })
 
     if (!fileRes.ok) {
-      return jsonError(`SAE rechazó la descarga (${fileRes.status})`, fileRes.status >= 400 && fileRes.status < 500 ? 400 : 502, 'SAE_DOCUMENT_REJECTED')
+      return jsonError(req, `SAE rechazó la descarga (${fileRes.status})`, fileRes.status >= 400 && fileRes.status < 500 ? 400 : 502, 'SAE_DOCUMENT_REJECTED')
     }
 
     const contentType = fileRes.headers.get('content-type') ?? ''
@@ -238,14 +238,14 @@ Deno.serve(async (req) => {
       const payload = await fileRes.json().catch(() => null)
       const downloadUrl = resolveDownloadUrl(payload)
       if (!downloadUrl) {
-        return jsonError('SAE no devolvió una URL de descarga válida.', 502, 'SAE_DOCUMENT_NO_URL')
+        return jsonError(req, 'SAE no devolvió una URL de descarga válida.', 502, 'SAE_DOCUMENT_NO_URL')
       }
       const binRes = await fetch(downloadUrl, {
         method: 'GET',
         headers: apiHeaders(session, 'application/pdf, application/octet-stream, */*'),
       })
       if (!binRes.ok) {
-        return jsonError(`No se pudo descargar el PDF desde SAE (${binRes.status})`, 502, 'SAE_DOCUMENT_BINARY_FAILED')
+        return jsonError(req, `No se pudo descargar el PDF desde SAE (${binRes.status})`, 502, 'SAE_DOCUMENT_BINARY_FAILED')
       }
       binary = await binRes.arrayBuffer()
       mimeType = (binRes.headers.get('content-type') ?? 'application/pdf').split(';')[0].trim()
@@ -281,12 +281,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    return fileResponse(binary, mimeType, body.fileName)
+    return fileResponse(req, binary, mimeType, body.fileName)
 
   } catch (err) {
     console.error('[sae-document]', err)
     const msg = err instanceof SaeError ? err.message : err instanceof Error ? err.message : 'Error interno'
     const code = err instanceof SaeError ? err.code : 'UNKNOWN'
-    return jsonError(msg, 500, code)
+    return jsonError(req, msg, 500, code)
   }
 })

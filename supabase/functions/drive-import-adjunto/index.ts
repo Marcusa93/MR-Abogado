@@ -10,21 +10,21 @@ import { getValidAccessToken, downloadDriveFile } from '../_shared/google-drive.
 
 const AUTO_ANALYZE_CATEGORIAS = new Set(['demanda', 'contestacion', 'sentencia', 'resolucion', 'apelacion'])
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const clientId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
     const clientSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
     if (!clientId || !clientSecret) {
-      return json({ error: 'Drive no está configurado en el servidor' }, 500)
+      return json(req, { error: 'Drive no está configurado en el servidor' }, 500)
     }
 
     const anonClient = createClient(
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { file_id?: string; expediente_id?: string; file_name?: string; categoria?: string; descripcion?: string }
@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
 
     const fileId = body?.file_id
     const expedienteId = body?.expediente_id
-    if (!fileId) return json({ error: 'Falta file_id' }, 400)
-    if (!expedienteId) return json({ error: 'Falta expediente_id' }, 400)
+    if (!fileId) return json(req, { error: 'Falta file_id' }, 400)
+    if (!expedienteId) return json(req, { error: 'Falta expediente_id' }, 400)
 
     // Verificar acceso al expediente vía RLS
     const { data: exp, error: expErr } = await anonClient
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       .is('deleted_at', null)
       .maybeSingle()
     if (expErr) throw expErr
-    if (!exp) return json({ error: 'Expediente no encontrado o sin permisos' }, 404)
+    if (!exp) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -69,13 +69,13 @@ Deno.serve(async (req) => {
 
     // Solo soportamos PDF (igual que upload normal). Si no es PDF, error claro.
     if (file.mimeType !== 'application/pdf') {
-      return json({
+      return json(req, {
         error: `Tipo de archivo no soportado: ${file.mimeType}. Por ahora solo PDF.`,
       }, 400)
     }
 
     if (file.data.byteLength > 50 * 1024 * 1024) {
-      return json({ error: 'El archivo supera el límite de 50 MB.' }, 400)
+      return json(req, { error: 'El archivo supera el límite de 50 MB.' }, 400)
     }
 
     // 3) Subir al bucket adjuntos
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     // pero en este flow no tenemos el texto. Lo dejamos sin auto-trigger; el user
     // puede clickear "Analizar" desde la tab Documentos.
 
-    return json({
+    return json(req, {
       success: true,
       adjunto_id: adj.id,
       storage_path: storageName,
@@ -129,6 +129,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[drive-import-adjunto]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

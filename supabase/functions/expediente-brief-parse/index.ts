@@ -21,10 +21,10 @@ import { corsHeaders } from '../_shared/cors.ts'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'anthropic/claude-sonnet-4'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -211,20 +211,20 @@ function buildUserPrompt(ctx: ExpedienteContext, texto: string): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     return await handle(req)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'error desconocido'
     console.error('[expediente-brief-parse] unhandled exception:', msg, e instanceof Error ? e.stack : '')
-    return json({ ok: false, error: 'Excepción del servidor', detail: msg.slice(0, 400) }, 200)
+    return json(req, { ok: false, error: 'Excepción del servidor', detail: msg.slice(0, 400) }, 200)
   }
 })
 
 async function handle(req: Request): Promise<Response> {
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'No autorizado' }, 401)
+  if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -236,7 +236,7 @@ async function handle(req: Request): Promise<Response> {
   if (isServiceRole) {
     bodyPeek = await req.clone().json().catch(() => null)
     if (!bodyPeek?.on_behalf_of_user_id) {
-      return json({ ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      return json(req, { ok: false, error: 'service_role requiere on_behalf_of_user_id' }, 400)
     }
     userId = bodyPeek.on_behalf_of_user_id
   } else {
@@ -244,7 +244,7 @@ async function handle(req: Request): Promise<Response> {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
     userId = user.id
   }
 
@@ -258,21 +258,21 @@ async function handle(req: Request): Promise<Response> {
     texto?: string
   } | null
   if (!body?.expediente_id || !body?.texto) {
-    return json({ error: 'Body requiere expediente_id y texto' }, 400)
+    return json(req, { error: 'Body requiere expediente_id y texto' }, 400)
   }
   if (body.texto.trim().length < 5) {
-    return json({ error: 'El texto es demasiado corto' }, 400)
+    return json(req, { error: 'El texto es demasiado corto' }, 400)
   }
 
   if (!(await canViewExpediente(admin, userId, body.expediente_id, isStaff))) {
-    return json({ error: 'No tenés permiso para ver este expediente' }, 403)
+    return json(req, { error: 'No tenés permiso para ver este expediente' }, 403)
   }
 
   const ctx = await loadContext(admin, body.expediente_id)
-  if (!ctx.expediente) return json({ error: 'Expediente no encontrado' }, 404)
+  if (!ctx.expediente) return json(req, { error: 'Expediente no encontrado' }, 404)
 
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-  if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+  if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
   const userPrompt = buildUserPrompt(ctx, body.texto)
 
@@ -299,14 +299,14 @@ async function handle(req: Request): Promise<Response> {
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[expediente-brief-parse] LLM error', res.status, errText.slice(0, 500))
-    return json({ ok: false, error: `LLM ${res.status}`, detail: errText.slice(0, 400) }, 200)
+    return json(req, { ok: false, error: `LLM ${res.status}`, detail: errText.slice(0, 400) }, 200)
   }
 
   const data = await res.json().catch(() => null)
   const content = data?.choices?.[0]?.message?.content
   if (!content) {
     console.error('[expediente-brief-parse] respuesta vacía', JSON.stringify(data).slice(0, 500))
-    return json({ ok: false, error: 'Respuesta vacía del modelo' }, 200)
+    return json(req, { ok: false, error: 'Respuesta vacía del modelo' }, 200)
   }
 
   let parsed: any
@@ -314,7 +314,7 @@ async function handle(req: Request): Promise<Response> {
     parsed = typeof content === 'string' ? JSON.parse(content) : content
   } catch (e) {
     console.error('[expediente-brief-parse] JSON inválido', e)
-    return json({ ok: false, error: 'Respuesta del modelo no es JSON válido', raw: String(content).slice(0, 500) }, 200)
+    return json(req, { ok: false, error: 'Respuesta del modelo no es JSON válido', raw: String(content).slice(0, 500) }, 200)
   }
 
   // Sanity: aseguramos shape mínima
@@ -327,5 +327,5 @@ async function handle(req: Request): Promise<Response> {
     modelo: MODEL,
   }
 
-  return json(result, 200)
+  return json(req, result, 200)
 }

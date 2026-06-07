@@ -116,10 +116,10 @@ async function fetchWithManualRedirects(
   throw new SaeError('TOO_MANY_REDIRECTS', `Más de ${MAX_REDIRECT_HOPS} redirects en ${startUrl}`)
 }
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -477,7 +477,7 @@ function renderEmailHtml(profile: ProfileRow, notif: PortalNotificacion, expedie
 // ─── HTTP handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   // Auth: dos modos
   //  1) Cron: header x-cron-secret válido → procesa TODOS los usuarios con opt-in
@@ -489,14 +489,14 @@ Deno.serve(async (req) => {
 
   if (!isCronAuth) {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return json({ error: 'No autorizado' }, 401)
+    if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } },
     )
     const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Token inválido' }, 401)
+    if (authErr || !user) return json(req, { error: 'Token inválido' }, 401)
     forcedProfileId = user.id  // limita el barrido al usuario que llamó
   }
 
@@ -526,7 +526,7 @@ Deno.serve(async (req) => {
     profilesQuery = profilesQuery.eq('sae_notif_weekend', true)
   }
   const { data: profiles, error: profErr } = await profilesQuery
-  if (profErr) return json({ error: profErr.message }, 500)
+  if (profErr) return json(req, { error: profErr.message }, 500)
 
   const stats = {
     profiles_checked: 0,
@@ -864,5 +864,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ ok: true, dry_run: dryRun, ...stats })
+  return json(req, { ok: true, dry_run: dryRun, ...stats })
 })

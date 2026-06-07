@@ -8,10 +8,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { extractAprendizajeSentencia, aprendizajeToContenido } from '../_shared/aprendizaje-sentencia-analyzer.ts'
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -33,11 +33,11 @@ interface MovementSource {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
       | { source?: string; source_id?: string; force?: boolean }
@@ -53,9 +53,9 @@ Deno.serve(async (req) => {
     const source = body?.source
     const sourceId = body?.source_id
     if (source !== 'adjunto' && source !== 'movement') {
-      return json({ error: 'source debe ser "adjunto" o "movement"' }, 400)
+      return json(req, { error: 'source debe ser "adjunto" o "movement"' }, 400)
     }
-    if (!sourceId) return json({ error: 'Falta source_id' }, 400)
+    if (!sourceId) return json(req, { error: 'Falta source_id' }, 400)
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
         .filter('contenido_estructurado->source->>id', 'eq', sourceId)
         .maybeSingle()
       if (existing?.id) {
-        return json({ success: true, cached: true, aprendizaje_id: existing.id })
+        return json(req, { success: true, cached: true, aprendizaje_id: existing.id })
       }
     }
 
@@ -90,14 +90,14 @@ Deno.serve(async (req) => {
         .is('deleted_at', null)
         .maybeSingle()
       if (adjErr) throw adjErr
-      if (!adj) return json({ error: 'Adjunto no encontrado o sin permisos' }, 404)
+      if (!adj) return json(req, { error: 'Adjunto no encontrado o sin permisos' }, 404)
       const a = adj as AdjuntoSource
       if (!a.ai_full_text?.trim()) {
-        return json({ error: 'Adjunto sin texto. Analizalo con IA primero.' }, 400)
+        return json(req, { error: 'Adjunto sin texto. Analizalo con IA primero.' }, 400)
       }
       const tipo = a.ai_extracted?.tipo_documento ?? ''
       if (!['sentencia', 'resolucion', 'apelacion'].includes(tipo)) {
-        return json({ error: `Tipo "${tipo}" no aplica para extraer aprendizaje (solo sentencia/resolución/apelación).` }, 400)
+        return json(req, { error: `Tipo "${tipo}" no aplica para extraer aprendizaje (solo sentencia/resolución/apelación).` }, 400)
       }
       documentText = a.ai_full_text
       contextLabel = `${tipo.charAt(0).toUpperCase()}${tipo.slice(1)} — ${a.nombre_archivo}`
@@ -109,14 +109,14 @@ Deno.serve(async (req) => {
         .eq('id', sourceId)
         .maybeSingle()
       if (mErr) throw mErr
-      if (!m) return json({ error: 'Actuación no encontrada o sin permisos' }, 404)
+      if (!m) return json(req, { error: 'Actuación no encontrada o sin permisos' }, 404)
       const mv = m as MovementSource
       if (!['sentencia', 'decreto'].includes(mv.tipo_movimiento)) {
-        return json({ error: `Tipo "${mv.tipo_movimiento}" no aplica.` }, 400)
+        return json(req, { error: `Tipo "${mv.tipo_movimiento}" no aplica.` }, 400)
       }
       const cuerpo = mv.cuerpo?.trim() ?? ''
       if (cuerpo.length < 200) {
-        return json({ error: 'Actuación sin cuerpo suficiente para extraer aprendizaje.' }, 400)
+        return json(req, { error: 'Actuación sin cuerpo suficiente para extraer aprendizaje.' }, 400)
       }
       documentText = `${mv.titulo}\n\n${cuerpo}`
       contextLabel = `${mv.titulo} — ${mv.fecha}`
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     }
 
     if (!expedienteId) {
-      return json({ error: 'Fuente sin expediente_id.' }, 400)
+      return json(req, { error: 'Fuente sin expediente_id.' }, 400)
     }
 
     // Llamar al analizador
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     })
 
     if (!aprendizaje.takeaway_para_proximo_caso?.trim() && aprendizaje.hizo_lugar.length === 0 && aprendizaje.rechazo.length === 0) {
-      return json({ success: false, error: 'No se pudieron extraer aprendizajes accionables del texto.' }, 422)
+      return json(req, { success: false, error: 'No se pudieron extraer aprendizajes accionables del texto.' }, 422)
     }
 
     // Persistir en aprendizajes_rulebook
@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
 
     if (insErr) throw insErr
 
-    return json({
+    return json(req, {
       success: true,
       cached: false,
       aprendizaje_id: inserted.id,
@@ -184,6 +184,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[extract-aprendizaje-sentencia]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

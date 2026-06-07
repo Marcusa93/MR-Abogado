@@ -13,10 +13,10 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 const EMBEDDING_BATCH = 32
 
-function json(body: unknown, status = 200) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
 }
 
@@ -40,11 +40,11 @@ async function createEmbeddings(inputs: string[], apiKey: string): Promise<numbe
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json({ error: 'OPENROUTER_API_KEY no configurada' }, 500)
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -52,11 +52,11 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json({ error: 'No autorizado' }, 401)
+    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as { transcript_id?: string } | null
     const transcriptId = body?.transcript_id
-    if (!transcriptId) return json({ error: 'Falta transcript_id' }, 400)
+    if (!transcriptId) return json(req, { error: 'Falta transcript_id' }, 400)
 
     // Autorizo vía anon client (respeta RLS de audiencia_transcripts)
     const { data: transcript, error: tErr } = await anonClient
@@ -65,14 +65,14 @@ Deno.serve(async (req) => {
       .eq('id', transcriptId)
       .maybeSingle()
     if (tErr) throw tErr
-    if (!transcript) return json({ error: 'Transcript no encontrado o sin permisos.' }, 404)
+    if (!transcript) return json(req, { error: 'Transcript no encontrado o sin permisos.' }, 404)
     if (transcript.status !== 'completed' || !transcript.transcript?.trim()) {
-      return json({ error: 'Transcript no completado o vacío.' }, 400)
+      return json(req, { error: 'Transcript no completado o vacío.' }, 400)
     }
 
     const chunks = chunkTranscript(transcript.transcript)
     if (chunks.length === 0) {
-      return json({ success: true, chunks_created: 0, message: 'Texto vacío tras normalización.' })
+      return json(req, { success: true, chunks_created: 0, message: 'Texto vacío tras normalización.' })
     }
 
     const serviceClient = createClient(
@@ -107,10 +107,10 @@ Deno.serve(async (req) => {
       inserted += rows.length
     }
 
-    return json({ success: true, chunks_created: inserted, transcript_id: transcriptId })
+    return json(req, { success: true, chunks_created: inserted, transcript_id: transcriptId })
 
   } catch (err) {
     console.error('[audiencias-transcripts-ingest]', err)
-    return json({ error: err instanceof Error ? err.message : 'Error interno' }, 500)
+    return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

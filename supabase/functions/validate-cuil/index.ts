@@ -70,7 +70,7 @@ const PROVINCIA_MAP: Record<number, string> = {
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders(req) })
   }
 
   try {
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     if (!cuil || cuil.length !== 11 || !/^\d{11}$/.test(cuil)) {
       return new Response(
         JSON.stringify({ valid: false, message: 'CUIL debe tener 11 dígitos' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     if (!afipRes.ok) {
       return new Response(
         JSON.stringify({ valid: true, message: 'Formato válido (AFIP no disponible)', afip: null }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
           message: data.errorMessage ?? 'CUIL no encontrado en AFIP',
           afip: null,
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -149,13 +149,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error interno'
     return new Response(
       JSON.stringify({ valid: true, message: 'Formato válido (AFIP no disponible)', afip: null }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } },
     )
   }
 })
