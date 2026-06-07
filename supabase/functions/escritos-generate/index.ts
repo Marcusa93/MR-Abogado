@@ -16,7 +16,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
+const FUNCTION_NAME = 'escritos-generate'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_EMBEDDINGS_URL = 'https://openrouter.ai/api/v1/embeddings'
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4'
@@ -543,6 +545,17 @@ Deno.serve(async (req) => {
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
     if (!body?.tipo?.trim()) return json(req, { error: 'tipo de escrito requerido' }, 400)
 
+    // LLM guard: tamaño de input + rate limit por usuario.
+    // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que
+    // limita acá es el body del user (instrucciones libres).
+    const inputBytes = new TextEncoder().encode(JSON.stringify(body)).length
+    const guardClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const guard = await checkLlmGuard(guardClient, user.id, FUNCTION_NAME, inputBytes)
+    if (!guard.ok) return json(req, { error: guard.error }, guard.status)
+
     // 1) Verificar acceso al expediente (RLS-respecting client)
     const { data: expAuth, error: authExpError } = await anonClient
       .from('expedientes')
@@ -797,6 +810,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
     }
 
+    logLlmCall(guardClient, user.id, FUNCTION_NAME, inputBytes)
     return json(req, {
       escrito_id: escritoId,
       contenido,

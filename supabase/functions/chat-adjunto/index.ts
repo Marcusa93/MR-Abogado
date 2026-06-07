@@ -5,9 +5,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'anthropic/claude-sonnet-4'
+const FUNCTION_NAME = 'chat-adjunto'
 
 const SYSTEM_PROMPT = `Sos un asistente jurídico que responde preguntas sobre UN documento PDF específico de un expediente judicial argentino. Sos el "modo conversación" del documento.
 
@@ -52,7 +54,20 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
     if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
-    const body = await req.json().catch(() => null) as
+    const rawBody = await req.text()
+    const inputBytes = new TextEncoder().encode(rawBody).length
+
+    // LLM guard: tamaño de input + rate limit por usuario
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY')!,
+    )
+    const guard = await checkLlmGuard(admin, user.id, FUNCTION_NAME, inputBytes)
+    if (!guard.ok) return json(req, { error: guard.error }, guard.status)
+
+    const body = (() => {
+      try { return JSON.parse(rawBody) } catch { return null }
+    })() as
       | { adjunto_id?: string; question?: string; history?: unknown[]; document_text?: string }
       | null
     const adjuntoId = body?.adjunto_id
@@ -130,6 +145,7 @@ A continuación responderé preguntas sobre este documento.`,
     const answer = payload.choices?.[0]?.message?.content?.trim()
     if (!answer) return json(req, { error: 'El modelo no devolvió respuesta.' }, 502)
 
+    logLlmCall(admin, user.id, FUNCTION_NAME, inputBytes)
     return json(req, { answer, model: MODEL, truncated })
 
   } catch (err) {

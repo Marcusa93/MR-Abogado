@@ -7,9 +7,11 @@
 
 import { corsHeaders } from '../_shared/cors.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const DEFAULT_MODEL = 'openai/gpt-4o-mini'
+const FUNCTION_NAME = 'bogabot-chat'
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -48,13 +50,33 @@ Deno.serve(async (req) => {
       )
     }
 
-    const body = await req.json()
+    const rawBody = await req.text()
+    const inputBytes = new TextEncoder().encode(rawBody).length
+    let body: any
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Body inválido' }),
+        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
     const { messages, model, temperature, max_tokens, stream } = body
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(
         JSON.stringify({ error: 'messages array is required' }),
         { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // LLM guard: tamaño de input + rate limit por usuario
+    const admin = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? anonKey)
+    const guard = await checkLlmGuard(admin, user.id, FUNCTION_NAME, inputBytes)
+    if (!guard.ok) {
+      return new Response(
+        JSON.stringify({ error: guard.error }),
+        { status: guard.status, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 
@@ -80,12 +102,14 @@ Deno.serve(async (req) => {
     })
 
     if (!openRouterRes.ok) {
-      const errText = await openRouterRes.text().catch(() => '')
       return new Response(
         JSON.stringify({ error: `OpenRouter error ${openRouterRes.status}` }),
         { status: 502, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
+
+    // Fire-and-forget log para rate limit
+    logLlmCall(admin, user.id, FUNCTION_NAME, inputBytes)
 
     // If streaming, pipe the SSE response through
     if (stream) {

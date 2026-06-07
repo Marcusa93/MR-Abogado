@@ -16,9 +16,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'anthropic/claude-sonnet-4'
+const FUNCTION_NAME = 'diagnose-escrito'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -241,6 +243,11 @@ async function handleDiagnose(req: Request): Promise<Response> {
     return json(req, { error: 'El escrito está vacío o es muy corto para diagnosticar' }, 400)
   }
 
+  // LLM guard: tamaño de input + rate limit por usuario
+  const inputBytes = new TextEncoder().encode(textoEscrito).length
+  const guard = await checkLlmGuard(admin, userId, FUNCTION_NAME, inputBytes)
+  if (!guard.ok) return json(req, { error: guard.error }, guard.status)
+
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
@@ -327,6 +334,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
     }, 200)
   }
 
+  logLlmCall(admin, userId, FUNCTION_NAME, inputBytes)
   return json(req, {
     ok: true,
     escrito: escritoMeta,
