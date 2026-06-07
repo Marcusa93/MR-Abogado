@@ -40,6 +40,7 @@ import {
 import { useSaeCredential, useSaveSaeCredential, useDeleteSaeCredential, useSaeVerify } from '@/hooks/use-sae'
 import { SaeNotifConfig } from '@/components/configuracion/sae-notif-config'
 import { NotifPrefsConfig } from '@/components/configuracion/notif-prefs-config'
+import { IntegracionesDrive } from '@/components/configuracion/integraciones-drive'
 
 // ---------------------------------------------------------------------------
 // Profile Section
@@ -1420,6 +1421,16 @@ export default function ConfiguracionPage() {
       <SaeNotifSection />
 
       <NotifPrefsSection />
+
+      {/* Integraciones */}
+      <div className="border-t border-white/10 pt-6">
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
+          Integraciones
+        </h2>
+        <div className="space-y-4">
+          <IntegracionesDrive />
+        </div>
+      </div>
 
       {/* Admin sections */}
       {isAdmin && (

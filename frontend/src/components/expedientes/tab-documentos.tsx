@@ -5,6 +5,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useAdjuntos, useUploadAdjunto, useDeleteAdjunto, useAnalyzeAdjunto } from '@/hooks/use-adjuntos'
 import { createClient } from '@/lib/supabase/client'
 import { AdjuntoChatPanel } from './adjunto-chat-panel'
+import { DrivePickerButton } from './drive-picker-button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
@@ -123,9 +124,17 @@ function UploadDialog({
       <div className="w-full max-w-md rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Subir documento</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <DrivePickerButton
+              expedienteId={expedienteId}
+              categoria={categoria || undefined}
+              descripcion={descripcion || undefined}
+              onImportSuccess={() => onClose()}
+            />
+            <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4">
