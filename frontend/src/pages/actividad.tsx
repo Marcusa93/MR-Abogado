@@ -134,8 +134,10 @@ export default function ActividadPage() {
   const total = logData?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
-  // Admin check
-  if (profile?.rol !== 'ADMIN') return <Navigate to="/dashboard" replace />
+  // Solo ADMIN y DIRECTOR ven actividad del sistema
+  if (profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') {
+    return <Navigate to="/dashboard" replace />
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
