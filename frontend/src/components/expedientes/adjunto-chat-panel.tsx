@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Sparkles, Loader2, Send, X } from 'lucide-react'
+import { Sparkles, Loader2, Send, X, CheckSquare } from 'lucide-react'
 import { useChatAdjunto, type ChatMessage } from '@/hooks/use-adjuntos'
+import { CrearTareaDialog } from './crear-tarea-dialog'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
 interface Props {
   adjuntoId: string
   fileName: string
+  expedienteId?: string
   onClose: () => void
 }
 
@@ -17,12 +19,22 @@ const SUGERENCIAS = [
   'Resumime los hechos en 5 puntos.',
 ]
 
-export function AdjuntoChatPanel({ adjuntoId, fileName, onClose }: Props) {
+export function AdjuntoChatPanel({ adjuntoId, fileName, expedienteId, onClose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
+  const [tareaFromChat, setTareaFromChat] = useState<{ titulo: string; descripcion: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chat = useChatAdjunto()
+
+  const handleCrearTareaDesdeRespuesta = (respuesta: string, preguntaPrev: string | null) => {
+    // Título derivado de la pregunta previa (acotado) y descripción = la respuesta IA.
+    const titulo = preguntaPrev
+      ? `Sobre "${fileName}": ${preguntaPrev.slice(0, 80)}${preguntaPrev.length > 80 ? '…' : ''}`
+      : `Acción derivada de ${fileName}`
+    const descripcion = `📄 Documento: ${fileName}\n\n${preguntaPrev ? `❓ Pregunta: ${preguntaPrev}\n\n` : ''}🤖 Respuesta IA:\n${respuesta}`
+    setTareaFromChat({ titulo, descripcion })
+  }
 
   useEffect(() => {
     // Foco automático al input cuando abre
@@ -109,19 +121,36 @@ export function AdjuntoChatPanel({ adjuntoId, fileName, onClose }: Props) {
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={cn(
-              'rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap',
-              m.role === 'user'
-                ? 'ml-6 bg-cyan-500/15 text-zinc-800 dark:text-zinc-100'
-                : 'mr-6 bg-white/60 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-100 border border-white/5'
-            )}
-          >
-            {m.content}
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          const prevUser = m.role === 'assistant' && i > 0 && messages[i - 1].role === 'user'
+            ? messages[i - 1].content
+            : null
+          return (
+            <div key={i} className="space-y-1">
+              <div
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap',
+                  m.role === 'user'
+                    ? 'ml-6 bg-cyan-500/15 text-zinc-800 dark:text-zinc-100'
+                    : 'mr-6 bg-white/60 dark:bg-white/[0.04] text-zinc-800 dark:text-zinc-100 border border-white/5'
+                )}
+              >
+                {m.content}
+              </div>
+              {m.role === 'assistant' && expedienteId && (
+                <button
+                  type="button"
+                  onClick={() => handleCrearTareaDesdeRespuesta(m.content, prevUser)}
+                  className="ml-0 mr-6 inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/15 transition-colors"
+                  title="Crear tarea con esta respuesta como descripción"
+                >
+                  <CheckSquare className="h-2.5 w-2.5" />
+                  Crear tarea
+                </button>
+              )}
+            </div>
+          )
+        })}
 
         {chat.isPending && (
           <div className="mr-6 inline-flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.04] px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -156,6 +185,20 @@ export function AdjuntoChatPanel({ adjuntoId, fileName, onClose }: Props) {
           Enter para enviar · Shift+Enter para salto de línea
         </p>
       </div>
+
+      {tareaFromChat && expedienteId && (
+        <CrearTareaDialog
+          open={true}
+          onClose={() => setTareaFromChat(null)}
+          expedienteId={expedienteId}
+          initialValues={{
+            titulo: tareaFromChat.titulo,
+            descripcion: tareaFromChat.descripcion,
+            fechaVencimiento: '',
+            prioridad: 'MEDIA',
+          }}
+        />
+      )}
     </div>
   )
 }

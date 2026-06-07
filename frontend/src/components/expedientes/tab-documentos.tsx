@@ -730,6 +730,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                   <AdjuntoChatPanel
                     adjuntoId={previewAdjuntoId}
                     fileName={previewName}
+                    expedienteId={expedienteId}
                     onClose={() => setChatOpen(false)}
                   />
                 </div>

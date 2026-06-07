@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -23,6 +24,8 @@ import {
   Wallet,
   Sun,
   Sparkles,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
@@ -33,10 +36,13 @@ interface SidebarProps {
 
 type BadgeKey = 'tareas' | 'agenda' | 'notificaciones'
 
+type GroupKey = 'operacion' | 'casos' | 'inteligencia' | 'gestion' | 'sistema'
+
 interface NavItem {
   href: string
   label: string
   icon: typeof LayoutDashboard
+  group: GroupKey
   badgeKey?: BadgeKey
   adminOnly?: boolean
   cajaOnly?: boolean
@@ -46,32 +52,78 @@ interface NavItem {
   secretariaOnly?: boolean
 }
 
+const GROUP_LABELS: Record<GroupKey, string> = {
+  operacion: 'Operación',
+  casos: 'Casos',
+  inteligencia: 'Inteligencia',
+  gestion: 'Gestión',
+  sistema: 'Sistema',
+}
+
+const GROUP_ORDER: GroupKey[] = ['operacion', 'casos', 'inteligencia', 'gestion', 'sistema']
+const DEFAULT_COLLAPSED: GroupKey[] = ['inteligencia']
+
 const navItems: readonly NavItem[] = [
-  // Para SECRETARIA: "Hoy" es la landing
-  { href: '/hoy', label: 'Hoy', icon: Sun, secretariaOnly: true },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hideForSecretaria: true },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/expedientes', label: 'Expedientes', icon: FolderOpen },
-  { href: '/kanban', label: 'Tablero', icon: Columns3, hideForSecretaria: true },
-  { href: '/tareas', label: 'Tareas', icon: CheckSquare, badgeKey: 'tareas' },
-  { href: '/agenda', label: 'Agenda', icon: CalendarDays, badgeKey: 'agenda' },
-  { href: '/notificaciones', label: 'Notificaciones', icon: Bell, badgeKey: 'notificaciones' },
-  { href: '/contenidos', label: 'Contenidos', icon: Sparkles },
-  { href: '/informes', label: 'Informes', icon: BarChart3, hideForSecretaria: true },
-  { href: '/normativa', label: 'Normativa', icon: BookMarked, hideForSecretaria: true },
-  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel, hideForSecretaria: true },
-  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain, hideForSecretaria: true },
-  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2, hideForSecretaria: true },
-  { href: '/caja', label: 'Caja', icon: Wallet, cajaOnly: true },
-  { href: '/actividad', label: 'Actividad', icon: Activity, adminOnly: true },
-  { href: '/configuracion', label: 'Configuración', icon: Settings },
+  // OPERACIÓN — lo cotidiano
+  { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true },
+  { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
+  { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
+  { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
+
+  // CASOS — todo lo del expediente
+  { href: '/clientes', label: 'Clientes', icon: Users, group: 'casos' },
+  { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'casos' },
+  // Tablero queda disponible vía URL /kanban pero oculto del menú (vista alternativa de Expedientes)
+
+  // INTELIGENCIA — corpus IA (cerrado por default)
+  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2, group: 'inteligencia', hideForSecretaria: true },
+  { href: '/normativa', label: 'Normativa', icon: BookMarked, group: 'inteligencia', hideForSecretaria: true },
+  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel, group: 'inteligencia', hideForSecretaria: true },
+  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain, group: 'inteligencia', hideForSecretaria: true },
+  { href: '/informes', label: 'Informes', icon: BarChart3, group: 'inteligencia', hideForSecretaria: true },
+
+  // GESTIÓN — administrativo
+  { href: '/caja', label: 'Caja', icon: Wallet, group: 'gestion', cajaOnly: true },
+  { href: '/contenidos', label: 'Contenidos', icon: Sparkles, group: 'gestion' },
+  { href: '/actividad', label: 'Actividad', icon: Activity, group: 'gestion', adminOnly: true },
+
+  // SISTEMA
+  { href: '/configuracion', label: 'Configuración', icon: Settings, group: 'sistema' },
 ]
+
+const COLLAPSED_GROUPS_KEY = 'sidebar-collapsed-groups'
+
+function loadCollapsedGroups(): Set<GroupKey> {
+  if (typeof window === 'undefined') return new Set(DEFAULT_COLLAPSED)
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_GROUPS_KEY)
+    if (!raw) return new Set(DEFAULT_COLLAPSED)
+    const parsed = JSON.parse(raw) as string[]
+    return new Set(parsed.filter((g): g is GroupKey => GROUP_ORDER.includes(g as GroupKey)))
+  } catch {
+    return new Set(DEFAULT_COLLAPSED)
+  }
+}
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const { pathname } = useLocation()
   const profile = useAuthStore((s) => s.profile)
   const badges = useSidebarBadges()
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupKey>>(loadCollapsedGroups)
+
+  const toggleGroup = (g: GroupKey) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(g)) next.delete(g)
+      else next.add(g)
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify([...next]))
+      }
+      return next
+    })
+  }
 
   const badgeCounts: Record<BadgeKey, number> = {
     tareas: badges.tareasVencidas,
@@ -137,60 +189,87 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 no-scrollbar">
-        {navItems.filter((item) => {
+      <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 no-scrollbar">
+        {(() => {
           const esSecretaria = profile?.rol === 'SECRETARIA'
-          if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
-          if (item.cajaOnly && !tieneAccesoCaja) return false
-          if (item.hideForSecretaria && esSecretaria) return false
-          if (item.secretariaOnly && !esSecretaria) return false
-          return true
-        }).map((item) => {
-          const isActive = pathname.startsWith(item.href)
-          const Icon = item.icon
+          const visibleItems = navItems.filter((item) => {
+            if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
+            if (item.cajaOnly && !tieneAccesoCaja) return false
+            if (item.hideForSecretaria && esSecretaria) return false
+            if (item.secretariaOnly && !esSecretaria) return false
+            return true
+          })
 
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              title={isCollapsed ? item.label : undefined}
-              data-tour={`nav-${item.href.replace(/^\//, '').split('-')[0]}`}
-              className={cn(
-                'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                isCollapsed && 'justify-center px-2',
-                isActive
-                  ? 'bg-[var(--brand-navy)]/10 text-[var(--brand-navy)] dark:bg-[var(--brand-accent)]/15 dark:text-[var(--brand-ice)]'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
-              )}
-            >
-              <Icon
-                className={cn(
-                  'h-5 w-5 shrink-0 transition-colors',
-                  isActive
-                    ? 'text-[var(--brand-navy)] dark:text-[var(--brand-ice)]'
-                    : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+          return GROUP_ORDER.map((groupKey) => {
+            const items = visibleItems.filter((i) => i.group === groupKey)
+            if (items.length === 0) return null
+            const collapsed = collapsedGroups.has(groupKey)
+            const hasActive = items.some((i) => pathname.startsWith(i.href))
+
+            return (
+              <div key={groupKey} className="space-y-0.5">
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(groupKey)}
+                    className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    aria-expanded={!collapsed}
+                  >
+                    {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {GROUP_LABELS[groupKey]}
+                    {collapsed && hasActive && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--brand-accent)]" title="Sección activa" />
+                    )}
+                  </button>
                 )}
-              />
-              {!isCollapsed && (
-                <span className="animate-fade-in">{item.label}</span>
-              )}
-              {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
-                <span
-                  className={cn(
-                    'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
-                    badgeColors[item.badgeKey],
-                    isCollapsed && 'absolute -right-0.5 -top-0.5 h-4 min-w-4 ml-0 text-[9px]'
-                  )}
-                >
-                  {badgeCounts[item.badgeKey] > 99 ? '99+' : badgeCounts[item.badgeKey]}
-                </span>
-              )}
-              {isActive && !isCollapsed && !item.badgeKey && (
-                <div className="ml-auto h-5 w-1 rounded-full bg-[var(--brand-accent)]" />
-              )}
-            </Link>
-          )
-        })}
+                {(!collapsed || isCollapsed) && items.map((item) => {
+                  const isActive = pathname.startsWith(item.href)
+                  const Icon = item.icon
+
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      title={isCollapsed ? item.label : undefined}
+                      data-tour={`nav-${item.href.replace(/^\//, '').split('-')[0]}`}
+                      className={cn(
+                        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+                        isCollapsed && 'justify-center px-2',
+                        isActive
+                          ? 'bg-[var(--brand-navy)]/10 text-[var(--brand-navy)] dark:bg-[var(--brand-accent)]/15 dark:text-[var(--brand-ice)]'
+                          : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'h-5 w-5 shrink-0 transition-colors',
+                          isActive
+                            ? 'text-[var(--brand-navy)] dark:text-[var(--brand-ice)]'
+                            : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+                        )}
+                      />
+                      {!isCollapsed && <span className="animate-fade-in">{item.label}</span>}
+                      {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
+                        <span
+                          className={cn(
+                            'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
+                            badgeColors[item.badgeKey],
+                            isCollapsed && 'absolute -right-0.5 -top-0.5 h-4 min-w-4 ml-0 text-[9px]'
+                          )}
+                        >
+                          {badgeCounts[item.badgeKey] > 99 ? '99+' : badgeCounts[item.badgeKey]}
+                        </span>
+                      )}
+                      {isActive && !isCollapsed && !item.badgeKey && (
+                        <div className="ml-auto h-5 w-1 rounded-full bg-[var(--brand-accent)]" />
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })
+        })()}
       </nav>
 
       {/* Footer */}

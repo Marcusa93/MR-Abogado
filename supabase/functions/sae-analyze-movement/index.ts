@@ -136,6 +136,25 @@ Deno.serve(async (req) => {
             console.warn('[sae-analyze-movement] no se pudo disparar aprendizaje', err)
           }
         }
+
+        // Marcar brief pendiente para sentencias, decretos o acciones IA de
+        // prioridad alta/urgente.
+        const accion = analysis.suggested_action
+        const esNovedadClave =
+          m.tipo_movimiento === 'sentencia' ||
+          m.tipo_movimiento === 'decreto' ||
+          (accion && (accion.prioridad === 'ALTA' || accion.prioridad === 'URGENTE'))
+        if (esNovedadClave) {
+          try {
+            await serviceClient.rpc('marcar_brief_pendiente', {
+              p_expediente_id: m.expediente_id,
+              p_kind: `sae_${m.tipo_movimiento}`,
+              p_ref: m.id,
+            })
+          } catch (err) {
+            console.warn('[sae-analyze-movement] marcar_brief_pendiente falló', err)
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Error IA desconocido'
         console.error('[sae-analyze-movement]', m.id, msg)

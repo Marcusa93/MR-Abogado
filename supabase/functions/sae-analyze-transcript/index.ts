@@ -127,12 +127,10 @@ Deno.serve(async (req) => {
       })
       .eq('id', tRow.id)
 
-    // Auto-trigger del ingest para búsqueda semántica. Fire-and-forget:
-    // si falla, el analyze no se rompe y el usuario puede reingestar manual.
+    // Auto-trigger ingest semántico + marcar brief pendiente. Fire-and-forget.
     try {
       const projectUrl = Deno.env.get('SUPABASE_URL')!
       const authHeader = req.headers.get('Authorization') ?? ''
-      // No esperamos la respuesta para no bloquear el analyze
       fetch(`${projectUrl}/functions/v1/audiencias-transcripts-ingest`, {
         method: 'POST',
         headers: {
@@ -141,8 +139,17 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({ transcript_id: tRow.id }),
       }).catch((err) => console.warn('[sae-analyze-transcript] ingest trigger falló', err))
+
+      if (tRow.expediente_id) {
+        serviceClient.rpc('marcar_brief_pendiente', {
+          p_expediente_id: tRow.expediente_id,
+          p_kind: 'audiencia_transcripta',
+          p_ref: tRow.id,
+        }).then(() => undefined).catch((err: unknown) =>
+          console.warn('[sae-analyze-transcript] marcar_brief_pendiente falló', err))
+      }
     } catch (err) {
-      console.warn('[sae-analyze-transcript] no se pudo disparar ingest', err)
+      console.warn('[sae-analyze-transcript] no se pudieron disparar triggers', err)
     }
 
     return json({ analysis })

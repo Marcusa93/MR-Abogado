@@ -123,6 +123,16 @@ Deno.serve(async (req) => {
               headers: { 'Content-Type': 'application/json', Authorization: authHeader },
               body: JSON.stringify({ source: 'adjunto', source_id: adjuntoId }),
             }).catch((err) => console.warn('[analyze-adjunto] aprendizaje trigger falló', err))
+
+            // Marca brief pendiente — entró documento jurídico clave
+            if (adj.expediente_id) {
+              serviceClient.rpc('marcar_brief_pendiente', {
+                p_expediente_id: adj.expediente_id,
+                p_kind: `adjunto_${tipo}`,
+                p_ref: adjuntoId,
+              }).then(() => undefined).catch((err: unknown) =>
+                console.warn('[analyze-adjunto] marcar_brief_pendiente falló', err))
+            }
           }
         } catch (err) {
           console.warn('[analyze-adjunto] no se pudieron disparar triggers', err)

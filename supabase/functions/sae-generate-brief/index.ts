@@ -176,6 +176,8 @@ ${movContext}`
         ai_brief: brief,
         ai_brief_generated_at: generatedAt,
         ai_brief_model: DEFAULT_MODEL,
+        ai_brief_pending_refresh: false,
+        ai_brief_pending_reasons: null,
       })
       .eq('id', body.expediente_id)
 

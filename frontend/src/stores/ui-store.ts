@@ -7,14 +7,12 @@ type ExpedientesViewMode = 'table' | 'cards'
 interface UIState {
   sidebarOpen: boolean
   theme: Theme
-  commandPaletteOpen: boolean
   expedientesViewMode: ExpedientesViewMode
 
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
-  setCommandPaletteOpen: (open: boolean) => void
   setExpedientesViewMode: (mode: ExpedientesViewMode) => void
 }
 
@@ -23,7 +21,6 @@ export const useUIStore = create<UIState>()(
     (set, get) => ({
       sidebarOpen: true,
       theme: 'system',
-      commandPaletteOpen: false,
       expedientesViewMode: 'table',
 
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -37,7 +34,6 @@ export const useUIStore = create<UIState>()(
         set({ theme: next })
       },
 
-      setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
       setExpedientesViewMode: (mode) => set({ expedientesViewMode: mode }),
     }),
     {

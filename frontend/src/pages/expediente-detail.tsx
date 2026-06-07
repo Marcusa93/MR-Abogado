@@ -24,6 +24,9 @@ import { TabVisionIa } from '@/components/expedientes/tab-vision-ia'
 import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { ExpedienteSimilaresPanel } from '@/components/expedientes/expediente-similares-panel'
+import { ExpedienteBriefPanel } from '@/components/expedientes/expediente-brief-panel'
+import { TabCaja } from '@/components/expedientes/tab-caja'
+import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
@@ -56,6 +59,7 @@ import {
   BookMarked,
   Gavel,
   Sparkles,
+  Wallet,
   MoreHorizontal,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
@@ -76,6 +80,7 @@ const TABS = [
   { id: 'jurisprudencia', label: 'Jurisprudencia', icon: Gavel, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'vision-ia', label: 'Visión IA', icon: Sparkles, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'notas', label: 'Notas', icon: MessageSquareText, activeClasses: 'border-pink-400 text-pink-400', badgeClasses: 'bg-pink-500/15 text-pink-400' },
+  { id: 'caja', label: 'Caja', icon: Wallet, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
   { id: 'timeline', label: 'Timeline', icon: Clock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
 
@@ -90,6 +95,8 @@ export default function ExpedienteDetailPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN'
+  const { data: tieneAccesoCaja } = useTieneAccesoCaja()
+  const visibleTabs = TABS.filter((t) => t.id !== 'caja' || tieneAccesoCaja)
 
   const { data: expediente, isLoading, isError } = useExpediente(id!)
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
@@ -341,13 +348,25 @@ export default function ExpedienteDetailPage() {
         })()}
       </div>
 
+      {/* Brief viviente del expediente */}
+      <ExpedienteBriefPanel
+        expedienteId={id!}
+        brief={{
+          ai_brief: (expediente as { ai_brief?: string | null }).ai_brief ?? null,
+          ai_brief_generated_at: (expediente as { ai_brief_generated_at?: string | null }).ai_brief_generated_at ?? null,
+          ai_brief_model: (expediente as { ai_brief_model?: string | null }).ai_brief_model ?? null,
+          ai_brief_pending_refresh: (expediente as { ai_brief_pending_refresh?: boolean }).ai_brief_pending_refresh ?? false,
+          ai_brief_pending_reasons: (expediente as { ai_brief_pending_reasons?: { kind: string; at: string; ref: string | null }[] | null }).ai_brief_pending_reasons ?? null,
+        }}
+      />
+
       {/* Expedientes parecidos en tu corpus (cross-expediente, colapsable) */}
       <ExpedienteSimilaresPanel expedienteId={id!} />
 
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
         <nav className="flex gap-1 overflow-x-auto -mb-px no-scrollbar">
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             let count: number | null = null
@@ -424,6 +443,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'jurisprudencia' && <TabJurisprudencia expedienteId={id!} />}
         {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
         {activeTab === 'notas' && <ComentariosPanel expedienteId={id!} />}
+        {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
         {activeTab === 'timeline' && (
           <Card title="Línea de tiempo">
             {timelineLoading ? (

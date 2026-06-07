@@ -204,7 +204,9 @@ function fmtMoney(n: number): string {
 // ---------------------------------------------------------------------------
 
 export default function InformesPage() {
-  const [view, setView] = useState<'ia' | 'clasico'>('ia')
+  // Vista clásica deprecada — el tablero IA reemplaza todo. Mantenemos el
+  // código por debajo por si hace falta exportar PDF/CSV de los datos
+  // históricos, pero no se renderiza.
   const navigate = useNavigate()
   const { data: porEstado, isLoading: l1, isError: e1, refetch: r1 } = useExpedientesPorEstado()
   const { data: porMes, isLoading: l2, isError: e2, refetch: r2 } = useExpedientesPorMes()
@@ -255,222 +257,29 @@ export default function InformesPage() {
             Informes
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
-            {view === 'ia' ? 'Tablero en vivo con el corpus IA del estudio' : 'Reportes clásicos del estudio — datos históricos'}
+            Tablero en vivo con el corpus IA del estudio
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Toggle de vista */}
-          <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
-            <button
-              onClick={() => setView('ia')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                view === 'ia'
-                  ? 'bg-violet-500/20 text-violet-200'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Tablero IA
-            </button>
-            <button
-              onClick={() => setView('clasico')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                view === 'clasico'
-                  ? 'bg-cyan-500/20 text-cyan-200'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              )}
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              Clásico
-            </button>
-          </div>
-          {view === 'clasico' && (
-            <>
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                CSV
-              </button>
-              <button
-                onClick={handleExportPDF}
-                disabled={isLoading}
-                className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 transition-colors"
-              >
-                <FileText className="h-4 w-4" />
-                Exportar PDF
-              </button>
-            </>
-          )}
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/10 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 transition-colors"
+          >
+            <FileText className="h-4 w-4" />
+            Exportar PDF
+          </button>
         </div>
       </div>
 
-      {view === 'ia' ? (
-        <InformesCommandCenter />
-      ) : isLoading ? (
-        <TableSkeleton rows={6} columns={4} />
-      ) : isError ? (
-        <ErrorState
-          message="Error al cargar los informes"
-          onRetry={() => { r1(); r2(); r3(); r4() }}
-        />
-      ) : (
-        <>
-          {/* Row 1: Pie + Bar */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {/* Expedientes por Estado — Donut */}
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Briefcase className="h-4 w-4 text-amber-400" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Expedientes por Estado</h3>
-              </div>
-              {totalExp === 0 ? (
-                <div className="flex h-[280px] items-center justify-center">
-                  <div className="text-center">
-                    <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full border-4 border-zinc-200 dark:border-zinc-700">
-                      <span className="text-sm text-zinc-400">0</span>
-                    </div>
-                    <p className="text-xs text-zinc-400">Los datos aparecerán al registrar expedientes</p>
-                  </div>
-                </div>
-              ) : (
-                <SVGDonut data={pieData} total={totalExp} />
-              )}
-            </div>
-
-            {/* Expedientes por Mes — Barras */}
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="h-4 w-4 text-violet-400" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Expedientes por Mes</h3>
-              </div>
-              {!porMes || porMes.length === 0 ? (
-                <div className="flex h-[280px] items-center justify-center">
-                  <p className="text-xs text-zinc-400">Los datos aparecerán al registrar expedientes</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={porMes} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="mesLabel" tick={{ fill: '#64748b', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-                    <Tooltip content={<GlassTooltip />} />
-                    <Bar dataKey="count" name="Expedientes" fill="#d4a853" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2: Tipo + Financiero */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {/* Expedientes por Tipo — Barras horizontales clickeables */}
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-4 w-4 text-amber-400" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Por Tipo de Trámite</h3>
-              </div>
-              <TipoBarChart
-                data={porTipo ?? []}
-                onBarClick={(tipoId) => navigate(`/expedientes?tipo_tramite_id=${tipoId}`)}
-              />
-            </div>
-
-            {/* Resumen Financiero */}
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="h-4 w-4 text-emerald-400" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Resumen Financiero</h3>
-              </div>
-              {financiero && (
-                <div className="space-y-4">
-                  {/* KPI cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <StatCard label="Total Expedientes" value={financiero.totalExpedientes} />
-                    <StatCard label="En Trámite" value={financiero.enTramite} color="text-amber-400" />
-                    <StatCard label="Resueltos" value={financiero.resueltos} color="text-emerald-400" />
-                    <StatCard label="Tasa de Éxito" value={`${financiero.tasaExito}%`} color="text-amber-400" />
-                  </div>
-
-                  <div className="border-t border-white/5 pt-4 space-y-3">
-                    <FinRow label="Monto reclamado" value={fmtMoney(financiero.montoReclamado)} />
-                    <FinRow label="Monto otorgado" value={fmtMoney(financiero.montoOtorgado)} color="text-emerald-400" />
-                    <FinRow label="Honorarios cobrados" value={fmtMoney(financiero.totalCobros)} color="text-amber-400" />
-                    <FinRow label="Cobros realizados" value={String(financiero.cantCobros)} />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 3: Consultas vs Tomados */}
-          {consultasVsTomados && consultasVsTomados.length > 0 && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Briefcase className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Consultas vs Tomados por mes</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={consultasVsTomados} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" />
-                  <XAxis dataKey="mesLabel" tick={{ fill: '#64748b', fontSize: 10 }} />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip content={<GlassTooltip />} />
-                  <Bar dataKey="consultas" name="Consultas" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="tomados" name="Tomados" fill="#d4a853" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Consultas (en análisis)</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Tomados (iniciados+)</span>
-              </div>
-            </div>
-          )}
-
-          {/* Row 4: Turnos Stats */}
-          {turnosStats && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <CalendarDays className="h-4 w-4 text-blue-500" />
-                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Informe de Audiencias</h3>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="rounded-lg bg-zinc-100 dark:bg-white/5 p-3 text-center">
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{turnosStats.total}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Total asignados</p>
-                </div>
-                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 p-3 text-center">
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{turnosStats.realizados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Realizados</p>
-                </div>
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3 text-center">
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{turnosStats.pendientes}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Pendientes</p>
-                </div>
-                <div className="rounded-lg bg-rose-50 dark:bg-rose-500/10 p-3 text-center">
-                  <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{turnosStats.cancelados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Cancelados</p>
-                </div>
-                <div className="rounded-lg bg-violet-50 dark:bg-violet-500/10 p-3 text-center">
-                  <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">{turnosStats.reprogramados}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-1">Reprogramados</p>
-                </div>
-              </div>
-              {turnosStats.total > 0 && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  <span>Tasa de asistencia:</span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                    {Math.round((turnosStats.realizados / turnosStats.total) * 100)}%
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      <InformesCommandCenter />
     </div>
   )
 }
