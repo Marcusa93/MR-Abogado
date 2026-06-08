@@ -89,6 +89,16 @@ supabase functions serve <fn> --env-file ...
 supabase functions deploy <fn>
 ```
 
+## Endurecimiento TS pendiente
+
+Activar `noUncheckedIndexedAccess: true` en `frontend/tsconfig.json` destapa
+**~210 errores reales** (accesos a array/index sin chequear undefined). La mayoría
+son bugs latentes potenciales. Plan razonable: activarlo, batch-fix por carpeta
+(`components/dashboard`, luego `components/expedientes`, etc.), un PR por batch.
+No activarlo "y ya" — rompe el build de Vercel.
+
+`exactOptionalPropertyTypes` aún no fue evaluado; probablemente destape más.
+
 ## No hacer sin pedir
 
 - Tocar `SAE_ENCRYPTION_KEY`: rotarla obliga a re-cifrar `sae_credentials.encrypted_secret` fila a fila.
