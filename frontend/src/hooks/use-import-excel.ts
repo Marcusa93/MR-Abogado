@@ -79,6 +79,30 @@ export function useImportExcel() {
       // UDAIs table no longer exists — resolver returns null
       const resolveUdaiId = (_nombre: string | null): string | null => null
 
+      // Marca un profile como responsable del expediente vía expediente_miembros.
+      // Idempotente: si ya existe un (expediente_id, profile_id) lo deja como está
+      // y solo asegura que el rol sea 'responsable'.
+      const upsertResponsable = async (expedienteId: string, profileId: string) => {
+        const { data: existing } = await supabase
+          .from('expediente_miembros')
+          .select('id, rol')
+          .eq('expediente_id', expedienteId)
+          .eq('profile_id', profileId)
+          .maybeSingle()
+        if (existing) {
+          if (existing.rol !== 'responsable') {
+            await supabase
+              .from('expediente_miembros')
+              .update({ rol: 'responsable', activo: true } as never)
+              .eq('id', existing.id)
+          }
+          return
+        }
+        await supabase
+          .from('expediente_miembros')
+          .insert({ expediente_id: expedienteId, profile_id: profileId, rol: 'responsable' } as never)
+      }
+
       // ── Step 1: Upsert clientes ────────────────────────────────────
       setProgress({ step: 'Importando clientes...', current: 0, total: preview.clientes.length })
 
@@ -205,13 +229,13 @@ export function useImportExcel() {
             }
             if (exp.numero_expediente) updateData.numero = exp.numero_expediente
             if (exp.observaciones) updateData.observaciones = exp.observaciones
-            if (abogadoId) updateData.abogado_id = abogadoId
             if (exp.fecha_resolucion) updateData.fecha_resolucion = exp.fecha_resolucion
 
             const { error: updateExpErr } = await supabase.from('expedientes').update(updateData as never).eq('id', existingExp.id)
             if (updateExpErr) {
               result.errores.push(`Error actualizando expediente ${exp.numero_expediente}: ${updateExpErr.message}`)
             } else {
+              if (abogadoId) await upsertResponsable(existingExp.id, abogadoId)
               clienteDniExpedienteMap.set(exp.cliente_dni, existingExp.id)
               result.expedientesActualizados++
             }
@@ -242,7 +266,6 @@ export function useImportExcel() {
               created_by: user.id,
             }
             if (exp.numero_expediente) insertData.numero = exp.numero_expediente
-            if (abogadoId) insertData.abogado_id = abogadoId
             if (exp.fecha_resolucion) insertData.fecha_resolucion = exp.fecha_resolucion
 
             const { data: inserted, error } = await supabase
@@ -251,6 +274,9 @@ export function useImportExcel() {
               .select('id')
               .single()
 
+            if (!error && inserted && abogadoId) {
+              await upsertResponsable(inserted.id, abogadoId)
+            }
             if (error) {
               result.errores.push(`Expediente ${exp.cliente_dni}: ${error.message}`)
             } else if (inserted) {

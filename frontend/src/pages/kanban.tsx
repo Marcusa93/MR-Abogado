@@ -164,9 +164,10 @@ function KanbanFiltersBar({
   onSearchChange: (v: string) => void
 }) {
   const { data: tiposTramite } = useTiposTramite()
-  const { profile } = useAuth()
-  // TODO: "Mis expedientes" toggle disabled — abogado_id removed from expedientes schema
-  // Use expediente_miembros to filter by member in the future
+  useAuth() // mantiene la suscripción al store (sin renderizar nada por ahora)
+  // "Mis expedientes": para filtrar por equipo (expediente_miembros) hay que
+  // ampliar la RPC get_kanban_data. Si lo pedís, lo armamos. Hasta entonces el
+  // filtro por responsable está en /expedientes (resuelto via miembros).
 
   const hasFilters =
     !!filters.tipo_tramite_id ||
@@ -175,9 +176,6 @@ function KanbanFiltersBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* TODO: "Mis expedientes" toggle — abogado_id removed; implement via expediente_miembros */}
-      {false && profile?.id && null}
-
       {/* Search */}
       <div className="relative flex-1 min-w-[180px] max-w-[280px]">
         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-700 dark:text-zinc-300" />
@@ -224,7 +222,7 @@ function KanbanFiltersBar({
         ))}
       </select>
 
-      {/* TODO: Responsable filter removed — abogado_id no longer on expedientes */}
+      {/* Filtro por Responsable: vive en /expedientes (vía expediente_miembros) */}
 
       {/* Clear */}
       {hasFilters && (

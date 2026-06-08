@@ -128,7 +128,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
           </div>
 
           {/* Tipo tramite */}
-          {/* TODO: Responsable (abogado_id) removed — use expediente_miembros instead */}
+          {/* Responsable (rol "responsable") se gestiona desde Equipo del expediente */}
           <div>
             <label className={labelClass}>Tipo de trámite</label>
             <select

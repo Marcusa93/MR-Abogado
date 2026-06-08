@@ -149,7 +149,7 @@ export default function NuevoExpedientePage() {
           </div>
 
           {/* Prioridad + Estado */}
-          {/* TODO: Responsable (abogado_id) removed — use expediente_miembros instead */}
+          {/* Responsable (rol "responsable") se asigna luego desde Equipo del expediente */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Prioridad</label>

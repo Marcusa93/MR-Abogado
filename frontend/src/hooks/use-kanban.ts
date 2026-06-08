@@ -13,9 +13,10 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+// El filtro por responsable vive en /expedientes (resuelto vía expediente_miembros).
+// Si se quiere recuperar acá habría que ampliar la RPC get_kanban_data con un
+// p_profile_id que joinee expediente_miembros — fuera de scope de la vista actual.
 export interface KanbanFilters {
-  // TODO: abogado_id removed from DB — filter via expediente_miembros
-  // abogado_id?: string | null
   tipo_tramite_id?: string | null
   prioridad?: Prioridad | null
 }
