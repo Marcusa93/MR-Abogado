@@ -21,6 +21,7 @@ import {
   Search,
   Sparkles,
   X,
+  BookOpen,
   Clock,
   Plus,
   Users,
@@ -186,7 +187,10 @@ function ActuacionRow({
   onToggleOle: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [reading, setReading] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
+  const cuerpoLen = movement.cuerpo?.trim().length ?? 0
+  const esLargo = cuerpoLen > 1200
   const attachments = extractAttachments(movement)
   const canExpand = hasCuerpo || attachments.length > 0
 
@@ -413,9 +417,39 @@ function ActuacionRow({
       {expanded && (
         <div className="border-t border-white/5 px-4 py-3 space-y-3">
           {hasCuerpo && (
-            <p className="text-xs text-zinc-400 whitespace-pre-wrap leading-relaxed">
-              {movement.cuerpo}
-            </p>
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase tracking-wide text-zinc-500">
+                  Cuerpo de la actuación{esLargo ? ` · ${cuerpoLen.toLocaleString('es-AR')} caracteres` : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setReading(true) }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 bg-sky-500/5 px-2.5 py-1 text-[11px] font-medium text-sky-300 hover:bg-sky-500/10 transition-colors"
+                  title="Abrir el texto completo en un panel de lectura cómodo"
+                >
+                  <BookOpen className="h-3 w-3" />
+                  Abrir en lectura
+                </button>
+              </div>
+              <div className={cn('relative', esLargo && 'max-h-64 overflow-hidden')}>
+                <p className="text-xs text-zinc-400 whitespace-pre-wrap leading-relaxed">
+                  {movement.cuerpo}
+                </p>
+                {esLargo && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#0a0a0b] to-transparent" />
+                )}
+              </div>
+              {esLargo && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setReading(true) }}
+                  className="text-[11px] font-medium text-sky-400 hover:text-sky-300 transition-colors"
+                >
+                  Leer completo →
+                </button>
+              )}
+            </>
           )}
           {attachments.length > 0 && (
             <div className="space-y-1.5">
@@ -434,6 +468,61 @@ function ActuacionRow({
           )}
         </div>
       )}
+
+      {reading && hasCuerpo && (
+        <ActuacionReader movement={movement} onClose={() => setReading(false)} />
+      )}
+    </div>
+  )
+}
+
+// ─── Reading pane ─────────────────────────────────────────────────────────────
+// Panel de lectura a pantalla casi completa para actuaciones largas (sentencias,
+// resoluciones). Tipografía cómoda, ancho de lectura acotado, scrollable.
+function ActuacionReader({ movement, onClose }: { movement: SaeMovement; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex flex-col bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="mx-auto flex h-full w-full max-w-3xl flex-col bg-zinc-950 shadow-2xl border-x border-white/5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 border-b border-white/10 px-5 py-4">
+          <span className={cn('shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
+            <MovementIcon tipo={movement.tipo_movimiento} />
+            {TIPO_LABELS[movement.tipo_movimiento]}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold text-zinc-100 leading-snug">{movement.titulo}</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">{formatDate(movement.fecha)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-white/10 hover:text-zinc-100 transition-colors"
+            title="Cerrar (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-10">
+          <p className="whitespace-pre-wrap font-serif text-[15px] leading-7 text-zinc-200 [text-align:justify]">
+            {movement.cuerpo}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

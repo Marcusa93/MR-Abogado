@@ -1,0 +1,19 @@
+[Unit]
+Description=Telegram -> Claude Code bridge bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Ajustá User y rutas según tu VPN.
+User=root
+WorkingDirectory=/root/telegram-claude-bot
+EnvironmentFile=/root/telegram-claude-bot/.env
+ExecStart=/usr/bin/node /root/telegram-claude-bot/bot.mjs
+Restart=always
+RestartSec=5
+# El bot necesita el PATH donde está claude/node; ajustá si usás nvm.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin
+
+[Install]
+WantedBy=multi-user.target

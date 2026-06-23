@@ -759,10 +759,14 @@ const ROL_COLORS: Record<string, string> = {
   DIRECTOR: 'bg-amber-900/30 text-amber-400',
   ADMIN: 'bg-rose-900/30 text-rose-400',
   ABOGADO: 'bg-blue-900/30 text-blue-400',
+  SECRETARIA: 'bg-emerald-900/30 text-emerald-400',
+  COLABORADOR: 'bg-violet-900/30 text-violet-400',
 }
 
 const ASSIGNABLE_ROLES = [
-  { value: 'ABOGADO', label: 'Usuario' },
+  { value: 'ABOGADO', label: 'Abogado' },
+  { value: 'SECRETARIA', label: 'Secretaria' },
+  { value: 'COLABORADOR', label: 'Colaborador' },
 ] as const
 
 function UsersSection() {

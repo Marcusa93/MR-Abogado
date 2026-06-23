@@ -86,13 +86,25 @@ interface AnalyzeInput {
   documentFileNames?: string[]
 }
 
+// Tope de caracteres del texto fuente que mandamos al LLM. Las actuaciones
+// largas (sentencias definitivas) pueden tener decenas de miles de caracteres;
+// más allá de esto el costo/latencia no compensa y arriesga timeouts.
+const MAX_SOURCE_CHARS = 60_000
+
+function truncar(texto: string, max = MAX_SOURCE_CHARS): string {
+  if (texto.length <= max) return texto
+  return `${texto.slice(0, max)}\n\n[… TEXTO TRUNCADO POR LONGITUD …]`
+}
+
 export async function analyzeMovementWithAI(input: AnalyzeInput): Promise<AiAnalysis> {
   const docSection = input.documentText && input.documentText.trim()
     ? `
 
 Texto extraído de archivo(s) adjunto(s)${input.documentFileNames?.length ? ` (${input.documentFileNames.join(', ')})` : ''}:
-${input.documentText.trim()}`
+${truncar(input.documentText.trim())}`
     : ''
+
+  const cuerpo = input.cuerpo ? truncar(input.cuerpo) : '(sin cuerpo de texto disponible)'
 
   const userMessage = `Actuación judicial:
 
@@ -100,7 +112,7 @@ Tipo clasificado: ${input.tipo_movimiento}
 Fecha: ${input.fecha}
 Título: ${input.titulo}
 Cuerpo:
-${input.cuerpo ?? '(sin cuerpo de texto disponible)'}${docSection}`
+${cuerpo}${docSection}`
 
   const model = input.model ?? DEFAULT_MODEL
 
@@ -120,7 +132,7 @@ ${input.cuerpo ?? '(sin cuerpo de texto disponible)'}${docSection}`
       ],
       response_format: { type: 'json_object' },
       temperature: 0.1,
-      max_tokens: 800,
+      max_tokens: 2000,
     }),
   })
 
@@ -129,11 +141,16 @@ ${input.cuerpo ?? '(sin cuerpo de texto disponible)'}${docSection}`
     throw new Error(`OpenRouter ${res.status}: ${txt.slice(0, 200)}`)
   }
 
-  const payload = await res.json() as { choices?: { message?: { content?: string } }[] }
+  const payload = await res.json() as {
+    choices?: { message?: { content?: string }; finish_reason?: string }[]
+  }
   const content = payload.choices?.[0]?.message?.content
   if (!content) throw new Error('OpenRouter no devolvió contenido')
+  if (payload.choices?.[0]?.finish_reason === 'length') {
+    throw new Error('Respuesta IA truncada (max_tokens). La actuación es demasiado larga para el modelo.')
+  }
 
-  const parsed = JSON.parse(content) as Partial<AiAnalysis> & { extracted?: Partial<AiExtracted> }
+  const parsed = parseJsonLoose(content) as Partial<AiAnalysis> & { extracted?: Partial<AiExtracted> }
 
   // Normalize / validate
   const extracted: AiExtracted = {
@@ -150,6 +167,29 @@ ${input.cuerpo ?? '(sin cuerpo de texto disponible)'}${docSection}`
     suggested_action,
     model,
   }
+}
+
+// Parseo tolerante: el modelo a veces envuelve el JSON en fences de markdown
+// (```json ... ```) o agrega texto antes/después pese a las instrucciones.
+function parseJsonLoose(raw: string): unknown {
+  const trimmed = raw.trim()
+  try {
+    return JSON.parse(trimmed)
+  } catch { /* sigue */ }
+
+  // Quitar fences ```json ... ```
+  const sinFence = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+  try {
+    return JSON.parse(sinFence)
+  } catch { /* sigue */ }
+
+  // Tomar el primer objeto balanceado { ... }
+  const start = sinFence.indexOf('{')
+  const end = sinFence.lastIndexOf('}')
+  if (start !== -1 && end > start) {
+    return JSON.parse(sinFence.slice(start, end + 1))
+  }
+  throw new Error('La respuesta IA no contiene JSON válido.')
 }
 
 function isValidFechaEntry(e: unknown): e is { tipo: string; fecha_iso: string; descripcion: string } {

@@ -11,7 +11,7 @@ import { SugerirJurisprudenciaDialog } from './sugerir-jurisprudencia-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
-  useDeleteEscrito, useUpdateEscrito,
+  useDeleteEscrito, useUpdateEscrito, useEscritoTemplates,
   useAttachSignedPdf, usePresentarEscrito, useFetchPortalCategorias,
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
@@ -81,7 +81,12 @@ function NuevoEscritoDialog({
   const [tipo, setTipo] = useState('')
   const [titulo, setTitulo] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
+  // Modelo de estilo: '' = ninguno, 'NUEVO' = pegar uno nuevo, otro = id de template guardado
+  const [modeloSel, setModeloSel] = useState('')
+  const [estiloTexto, setEstiloTexto] = useState('')
+  const [guardarComo, setGuardarComo] = useState('')
   const { data: tiposPrevios = [] } = useEscritoTiposPrevios()
+  const { data: templates = [] } = useEscritoTemplates()
   const generate = useGenerateEscrito()
 
   const sugerencias = useMemo(() => {
@@ -91,6 +96,7 @@ function NuevoEscritoDialog({
 
   const reset = () => {
     setTipo(''); setTitulo(''); setInstrucciones('')
+    setModeloSel(''); setEstiloTexto(''); setGuardarComo('')
     generate.reset()
   }
 
@@ -102,7 +108,20 @@ function NuevoEscritoDialog({
       return
     }
     generate.mutate(
-      { expediente_id: expedienteId, tipo: tipo.trim(), titulo: titulo.trim() || undefined, instrucciones: instrucciones.trim() || undefined },
+      {
+        expediente_id: expedienteId,
+        tipo: tipo.trim(),
+        titulo: titulo.trim() || undefined,
+        instrucciones: instrucciones.trim() || undefined,
+        ...(modeloSel === 'NUEVO'
+          ? {
+              estilo_texto: estiloTexto.trim() || undefined,
+              guardar_como: guardarComo.trim() || undefined,
+            }
+          : modeloSel
+            ? { template_id: modeloSel }
+            : {}),
+      },
       {
         onSuccess: (data) => {
           toast.success(`Escrito generado (${data.claves_usadas} claves usadas)`)
@@ -192,6 +211,57 @@ function NuevoEscritoDialog({
               disabled={generate.isPending}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
             />
+          </div>
+
+          {/* Modelo de estilo: usar uno guardado o pegar uno nuevo */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">
+              Modelo / estilo (opcional)
+            </label>
+            <select
+              value={modeloSel}
+              onChange={(e) => setModeloSel(e.target.value)}
+              disabled={generate.isPending}
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            >
+              <option value="">Sin modelo — estilo por defecto</option>
+              {templates.length > 0 && (
+                <optgroup label="Modelos guardados">
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.nombre}{t.tipo ? ` · ${t.tipo}` : ''}</option>
+                  ))}
+                </optgroup>
+              )}
+              <option value="NUEVO">+ Pegar un modelo nuevo…</option>
+            </select>
+            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+              La IA imita la estructura y el tono del modelo, pero usa los datos reales del expediente. Útil para escritos de trámite (ej: adjuntar bono de movilidad).
+            </p>
+
+            {modeloSel === 'NUEVO' && (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={estiloTexto}
+                  onChange={(e) => setEstiloTexto(e.target.value)}
+                  placeholder="Pegá acá un escrito de ejemplo cuyo estilo y estructura querés imitar…"
+                  rows={6}
+                  disabled={generate.isPending}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                />
+                <input
+                  value={guardarComo}
+                  onChange={(e) => setGuardarComo(e.target.value)}
+                  placeholder="Guardar este modelo como… (opcional, ej: Adjunta bono de movilidad)"
+                  disabled={generate.isPending}
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                />
+                {guardarComo.trim() && (
+                  <p className="text-[10px] text-emerald-400/80">
+                    Se guardará como modelo reutilizable y quedará disponible en esta lista.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

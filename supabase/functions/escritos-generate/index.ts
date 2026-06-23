@@ -540,6 +540,10 @@ Deno.serve(async (req) => {
       titulo?: string
       instrucciones?: string
       template_id?: string | null
+      /** Texto de un modelo/escrito de ejemplo que el usuario pega para que la IA imite el estilo. */
+      estilo_texto?: string | null
+      /** Si viene, se guarda estilo_texto como template reutilizable con este nombre. */
+      guardar_como?: string | null
     } | null
 
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
@@ -666,6 +670,49 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
     const jurisprudenciaCtx = formatJurisprudenciaForPrompt(jurisRag)
     const aprendizajesCtx = formatAprendizajesForPrompt(aprendizajes)
 
+    // 6.6) Resolver modelo de estilo: template guardado (template_id) o texto
+    // pegado por el usuario (estilo_texto). Si pide guardarlo, lo persistimos.
+    const MAX_ESTILO_CHARS = 30_000
+    let estiloModelo: string | null = null
+    let estiloNombre: string | null = null
+    if (body.template_id) {
+      const { data: tpl } = await serviceClient
+        .from('escrito_templates')
+        .select('nombre, source_text, analysis')
+        .eq('id', body.template_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (tpl?.source_text) {
+        estiloModelo = String(tpl.source_text).slice(0, MAX_ESTILO_CHARS)
+        estiloNombre = tpl.nombre ?? null
+      }
+    } else if (body.estilo_texto?.trim()) {
+      estiloModelo = body.estilo_texto.trim().slice(0, MAX_ESTILO_CHARS)
+      // Guardado opcional como template reutilizable.
+      if (body.guardar_como?.trim()) {
+        estiloNombre = body.guardar_como.trim().slice(0, 120)
+        await serviceClient.from('escrito_templates').insert({
+          user_id: user.id,
+          nombre: estiloNombre,
+          tipo: body.tipo.trim(),
+          descripcion: 'Modelo cargado desde el generador de escritos.',
+          source_text: estiloModelo,
+          is_active: true,
+        }).then(({ error }) => {
+          if (error) console.warn('[escritos-generate] no se pudo guardar el template', error.message)
+        })
+      }
+    }
+
+    const estiloCtx = estiloModelo
+      ? `\n## Modelo de estilo a IMITAR${estiloNombre ? ` ("${estiloNombre}")` : ''}
+El abogado te entrega un escrito de ejemplo. Imitá su ESTRUCTURA, TONO, fórmulas de apertura/cierre y la disposición de las secciones, pero NO copies sus hechos, partes, fechas ni datos concretos: esos salen del expediente y las claves. Adaptá el estilo del modelo al contenido real de este expediente.
+
+--- INICIO DEL MODELO ---
+${estiloModelo}
+--- FIN DEL MODELO ---`
+      : ''
+
     // 7) Armar system prompt
     const systemPrompt = [
       'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
@@ -676,6 +723,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       ARGENTINA_OVERRIDE,
       '',
       registro.instrucciones,
+      estiloCtx ? `\n${estiloCtx}` : '',
       '',
       OUTPUT_SCHEMA,
     ].join('\n')

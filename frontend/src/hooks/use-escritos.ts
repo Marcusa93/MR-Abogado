@@ -96,6 +96,32 @@ export function useEscritoTiposPrevios() {
   })
 }
 
+// ─── Modelos/plantillas de estilo guardados por el usuario ───────────────────
+
+export interface EscritoTemplate {
+  id: string
+  nombre: string
+  tipo: string
+  descripcion: string | null
+  created_at: string
+}
+
+export function useEscritoTemplates() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['escrito-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('escrito_templates' as never)
+        .select('id, nombre, tipo, descripcion, created_at')
+        .eq('is_active', true as never)
+        .order('nombre', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as unknown as EscritoTemplate[]
+    },
+  })
+}
+
 // ─── Generar escrito (invoca edge function) ──────────────────────────────────
 
 interface GenerateInput {
@@ -104,6 +130,10 @@ interface GenerateInput {
   titulo?: string
   instrucciones?: string
   template_id?: string | null
+  /** Texto de un modelo de ejemplo pegado por el usuario para imitar el estilo. */
+  estilo_texto?: string | null
+  /** Si viene, el modelo pegado se guarda como template reutilizable con este nombre. */
+  guardar_como?: string | null
 }
 
 interface GenerateResult {
@@ -129,6 +159,7 @@ export function useGenerateEscrito() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
       queryClient.invalidateQueries({ queryKey: ['escrito-tipos-previos'] })
+      queryClient.invalidateQueries({ queryKey: ['escrito-templates'] })
     },
   })
 }

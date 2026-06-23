@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const validRoles = ['ABOGADO']
+    const validRoles = ['ABOGADO', 'SECRETARIA', 'COLABORADOR']
     if (!validRoles.includes(rol)) {
       return new Response(
         JSON.stringify({ error: `Rol inválido. Valores permitidos: ${validRoles.join(', ')}` }),
