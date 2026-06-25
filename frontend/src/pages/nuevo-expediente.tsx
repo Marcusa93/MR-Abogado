@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
-import { useCreateExpediente, useTiposTramite } from '@/hooks/use-expedientes'
+import { useCreateExpediente } from '@/hooks/use-expedientes'
 import { toast } from '@/stores/toast-store'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS, ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS, type EstadoInterno } from '@/types/enums'
 import type { Prioridad } from '@/types/enums'
@@ -30,10 +30,8 @@ const errorClass = 'mt-1 text-xs text-rose-500'
 export default function NuevoExpedientePage() {
   const navigate = useNavigate()
   const createExpediente = useCreateExpediente()
-  const { data: tiposTramite } = useTiposTramite()
 
   const [clienteId, setClienteId] = useState('')
-  const [tipoTramiteId, setTipoTramiteId] = useState('')
   const [prioridad, setPrioridad] = useState<Prioridad>('MEDIA')
   const [estadoInicial, setEstadoInicial] = useState('NUEVA_CONSULTA')
   const [observaciones, setObservaciones] = useState('')
@@ -53,18 +51,18 @@ export default function NuevoExpedientePage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty])
 
-  const isValid = clienteId.length > 0 && tipoTramiteId.length > 0
+  const isValid = clienteId.length > 0
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (clienteId || tipoTramiteId || observaciones) {
+      if (clienteId || observaciones) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [clienteId, tipoTramiteId, observaciones])
+  }, [clienteId, observaciones])
 
   const handleSubmit = async () => {
     setTouched(true)
@@ -74,7 +72,6 @@ export default function NuevoExpedientePage() {
       setSubmitted(true)
       await createExpediente.mutateAsync({
         cliente_id: clienteId,
-        tipo_tramite_id: tipoTramiteId,
         prioridad,
         estado_interno: estadoInicial as EstadoInterno,
         observaciones: observaciones.trim() || null,
@@ -127,24 +124,6 @@ export default function NuevoExpedientePage() {
             </div>
             {touched && !clienteId && (
               <p className={errorClass}>Selecciona un cliente</p>
-            )}
-          </div>
-
-          {/* Tipo tramite */}
-          <div>
-            <label className={labelClass}>Tipo de trámite *</label>
-            <select
-              value={tipoTramiteId}
-              onChange={(e) => setTipoTramiteId(e.target.value)}
-              className={`${inputClass} ${touched && !tipoTramiteId ? 'border-rose-500/50' : ''}`}
-            >
-              <option value="">Seleccionar...</option>
-              {(tiposTramite ?? []).map((t) => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </select>
-            {touched && !tipoTramiteId && (
-              <p className={errorClass}>Selecciona un tipo de tramite</p>
             )}
           </div>
 

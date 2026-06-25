@@ -13,7 +13,6 @@ interface ExportableExpediente {
   cliente_nombre: string
   cliente_apellido: string
   cliente_dni: string
-  tipo_tramite: string
   responsable: string
   observaciones: string
 }
@@ -34,7 +33,6 @@ export async function exportExpedientesToCSV(): Promise<void> {
       fecha_alta,
       observaciones,
       clientes (nombre, apellido, dni, telefono, email),
-      tipos_tramite (nombre),
       miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido))
     `)
     .is('deleted_at', null)
@@ -45,7 +43,6 @@ export async function exportExpedientesToCSV(): Promise<void> {
 
   const rows: ExportableExpediente[] = data.map((e) => {
     const cliente = e.clientes as Record<string, string> | null
-    const tipo = e.tipos_tramite as Record<string, string> | null
     // Find first member with rol='abogado' for the responsable column
     const miembros = (e.miembros as any[]) ?? []
     const abogadoMiembro = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
@@ -58,7 +55,6 @@ export async function exportExpedientesToCSV(): Promise<void> {
       cliente_nombre: cliente?.nombre ?? '',
       cliente_apellido: cliente?.apellido ?? '',
       cliente_dni: cliente?.dni ?? '',
-      tipo_tramite: tipo?.nombre ?? '',
       responsable: abogadoMiembro ? `${abogadoMiembro.apellido} ${abogadoMiembro.nombre}` : '',
       observaciones: e.observaciones ?? '',
     }
@@ -74,7 +70,6 @@ export async function exportExpedientesToCSV(): Promise<void> {
     'Cliente Apellido',
     'Cliente Nombre',
     'Cliente DNI',
-    'Tipo Trámite',
     'Responsable',
     'Observaciones',
   ]
@@ -91,7 +86,6 @@ export async function exportExpedientesToCSV(): Promise<void> {
         escapeCSV(row.cliente_apellido),
         escapeCSV(row.cliente_nombre),
         row.cliente_dni,
-        escapeCSV(row.tipo_tramite),
         escapeCSV(row.responsable),
         escapeCSV(row.observaciones),
       ].join(',')

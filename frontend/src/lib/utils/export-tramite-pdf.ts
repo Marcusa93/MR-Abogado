@@ -92,7 +92,7 @@ export async function exportTramitePDF(expediente: ExpedienteDetail) {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139) // slate-500
   doc.text(`Generado el ${today}`, marginL, y + 7)
-  doc.text('Alba | Estudio Jurídico Previsional', marginR, y + 7, { align: 'right' })
+  doc.text('Estudio Jurídico Dr. Marco Rossi', marginR, y + 7, { align: 'right' })
 
   y += 14
 
@@ -403,7 +403,7 @@ export async function exportTramitePDF(expediente: ExpedienteDetail) {
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Alba | Estudio Jurídico Previsional — ${today} — Pág. ${p}/${totalPages}`,
+      `Estudio Jurídico Dr. Marco Rossi — ${today} — Pág. ${p}/${totalPages}`,
       pageW / 2,
       pageH - 8,
       { align: 'center' },

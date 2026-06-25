@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useUpdateExpediente, useTiposTramite } from '@/hooks/use-expedientes'
+import { useUpdateExpediente } from '@/hooks/use-expedientes'
 import type { ExpedienteDetail } from '@/hooks/use-expedientes'
 import { useCliente } from '@/hooks/use-clientes'
 import { ClienteCombobox } from '@/components/clientes/cliente-combobox'
@@ -21,9 +21,7 @@ interface Props {
 
 export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
   const update = useUpdateExpediente()
-  const { data: tiposTramite } = useTiposTramite()
 
-  const [tipoTramiteId, setTipoTramiteId] = useState(expediente.tipo_tramite_id ?? '')
   const [prioridad, setPrioridad] = useState<Prioridad>(expediente.prioridad as Prioridad)
   const [caratula, setCaratula] = useState(expediente.caratula ?? '')
   const [observaciones, setObservaciones] = useState(expediente.observaciones ?? '')
@@ -38,7 +36,6 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
   // Reset state when expediente changes
   useEffect(() => {
     if (open) {
-      setTipoTramiteId(expediente.tipo_tramite_id ?? '')
       setPrioridad(expediente.prioridad as Prioridad)
       setCaratula(expediente.caratula ?? '')
       setObservaciones(expediente.observaciones ?? '')
@@ -56,7 +53,6 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
       await update.mutateAsync({
         id: expediente.id,
         cliente_id: clienteId,
-        tipo_tramite_id: tipoTramiteId || undefined,
         prioridad,
         caratula: caratula.trim() || null,
         observaciones: observaciones.trim() || null,
@@ -125,22 +121,6 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
               className={inputClass}
               placeholder="Carátula del expediente"
             />
-          </div>
-
-          {/* Tipo tramite */}
-          {/* Responsable (rol "responsable") se gestiona desde Equipo del expediente */}
-          <div>
-            <label className={labelClass}>Tipo de trámite</label>
-            <select
-              value={tipoTramiteId}
-              onChange={(e) => setTipoTramiteId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Sin tipo</option>
-              {(tiposTramite ?? []).map((t) => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </select>
           </div>
 
           {/* Prioridad */}

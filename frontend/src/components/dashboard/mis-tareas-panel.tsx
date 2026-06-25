@@ -59,11 +59,9 @@ const PRIORIDAD_DOT: Record<string, string> = {
 function TareaRow({
   tarea,
   onOpen,
-  previewMode = false,
 }: {
   tarea: TareaWithRelations
   onOpen: (t: TareaWithRelations) => void
-  previewMode?: boolean
 }) {
   const completar = useCompletarTarea()
   const dateInfo = getDateLabel(tarea.fecha_vencimiento)
@@ -79,10 +77,9 @@ function TareaRow({
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          if (previewMode) return
           completar.mutate(tarea.id)
         }}
-        disabled={previewMode || completar.isPending}
+        disabled={completar.isPending}
         className="mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors"
         title="Completar tarea"
       >
@@ -135,7 +132,6 @@ function MisTareasPanelView({
   profileId,
   verTarea,
   setVerTarea,
-  previewMode = false,
 }: {
   pendientes: TareaWithRelations[]
   isLoading: boolean
@@ -143,16 +139,13 @@ function MisTareasPanelView({
   profileId?: string
   verTarea: TareaWithRelations | null
   setVerTarea: (tarea: TareaWithRelations | null) => void
-  previewMode?: boolean
 }) {
   const vencidasCount = pendientes.filter((t) => {
     const d = getDaysUntil(t.fecha_vencimiento)
     return d !== null && d < 0
   }).length
 
-  const tareasLink = previewMode
-    ? '/dashboard-preview'
-    : isAdmin
+  const tareasLink = isAdmin
     ? '/tareas'
     : `/tareas?asignado_a=${profileId}`
 
@@ -202,13 +195,13 @@ function MisTareasPanelView({
         ) : (
           <div className="divide-y divide-[rgb(87_124_142_/_10%)] dark:divide-white/6 px-1 py-1">
             {pendientes.map((t) => (
-              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} previewMode={previewMode} />
+              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} />
             ))}
           </div>
         )}
       </div>
       <VerTareaDialog
-        open={!previewMode && verTarea !== null}
+        open={verTarea !== null}
         onClose={() => setVerTarea(null)}
         tarea={verTarea as any}
       />
@@ -220,23 +213,10 @@ function MisTareasPanelView({
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function MisTareasPanel({ previewData }: { previewData?: TareaWithRelations[] }) {
+export function MisTareasPanel() {
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN'
   const [verTarea, setVerTarea] = useState<TareaWithRelations | null>(null)
-
-  if (previewData) {
-    return (
-      <MisTareasPanelView
-        pendientes={previewData}
-        isLoading={false}
-        isAdmin={false}
-        verTarea={verTarea}
-        setVerTarea={setVerTarea}
-        previewMode
-      />
-    )
-  }
 
   const { data, isLoading } = useTareas({
     asignado_a: isAdmin ? undefined : profile?.id,

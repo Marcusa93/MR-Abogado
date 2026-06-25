@@ -3,7 +3,6 @@ import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
-import { useTiposTramite } from '@/hooks/use-expedientes'
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuthStore } from '@/stores/auth-store'
 import { isDirector } from '@/lib/utils/display-rol'
@@ -21,7 +20,6 @@ export function ExpedienteFilters({
   className,
 }: ExpedienteFiltersProps) {
   const [searchValue, setSearchValue] = useState(filters.search ?? '')
-  const { data: tiposTramite } = useTiposTramite()
   const { data: teamMembers } = useTeamMembers()
   const profile = useAuthStore((s) => s.profile)
   const canFilterByAbogado = isDirector(profile)
@@ -40,7 +38,6 @@ export function ExpedienteFilters({
 
   const activeFilterCount = [
     filters.estado_interno,
-    filters.tipo_tramite_id,
     filters.abogado_id,
     filters.prioridad,
     filters.search,
@@ -115,26 +112,6 @@ export function ExpedienteFilters({
           ))}
         </select>
 
-        {/* Tipo Tramite */}
-        <select
-          value={filters.tipo_tramite_id ?? ''}
-          onChange={(e) =>
-            onChange({
-              ...filters,
-              tipo_tramite_id: e.target.value || null,
-              page: 1,
-            })
-          }
-          className={selectClass}
-        >
-          <option value="">Tipo trámite</option>
-          {tiposTramite?.map((tipo) => (
-            <option key={tipo.id} value={tipo.id}>
-              {tipo.nombre}
-            </option>
-          ))}
-        </select>
-
         {/* Prioridad */}
         <select
           value={filters.prioridad ?? ''}
@@ -202,18 +179,6 @@ export function ExpedienteFilters({
               color="cyan"
               onRemove={() =>
                 onChange({ ...filters, estado_interno: null, page: 1 })
-              }
-            />
-          )}
-          {filters.tipo_tramite_id && (
-            <FilterBadge
-              label={
-                tiposTramite?.find((t) => t.id === filters.tipo_tramite_id)
-                  ?.nombre ?? 'Tipo'
-              }
-              color="violet"
-              onRemove={() =>
-                onChange({ ...filters, tipo_tramite_id: null, page: 1 })
               }
             />
           )}

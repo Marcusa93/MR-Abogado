@@ -32,7 +32,7 @@ export async function exportInformePDF({ porEstado, porTipo, financiero }: Expor
   // ---- Header ----
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
-  doc.text('Alba | CRM Previsional', 14, y)
+  doc.text('Estudio Jurídico Dr. Marco Rossi', 14, y)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(120, 120, 120)

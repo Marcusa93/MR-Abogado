@@ -27,7 +27,6 @@ import {
   type KanbanFilters,
 } from '@/hooks/use-kanban'
 import { COLOR_CONFIG, PIPELINE_CATEGORIES, type PipelineCategory } from '@/hooks/use-panel-expedientes'
-import { useTiposTramite } from '@/hooks/use-expedientes'
 import { useCambiarEstado } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
 import { daysAgo, formatDateShort } from '@/lib/utils/date-helpers'
@@ -163,14 +162,12 @@ function KanbanFiltersBar({
   searchValue: string
   onSearchChange: (v: string) => void
 }) {
-  const { data: tiposTramite } = useTiposTramite()
   useAuth() // mantiene la suscripción al store (sin renderizar nada por ahora)
   // "Mis expedientes": para filtrar por equipo (expediente_miembros) hay que
   // ampliar la RPC get_kanban_data. Si lo pedís, lo armamos. Hasta entonces el
   // filtro por responsable está en /expedientes (resuelto via miembros).
 
   const hasFilters =
-    !!filters.tipo_tramite_id ||
     !!filters.prioridad ||
     !!searchValue
 
@@ -186,22 +183,6 @@ function KanbanFiltersBar({
           className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
         />
       </div>
-
-      {/* Tipo Tramite */}
-      <select
-        value={filters.tipo_tramite_id ?? ''}
-        onChange={(e) =>
-          onFiltersChange({ ...filters, tipo_tramite_id: e.target.value || null })
-        }
-        className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-700 dark:text-zinc-300 focus:border-amber-500/40 focus:outline-none focus:ring-amber-500/15"
-      >
-        <option value="">Tipo trámite</option>
-        {tiposTramite?.map((tipo) => (
-          <option key={tipo.id} value={tipo.id}>
-            {tipo.nombre}
-          </option>
-        ))}
-      </select>
 
       {/* Prioridad */}
       <select
@@ -397,23 +378,12 @@ function KanbanDraggableCard({
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
           <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
-            {card.tipo_tramite || ''}
-            {card.tipo_tramite && ' · '}
             <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
 
         <SemaforoBadge color={semaforo} size="md" />
       </div>
-
-      {/* Tipo tramite */}
-      {card.tipo_tramite && (
-        <div className="mt-2 ml-[52px]">
-          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
-            {card.tipo_tramite}
-          </span>
-        </div>
-      )}
 
       {/* Footer info */}
       <div className="mt-2 flex items-center gap-3 ml-[52px] text-[11px] text-zinc-700 dark:text-zinc-300">
@@ -490,19 +460,10 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
           <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
-            {card.tipo_tramite || ''}
-            {card.tipo_tramite && ' · '}
             <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
       </div>
-      {card.tipo_tramite && (
-        <div className="mt-2 ml-[52px]">
-          <span className="inline-flex items-center rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300">
-            {card.tipo_tramite}
-          </span>
-        </div>
-      )}
     </div>
   )
 }
@@ -567,8 +528,7 @@ export default function KanbanPage() {
         (c) =>
           c.cliente_nombre.toLowerCase().includes(q) ||
           c.cliente_apellido.toLowerCase().includes(q) ||
-          ((c as any).numero ?? c.numero_expediente ?? '').toLowerCase().includes(q) ||
-          (c.tipo_tramite && c.tipo_tramite.toLowerCase().includes(q))
+          ((c as any).numero ?? c.numero_expediente ?? '').toLowerCase().includes(q)
       )
       return { ...col, cards: filteredCards, count: filteredCards.length }
     })

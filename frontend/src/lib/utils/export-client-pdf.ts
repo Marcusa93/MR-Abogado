@@ -18,7 +18,7 @@ export async function exportClientePDF(cliente: ClienteListItem) {
   // Header
   doc.setFontSize(18)
   doc.setFont('helvetica', 'bold')
-  doc.text('Alba | CRM Previsional', 14, y)
+  doc.text('Estudio Jurídico Dr. Marco Rossi', 14, y)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(120, 120, 120)
@@ -97,7 +97,7 @@ export async function exportClientePDF(cliente: ClienteListItem) {
   doc.setFontSize(8)
   doc.setTextColor(150, 150, 150)
   doc.text(
-    `Alba | CRM Previsional — Informe generado el ${today}`,
+    `Estudio Jurídico Dr. Marco Rossi — Informe generado el ${today}`,
     pageW / 2,
     doc.internal.pageSize.getHeight() - 10,
     { align: 'center' }

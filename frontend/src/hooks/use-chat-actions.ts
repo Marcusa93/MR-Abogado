@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Chat Actions — executable CRM actions from the Alba Asistente chat
+// Chat Actions — executable CRM actions from the BogaBot assistant chat
 // ---------------------------------------------------------------------------
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'

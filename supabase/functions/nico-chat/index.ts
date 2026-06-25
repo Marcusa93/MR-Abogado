@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://alba-guerra.vercel.app',
-        'X-Title': 'Alba Guerra CRM',
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
+        'X-Title': 'MR Abogado System',
       },
       body: JSON.stringify({
         model: model ?? DEFAULT_MODEL,

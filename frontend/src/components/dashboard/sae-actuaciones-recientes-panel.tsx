@@ -127,11 +127,7 @@ function ActuacionesRecientesPanelView({
   )
 }
 
-export function ActuacionesRecientesPanel({ previewData }: { previewData?: ActuacionReciente[] }) {
-  if (previewData) {
-    return <ActuacionesRecientesPanelView actuaciones={previewData} isLoading={false} />
-  }
-
+export function ActuacionesRecientesPanel() {
   const { data: actuaciones = [], isLoading } = useActuacionesRecientes()
   return <ActuacionesRecientesPanelView actuaciones={actuaciones} isLoading={isLoading} />
 }

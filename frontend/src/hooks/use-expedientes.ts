@@ -277,7 +277,7 @@ export function useExpediente(id: string | undefined) {
 
 interface CreateExpedienteInput {
   cliente_id: string
-  tipo_tramite_id: string
+  tipo_tramite_id?: string | null
   contador_id?: string | null
   secretaria_id?: string | null
   organismo_id?: string | null
@@ -297,7 +297,9 @@ export function useCreateExpediente() {
     mutationFn: async (input: CreateExpedienteInput) => {
       const { data, error } = await supabase.rpc('create_expediente', {
         p_cliente_id: input.cliente_id,
-        p_tipo_tramite_id: input.tipo_tramite_id,
+        // El RPC create_expediente acepta NULL (DEFAULT NULL) y asigna el tipo
+        // 'otro' por defecto. Los tipos generados aún lo marcan requerido, de ahí el cast.
+        p_tipo_tramite_id: (input.tipo_tramite_id ?? null) as string,
         p_organismo_id: input.organismo_id ?? undefined,
         p_prioridad: input.prioridad ?? 'MEDIA',
         p_es_propio: input.es_propio ?? true,

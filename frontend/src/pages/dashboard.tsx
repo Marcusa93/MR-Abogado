@@ -132,9 +132,6 @@ export interface DashboardViewProps {
   prodMetrics?: ProductivityMetricsData
   alertas: AlertaWithExpediente[]
   onRetry?: () => void
-  previewTasks?: TareaWithRelations[]
-  previewPlazos?: PlazoProximo[]
-  previewActuaciones?: ActuacionReciente[]
 }
 
 // ---------------------------------------------------------------------------
@@ -230,9 +227,6 @@ export function DashboardView({
   prodMetrics,
   alertas,
   onRetry,
-  previewTasks,
-  previewPlazos,
-  previewActuaciones,
 }: DashboardViewProps) {
   const nextTurno = metrics?.turnos_proximos?.[0] ?? null
 
@@ -357,7 +351,7 @@ export function DashboardView({
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <MisTareasPanel previewData={previewTasks} />
+        <MisTareasPanel />
         <UpcomingTurnosPanel turnos={metrics?.turnos_proximos ?? []} />
       </div>
 
@@ -373,8 +367,8 @@ export function DashboardView({
       />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <PlazosProximosPanel previewData={previewPlazos} />
-        <ActuacionesRecientesPanel previewData={previewActuaciones} />
+        <PlazosProximosPanel />
+        <ActuacionesRecientesPanel />
       </div>
 
       <div className="dashboard-divider" />

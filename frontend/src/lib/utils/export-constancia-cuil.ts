@@ -253,7 +253,7 @@ export async function exportConstanciaCuilPDF(afip: AfipData) {
     y + 11,
   )
   doc.text(
-    `Generada el ${todayFull} — Alba | Estudio Jurídico Previsional`,
+    `Generada el ${todayFull} — Estudio Jurídico Dr. Marco Rossi`,
     marginL + 4,
     y + 16,
   )

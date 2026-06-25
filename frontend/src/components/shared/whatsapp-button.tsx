@@ -78,7 +78,7 @@ interface WhatsAppButtonProps {
 
 /**
  * Reusable WhatsApp contact button.
- * Opens wa.me with pre-filled message from Estudio Alba.
+ * Opens wa.me with pre-filled message from el Estudio Jurídico Dr. Marco Rossi.
  *
  * Variants:
  * - `badge` (default): Green pill with icon + phone number
@@ -97,8 +97,8 @@ export function WhatsAppButton({
   let body: string
   if (motivo) {
     const greeting = clienteNombre
-      ? `Hola ${clienteNombre}! Nos comunicamos del estudio Alba Guerra`
-      : 'Hola! Nos comunicamos del estudio Alba Guerra'
+      ? `Hola ${clienteNombre}! Nos comunicamos del Estudio Jurídico Dr. Marco Rossi`
+      : 'Hola! Nos comunicamos del Estudio Jurídico Dr. Marco Rossi'
     body = `${greeting} para comunicarle ${motivo}.`
   } else {
     body = buildContextualMessage(clienteNombre, context)

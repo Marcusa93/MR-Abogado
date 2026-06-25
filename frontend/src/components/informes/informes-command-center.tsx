@@ -70,18 +70,11 @@ export function InformesCommandCenter() {
 
       <MapaTribunales data={data.por_organismo} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DonutCard
-          titulo="Por fuero"
-          icon={Scale}
-          data={data.por_fuero.map(f => ({ name: FUERO_LABEL[f.fuero] ?? f.fuero, value: f.count }))}
-        />
-        <DonutCard
-          titulo="Por tipo de trámite"
-          icon={Briefcase}
-          data={data.por_tipo_tramite.map(t => ({ name: t.nombre, value: t.count }))}
-        />
-      </div>
+      <DonutCard
+        titulo="Por fuero"
+        icon={Scale}
+        data={data.por_fuero.map(f => ({ name: FUERO_LABEL[f.fuero] ?? f.fuero, value: f.count }))}
+      />
 
       <DistribucionEstados data={data.por_estado} totalActivos={data.totales.activos + data.totales.pausados} />
 

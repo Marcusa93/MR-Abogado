@@ -1,5 +1,5 @@
 {
-  "name": "alba-guerra-local",
+  "name": "mr-abogado-system",
   "private": true,
   "scripts": {
     "dev": "npm --prefix frontend run dev -- --host 0.0.0.0 --port 3001",

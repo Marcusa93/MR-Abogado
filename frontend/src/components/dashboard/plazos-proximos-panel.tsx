@@ -140,11 +140,7 @@ function PlazosProximosPanelView({
   )
 }
 
-export function PlazosProximosPanel({ previewData }: { previewData?: PlazoProximo[] }) {
-  if (previewData) {
-    return <PlazosProximosPanelView plazos={previewData} isLoading={false} />
-  }
-
+export function PlazosProximosPanel() {
   const { data: plazos = [], isLoading } = usePlazosProximos()
   return <PlazosProximosPanelView plazos={plazos} isLoading={isLoading} />
 }
