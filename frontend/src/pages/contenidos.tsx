@@ -567,6 +567,20 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
   )
 }
 
+// Publicación asistida: abre el editor de la red con el texto (pre-cargado donde
+// se puede, ej. X) o para pegar. No publica solo — el último click es del usuario.
+function composerDestino(categoria: CategoriaContenido, texto: string): { url: string; prefilled: boolean; label: string } | null {
+  const enc = encodeURIComponent(texto)
+  switch (categoria) {
+    case 'twitter': return { url: `https://x.com/intent/tweet?text=${enc}`, prefilled: true, label: 'X' }
+    case 'linkedin': return { url: 'https://www.linkedin.com/feed/?shareActive=true', prefilled: false, label: 'LinkedIn' }
+    case 'instagram': return { url: 'https://www.instagram.com/', prefilled: false, label: 'Instagram' }
+    case 'facebook': return { url: 'https://www.facebook.com/', prefilled: false, label: 'Facebook' }
+    case 'video_guion': return { url: 'https://studio.youtube.com/', prefilled: false, label: 'YouTube Studio' }
+    default: return null
+  }
+}
+
 function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onClose: () => void }) {
   const { user } = useAuth()
   const createContenido = useCreateContenido()
@@ -612,6 +626,20 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   }
 
   const isPending = createContenido.isPending || updateContenido.isPending
+
+  const textoPublicar = [cuerpo, hashtags].map(s => s.trim()).filter(Boolean).join('\n\n')
+  const dest = composerDestino(categoria, textoPublicar)
+  const handlePublicar = async () => {
+    if (!textoPublicar) { toast.error('No hay texto para publicar'); return }
+    try { await navigator.clipboard.writeText(textoPublicar) } catch { /* clipboard puede fallar sin gesto */ }
+    if (dest) window.open(dest.url, '_blank', 'noopener')
+    toast.success(dest?.prefilled ? 'Abrí X con el texto cargado' : dest ? `Texto copiado — pegalo en ${dest.label}` : 'Texto copiado al portapapeles')
+  }
+  const handleMarcarPublicado = async () => {
+    if (!editing) return
+    try { await updateContenido.mutateAsync({ id: editing.id, estado: 'publicado' }); toast.success('Marcado como publicado'); onClose() }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Error') }
+  }
 
   const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/20'
 
@@ -676,6 +704,35 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
             <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Hashtags (opcional)</label>
             <input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} className={inputCls} placeholder="#abogados #derecho #tucuman" />
           </div>
+
+          {editing && (
+            <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-wider font-medium text-cyan-300/80">Publicar</p>
+              <p className="text-[11px] text-zinc-400">
+                Copia el texto + hashtags y abre el editor de la red.{' '}
+                {dest?.prefilled ? 'En X queda pre-cargado.' : 'Pegalo (Ctrl/Cmd+V) en el editor que se abre.'} Vos/Facundo dan el último click desde su cuenta.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handlePublicar}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
+                </button>
+                {estado !== 'publicado' && (
+                  <button
+                    type="button"
+                    onClick={handleMarcarPublicado}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    Marcar como publicado
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
