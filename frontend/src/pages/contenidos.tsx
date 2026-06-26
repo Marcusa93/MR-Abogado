@@ -7,7 +7,7 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
-  CalendarDays,
+  CalendarDays, FolderOpen,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
@@ -15,6 +15,8 @@ import {
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
+import { useGoogleDriveStatus, startGoogleDriveOAuth } from '@/hooks/use-google-drive'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -52,6 +54,86 @@ const CATEGORIA_ICON: Record<CategoriaContenido, React.ComponentType<{ className
   otro: FileText,
 }
 
+// ── Google Picker (Drive) para elegir un video ──────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const google: any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const gapi: any
+let gapiPickerPromise: Promise<void> | null = null
+function loadGooglePicker(): Promise<void> {
+  if (gapiPickerPromise) return gapiPickerPromise
+  gapiPickerPromise = (async () => {
+    await new Promise<void>((resolve, reject) => {
+      if (document.querySelector('script[src="https://apis.google.com/js/api.js"]')) { resolve(); return }
+      const s = document.createElement('script')
+      s.src = 'https://apis.google.com/js/api.js'; s.async = true; s.defer = true
+      s.onload = () => resolve(); s.onerror = () => reject(new Error('No se pudo cargar Google API'))
+      document.head.appendChild(s)
+    })
+    await new Promise<void>((resolve) => gapi.load('picker', () => resolve()))
+  })()
+  return gapiPickerPromise
+}
+
+function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) => void; disabled?: boolean }) {
+  const { data: status } = useGoogleDriveStatus()
+  const [loading, setLoading] = useState(false)
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined
+  if (!apiKey) return null
+
+  if (!status?.connected) {
+    return (
+      <button
+        type="button"
+        onClick={() => startGoogleDriveOAuth().catch(() => toast.error('No se pudo iniciar la conexión con Drive'))}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
+        title="Conectá tu Google Drive para elegir videos"
+      >
+        <FolderOpen className="h-4 w-4" /> Conectar Drive
+      </button>
+    )
+  }
+
+  const handleClick = async () => {
+    try {
+      setLoading(true)
+      await loadGooglePicker()
+      const supabase = createClient()
+      const { data: tokenData, error } = await supabase.functions.invoke('drive-get-token', { body: {} })
+      if (error || !(tokenData as { access_token?: string })?.access_token) {
+        throw new Error((tokenData as { error?: string })?.error || 'No se pudo obtener token de Drive')
+      }
+      const driveToken = (tokenData as { access_token: string }).access_token
+      const view = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+      const picker = new google.picker.PickerBuilder()
+        .addView(view)
+        .setOAuthToken(driveToken)
+        .setDeveloperKey(apiKey)
+        .setCallback((data: { action: string; docs?: { id: string; name: string }[] }) => {
+          if (data.action === 'picked' && data.docs?.[0]) onPicked(data.docs[0].id)
+        })
+        .build()
+      picker.setVisible(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error abriendo Drive')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={disabled || loading}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+      title="Elegir un video de tu Drive"
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />} Desde Drive
+    </button>
+  )
+}
+
 export default function ContenidosPage() {
   const [filterCategoria, setFilterCategoria] = useState<CategoriaContenido | 'all'>('all')
   const [filterEstado, setFilterEstado] = useState<EstadoContenido | 'all'>('all')
@@ -63,18 +145,21 @@ export default function ContenidosPage() {
   const [genStage, setGenStage] = useState<string | null>(null)
   const generar = useGenerarContenidoDesdeVideo()
 
-  const handleVideo = (file: File) => {
-    if (file.size > 200 * 1024 * 1024) {
-      toast.error('El video supera 200 MB. Recortalo o comprimilo antes (los videos editados para redes suelen ser más livianos).')
-      return
-    }
+  const runGenerar = (input: { file?: File; driveFileId?: string }) => {
     generar.mutate(
-      { file, onStage: setGenStage },
+      { ...input, onStage: setGenStage },
       {
         onSuccess: (r) => { setGenStage(null); toast.success(`${r.created} ${r.created === 1 ? 'tarjeta generada' : 'tarjetas generadas'} desde el video`) },
         onError: (e) => { setGenStage(null); toast.error(e instanceof Error ? e.message : 'No se pudo generar') },
       },
     )
+  }
+  const handleVideo = (file: File) => {
+    if (file.size > 200 * 1024 * 1024) {
+      toast.error('El video supera 200 MB. Recortalo o comprimilo antes (los videos editados para redes suelen ser más livianos).')
+      return
+    }
+    runGenerar({ file })
   }
 
   const { data: contenidos = [], isLoading } = useContenidos({
@@ -143,11 +228,12 @@ export default function ContenidosPage() {
             onClick={() => videoInputRef.current?.click()}
             disabled={generar.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 transition-colors"
-            title="Generar borradores por plataforma a partir de un video"
+            title="Generar borradores por plataforma a partir de un video (subida directa)"
           >
             {generar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
             Desde video
           </button>
+          <DriveVideoButton onPicked={(fileId) => runGenerar({ driveFileId: fileId })} disabled={generar.isPending} />
           <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"

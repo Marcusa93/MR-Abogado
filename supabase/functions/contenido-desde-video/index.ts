@@ -10,6 +10,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
+import { getValidAccessToken, downloadDriveFile } from '../_shared/google-drive.ts'
 
 const BUCKET = 'contenidos-media'
 const FUNCTION_NAME = 'contenido-desde-video'
@@ -86,7 +87,7 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const body = await req.json().catch(() => null) as
       | { action: 'init'; filename?: string }
-      | { action: 'process'; path?: string; contexto?: string }
+      | { action: 'process'; path?: string; drive_file_id?: string; contexto?: string }
       | null
     if (!body?.action) return json(req, { error: 'Falta action' }, 400)
 
@@ -102,23 +103,33 @@ Deno.serve(async (req) => {
 
     // ── PROCESS: video → audio → transcripción → IA → tarjetas ────────────────
     if (body.action === 'process') {
-      if (!body.path) return json(req, { error: 'Falta path' }, 400)
+      if (!body.path && !body.drive_file_id) return json(req, { error: 'Falta path o drive_file_id' }, 400)
       const apiKey = Deno.env.get('OPENROUTER_API_KEY')
       if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
       const compressorUrl = Deno.env.get('AUDIO_COMPRESSOR_URL')
       const compressorToken = Deno.env.get('AUDIO_COMPRESSOR_TOKEN')
       if (!compressorUrl || !compressorToken) return json(req, { error: 'Compresor de audio no configurado' }, 500)
 
-      // Solo el dueño puede procesar su subida
-      if (!body.path.startsWith(`${user.id}/`)) return json(req, { error: 'Ruta no permitida' }, 403)
-
       const guard = await checkLlmGuard(admin, user.id, FUNCTION_NAME, 200_000)
       if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
-      // 1) Descargar video
-      const { data: file, error: dlErr } = await admin.storage.from(BUCKET).download(body.path)
-      if (dlErr || !file) return json(req, { error: `No se pudo descargar el video: ${dlErr?.message}` }, 404)
-      const videoBytes = await file.arrayBuffer()
+      // 1) Obtener el video: subida directa (storage) o desde el Drive del usuario
+      let videoBytes: ArrayBuffer
+      let cleanupStoragePath: string | null = null
+      if (body.drive_file_id) {
+        const cId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
+        const cSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
+        if (!cId || !cSecret) return json(req, { error: 'Drive OAuth no configurado en el servidor' }, 500)
+        const accessToken = await getValidAccessToken({ serviceClient: admin, profileId: user.id, clientId: cId, clientSecret: cSecret })
+        const dl = await downloadDriveFile({ accessToken, fileId: body.drive_file_id })
+        videoBytes = dl.data
+      } else {
+        if (!body.path!.startsWith(`${user.id}/`)) return json(req, { error: 'Ruta no permitida' }, 403)
+        const { data: file, error: dlErr } = await admin.storage.from(BUCKET).download(body.path!)
+        if (dlErr || !file) return json(req, { error: `No se pudo descargar el video: ${dlErr?.message}` }, 404)
+        videoBytes = await file.arrayBuffer()
+        cleanupStoragePath = body.path!
+      }
 
       // 2) Extraer audio en el VPS
       const compRes = await fetch(`${compressorUrl.replace(/\/$/, '')}/compress`, {
@@ -176,8 +187,8 @@ Deno.serve(async (req) => {
       const { data: inserted, error: insErr } = await admin.from('contenidos').insert(rows).select('id, categoria')
       if (insErr) return json(req, { error: `No se pudieron guardar las tarjetas: ${insErr.message}` }, 500)
 
-      // Limpieza: borrar el video del storage (ya no se necesita)
-      admin.storage.from(BUCKET).remove([body.path]).catch(() => {})
+      // Limpieza: borrar el video del storage si fue subida directa (Drive no se toca)
+      if (cleanupStoragePath) admin.storage.from(BUCKET).remove([cleanupStoragePath]).catch(() => {})
 
       return json(req, { created: inserted?.length ?? 0, transcript_chars: transcript.length })
     }

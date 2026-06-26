@@ -109,11 +109,22 @@ export function useGenerarContenidoDesdeVideo() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ file, contexto, onStage }: {
-      file: File
+    mutationFn: async ({ file, driveFileId, contexto, onStage }: {
+      file?: File
+      driveFileId?: string
       contexto?: string
       onStage?: (s: string) => void
     }): Promise<{ created: number }> => {
+      if (driveFileId) {
+        onStage?.('Procesando desde Drive: audio → transcripción → IA…')
+        const { data: proc, error } = await supabase.functions.invoke('contenido-desde-video', {
+          body: { action: 'process', drive_file_id: driveFileId, contexto: contexto || undefined },
+        })
+        if (error) throw await fnErr(error)
+        if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+        return proc as { created: number }
+      }
+      if (!file) throw new Error('Falta el archivo de video')
       onStage?.('Preparando subida…')
       const { data: init, error: e1 } = await supabase.functions.invoke('contenido-desde-video', {
         body: { action: 'init', filename: file.name },
