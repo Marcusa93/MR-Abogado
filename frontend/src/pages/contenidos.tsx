@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react'
 import {
+  DndContext, PointerSensor, TouchSensor, useSensor, useSensors,
+  useDroppable, useDraggable, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
@@ -272,7 +276,7 @@ export default function ContenidosPage() {
   )
 }
 
-// ── Vista tablero (Trello/Asana): columnas por estado ───────────────────────
+// ── Vista tablero (Trello/Asana): columnas por estado, drag & drop ──────────
 function ContenidoBoard({ contenidos, onEdit, onDelete }: {
   contenidos: Contenido[]
   onEdit: (c: Contenido) => void
@@ -280,32 +284,72 @@ function ContenidoBoard({ contenidos, onEdit, onDelete }: {
 }) {
   const update = useUpdateContenido()
   const orden = ESTADOS_CONTENIDO.map((e) => e.value)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+  const setEstado = (c: Contenido, estado: EstadoContenido) => {
+    if (estado === c.estado || !orden.includes(estado)) return
+    update.mutate({ id: c.id, estado })
+  }
   const mover = (c: Contenido, dir: -1 | 1) => {
     const next = orden[orden.indexOf(c.estado) + dir]
-    if (!next || next === c.estado) return
-    update.mutate({ id: c.id, estado: next })
+    if (next) setEstado(c, next)
+  }
+  const onDragEnd = (event: DragEndEvent) => {
+    const c = event.active.data.current?.contenido as Contenido | undefined
+    const estado = event.over?.id as EstadoContenido | undefined
+    if (c && estado) setEstado(c, estado)
   }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start">
-      {ESTADOS_CONTENIDO.map((e) => {
-        const items = contenidos.filter((c) => c.estado === e.value)
-        return (
-          <div key={e.value} className="rounded-xl border border-white/10 bg-zinc-900/20 p-2">
-            <div className="flex items-center justify-between px-1 py-1.5 mb-1">
-              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[e.value])}>
-                {e.label}
-              </span>
-              <span className="text-[10px] text-zinc-500">{items.length}</span>
-            </div>
-            <div className="space-y-2">
-              {items.map((c) => (
-                <BoardCard key={c.id} c={c} orden={orden} onEdit={onEdit} onDelete={onDelete} onMover={mover} disabled={update.isPending} />
-              ))}
-              {items.length === 0 && <p className="px-1 py-3 text-center text-[10px] text-zinc-600">—</p>}
-            </div>
-          </div>
-        )
-      })}
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start">
+        {ESTADOS_CONTENIDO.map((e) => (
+          <BoardColumn
+            key={e.value}
+            estado={e.value}
+            label={e.label}
+            items={contenidos.filter((c) => c.estado === e.value)}
+            orden={orden}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onMover={mover}
+            disabled={update.isPending}
+          />
+        ))}
+      </div>
+    </DndContext>
+  )
+}
+
+function BoardColumn({ estado, label, items, orden, onEdit, onDelete, onMover, disabled }: {
+  estado: EstadoContenido
+  label: string
+  items: Contenido[]
+  orden: EstadoContenido[]
+  onEdit: (c: Contenido) => void
+  onDelete: (id: string) => void
+  onMover: (c: Contenido, dir: -1 | 1) => void
+  disabled: boolean
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: estado })
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn('rounded-xl border p-2 transition-colors', isOver ? 'border-violet-400/50 bg-violet-500/[0.06]' : 'border-white/10 bg-zinc-900/20')}
+    >
+      <div className="flex items-center justify-between px-1 py-1.5 mb-1">
+        <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[estado])}>
+          {label}
+        </span>
+        <span className="text-[10px] text-zinc-500">{items.length}</span>
+      </div>
+      <div className="space-y-2 min-h-[44px]">
+        {items.map((c) => (
+          <BoardCard key={c.id} c={c} orden={orden} onEdit={onEdit} onDelete={onDelete} onMover={onMover} disabled={disabled} />
+        ))}
+        {items.length === 0 && <p className="px-1 py-3 text-center text-[10px] text-zinc-600">Soltá una tarjeta acá</p>}
+      </div>
     </div>
   )
 }
@@ -318,16 +362,29 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
   onMover: (c: Contenido, dir: -1 | 1) => void
   disabled: boolean
 }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: c.id, data: { contenido: c } })
   const Icon = CATEGORIA_ICON[c.categoria]
   const i = orden.indexOf(c.estado)
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
+    : undefined
   return (
-    <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group">
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing"
+    >
       <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
         <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
       </span>
       <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1.5">{c.titulo}</p>
       {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
-      <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5">
+      <div
+        className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-0.5">
           <button onClick={() => onMover(c, -1)} disabled={disabled || i <= 0}
             className="rounded p-1 text-zinc-500 hover:text-violet-300 disabled:opacity-30 disabled:hover:text-zinc-500" title="Mover atrás">
