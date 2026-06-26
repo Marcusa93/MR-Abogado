@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   DndContext, PointerSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable, type DragEndEvent,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
+  useGenerarContenidoDesdeVideo,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
@@ -57,6 +58,23 @@ export default function ContenidosPage() {
   const [editing, setEditing] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [view, setView] = useState<'tablero' | 'lista'>('tablero')
+  const videoInputRef = useRef<HTMLInputElement>(null)
+  const [genStage, setGenStage] = useState<string | null>(null)
+  const generar = useGenerarContenidoDesdeVideo()
+
+  const handleVideo = (file: File) => {
+    if (file.size > 200 * 1024 * 1024) {
+      toast.error('El video supera 200 MB. Recortalo o comprimilo antes (los videos editados para redes suelen ser más livianos).')
+      return
+    }
+    generar.mutate(
+      { file, onStage: setGenStage },
+      {
+        onSuccess: (r) => { setGenStage(null); toast.success(`${r.created} ${r.created === 1 ? 'tarjeta generada' : 'tarjetas generadas'} desde el video`) },
+        onError: (e) => { setGenStage(null); toast.error(e instanceof Error ? e.message : 'No se pudo generar') },
+      },
+    )
+  }
 
   const { data: contenidos = [], isLoading } = useContenidos({
     categoria: filterCategoria === 'all' ? null : filterCategoria,
@@ -105,6 +123,22 @@ export default function ContenidosPage() {
               <ListIcon className="h-3.5 w-3.5" /> Lista
             </button>
           </div>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideo(f); e.target.value = '' }}
+          />
+          <button
+            onClick={() => videoInputRef.current?.click()}
+            disabled={generar.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 transition-colors"
+            title="Generar borradores por plataforma a partir de un video"
+          >
+            {generar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+            Desde video
+          </button>
           <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
@@ -114,6 +148,13 @@ export default function ContenidosPage() {
           </button>
         </div>
       </div>
+
+      {genStage && (
+        <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-200">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {genStage} — puede tardar 1-2 min, no cierres la pestaña.
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="space-y-3">

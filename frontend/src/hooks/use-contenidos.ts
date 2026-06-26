@@ -95,6 +95,49 @@ export function useCreateContenido() {
   })
 }
 
+async function fnErr(error: unknown): Promise<Error> {
+  const ctx = (error as { context?: unknown })?.context
+  if (ctx instanceof Response) {
+    const b = await ctx.json().catch(() => null)
+    if (b?.error) return new Error(b.error)
+  }
+  return error instanceof Error ? error : new Error('Error desconocido')
+}
+
+// Sube un video, le extrae audio, transcribe y genera tarjetas por plataforma.
+export function useGenerarContenidoDesdeVideo() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file, contexto, onStage }: {
+      file: File
+      contexto?: string
+      onStage?: (s: string) => void
+    }): Promise<{ created: number }> => {
+      onStage?.('Preparando subida…')
+      const { data: init, error: e1 } = await supabase.functions.invoke('contenido-desde-video', {
+        body: { action: 'init', filename: file.name },
+      })
+      if (e1) throw await fnErr(e1)
+      if ((init as { error?: string })?.error) throw new Error((init as { error: string }).error)
+      const { path, token } = init as { path: string; token: string }
+
+      onStage?.('Subiendo video…')
+      const up = await supabase.storage.from('contenidos-media').uploadToSignedUrl(path, token, file)
+      if (up.error) throw new Error(`Subida falló: ${up.error.message}`)
+
+      onStage?.('Procesando: audio → transcripción → IA…')
+      const { data: proc, error: e3 } = await supabase.functions.invoke('contenido-desde-video', {
+        body: { action: 'process', path, contexto: contexto || undefined },
+      })
+      if (e3) throw await fnErr(e3)
+      if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+      return proc as { created: number }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contenidos'] }) },
+  })
+}
+
 export function useUpdateContenido() {
   const supabase = createClient()
   const qc = useQueryClient()
