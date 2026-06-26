@@ -172,9 +172,26 @@ async function callWhisperProvider(
   return { text: payload.text, duration: payload.duration }
 }
 
+// Umbral a partir del cual comprimimos el audio en el VPS antes de mandarlo a
+// Whisper (que tiene tope duro de 25 MB).
+const COMPRESS_THRESHOLD = 20 * 1024 * 1024 // 20 MB
+
+async function compressAudio(audio: ArrayBuffer, url: string, token: string): Promise<ArrayBuffer> {
+  const res = await fetch(`${url.replace(/\/$/, '')}/compress`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' },
+    body: audio,
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`Compresor de audio falló (${res.status}): ${t.slice(0, 150)}`)
+  }
+  return await res.arrayBuffer()
+}
+
 async function transcribe(audio: ArrayBuffer, fileName: string, opts: { groqKey?: string; openaiKey?: string }): Promise<TranscribeResult> {
   if (audio.byteLength > 25 * 1024 * 1024) {
-    throw new Error(`Audio de ${(audio.byteLength / 1024 / 1024).toFixed(1)} MB excede el límite de Whisper (25 MB). Comprimilo antes.`)
+    throw new Error(`Audio de ${(audio.byteLength / 1024 / 1024).toFixed(1)} MB excede el límite de Whisper (25 MB) y la compresión no fue suficiente.`)
   }
 
   // 1) Probar Groq primero (gratis hasta rate limits)
@@ -207,6 +224,8 @@ Deno.serve(async (req) => {
   try {
     const groqKey = Deno.env.get('GROQ_API_KEY')
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
+    const compressorUrl = Deno.env.get('AUDIO_COMPRESSOR_URL')
+    const compressorToken = Deno.env.get('AUDIO_COMPRESSOR_TOKEN')
     if (!groqKey && !openaiKey) {
       return json(req, { error: 'Configurá GROQ_API_KEY (recomendado) o OPENAI_API_KEY en Edge Functions secrets' }, 500)
     }
@@ -306,7 +325,16 @@ Deno.serve(async (req) => {
     //    instante y el cliente hace polling para ver cuándo termina.
     const backgroundWork = (async () => {
       try {
-        const { text, duration, provider, model } = await transcribe(audioBytes, body.file_name, { groqKey, openaiKey })
+        let audioForWhisper = audioBytes
+        let nameForWhisper = body.file_name
+        // Audios grandes: comprimir en el VPS (ffmpeg → opus 16kHz) antes de Whisper.
+        if (audioBytes.byteLength > COMPRESS_THRESHOLD && compressorUrl && compressorToken) {
+          console.log(`[transcribe] comprimiendo ${(audioBytes.byteLength / 1048576).toFixed(1)}MB`)
+          audioForWhisper = await compressAudio(audioBytes, compressorUrl, compressorToken)
+          nameForWhisper = nameForWhisper.replace(/\.[^.]+$/, '') + '.ogg'
+          console.log(`[transcribe] comprimido a ${(audioForWhisper.byteLength / 1048576).toFixed(1)}MB`)
+        }
+        const { text, duration, provider, model } = await transcribe(audioForWhisper, nameForWhisper, { groqKey, openaiKey })
         await serviceClient
           .from('audiencia_transcripts')
           .update({

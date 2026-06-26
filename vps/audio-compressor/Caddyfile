@@ -1,0 +1,16 @@
+# Caddy: HTTPS automático (Let's Encrypt) para el compresor de audio.
+# Requiere que vps.marcorossi.com.ar resuelva al IP del VPS y puertos 80/443 abiertos.
+vps.marcorossi.com.ar {
+	# Audios grandes: subir el límite del body (default de Caddy alcanza, pero
+	# lo fijamos explícito por las dudas).
+	request_body {
+		max_size 320MB
+	}
+	reverse_proxy 127.0.0.1:8723 {
+		# La compresión puede tardar; ampliamos timeouts.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}

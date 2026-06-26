@@ -1,0 +1,17 @@
+[Unit]
+Description=Audio compressor (ffmpeg -> Opus) for SAE transcription
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/audio-compressor
+EnvironmentFile=/root/audio-compressor/.env
+ExecStart=/usr/bin/node /root/audio-compressor/server.mjs
+Restart=always
+RestartSec=5
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

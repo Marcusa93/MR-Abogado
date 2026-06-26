@@ -174,13 +174,13 @@ export function TranscriptionPanel({ movement, audienciaId }: Props) {
               onClick={() => fileInputRef.current?.click()}
               disabled={isBusyTranscribing}
               className="inline-flex items-center gap-1.5 rounded-md border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50"
-              title="Subir un archivo de audio o video (MP3, MP4, WAV, etc.). Máx 25 MB."
+              title="Subir un archivo de audio o video (MP3, MP4, WAV, etc.). Los audios largos se comprimen automáticamente."
             >
               {(uploadAudio.isPending || transcribeUpload.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
               Subir audio/video
             </button>
             <span className="text-[10px] text-zinc-600 dark:text-zinc-300">
-              Groq (gratis) → fallback OpenAI · máx 25 MB
+              Groq (gratis) → fallback OpenAI · audios largos se comprimen solos
             </span>
           </div>
 
