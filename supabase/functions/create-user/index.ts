@@ -63,11 +63,18 @@ Deno.serve(async (req) => {
       )
     }
 
-    const validRoles = ['ABOGADO', 'SECRETARIA', 'COLABORADOR']
+    const validRoles = ['ABOGADO', 'SECRETARIA', 'COLABORADOR', 'DIRECTOR']
     if (!validRoles.includes(rol)) {
       return new Response(
         JSON.stringify({ error: `Rol inválido. Valores permitidos: ${validRoles.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      )
+    }
+    // Solo un DIRECTOR puede crear otro DIRECTOR (socio del estudio).
+    if (rol === 'DIRECTOR' && callerProfile?.rol !== 'DIRECTOR') {
+      return new Response(
+        JSON.stringify({ error: 'Solo un director puede asignar el rol DIRECTOR' }),
+        { status: 403, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       )
     }
 

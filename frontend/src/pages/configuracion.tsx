@@ -772,6 +772,11 @@ const ASSIGNABLE_ROLES = [
 function UsersSection() {
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const { profile: currentProfile } = useAuth()
+  // Solo un DIRECTOR puede nombrar a otro DIRECTOR (socio del estudio).
+  const assignableRoles = currentProfile?.rol === 'DIRECTOR'
+    ? [...ASSIGNABLE_ROLES, { value: 'DIRECTOR', label: 'Director' }]
+    : ASSIGNABLE_ROLES
   const [showInvite, setShowInvite] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ nombre: '', apellido: '', rol: '', telefono: '' })
@@ -951,7 +956,7 @@ function UsersSection() {
                     onChange={(e) => setInviteForm(f => ({ ...f, rol: e.target.value }))}
                     className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
                   >
-                    {ASSIGNABLE_ROLES.map((r) => (
+                    {assignableRoles.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
@@ -1087,7 +1092,7 @@ function UsersSection() {
                         onChange={(e) => setEditForm(f => ({ ...f, rol: e.target.value }))}
                         className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
                       >
-                        {ASSIGNABLE_ROLES.map((r) => (
+                        {assignableRoles.map((r) => (
                           <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
                       </select>
