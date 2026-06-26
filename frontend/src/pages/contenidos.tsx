@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
-  BookOpen, Video, Hash,
+  BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
@@ -52,6 +52,7 @@ export default function ContenidosPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [view, setView] = useState<'tablero' | 'lista'>('tablero')
 
   const { data: contenidos = [], isLoading } = useContenidos({
     categoria: filterCategoria === 'all' ? null : filterCategoria,
@@ -80,13 +81,34 @@ export default function ContenidosPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => { setEditing(null); setDialogOpen(true) }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo contenido
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Toggle vista */}
+          <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
+            <button
+              onClick={() => setView('tablero')}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                view === 'tablero' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              title="Vista tablero"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" /> Tablero
+            </button>
+            <button
+              onClick={() => setView('lista')}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                view === 'lista' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              title="Vista lista"
+            >
+              <ListIcon className="h-3.5 w-3.5" /> Lista
+            </button>
+          </div>
+          <button
+            onClick={() => { setEditing(null); setDialogOpen(true) }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo contenido
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -162,6 +184,12 @@ export default function ContenidosPage() {
           description="Creá tu primer borrador para redes, newsletter o comunicación a clientes."
           actionLabel="Nuevo contenido"
           onAction={() => { setEditing(null); setDialogOpen(true) }}
+        />
+      ) : view === 'tablero' ? (
+        <ContenidoBoard
+          contenidos={contenidos}
+          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+          onDelete={(id) => setConfirmDelete(id)}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -240,6 +268,85 @@ export default function ContenidosPage() {
         confirmLabel="Eliminar"
         variant="danger"
       />
+    </div>
+  )
+}
+
+// ── Vista tablero (Trello/Asana): columnas por estado ───────────────────────
+function ContenidoBoard({ contenidos, onEdit, onDelete }: {
+  contenidos: Contenido[]
+  onEdit: (c: Contenido) => void
+  onDelete: (id: string) => void
+}) {
+  const update = useUpdateContenido()
+  const orden = ESTADOS_CONTENIDO.map((e) => e.value)
+  const mover = (c: Contenido, dir: -1 | 1) => {
+    const next = orden[orden.indexOf(c.estado) + dir]
+    if (!next || next === c.estado) return
+    update.mutate({ id: c.id, estado: next })
+  }
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start">
+      {ESTADOS_CONTENIDO.map((e) => {
+        const items = contenidos.filter((c) => c.estado === e.value)
+        return (
+          <div key={e.value} className="rounded-xl border border-white/10 bg-zinc-900/20 p-2">
+            <div className="flex items-center justify-between px-1 py-1.5 mb-1">
+              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[e.value])}>
+                {e.label}
+              </span>
+              <span className="text-[10px] text-zinc-500">{items.length}</span>
+            </div>
+            <div className="space-y-2">
+              {items.map((c) => (
+                <BoardCard key={c.id} c={c} orden={orden} onEdit={onEdit} onDelete={onDelete} onMover={mover} disabled={update.isPending} />
+              ))}
+              {items.length === 0 && <p className="px-1 py-3 text-center text-[10px] text-zinc-600">—</p>}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
+  c: Contenido
+  orden: EstadoContenido[]
+  onEdit: (c: Contenido) => void
+  onDelete: (id: string) => void
+  onMover: (c: Contenido, dir: -1 | 1) => void
+  disabled: boolean
+}) {
+  const Icon = CATEGORIA_ICON[c.categoria]
+  const i = orden.indexOf(c.estado)
+  return (
+    <div className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group">
+      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
+        <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
+      </span>
+      <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1.5">{c.titulo}</p>
+      {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
+      <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5">
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => onMover(c, -1)} disabled={disabled || i <= 0}
+            className="rounded p-1 text-zinc-500 hover:text-violet-300 disabled:opacity-30 disabled:hover:text-zinc-500" title="Mover atrás">
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => onMover(c, 1)} disabled={disabled || i >= orden.length - 1}
+            className="rounded p-1 text-zinc-500 hover:text-violet-300 disabled:opacity-30 disabled:hover:text-zinc-500" title="Mover adelante">
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+            <Edit2 className="h-3 w-3" />
+          </button>
+          <button onClick={() => onDelete(c.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
