@@ -103,10 +103,13 @@ Deno.serve(async (req) => {
 
     const newUserId = newUserData.user.id
 
-    // Create profile row
+    // Crear/actualizar el perfil. Un trigger (handle_new_user) ya inserta una
+    // fila de profiles al crear el auth user, así que un insert plano choca por
+    // clave duplicada. Usamos upsert: actualiza esa fila con el rol y datos
+    // elegidos (o la crea si el trigger no estuviera).
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         id: newUserId,
         email,
         nombre_completo: `${nombre} ${apellido}`.trim(),
@@ -116,7 +119,7 @@ Deno.serve(async (req) => {
         telefono: telefono || null,
         must_change_password: true,
         activo: true,
-      })
+      }, { onConflict: 'id' })
 
     if (profileError) {
       // Rollback: delete the auth user if profile creation fails
