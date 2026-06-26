@@ -780,6 +780,7 @@ function UsersSection() {
   const [showInvite, setShowInvite] = useState(false)
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ nombre: '', apellido: '', rol: '', telefono: '' })
+  const [deletingUser, setDeletingUser] = useState<{ id: string; nombre: string } | null>(null)
 
   // Invite form
   const [inviteForm, setInviteForm] = useState({ email: '', nombre: '', apellido: '', rol: 'ABOGADO', telefono: '' })
@@ -854,6 +855,32 @@ function UsersSection() {
       toast.success('Estado actualizado')
     },
     onError: () => toast.error('Error al cambiar estado'),
+  })
+
+  const deleteUser = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.functions.invoke('delete-user', { body: { user_id: id } })
+      if (error) {
+        // Intentar leer el mensaje del cuerpo (FunctionsHttpError)
+        const ctx = (error as { context?: Response }).context
+        if (ctx instanceof Response) {
+          const body = await ctx.json().catch(() => null)
+          if (body?.error) throw new Error(body.error)
+        }
+        throw new Error(error.message || 'Error al eliminar usuario')
+      }
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['team-members'] })
+      setDeletingUser(null)
+      toast.success('Usuario eliminado')
+    },
+    onError: (err: Error) => {
+      setDeletingUser(null)
+      toast.error(err.message)
+    },
   })
 
   const startEdit = (user: NonNullable<typeof users>[number]) => {
@@ -1055,6 +1082,13 @@ function UsersSection() {
                     >
                       {user.activo !== false ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
                     </button>
+                    <button
+                      onClick={() => setDeletingUser({ id: user.id, nombre: `${user.nombre} ${user.apellido}`.trim() })}
+                      className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-rose-400 hover:bg-white/10 transition-colors"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 )}
 
@@ -1128,6 +1162,16 @@ function UsersSection() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deletingUser !== null}
+        onClose={() => setDeletingUser(null)}
+        onConfirm={() => { if (deletingUser) deleteUser.mutate(deletingUser.id) }}
+        title="¿Eliminar usuario?"
+        description={`Vas a eliminar a ${deletingUser?.nombre ?? ''}. Esta acción no se puede deshacer. Si el usuario tiene expedientes o datos asociados, no se podrá eliminar (desactivalo en su lugar).`}
+        confirmLabel="Eliminar"
+        variant="danger"
+      />
     </div>
   )
 }
