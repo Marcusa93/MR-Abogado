@@ -7,6 +7,7 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
+  CalendarDays,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
@@ -57,7 +58,7 @@ export default function ContenidosPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [view, setView] = useState<'tablero' | 'lista'>('tablero')
+  const [view, setView] = useState<'tablero' | 'calendario' | 'lista'>('tablero')
   const videoInputRef = useRef<HTMLInputElement>(null)
   const [genStage, setGenStage] = useState<string | null>(null)
   const generar = useGenerarContenidoDesdeVideo()
@@ -113,6 +114,14 @@ export default function ContenidosPage() {
               title="Vista tablero"
             >
               <LayoutGrid className="h-3.5 w-3.5" /> Tablero
+            </button>
+            <button
+              onClick={() => setView('calendario')}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                view === 'calendario' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              title="Vista calendario"
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Calendario
             </button>
             <button
               onClick={() => setView('lista')}
@@ -236,6 +245,11 @@ export default function ContenidosPage() {
           onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
           onDelete={(id) => setConfirmDelete(id)}
         />
+      ) : view === 'calendario' ? (
+        <ContenidoCalendar
+          contenidos={contenidos}
+          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {contenidos.map((c) => {
@@ -313,6 +327,110 @@ export default function ContenidosPage() {
         confirmLabel="Eliminar"
         variant="danger"
       />
+    </div>
+  )
+}
+
+// ── Vista calendario: grilla mensual por fecha de publicación ───────────────
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function ContenidoCalendar({ contenidos, onEdit }: {
+  contenidos: Contenido[]
+  onEdit: (c: Contenido) => void
+}) {
+  const hoy = new Date()
+  const [cursor, setCursor] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() })
+  const { y, m } = cursor
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const dateStr = (d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
+  const todayStr = `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`
+
+  const byDate = useMemo(() => {
+    const map: Record<string, Contenido[]> = {}
+    for (const c of contenidos) if (c.publicar_el) (map[c.publicar_el] ??= []).push(c)
+    return map
+  }, [contenidos])
+  const sinFecha = useMemo(() => contenidos.filter((c) => !c.publicar_el), [contenidos])
+
+  const firstWeekday = (new Date(y, m, 1).getDay() + 6) % 7 // Lunes = 0
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstWeekday; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const prev = () => setCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 })
+  const next = () => setCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-zinc-200">{MESES[m]} {y}</h2>
+        <div className="flex items-center gap-1">
+          <button onClick={prev} className="rounded-md border border-white/10 bg-white/5 p-1.5 text-zinc-300 hover:bg-white/10" title="Mes anterior"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={() => setCursor({ y: hoy.getFullYear(), m: hoy.getMonth() })} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10">Hoy</button>
+          <button onClick={next} className="rounded-md border border-white/10 bg-white/5 p-1.5 text-zinc-300 hover:bg-white/10" title="Mes siguiente"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5">
+        {DIAS_SEMANA.map((d) => (
+          <div key={d} className="bg-zinc-900/60 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">{d}</div>
+        ))}
+        {cells.map((d, i) => {
+          const items = d ? (byDate[dateStr(d)] ?? []) : []
+          const esHoy = d != null && dateStr(d) === todayStr
+          return (
+            <div key={i} className={cn('min-h-[92px] bg-zinc-950/40 p-1.5', !d && 'opacity-40')}>
+              {d && (
+                <>
+                  <div className={cn('mb-1 text-[11px]', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/30 font-semibold text-violet-200' : 'text-zinc-500')}>{d}</div>
+                  <div className="space-y-1">
+                    {items.map((c) => {
+                      const Icon = CATEGORIA_ICON[c.categoria]
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => onEdit(c)}
+                          className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+                          title={`${c.titulo} · ${ESTADO_LABEL[c.estado]}`}
+                        >
+                          <Icon className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{c.titulo}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {sinFecha.length > 0 && (
+        <div>
+          <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
+            Sin fecha de publicación ({sinFecha.length}) — abrí cada uno y asignale fecha
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sinFecha.map((c) => {
+              const Icon = CATEGORIA_ICON[c.categoria]
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onEdit(c)}
+                  className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+                  title={ESTADO_LABEL[c.estado]}
+                >
+                  <Icon className="h-3 w-3" /> <span className="max-w-[160px] truncate">{c.titulo}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
