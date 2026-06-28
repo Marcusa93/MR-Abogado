@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   DndContext, PointerSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable, type DragEndEvent,
@@ -16,6 +16,7 @@ import {
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
 import { useGoogleDriveStatus, startGoogleDriveOAuth } from '@/hooks/use-google-drive'
+import { useLinkedInStatus, connectLinkedIn, useLinkedInPublish } from '@/hooks/use-social'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
@@ -161,6 +162,16 @@ export default function ContenidosPage() {
     }
     runGenerar({ file })
   }
+
+  // Aviso al volver del OAuth de LinkedIn
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('linkedin') === 'connected') toast.success('LinkedIn conectado')
+    else if (p.get('linkedin_error')) toast.error(`LinkedIn: ${p.get('linkedin_error')}`)
+    if (p.has('linkedin') || p.has('linkedin_error')) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   const { data: contenidos = [], isLoading } = useContenidos({
     categoria: filterCategoria === 'all' ? null : filterCategoria,
@@ -727,6 +738,19 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
     catch (err) { toast.error(err instanceof Error ? err.message : 'Error') }
   }
 
+  // LinkedIn: publicación automática (un click) para tarjetas de LinkedIn
+  const { data: liStatus } = useLinkedInStatus()
+  const liPublish = useLinkedInPublish()
+  const esLinkedin = categoria === 'linkedin'
+  const handlePublicarLinkedIn = async () => {
+    if (!editing) return
+    try {
+      await liPublish.mutateAsync({ cuerpo: cuerpo.trim(), hashtags: hashtags.trim() || undefined, contenido_id: editing.id })
+      toast.success('¡Publicado en LinkedIn!')
+      onClose()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo publicar en LinkedIn') }
+  }
+
   const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/20'
 
   return (
@@ -799,6 +823,26 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                 {dest?.prefilled ? 'En X queda pre-cargado.' : 'Pegalo (Ctrl/Cmd+V) en el editor que se abre.'} Vos/Facundo dan el último click desde su cuenta.
               </p>
               <div className="flex flex-wrap gap-2">
+                {esLinkedin && (liStatus?.connected ? (
+                  <button
+                    type="button"
+                    onClick={handlePublicarLinkedIn}
+                    disabled={liPublish.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#0a66c2] px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-50 transition"
+                    title={liStatus.accountName ? `Publicar como ${liStatus.accountName}` : 'Publicar en tu LinkedIn'}
+                  >
+                    {liPublish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Linkedin className="h-3.5 w-3.5" />}
+                    Publicar en LinkedIn
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => connectLinkedIn().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo conectar LinkedIn'))}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0a66c2]/40 px-3 py-1.5 text-xs font-medium text-[#4aa3e8] hover:bg-[#0a66c2]/10 transition"
+                  >
+                    <Linkedin className="h-3.5 w-3.5" /> Conectar LinkedIn
+                  </button>
+                ))}
                 <button
                   type="button"
                   onClick={handlePublicar}
