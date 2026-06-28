@@ -266,8 +266,11 @@ Deno.serve(async (req) => {
         const cSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
         if (!cId || !cSecret) return json(req, { error: 'Drive OAuth no configurado en el servidor' }, 500)
         const accessToken = await getValidAccessToken({ serviceClient: admin, profileId: user.id, clientId: cId, clientSecret: cSecret })
-        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${body.drive_file_id}?fields=name,mimeType`, { headers: { Authorization: `Bearer ${accessToken}` } })
-        if (!metaRes.ok) return json(req, { error: `No se pudo leer el archivo de Drive (${metaRes.status})` }, 502)
+        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${body.drive_file_id}?fields=name,mimeType&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${accessToken}` } })
+        if (!metaRes.ok) {
+          const detalle = (await metaRes.text()).slice(0, 150)
+          return json(req, { error: `No se pudo leer el archivo de Drive (${metaRes.status}). Si recién reconectaste el Drive, reintentá. Detalle: ${detalle}` }, 502)
+        }
         const mt = (await metaRes.json() as { mimeType?: string }).mimeType ?? ''
         if (mt === 'application/vnd.google-apps.document' || mt.startsWith('text/')) {
           // Guion: traer el texto directo (export para Google Docs, alt=media para texto plano)

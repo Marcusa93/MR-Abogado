@@ -82,15 +82,17 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
   const apiKey = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined
   if (!apiKey) return null
 
-  if (!status?.connected) {
+  // Reconectar si no está conectado o si la conexión tiene el scope viejo (drive.file).
+  const needsReconnect = !status?.connected || !status?.scope?.includes('drive.readonly')
+  if (needsReconnect) {
     return (
       <button
         type="button"
         onClick={() => startGoogleDriveOAuth().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo iniciar la conexión con Drive'))}
         className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
-        title="Conectá tu Google Drive para elegir videos"
+        title="Conectá (o reconectá) tu Google Drive para elegir videos o guiones"
       >
-        <FolderOpen className="h-4 w-4" /> Conectar Drive
+        <FolderOpen className="h-4 w-4" /> {status?.connected ? 'Reconectar Drive' : 'Conectar Drive'}
       </button>
     )
   }
