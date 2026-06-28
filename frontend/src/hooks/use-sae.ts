@@ -4,9 +4,9 @@ import type { Tables } from '@/types/database.types'
 
 export type SaeCredential = Omit<Tables<'sae_credentials'>, 'encrypted_secret'>
 
-// Extends the generated row with the AI columns added in migration 00028.
-// Once database.types.ts is regenerated this can revert to a plain alias.
+// Extends the generated row with columns added after the last types regeneration.
 export type SaeMovement = Tables<'sae_movements'> & {
+  fuente?: 'sae' | 'manual' | null
   ai_summary?: string | null
   ai_extracted?: {
     partes?: string[]
@@ -124,6 +124,61 @@ export function useSaeMovements(expedienteId: string) {
       return (data ?? []) as SaeMovement[]
     },
     enabled: !!expedienteId,
+  })
+}
+
+// ─── Crear actuación manual ──────────────────────────────────────────────────
+
+export interface CreateManualActuacionInput {
+  expedienteId: string
+  fecha: string
+  titulo: string
+  tipoMovimiento: Tables<'sae_movements'>['tipo_movimiento']
+  cuerpo?: string
+}
+
+export function useCreateManualActuacion() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: CreateManualActuacionInput) => {
+      const { data, error } = await supabase
+        .from('sae_movements')
+        .insert({
+          expediente_id: input.expedienteId,
+          fecha: input.fecha,
+          titulo: input.titulo,
+          tipo_movimiento: input.tipoMovimiento,
+          cuerpo: input.cuerpo || null,
+          fuente: 'manual',
+          fingerprint: crypto.randomUUID(),
+        } as any)
+        .select()
+        .single()
+      if (error) throw error
+      return data as SaeMovement
+    },
+    onSuccess: (_data, { expedienteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
+    },
+  })
+}
+
+export function useDeleteManualActuacion() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { movementId: string; expedienteId: string }) => {
+      const { error } = await supabase
+        .from('sae_movements')
+        .delete()
+        .eq('id', input.movementId)
+        .eq('fuente', 'manual' as any)
+      if (error) throw error
+    },
+    onSuccess: (_data, { expedienteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
+    },
   })
 }
 

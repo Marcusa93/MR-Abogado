@@ -7,6 +7,7 @@ import { useTareas, useCompletarTarea } from '@/hooks/use-tareas'
 import { useAlertas, useResolverAlerta } from '@/hooks/use-alertas'
 import { useCreateSeguimiento, type CreateSeguimientoInput } from '@/hooks/use-seguimientos'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
+import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { formatDateWithWeekday } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -489,6 +490,7 @@ export default function AgendaSecretariaPage() {
 
   const [expandedExp, setExpandedExp] = useState<string | null>(null)
   const [crearTareaOpen, setCrearTareaOpen] = useState(false)
+  const [crearAudienciaOpen, setCrearAudienciaOpen] = useState(false)
   const [completedExps, setCompletedExps] = useState<Set<string>>(new Set())
 
   const toggleExpand = (id: string) => {
@@ -682,9 +684,16 @@ export default function AgendaSecretariaPage() {
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               Audiencias
             </h2>
-            <span className="ml-auto rounded-full bg-sky-900/30 px-2 py-0.5 text-xs font-medium text-sky-400">
+            <span className="rounded-full bg-sky-900/30 px-2 py-0.5 text-xs font-medium text-sky-400">
               {turnos.length}
             </span>
+            <button
+              onClick={() => setCrearAudienciaOpen(true)}
+              className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-cyan px-2.5 py-1 text-xs font-medium text-zinc-950 hover:opacity-90"
+            >
+              <Plus className="h-3 w-3" />
+              Nueva
+            </button>
           </div>
 
           <MiniCalendar turnos={turnos} onTurnoClick={(expId) => navigate(`/expedientes/${expId}`)} />
@@ -827,6 +836,11 @@ export default function AgendaSecretariaPage() {
       <CrearTareaDialog
         open={crearTareaOpen}
         onClose={() => setCrearTareaOpen(false)}
+      />
+
+      <CrearTurnoDialog
+        open={crearAudienciaOpen}
+        onClose={() => setCrearAudienciaOpen(false)}
       />
     </div>
   )

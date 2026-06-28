@@ -286,6 +286,39 @@ export function useCreateAbono() {
   })
 }
 
+export function useUpdateGasto() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; categoria?: string; descripcion?: string | null; recuperable?: boolean }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('gastos').update(patch).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos'] })
+      qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+    },
+  })
+}
+
+export function useUpdateIngreso() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; tipo?: string; cliente_id?: string | null; descripcion?: string | null }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('ingresos').update(patch).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ingresos'] })
+      qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+      qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+    },
+  })
+}
+
 export function useToggleAbono() {
   const supabase = createClient()
   const qc = useQueryClient()
