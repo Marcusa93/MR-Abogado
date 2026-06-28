@@ -177,6 +177,7 @@ function ActuacionRow({
   onToggleKey,
   onToggleAudiencia,
   onToggleOle,
+  onDelete,
 }: {
   movement: SaeMovement
   isNew: boolean
