@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
-  Loader2, X, Trash2, Lock, Users, Repeat,
+  Loader2, X, Trash2, Lock, Users, Repeat, Pencil,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
   usePagosPendientes, useCreateGasto, useCreateIngreso, useCreateAbono,
-  useToggleAbono, useDeleteGasto, useDeleteIngreso,
-  GASTO_CATEGORIAS, INGRESO_TIPOS, type MonedaCaja, type PagoPendiente,
+  useToggleAbono, useDeleteGasto, useDeleteIngreso, useUpdateGasto, useUpdateIngreso,
+  GASTO_CATEGORIAS, INGRESO_TIPOS, type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
 } from '@/hooks/use-caja'
 import { useClientes } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
@@ -34,6 +34,8 @@ const CATEGORIA_GASTO_LABEL: Record<string, string> = Object.fromEntries(GASTO_C
 export default function CajaPage() {
   const [activeTab, setActiveTab] = useState<Tab>('resumen')
   const [dialogOpen, setDialogOpen] = useState<null | 'gasto' | 'ingreso' | 'abono'>(null)
+  const [editingGasto, setEditingGasto] = useState<Gasto | null>(null)
+  const [editingIngreso, setEditingIngreso] = useState<Ingreso | null>(null)
   const { data: tieneAcceso, isLoading: loadingAcceso } = useTieneAccesoCaja()
 
   if (loadingAcceso) {
@@ -134,12 +136,22 @@ export default function CajaPage() {
       </div>
 
       {activeTab === 'resumen' && <TabResumen />}
-      {activeTab === 'ingresos' && <TabIngresos />}
-      {activeTab === 'gastos' && <TabGastos />}
+      {activeTab === 'ingresos' && <TabIngresos onEdit={(i) => setEditingIngreso(i)} />}
+      {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
       {activeTab === 'abonos' && <TabAbonos />}
 
-      {dialogOpen === 'gasto' && <DialogGasto onClose={() => setDialogOpen(null)} />}
-      {dialogOpen === 'ingreso' && <DialogIngreso onClose={() => setDialogOpen(null)} />}
+      {(dialogOpen === 'gasto' || editingGasto) && (
+        <DialogGasto
+          initial={editingGasto ?? undefined}
+          onClose={() => { setDialogOpen(null); setEditingGasto(null) }}
+        />
+      )}
+      {(dialogOpen === 'ingreso' || editingIngreso) && (
+        <DialogIngreso
+          initial={editingIngreso ?? undefined}
+          onClose={() => { setDialogOpen(null); setEditingIngreso(null) }}
+        />
+      )}
       {dialogOpen === 'abono' && <DialogAbono onClose={() => setDialogOpen(null)} />}
     </div>
   )
@@ -224,13 +236,13 @@ function KPICard({ label, value, sub, accent, icon: Icon }: { label: string; val
   }[accent]
   const iconColor = { emerald: 'text-emerald-400', rose: 'text-rose-400', cyan: 'text-cyan-400', amber: 'text-amber-400' }[accent]
   return (
-    <div className={cn('rounded-xl border bg-gradient-to-br p-4', ring)}>
+    <div className={cn('rounded-xl border bg-gradient-to-br p-3 sm:p-4', ring)}>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-400">{label}</p>
-        <Icon className={cn('h-4 w-4', iconColor)} />
+        <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-zinc-400 leading-tight">{label}</p>
+        <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', iconColor)} />
       </div>
-      <p className="mt-1 text-2xl font-bold text-zinc-50 tabular-nums">{value}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-zinc-500">{sub}</p>}
+      <p className="mt-1 text-lg sm:text-2xl font-bold text-zinc-50 tabular-nums break-all">{value}</p>
+      {sub && <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{sub}</p>}
     </div>
   )
 }
@@ -405,7 +417,7 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
 
 // ─── Ingresos ───────────────────────────────────────────────────────────────
 
-function TabIngresos() {
+function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const now = new Date()
   const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: ingresos = [], isLoading } = useIngresos(mes)
@@ -423,42 +435,74 @@ function TabIngresos() {
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />
       ) : (
-        <div className="rounded-lg border border-white/10 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
-              <tr>
-                <th className="text-left px-3 py-2">Fecha</th>
-                <th className="text-left px-3 py-2">Tipo</th>
-                <th className="text-left px-3 py-2">Descripción</th>
-                <th className="text-right px-3 py-2">Monto</th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {ingresos.map((i) => (
-                <tr key={i.id} className="hover:bg-white/[0.02]">
-                  <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
-                  <td className="px-3 py-2">
-                    <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                      {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
-                  <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      onClick={() => setConfirmDelete(i.id)}
-                      className="rounded p-1 text-zinc-500 hover:text-rose-400"
-                      title="Eliminar"
-                    >
+        <>
+          {/* Mobile: cards */}
+          <div className="md:hidden space-y-2">
+            {ingresos.map((i) => (
+              <div key={i.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                      <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(i.fecha)}</span>
+                      <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                        {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
+                      </span>
+                    </div>
+                    {i.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{i.descripcion}</p>}
+                  </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <span className="text-sm font-semibold text-zinc-100 tabular-nums mr-1">{fmt(Number(i.monto), i.moneda)}</span>
+                    <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  </td>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+                <tr>
+                  <th className="text-left px-3 py-2">Fecha</th>
+                  <th className="text-left px-3 py-2">Tipo</th>
+                  <th className="text-left px-3 py-2">Descripción</th>
+                  <th className="text-right px-3 py-2">Monto</th>
+                  <th className="w-20"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {ingresos.map((i) => (
+                  <tr key={i.id} className="hover:bg-white/[0.02]">
+                    <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                        {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
+                    <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <ConfirmDialog
@@ -481,7 +525,7 @@ function TabIngresos() {
 
 // ─── Gastos ─────────────────────────────────────────────────────────────────
 
-function TabGastos() {
+function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
   const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: gastos = [], isLoading } = useGastos(mes)
@@ -499,47 +543,84 @@ function TabGastos() {
       {gastos.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Sin gastos este mes" description="Registrá un gasto con el botón de arriba." />
       ) : (
-        <div className="rounded-lg border border-white/10 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
-              <tr>
-                <th className="text-left px-3 py-2">Fecha</th>
-                <th className="text-left px-3 py-2">Categoría</th>
-                <th className="text-left px-3 py-2">Descripción</th>
-                <th className="text-right px-3 py-2">Monto</th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {gastos.map((g) => (
-                <tr key={g.id} className="hover:bg-white/[0.02]">
-                  <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(g.fecha)}</td>
-                  <td className="px-3 py-2">
-                    <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
-                      {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
-                    </span>
-                    {g.recuperable && (
-                      <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                        recup.
+        <>
+          {/* Mobile: cards */}
+          <div className="md:hidden space-y-2">
+            {gastos.map((g) => (
+              <div key={g.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                      <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(g.fecha)}</span>
+                      <span className="inline-flex rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                        {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-zinc-400 line-clamp-1">{g.descripcion || '—'}</td>
-                  <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      onClick={() => setConfirmDelete(g.id)}
-                      className="rounded p-1 text-zinc-500 hover:text-rose-400"
-                      title="Eliminar"
-                    >
+                      {g.recuperable && (
+                        <span className="inline-flex rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          recup.
+                        </span>
+                      )}
+                    </div>
+                    {g.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{g.descripcion}</p>}
+                  </div>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <span className="text-sm font-semibold text-zinc-100 tabular-nums mr-1">{fmt(Number(g.monto), g.moneda)}</span>
+                    <button onClick={() => onEdit(g)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setConfirmDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  </td>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+                <tr>
+                  <th className="text-left px-3 py-2">Fecha</th>
+                  <th className="text-left px-3 py-2">Categoría</th>
+                  <th className="text-left px-3 py-2">Descripción</th>
+                  <th className="text-right px-3 py-2">Monto</th>
+                  <th className="w-20"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {gastos.map((g) => (
+                  <tr key={g.id} className="hover:bg-white/[0.02]">
+                    <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(g.fecha)}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                        {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
+                      </span>
+                      {g.recuperable && (
+                        <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          recup.
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-zinc-400 line-clamp-1">{g.descripcion || '—'}</td>
+                    <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => onEdit(g)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => setConfirmDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <ConfirmDialog
@@ -583,38 +664,29 @@ function TabAbonos() {
   }
 
   return (
-    <div className="rounded-lg border border-white/10 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
-          <tr>
-            <th className="text-left px-3 py-2">Cliente</th>
-            <th className="text-right px-3 py-2">Monto</th>
-            <th className="text-center px-3 py-2">Día cobro</th>
-            <th className="text-left px-3 py-2">Vigencia</th>
-            <th className="text-center px-3 py-2">Estado</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {abonos.map((a) => {
-            const c = clientesMap.get(a.cliente_id)
-            return (
-              <tr key={a.id} className={cn('hover:bg-white/[0.02]', !a.activo && 'opacity-50')}>
-                <td className="px-3 py-2">
+    <>
+      {/* Mobile: cards */}
+      <div className="md:hidden space-y-2">
+        {abonos.map((a) => {
+          const c = clientesMap.get(a.cliente_id)
+          return (
+            <div key={a.id} className={cn('rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5', !a.activo && 'opacity-50')}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
                   {c ? (
-                    <Link to={`/clientes/${c.id}`} className="text-zinc-100 hover:text-cyan-400 font-medium">
+                    <Link to={`/clientes/${c.id}`} className="text-sm font-medium text-zinc-100 hover:text-cyan-400 line-clamp-1">
                       {c.apellido}, {c.nombre}
                     </Link>
                   ) : (
-                    <span className="text-zinc-500">Cliente eliminado</span>
+                    <span className="text-sm text-zinc-500">Cliente eliminado</span>
                   )}
-                </td>
-                <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</td>
-                <td className="px-3 py-2 text-center text-zinc-300 tabular-nums">{a.dia_de_cobro}</td>
-                <td className="px-3 py-2 text-zinc-400 text-[11px]">
-                  Desde {formatDate(a.fecha_inicio)}
-                  {a.fecha_fin && <> · hasta {formatDate(a.fecha_fin)}</>}
-                </td>
-                <td className="px-3 py-2 text-center">
+                  <p className="mt-0.5 text-[11px] text-zinc-500">
+                    Día {a.dia_de_cobro} · desde {formatDate(a.fecha_inicio)}
+                    {a.fecha_fin && <> · hasta {formatDate(a.fecha_fin)}</>}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</span>
                   <button
                     onClick={() => toggle.mutate({ id: a.id, activo: !a.activo })}
                     className={cn(
@@ -624,13 +696,63 @@ function TabAbonos() {
                   >
                     {a.activo ? 'Activo' : 'Inactivo'}
                   </button>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+            <tr>
+              <th className="text-left px-3 py-2">Cliente</th>
+              <th className="text-right px-3 py-2">Monto</th>
+              <th className="text-center px-3 py-2">Día cobro</th>
+              <th className="text-left px-3 py-2">Vigencia</th>
+              <th className="text-center px-3 py-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {abonos.map((a) => {
+              const c = clientesMap.get(a.cliente_id)
+              return (
+                <tr key={a.id} className={cn('hover:bg-white/[0.02]', !a.activo && 'opacity-50')}>
+                  <td className="px-3 py-2">
+                    {c ? (
+                      <Link to={`/clientes/${c.id}`} className="text-zinc-100 hover:text-cyan-400 font-medium">
+                        {c.apellido}, {c.nombre}
+                      </Link>
+                    ) : (
+                      <span className="text-zinc-500">Cliente eliminado</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</td>
+                  <td className="px-3 py-2 text-center text-zinc-300 tabular-nums">{a.dia_de_cobro}</td>
+                  <td className="px-3 py-2 text-zinc-400 text-[11px]">
+                    Desde {formatDate(a.fecha_inicio)}
+                    {a.fecha_fin && <> · hasta {formatDate(a.fecha_fin)}</>}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <button
+                      onClick={() => toggle.mutate({ id: a.id, activo: !a.activo })}
+                      className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                        a.activo ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'
+                      )}
+                    >
+                      {a.activo ? 'Activo' : 'Inactivo'}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
@@ -663,37 +785,50 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20'
 
-function DialogGasto({ onClose }: { onClose: () => void }) {
+function DialogGasto({ onClose, initial }: { onClose: () => void; initial?: Gasto }) {
   const { user } = useAuth()
   const createGasto = useCreateGasto()
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
-  const [monto, setMonto] = useState('')
-  const [moneda, setMoneda] = useState<MonedaCaja>('ARS')
-  const [categoria, setCategoria] = useState('timbrado')
-  const [descripcion, setDescripcion] = useState('')
-  const [recuperable, setRecuperable] = useState(false)
+  const updateGasto = useUpdateGasto()
+  const isEditing = Boolean(initial)
+  const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
+  const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
+  const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
+  const [categoria, setCategoria] = useState(initial?.categoria ?? 'timbrado')
+  const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
+  const [recuperable, setRecuperable] = useState(initial?.recuperable ?? false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user?.id || !monto) return
+    if (!monto) return
     const n = parseFloat(monto)
     if (!isFinite(n) || n <= 0) return toast.error('Monto inválido')
     try {
-      await createGasto.mutateAsync({
-        fecha, monto: n, moneda, categoria,
-        expediente_id: null, descripcion: descripcion || null,
-        comprobante_path: null, recuperable,
-        cargado_por: user.id,
-      })
-      toast.success('Gasto registrado')
+      if (isEditing && initial) {
+        await updateGasto.mutateAsync({
+          id: initial.id, fecha, monto: n, moneda, categoria,
+          descripcion: descripcion || null, recuperable,
+        })
+        toast.success('Gasto actualizado')
+      } else {
+        if (!user?.id) return
+        await createGasto.mutateAsync({
+          fecha, monto: n, moneda, categoria,
+          expediente_id: null, descripcion: descripcion || null,
+          comprobante_path: null, recuperable,
+          cargado_por: user.id,
+        })
+        toast.success('Gasto registrado')
+      }
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo guardar')
     }
   }
 
+  const isPending = createGasto.isPending || updateGasto.isPending
+
   return (
-    <DialogShell title="Nuevo gasto" onClose={onClose}>
+    <DialogShell title={isEditing ? 'Editar gasto' : 'Nuevo gasto'} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <FormRow label="Fecha"><input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} required /></FormRow>
         <div className="grid grid-cols-3 gap-2">
@@ -719,26 +854,28 @@ function DialogGasto({ onClose }: { onClose: () => void }) {
           <input type="checkbox" checked={recuperable} onChange={e => setRecuperable(e.target.checked)} className="rounded border-white/10 bg-white/5" />
           Recuperable del cliente
         </label>
-        <button type="submit" disabled={createGasto.isPending} className="w-full rounded-md bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
-          {createGasto.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Registrar gasto
+        <button type="submit" disabled={isPending} className="w-full rounded-md bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
+          {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {isEditing ? 'Guardar cambios' : 'Registrar gasto'}
         </button>
       </form>
     </DialogShell>
   )
 }
 
-function DialogIngreso({ onClose }: { onClose: () => void }) {
+function DialogIngreso({ onClose, initial }: { onClose: () => void; initial?: Ingreso }) {
   const { user } = useAuth()
   const createIngreso = useCreateIngreso()
+  const updateIngreso = useUpdateIngreso()
+  const isEditing = Boolean(initial)
   const { data: clientesResult } = useClientes({ pageSize: 500 })
   const clientes = clientesResult?.data ?? []
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
-  const [monto, setMonto] = useState('')
-  const [moneda, setMoneda] = useState<MonedaCaja>('ARS')
-  const [tipo, setTipo] = useState('honorario_expediente')
-  const [clienteId, setClienteId] = useState<string>('')
-  const [descripcion, setDescripcion] = useState('')
+  const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
+  const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
+  const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
+  const [tipo, setTipo] = useState(initial?.tipo ?? 'honorario_expediente')
+  const [clienteId, setClienteId] = useState<string>(initial?.cliente_id ?? '')
+  const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
 
   const clientesOrdenados = useMemo(
     () => [...clientes].sort((a, b) => (a.apellido ?? '').localeCompare(b.apellido ?? '')),
@@ -747,26 +884,38 @@ function DialogIngreso({ onClose }: { onClose: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user?.id || !monto) return
+    if (!monto) return
     const n = parseFloat(monto)
     if (!isFinite(n) || n <= 0) return toast.error('Monto inválido')
     try {
-      await createIngreso.mutateAsync({
-        fecha, monto: n, moneda, tipo, categoria: null,
-        cliente_id: clienteId || null, expediente_id: null,
-        abono_id: null, periodo_year: null, periodo_month: null,
-        descripcion: descripcion || null,
-        comprobante_path: null, cargado_por: user.id,
-      })
-      toast.success('Ingreso registrado')
+      if (isEditing && initial) {
+        await updateIngreso.mutateAsync({
+          id: initial.id, fecha, monto: n, moneda, tipo,
+          cliente_id: clienteId || null,
+          descripcion: descripcion || null,
+        })
+        toast.success('Ingreso actualizado')
+      } else {
+        if (!user?.id) return
+        await createIngreso.mutateAsync({
+          fecha, monto: n, moneda, tipo, categoria: null,
+          cliente_id: clienteId || null, expediente_id: null,
+          abono_id: null, periodo_year: null, periodo_month: null,
+          descripcion: descripcion || null,
+          comprobante_path: null, cargado_por: user.id,
+        })
+        toast.success('Ingreso registrado')
+      }
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo guardar')
     }
   }
 
+  const isPending = createIngreso.isPending || updateIngreso.isPending
+
   return (
-    <DialogShell title="Nuevo ingreso" onClose={onClose}>
+    <DialogShell title={isEditing ? 'Editar ingreso' : 'Nuevo ingreso'} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <FormRow label="Fecha"><input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} required /></FormRow>
         <div className="grid grid-cols-3 gap-2">
@@ -782,7 +931,7 @@ function DialogIngreso({ onClose }: { onClose: () => void }) {
         </div>
         <FormRow label="Tipo">
           <select value={tipo} onChange={e => setTipo(e.target.value)} className={inputCls}>
-            {INGRESO_TIPOS.filter(t => t.value !== 'abono_mensual').map(t => (
+            {(isEditing ? INGRESO_TIPOS : INGRESO_TIPOS.filter(t => t.value !== 'abono_mensual')).map(t => (
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
@@ -798,9 +947,9 @@ function DialogIngreso({ onClose }: { onClose: () => void }) {
         <FormRow label="Descripción (opcional)">
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Ej: anticipo escrito apelación" />
         </FormRow>
-        <button type="submit" disabled={createIngreso.isPending} className="w-full rounded-md bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
-          {createIngreso.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Registrar ingreso
+        <button type="submit" disabled={isPending} className="w-full rounded-md bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
+          {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {isEditing ? 'Guardar cambios' : 'Registrar ingreso'}
         </button>
       </form>
     </DialogShell>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { ModalNuevaActuacion } from './modal-nueva-actuacion'
 import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import type { Tables } from '@/types/database.types'
@@ -26,6 +27,7 @@ import {
   Users,
   Star,
   Video,
+  Trash2,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
@@ -184,6 +186,7 @@ function ActuacionRow({
   onToggleKey: (movement: SaeMovement) => void
   onToggleAudiencia: (movement: SaeMovement) => void
   onToggleOle: (movement: SaeMovement) => void
+  onDelete: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
@@ -286,11 +289,16 @@ function ActuacionRow({
           </button>
         </div>
 
-        <div className="shrink-0 mt-0.5">
+        <div className="shrink-0 mt-0.5 flex flex-col gap-1">
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
             <MovementIcon tipo={movement.tipo_movimiento} />
             {TIPO_LABELS[movement.tipo_movimiento]}
           </span>
+          {movement.fuente === 'manual' && (
+            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400 uppercase tracking-wide">
+              Manual
+            </span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -403,11 +411,23 @@ function ActuacionRow({
           )}
         </div>
 
-        {canExpand && (
-          <span className="shrink-0 text-zinc-600 dark:text-zinc-500 mt-1">
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </span>
-        )}
+        <div className="shrink-0 flex items-center gap-0.5 mt-1">
+          {movement.fuente === 'manual' && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(movement) }}
+              className="p-1 rounded text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+              title="Eliminar actuación manual"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {canExpand && (
+            <span className="text-zinc-600 dark:text-zinc-500">
+              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </span>
+          )}
+        </div>
       </button>
 
       {expanded && (
@@ -507,7 +527,18 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const setMovementKey = useSetMovementKey()
   const setMovementAudiencia = useSetMovementAudiencia()
   const setMovementOle = useSetMovementOle()
+  const deleteManual = useDeleteManualActuacion()
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
+
+  const handleDeleteManual = (movement: SaeMovement) => {
+    if (!window.confirm(`¿Eliminar la actuación "${movement.titulo}"? Esta acción no se puede deshacer.`)) return
+    deleteManual.mutate(
+      { movementId: movement.id, expedienteId },
+      {
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo eliminar la actuación'),
+      },
+    )
+  }
 
   const handleToggleKey = (movement: SaeMovement) => {
     // Tri-state: null → true → false → null
@@ -565,6 +596,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   })
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<MovementType | 'all'>('all')
+  const [fuenteFilter, setFuenteFilter] = useState<'all' | 'sae' | 'manual'>('all')
+  const [modalNuevaOpen, setModalNuevaOpen] = useState(false)
   const [tareaPrefill, setTareaPrefill] = useState<{ open: boolean; values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: AiSuggestedAction['prioridad'] } }>({ open: false })
   const [turnoPrefill, setTurnoPrefill] = useState<{ open: boolean; values?: { fecha: string; notas: string } }>({ open: false })
 
@@ -620,10 +653,11 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     const q = search.trim().toLowerCase()
     return movements.filter((m) => {
       if (tipoFilter !== 'all' && m.tipo_movimiento !== tipoFilter) return false
+      if (fuenteFilter !== 'all' && (m.fuente ?? 'sae') !== fuenteFilter) return false
       if (q && !m.titulo.toLowerCase().includes(q) && !(m.cuerpo?.toLowerCase().includes(q))) return false
       return true
     })
-  }, [movements, search, tipoFilter])
+  }, [movements, search, tipoFilter, fuenteFilter])
 
   const groups = useMemo(() => groupByDate(filtered), [filtered])
 
@@ -780,32 +814,22 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  if (!numeroSae) {
-    return (
-      <Card title="Actuaciones SAE">
-        <EmptyState
-          icon={Database}
-          title="Sin número SAE"
-          description='Este expediente no tiene número SAE. Editá el expediente y completá el campo "Número SAE" para habilitar la sincronización.'
-        />
-      </Card>
-    )
-  }
-
-  const filtersActive = search.trim() !== '' || tipoFilter !== 'all'
+  const filtersActive = search.trim() !== '' || tipoFilter !== 'all' || fuenteFilter !== 'all'
 
   return (
     <Card
-      title="Actuaciones SAE"
+      title="Actuaciones"
       headerRight={
         <div className="flex items-center gap-2">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-cyan-400"
-            title="Número SAE del expediente"
-          >
-            <Info className="h-3 w-3" />
-            {numeroSae}
-          </span>
+          {numeroSae && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-mono font-medium text-cyan-400"
+              title="Número SAE del expediente"
+            >
+              <Info className="h-3 w-3" />
+              {numeroSae}
+            </span>
+          )}
           {ultimaSincronizacion && (
             <span className="hidden md:block text-[11px] text-zinc-500 dark:text-zinc-400">
               Sync: {formatDateTime(ultimaSincronizacion)}
@@ -826,18 +850,20 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
               Analizar pendientes ({pendingAnalysisIds.length})
             </button>
           )}
-          <button
-            onClick={handleSync}
-            disabled={sync.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
-          >
-            {sync.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            {sync.isPending ? 'Sincronizando...' : 'Sincronizar'}
-          </button>
+          {numeroSae && (
+            <button
+              onClick={handleSync}
+              disabled={sync.isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+            >
+              {sync.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {sync.isPending ? 'Sincronizando...' : 'Sincronizar'}
+            </button>
+          )}
         </div>
       }
     >
@@ -874,6 +900,16 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
           </div>
         )}
 
+        {/* ── Banner sin SAE ── */}
+        {!numeroSae && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-3 py-2">
+            <Info className="h-4 w-4 shrink-0 text-amber-400" />
+            <span className="text-xs text-amber-200">
+              Sin número SAE — la sincronización no está disponible. Podés registrar actuaciones manualmente.
+            </span>
+          </div>
+        )}
+
         {/* ── New since last visit banner ── */}
         {newCount > 0 && !isLoading && (
           <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] px-3 py-2">
@@ -888,9 +924,9 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         <SaeIntelligencePanel expedienteId={expedienteId} />
 
         {/* ── Search + filters ── */}
-        {movements.length > 0 && (
-          <div className="space-y-2">
-            <div className="relative">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
               <input
                 type="text"
@@ -909,7 +945,37 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                 </button>
               )}
             </div>
+            <button
+              onClick={() => setModalNuevaOpen(true)}
+              className="shrink-0 flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nueva
+            </button>
+          </div>
 
+          {/* Fuente filter */}
+          <div className="flex items-center gap-1.5">
+            {(['all', 'sae', 'manual'] as const).map((f) => {
+              const label = f === 'all' ? 'Todas' : f === 'sae' ? 'SAE' : 'Manual'
+              return (
+                <button
+                  key={f}
+                  onClick={() => setFuenteFilter(f)}
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
+                    fuenteFilter === f
+                      ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30'
+                      : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {movements.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 onClick={() => setTipoFilter('all')}
@@ -939,8 +1005,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                   </button>
                 ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── List ── */}
         {isLoading ? (
@@ -950,8 +1016,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         ) : movements.length === 0 ? (
           <EmptyState
             icon={AlertCircle}
-            title="Sin actuaciones sincronizadas"
-            description="Presioná Sincronizar para importar las actuaciones desde el SAE."
+            title="Sin actuaciones"
+            description={numeroSae ? 'Presioná Sincronizar para importar las actuaciones desde el SAE, o cargá una manualmente con el botón Nueva.' : 'Cargá la primera actuación con el botón Nueva.'}
           />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
@@ -959,7 +1025,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
             <p className="text-sm text-zinc-400">Ninguna actuación coincide con el filtro.</p>
             {filtersActive && (
               <button
-                onClick={() => { setSearch(''); setTipoFilter('all') }}
+                onClick={() => { setSearch(''); setTipoFilter('all'); setFuenteFilter('all') }}
                 className="mt-1 text-xs text-cyan-400 hover:text-cyan-300"
               >
                 Limpiar filtros
@@ -993,6 +1059,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       onToggleKey={handleToggleKey}
                       onToggleAudiencia={handleToggleAudiencia}
                       onToggleOle={handleToggleOle}
+                      onDelete={handleDeleteManual}
                     />
                   ))}
                 </div>
@@ -1029,6 +1096,12 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         onClose={() => setTurnoPrefill({ open: false })}
         expedienteId={expedienteId}
         initialValues={turnoPrefill.values}
+      />
+
+      <ModalNuevaActuacion
+        open={modalNuevaOpen}
+        onClose={() => setModalNuevaOpen(false)}
+        expedienteId={expedienteId}
       />
     </Card>
   )

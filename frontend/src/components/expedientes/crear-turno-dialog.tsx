@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTurno } from '@/hooks/use-turnos'
-import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
 import { X, Loader2 } from 'lucide-react'
 
@@ -23,10 +22,50 @@ function useOrganismos() {
   })
 }
 
+function useTiposAudiencia() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['catalogo', 'tipos_audiencia'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('catalogo_tipos_audiencia')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('orden')
+      if (error) throw error
+      return data ?? []
+    },
+    staleTime: 10 * 60_000,
+  })
+}
+
+function useExpedientesActivos(enabled: boolean) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['expedientes-activos-lista'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('expedientes')
+        .select('id, numero, caratula')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(150)
+      if (error) throw error
+      return (data ?? []).map((e) => ({
+        id: e.id,
+        label: e.caratula ? `${e.caratula} (${e.numero})` : e.numero,
+      }))
+    },
+    enabled,
+    staleTime: 2 * 60_000,
+  })
+}
+
 interface CrearTurnoDialogProps {
   open: boolean
   onClose: () => void
-  expedienteId: string
+  /** Si se omite, el diálogo muestra un selector de expediente */
+  expedienteId?: string
   initialValues?: {
     fecha?: string
     hora?: string
@@ -41,15 +80,21 @@ export function CrearTurnoDialog({
   initialValues,
 }: CrearTurnoDialogProps) {
   const createTurno = useCreateTurno()
-  const { profile } = useAuth()
   const { data: organismos } = useOrganismos()
+  const { data: tiposAudiencia } = useTiposAudiencia()
+  const needsExpediente = !expedienteId
+  const { data: expedientes } = useExpedientesActivos(open && needsExpediente)
 
-  const [tipoAudiencia, setTipoAudiencia] = useState('')
+  const [tipoAudienciaId, setTipoAudienciaId] = useState('')
   const [organismoId, setOrganismoId] = useState('')
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
   const [notas, setNotas] = useState('')
   const [touched, setTouched] = useState(false)
+
+  // For expediente selector
+  const [expedienteQuery, setExpedienteQuery] = useState('')
+  const [selectedExpedienteId, setSelectedExpedienteId] = useState('')
 
   useEffect(() => {
     if (!open || !initialValues) return
@@ -60,7 +105,8 @@ export function CrearTurnoDialog({
 
   if (!open) return null
 
-  const isValid = fecha.length > 0
+  const resolvedExpedienteId = expedienteId ?? selectedExpedienteId
+  const isValid = fecha.length > 0 && resolvedExpedienteId.length > 0
 
   const handleConfirm = async () => {
     setTouched(true)
@@ -68,8 +114,8 @@ export function CrearTurnoDialog({
 
     try {
       await (createTurno as any).mutateAsync({
-        expediente_id: expedienteId,
-        tipo_audiencia_id: tipoAudiencia || null,
+        expediente_id: resolvedExpedienteId,
+        tipo_audiencia_id: tipoAudienciaId || null,
         organismo_id: organismoId || null,
         fecha,
         hora: hora || null,
@@ -84,12 +130,14 @@ export function CrearTurnoDialog({
   }
 
   const resetAndClose = () => {
-    setTipoAudiencia('')
+    setTipoAudienciaId('')
     setOrganismoId('')
     setFecha('')
     setHora('')
     setNotas('')
     setTouched(false)
+    setExpedienteQuery('')
+    setSelectedExpedienteId('')
     ;(createTurno as any).reset?.()
     onClose()
   }
@@ -110,7 +158,9 @@ export function CrearTurnoDialog({
               Nueva audiencia
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-              Registra una audiencia para este expediente.
+              {needsExpediente
+                ? 'Seleccioná el expediente y completá los datos.'
+                : 'Registra una audiencia para este expediente.'}
             </p>
           </div>
           <button
@@ -123,16 +173,59 @@ export function CrearTurnoDialog({
 
         {/* Body */}
         <div className="space-y-4 px-5 py-4">
+          {/* Selector de expediente (solo cuando no se pasa expedienteId) */}
+          {needsExpediente && (
+            <div>
+              <label className={labelClass}>Expediente *</label>
+              <input
+                type="text"
+                list="expedientes-datalist"
+                value={expedienteQuery}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setExpedienteQuery(val)
+                  const match = expedientes?.find((ex) => ex.label === val)
+                  setSelectedExpedienteId(match?.id ?? '')
+                }}
+                placeholder="Buscar por caratula o número..."
+                className={`${inputClass} ${touched && !selectedExpedienteId ? 'border-rose-500/50' : ''}`}
+              />
+              <datalist id="expedientes-datalist">
+                {expedientes?.map((ex) => (
+                  <option key={ex.id} value={ex.label} />
+                ))}
+              </datalist>
+              {touched && !selectedExpedienteId && (
+                <p className="mt-1 text-xs text-rose-400">Seleccioná un expediente</p>
+              )}
+            </div>
+          )}
+
           {/* Tipo audiencia */}
           <div>
             <label className={labelClass}>Tipo de audiencia</label>
-            <input
-              type="text"
-              value={tipoAudiencia}
-              onChange={(e) => setTipoAudiencia(e.target.value)}
-              placeholder="Ej: Audiencia inicial, Pericial..."
-              className={inputClass}
-            />
+            {tiposAudiencia && tiposAudiencia.length > 0 ? (
+              <select
+                value={tipoAudienciaId}
+                onChange={(e) => setTipoAudienciaId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Seleccionar tipo...</option>
+                {tiposAudiencia.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={tipoAudienciaId}
+                onChange={(e) => setTipoAudienciaId(e.target.value)}
+                placeholder="Ej: Audiencia inicial, Pericial..."
+                className={inputClass}
+              />
+            )}
           </div>
 
           {/* Organismo */}
