@@ -105,9 +105,9 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
         throw new Error((tokenData as { error?: string })?.error || 'No se pudo obtener token de Drive')
       }
       const driveToken = (tokenData as { access_token: string }).access_token
-      const view = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
       const picker = new google.picker.PickerBuilder()
-        .addView(view)
+        .addView(new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS))
+        .addView(new google.picker.DocsView())
         .setOAuthToken(driveToken)
         .setDeveloperKey(apiKey)
         .setCallback((data: { action: string; docs?: { id: string; name: string }[] }) => {
@@ -128,7 +128,7 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
       onClick={handleClick}
       disabled={disabled || loading}
       className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
-      title="Elegir un video de tu Drive"
+      title="Elegir un video o un guion de tu Drive"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />} Desde Drive
     </button>

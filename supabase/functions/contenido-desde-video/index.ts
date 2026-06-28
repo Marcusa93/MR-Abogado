@@ -119,39 +119,56 @@ Deno.serve(async (req) => {
       const guard = await checkLlmGuard(admin, user.id, FUNCTION_NAME, 200_000)
       if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
-      // 1) Obtener el video: subida directa (storage) o desde el Drive del usuario
-      let videoBytes: ArrayBuffer
+      // 1) Conseguir el TEXTO base: de un guion (texto/Google Doc) o de un video
+      //    (audio → transcripción). Desde Drive autodetectamos el tipo por mimeType.
+      let transcript = ''
       let cleanupStoragePath: string | null = null
+
+      const videoToTranscript = async (bytes: ArrayBuffer): Promise<string> => {
+        const compRes = await fetch(`${compressorUrl.replace(/\/$/, '')}/compress`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${compressorToken}`, 'Content-Type': 'application/octet-stream' },
+          body: bytes,
+        })
+        if (!compRes.ok) throw new Error(`Extracción de audio falló (${compRes.status})`)
+        const audio = await compRes.arrayBuffer()
+        return (await transcribe(audio, Deno.env.get('GROQ_API_KEY'), Deno.env.get('OPENAI_API_KEY'))).trim()
+      }
+
       if (body.drive_file_id) {
         const cId = Deno.env.get('GOOGLE_OAUTH_CLIENT_ID')
         const cSecret = Deno.env.get('GOOGLE_OAUTH_CLIENT_SECRET')
         if (!cId || !cSecret) return json(req, { error: 'Drive OAuth no configurado en el servidor' }, 500)
         const accessToken = await getValidAccessToken({ serviceClient: admin, profileId: user.id, clientId: cId, clientSecret: cSecret })
-        const dl = await downloadDriveFile({ accessToken, fileId: body.drive_file_id })
-        videoBytes = dl.data
+        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${body.drive_file_id}?fields=name,mimeType`, { headers: { Authorization: `Bearer ${accessToken}` } })
+        if (!metaRes.ok) return json(req, { error: `No se pudo leer el archivo de Drive (${metaRes.status})` }, 502)
+        const mt = (await metaRes.json() as { mimeType?: string }).mimeType ?? ''
+        if (mt === 'application/vnd.google-apps.document' || mt.startsWith('text/')) {
+          // Guion: traer el texto directo (export para Google Docs, alt=media para texto plano)
+          const txtUrl = mt === 'application/vnd.google-apps.document'
+            ? `https://www.googleapis.com/drive/v3/files/${body.drive_file_id}/export?mimeType=text/plain`
+            : `https://www.googleapis.com/drive/v3/files/${body.drive_file_id}?alt=media`
+          const txtRes = await fetch(txtUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
+          if (!txtRes.ok) return json(req, { error: `No se pudo leer el guion de Drive (${txtRes.status})` }, 502)
+          transcript = (await txtRes.text()).trim()
+        } else {
+          // Video/audio del Drive
+          const dl = await downloadDriveFile({ accessToken, fileId: body.drive_file_id })
+          transcript = await videoToTranscript(dl.data)
+        }
       } else {
         if (!body.path!.startsWith(`${user.id}/`)) return json(req, { error: 'Ruta no permitida' }, 403)
         const { data: file, error: dlErr } = await admin.storage.from(BUCKET).download(body.path!)
         if (dlErr || !file) return json(req, { error: `No se pudo descargar el video: ${dlErr?.message}` }, 404)
-        videoBytes = await file.arrayBuffer()
         cleanupStoragePath = body.path!
+        transcript = await videoToTranscript(await file.arrayBuffer())
       }
 
-      // 2) Extraer audio en el VPS
-      const compRes = await fetch(`${compressorUrl.replace(/\/$/, '')}/compress`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${compressorToken}`, 'Content-Type': 'application/octet-stream' },
-        body: videoBytes,
-      })
-      if (!compRes.ok) return json(req, { error: `Extracción de audio falló (${compRes.status})` }, 502)
-      const audio = await compRes.arrayBuffer()
-
-      // 3) Transcribir
-      const transcript = (await transcribe(audio, Deno.env.get('GROQ_API_KEY'), Deno.env.get('OPENAI_API_KEY'))).trim()
-      if (!transcript) return json(req, { error: 'La transcripción salió vacía (¿el video tiene audio hablado?)' }, 422)
+      transcript = transcript.trim()
+      if (!transcript) return json(req, { error: 'No se obtuvo texto (¿el video tiene audio hablado, o el guion tiene contenido?)' }, 422)
 
       // 4) IA → copy por plataforma
-      const userMsg = `Transcripción del video:\n\n${transcript.slice(0, 18_000)}${body.contexto ? `\n\nContexto/ángulo del estudio: ${body.contexto}` : ''}\n\nGenerá el contenido por plataforma en el JSON indicado.`
+      const userMsg = `Material de origen (transcripción de un video o un guion):\n\n${transcript.slice(0, 18_000)}${body.contexto ? `\n\nContexto/ángulo del estudio: ${body.contexto}` : ''}\n\nGenerá el contenido por plataforma en el JSON indicado.`
       const aiRes = await fetch(OPENROUTER_URL, {
         method: 'POST',
         headers: {
