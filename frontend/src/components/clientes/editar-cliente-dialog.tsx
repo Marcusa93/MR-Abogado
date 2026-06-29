@@ -74,7 +74,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
   const isValid =
     tipoPersona === 'fisica'
       ? dni.trim().length >= 7 && nombre.trim().length > 0 && apellido.trim().length > 0
-      : razonSocial.trim().length > 0 && cuil.trim().length > 0
+      : razonSocial.trim().length > 0
 
   const handleSubmit = async () => {
     setTouched(true)
@@ -220,9 +220,8 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
                   {touched && !razonSocial.trim() && <p className={errorClass}>Obligatorio</p>}
                 </div>
                 <div>
-                  <label className={labelClass}>CUIT *</label>
+                  <label className={labelClass}>CUIT</label>
                   <CuilInput value={cuil} onChange={setCuil} />
-                  {touched && !cuil.trim() && <p className={errorClass}>Obligatorio</p>}
                 </div>
                 <div>
                   <label className={labelClass}>Nombre del responsable</label>

@@ -80,7 +80,7 @@ export default function NuevoClientePage() {
   const isValid =
     tipoPersona === 'fisica'
       ? dni.trim().length >= 7 && nombre.trim().length > 0 && apellido.trim().length > 0
-      : razonSocial.trim().length > 0 && cuil.trim().length > 0
+      : razonSocial.trim().length > 0
 
   const handleSubmit = async () => {
     setTouched(true)
@@ -280,12 +280,11 @@ export default function NuevoClientePage() {
                   {touched && !razonSocial.trim() && <p className={errorClass}>Obligatorio</p>}
                 </div>
                 <div>
-                  <label className={labelClass}>CUIT *</label>
+                  <label className={labelClass}>CUIT</label>
                   <CuilInput
                     value={cuil}
                     onChange={setCuil}
                   />
-                  {touched && !cuil.trim() && <p className={errorClass}>El CUIT es obligatorio</p>}
                 </div>
                 <div>
                   <label className={labelClass}>Nombre del responsable</label>
