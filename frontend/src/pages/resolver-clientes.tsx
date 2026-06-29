@@ -18,11 +18,14 @@ import { cn } from '@/lib/utils'
 
 export default function ResolverClientesPage() {
   const { profile } = useAuth()
-  const isDirector = profile?.rol === 'DIRECTOR'
+  const canConsolidate =
+    profile?.rol === 'DIRECTOR' ||
+    profile?.rol === 'ADMIN' ||
+    profile?.rol === 'SECRETARIA'
   const { data: placeholders = [], isLoading } = useClientesPlaceholderPendientes()
   const [selected, setSelected] = useState<ClientePlaceholderPendiente | null>(null)
 
-  if (!isDirector) {
+  if (!canConsolidate) {
     return (
       <div className="space-y-6">
         <Breadcrumb items={[
@@ -32,10 +35,10 @@ export default function ResolverClientesPage() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
             <AlertCircle className="h-5 w-5" />
-            <span className="font-medium">Solo el director puede consolidar clientes.</span>
+            <span className="font-medium">No tenés permiso para consolidar clientes.</span>
           </div>
           <p className="text-sm text-zinc-500 mt-2">
-            Pedile al titular del estudio que entre acá para mergear los duplicados.
+            Esta función está disponible para director, admin y secretaria.
           </p>
         </div>
       </div>
