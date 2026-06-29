@@ -128,7 +128,9 @@ EJEMPLOS DE TONO CORRECTO:
 "La IA no va a reemplazar abogados. Va a reemplazar a los abogados que no usen IA."
 "Hoy un cliente me trajo 400 capturas de WhatsApp como prueba. El trabajo empieza ahí."
 
-El Estudio Jurídico MR (marcorossi.com.ar) es el espacio profesional. Generá debate, cercanía y consultas.`
+El Estudio Jurídico MR (marcorossi.com.ar) es el espacio profesional. Generá debate, cercanía y consultas.
+
+CRÍTICO — LÍMITE DE CARACTERES: cada tweet del cuerpo va separado por UNA LÍNEA EN BLANCO y tiene MÁXIMO 280 caracteres (el primero, máximo 270). Si la idea no entra en uno, armá un hilo de 2 a 5 tweets, cada uno autosuficiente. Los hashtags (máx 2) van al final del ÚLTIMO tweet, dentro del cuerpo — dejá el campo "hashtags" vacío.`
 
 const IG_PROMPT = `Sos Marco Rossi: abogado tecnoactivista, especialista en IA aplicada al derecho y prueba electrónica. Estudio Jurídico MR.
 
@@ -202,6 +204,38 @@ async function generarPlataforma(
     if (!cuerpo && !titulo) return null
     return { titulo, cuerpo, hashtags: (p.hashtags ?? '').trim() }
   } catch { return null }
+}
+
+// Parte un tweet largo en trozos de ≤280, cortando en espacios cuando se puede.
+function splitTweet(t: string, max = 280): string[] {
+  t = t.trim()
+  if (t.length <= max) return t ? [t] : []
+  const out: string[] = []
+  let rest = t
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf(' ', max)
+    if (cut < max * 0.6) cut = max
+    out.push(rest.slice(0, cut).trim())
+    rest = rest.slice(cut).trim()
+  }
+  if (rest) out.push(rest)
+  return out
+}
+
+// Arma un hilo válido: tweets separados por línea en blanco, cada uno ≤280,
+// hashtags anexados al último, máximo 5 tweets.
+function armarHilo(cuerpo: string, hashtags: string): string {
+  let tweets = cuerpo.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean)
+  const tags = hashtags.trim()
+  if (tags) {
+    const last = tweets.length ? tweets[tweets.length - 1] : ''
+    const merged = `${last}\n\n${tags}`.trim()
+    if (last && merged.length <= 280) tweets[tweets.length - 1] = merged
+    else tweets.push(tags)
+  }
+  tweets = tweets.flatMap((t) => splitTweet(t))
+  if (tweets.length > 5) tweets = tweets.slice(0, 5)
+  return tweets.join('\n\n')
 }
 
 Deno.serve(async (req) => {
@@ -305,14 +339,19 @@ Deno.serve(async (req) => {
       // 5) Insertar una tarjeta (borrador) por plataforma con contenido
       const rows = generadas
         .filter(({ c }) => c && (c.cuerpo || c.titulo))
-        .map(({ p, c }) => ({
-          titulo: (c!.titulo || `Post ${p.nombre}`).slice(0, 200),
-          categoria: p.categoria,
-          estado: 'borrador',
-          cuerpo: c!.cuerpo || null,
-          hashtags: c!.hashtags || null,
-          created_by: user.id,
-        }))
+        .map(({ p, c }) => {
+          const esX = p.categoria === 'twitter'
+          // En X armamos un hilo válido (cada tweet ≤280, hashtags al final).
+          const cuerpo = esX ? armarHilo(c!.cuerpo || '', c!.hashtags || '') : (c!.cuerpo || '')
+          return {
+            titulo: (c!.titulo || `Post ${p.nombre}`).slice(0, 200),
+            categoria: p.categoria,
+            estado: 'borrador',
+            cuerpo: cuerpo || null,
+            hashtags: esX ? null : (c!.hashtags || null),
+            created_by: user.id,
+          }
+        })
       if (!rows.length) return json(req, { error: 'La IA no generó contenido aprovechable' }, 422)
 
       const { data: inserted, error: insErr } = await admin.from('contenidos').insert(rows).select('id, categoria')

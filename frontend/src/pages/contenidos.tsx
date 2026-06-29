@@ -146,6 +146,7 @@ export default function ContenidosPage() {
   const [view, setView] = useState<'tablero' | 'calendario' | 'lista'>('tablero')
   const videoInputRef = useRef<HTMLInputElement>(null)
   const [genStage, setGenStage] = useState<string | null>(null)
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
   const generar = useGenerarContenidoDesdeVideo()
 
   const runGenerar = (input: { file?: File; driveFileId?: string }) => {
@@ -258,14 +259,35 @@ export default function ContenidosPage() {
       </div>
 
       {genStage && (
-        <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-200">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          {genStage} — puede tardar 1-2 min, no cierres la pestaña.
+        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-cyan-200">
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+            <span className="font-medium">{genStage}</span>
+          </div>
+          <p className="mt-1 text-[10px] text-cyan-300/60">Escribiendo con tu voz para cada red. Puede tardar 1-2 min — no cierres la pestaña.</p>
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-cyan-500/10">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-cyan-400/60" />
+          </div>
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="space-y-3">
+      {/* Filtros: colapsables en mobile */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setFiltrosOpen((v) => !v)}
+          className="sm:hidden mb-2 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300"
+        >
+          <ListIcon className="h-3.5 w-3.5" />
+          Filtros
+          {((filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)) > 0 && (
+            <span className="rounded-full bg-violet-500/30 px-1.5 text-[10px] text-violet-200">
+              {(filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)}
+            </span>
+          )}
+        </button>
+      </div>
+      <div className={cn('space-y-3', filtrosOpen ? 'block' : 'hidden sm:block')}>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5">Estado</p>
           <div className="flex flex-wrap gap-1.5">
@@ -637,7 +659,8 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
       <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
         <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
       </span>
-      <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1.5">{c.titulo}</p>
+      <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1">{c.titulo}</p>
+      {c.cuerpo && <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{c.cuerpo}</p>}
       {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
       <div
         className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
@@ -671,7 +694,11 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
 function composerDestino(categoria: CategoriaContenido, texto: string): { url: string; prefilled: boolean; label: string } | null {
   const enc = encodeURIComponent(texto)
   switch (categoria) {
-    case 'twitter': return { url: `https://x.com/intent/tweet?text=${enc}`, prefilled: true, label: 'X' }
+    case 'twitter': {
+      // El intent de X solo carga un tweet: abrimos el primero del hilo.
+      const first = texto.split(/\n\s*\n/)[0] ?? texto
+      return { url: `https://x.com/intent/tweet?text=${encodeURIComponent(first)}`, prefilled: true, label: 'X' }
+    }
     case 'linkedin': return { url: 'https://www.linkedin.com/feed/?shareActive=true', prefilled: false, label: 'LinkedIn' }
     case 'instagram': return { url: 'https://www.instagram.com/', prefilled: false, label: 'Instagram' }
     case 'facebook': return { url: 'https://www.facebook.com/', prefilled: false, label: 'Facebook' }
@@ -732,7 +759,13 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
     if (!textoPublicar) { toast.error('No hay texto para publicar'); return }
     try { await navigator.clipboard.writeText(textoPublicar) } catch { /* clipboard puede fallar sin gesto */ }
     if (dest) window.open(dest.url, '_blank', 'noopener')
-    toast.success(dest?.prefilled ? 'Abrí X con el texto cargado' : dest ? `Texto copiado — pegalo en ${dest.label}` : 'Texto copiado al portapapeles')
+    const esHilo = categoria === 'twitter' && textoPublicar.split(/\n\s*\n/).length > 1
+    toast.success(
+      esHilo ? 'Abrí X con el primer tweet. El hilo completo está copiado: pegá el resto como respuestas.'
+        : dest?.prefilled ? 'Abrí X con el texto cargado'
+        : dest ? `Texto copiado — pegalo en ${dest.label}`
+        : 'Texto copiado al portapapeles',
+    )
   }
   const handleMarcarPublicado = async () => {
     if (!editing) return
@@ -778,26 +811,28 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                 {CATEGORIAS_CONTENIDO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
-            {editing && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Estado</label>
-                <select value={estado} onChange={e => setEstado(e.target.value as EstadoContenido)} className={inputCls}>
-                  {ESTADOS_CONTENIDO.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                </select>
-              </div>
-            )}
-            {!editing && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
-                <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
+              <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
+            </div>
           </div>
 
           {editing && (
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
-              <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
+              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Estado del flujo</label>
+              <div className="flex flex-wrap gap-1">
+                {ESTADOS_CONTENIDO.map((e) => (
+                  <button
+                    key={e.value}
+                    type="button"
+                    onClick={() => setEstado(e.value)}
+                    className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                      estado === e.value ? `${ESTADO_CLS[e.value]} ring-1 ring-current` : 'bg-white/5 text-zinc-400 hover:bg-white/10')}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
