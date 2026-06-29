@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useCreateCliente } from '@/hooks/use-clientes'
@@ -69,6 +69,7 @@ export default function NuevoClientePage() {
   const isDirty = !submitted && (hasFisicaData || hasJuridicaData)
 
   const blocker = useBlocker(isDirty)
+  const proceedingRef = useRef(false)
 
   useEffect(() => {
     if (!isDirty) return
@@ -421,8 +422,8 @@ export default function NuevoClientePage() {
 
       <ConfirmDialog
         open={blocker.state === 'blocked'}
-        onClose={() => blocker.reset?.()}
-        onConfirm={() => blocker.proceed?.()}
+        onClose={() => { if (!proceedingRef.current) blocker.reset?.() }}
+        onConfirm={() => { proceedingRef.current = true; blocker.proceed?.() }}
         title="¿Descartar cambios?"
         description="Tenés cambios sin guardar en este formulario. Si salís ahora, se perderán."
         confirmLabel="Salir sin guardar"
