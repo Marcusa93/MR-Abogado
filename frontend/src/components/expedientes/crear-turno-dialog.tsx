@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useCreateTurno } from '@/hooks/use-turnos'
+import { useCreateTurno, useAssignAudienciaUsers } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
-import { X, Loader2 } from 'lucide-react'
+import { X, Loader2, UserCheck } from 'lucide-react'
 
 function useOrganismos() {
   const supabase = createClient()
@@ -61,6 +61,28 @@ function useExpedientesActivos(enabled: boolean) {
   })
 }
 
+type ProfileOption = { id: string; label: string }
+
+function useActiveProfiles() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profiles-activos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido, nombre_completo')
+        .eq('activo', true)
+        .order('apellido')
+      if (error) throw error
+      return (data ?? []).map((p): ProfileOption => ({
+        id: p.id,
+        label: p.nombre_completo ?? [p.nombre, p.apellido].filter(Boolean).join(' ') ?? p.id,
+      }))
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 interface CrearTurnoDialogProps {
   open: boolean
   onClose: () => void
@@ -80,8 +102,10 @@ export function CrearTurnoDialog({
   initialValues,
 }: CrearTurnoDialogProps) {
   const createTurno = useCreateTurno()
+  const assignUsers = useAssignAudienciaUsers()
   const { data: organismos } = useOrganismos()
   const { data: tiposAudiencia } = useTiposAudiencia()
+  const { data: profiles = [] } = useActiveProfiles()
   const needsExpediente = !expedienteId
   const { data: expedientes } = useExpedientesActivos(open && needsExpediente)
 
@@ -90,6 +114,7 @@ export function CrearTurnoDialog({
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
   const [notas, setNotas] = useState('')
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)
 
   // For expediente selector
@@ -108,12 +133,18 @@ export function CrearTurnoDialog({
   const resolvedExpedienteId = expedienteId ?? selectedExpedienteId
   const isValid = fecha.length > 0 && resolvedExpedienteId.length > 0
 
+  const toggleProfile = (id: string) => {
+    setSelectedProfileIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    )
+  }
+
   const handleConfirm = async () => {
     setTouched(true)
     if (!isValid) return
 
     try {
-      await (createTurno as any).mutateAsync({
+      const audiencia = await (createTurno as any).mutateAsync({
         expediente_id: resolvedExpedienteId,
         tipo_audiencia_id: tipoAudienciaId || null,
         organismo_id: organismoId || null,
@@ -122,6 +153,14 @@ export function CrearTurnoDialog({
         estado: 'PENDIENTE',
         notas: notas.trim() || null,
       })
+
+      if (selectedProfileIds.length > 0 && audiencia?.id) {
+        await assignUsers.mutateAsync({
+          audienciaId: audiencia.id,
+          profileIds: selectedProfileIds,
+        })
+      }
+
       toast.success('Audiencia creada')
       resetAndClose()
     } catch (err) {
@@ -135,6 +174,7 @@ export function CrearTurnoDialog({
     setFecha('')
     setHora('')
     setNotas('')
+    setSelectedProfileIds([])
     setTouched(false)
     setExpedienteQuery('')
     setSelectedExpedienteId('')
@@ -146,11 +186,13 @@ export function CrearTurnoDialog({
     'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
   const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
+  const isPending = (createTurno as any).isPending || assignUsers.isPending
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={resetAndClose} />
 
-      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4">
+      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <div>
@@ -292,6 +334,42 @@ export function CrearTurnoDialog({
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
             />
           </div>
+
+          {/* Asignar usuarios */}
+          {profiles.length > 0 && (
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  Asignar a
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {profiles.map((p) => {
+                  const selected = selectedProfileIds.includes(p.id)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggleProfile(p.id)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                        selected
+                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                          : 'bg-white/5 border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedProfileIds.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {selectedProfileIds.length} usuario{selectedProfileIds.length !== 1 ? 's' : ''} recibirá{selectedProfileIds.length !== 1 ? 'n' : ''} notificación
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -304,10 +382,10 @@ export function CrearTurnoDialog({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={(createTurno as any).isPending}
+            disabled={isPending}
             className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {(createTurno as any).isPending && (
+            {isPending && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             )}
             Crear audiencia

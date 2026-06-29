@@ -9,12 +9,12 @@ import {
   ESTADO_AUDIENCIA_VALUES,
   type EstadoAudiencia,
 } from '@/types/enums'
-import { useUpdateTurno, useDeleteTurno } from '@/hooks/use-turnos'
+import { useUpdateTurno, useDeleteTurno, useAudienciaAsignados } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
 import {
   CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles,
-  Paperclip, VideoOff, ChevronDown, ChevronUp, FileText, Eye,
+  Paperclip, VideoOff, ChevronDown, ChevronUp, FileText, Eye, Users,
 } from 'lucide-react'
 import { useSaeMovements, useSetMovementAudiencia, useSaeDocument, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { TranscriptionPanel } from './transcription-panel'
@@ -187,6 +187,28 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
 // Read-only row with edit/delete buttons
 // ---------------------------------------------------------------------------
 
+function AsignadosBadges({ audienciaId }: { audienciaId: string }) {
+  const { data: asignados = [] } = useAudienciaAsignados(audienciaId)
+  if (asignados.length === 0) return null
+  return (
+    <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+      <Users className="h-3 w-3 shrink-0 text-zinc-500 dark:text-zinc-400" />
+      {asignados.map((a) => {
+        const p = a.profiles
+        const nombre = p?.nombre_completo ?? [p?.nombre, p?.apellido].filter(Boolean).join(' ') ?? '—'
+        return (
+          <span
+            key={a.profile_id}
+            className="inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300"
+          >
+            {nombre}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function TurnoRow({
   turno,
   expedienteId,
@@ -230,6 +252,7 @@ function TurnoRow({
         {turno.notas && (
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">{turno.notas}</p>
         )}
+        <AsignadosBadges audienciaId={turno.id} />
         <TranscriptionPanel audienciaId={turno.id} />
       </div>
       {/* Action buttons — visible on hover */}

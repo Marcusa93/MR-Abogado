@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useUpdateCliente, type ClienteWithExpedientes } from '@/hooks/use-clientes'
 import { toast } from '@/stores/toast-store'
-import {
-  PROVINCIAS,
-} from '@/types/enums'
-import { X, Loader2, Save } from 'lucide-react'
+import { PROVINCIAS } from '@/types/enums'
+import { X, Loader2, Save, User, Building2 } from 'lucide-react'
 import { CuilInput } from '@/components/shared/cuil-input'
 
 const inputClass =
   'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
 const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 const sectionClass = 'text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3'
+const errorClass = 'mt-1 text-xs text-rose-400'
+
+type TipoPersona = 'fisica' | 'juridica'
 
 interface Props {
   open: boolean
@@ -21,38 +22,44 @@ interface Props {
 export function EditarClienteDialog({ open, onClose, cliente }: Props) {
   const update = useUpdateCliente()
 
-  // Required
-  const [dni, setDni] = useState(cliente.dni)
-  const [nombre, setNombre] = useState(cliente.nombre)
-  const [apellido, setApellido] = useState(cliente.apellido)
+  const [tipoPersona, setTipoPersona] = useState<TipoPersona>(
+    ((cliente as any).tipo_persona as TipoPersona) ?? 'fisica',
+  )
 
-  // Optional identity
-  const [cuil, setCuil] = useState(cliente.cuil ?? '')
+  // Persona física
+  const [dni, setDni] = useState(cliente.dni ?? '')
+  const [nombre, setNombre] = useState(cliente.nombre ?? '')
+  const [apellido, setApellido] = useState(cliente.apellido ?? '')
   const [fechaNacimiento, setFechaNacimiento] = useState(cliente.fecha_nacimiento ?? '')
 
-  // Contact
+  // Persona jurídica
+  const [razonSocial, setRazonSocial] = useState((cliente as any).razon_social ?? '')
+  const [responsableNombre, setResponsableNombre] = useState((cliente as any).responsable_nombre ?? '')
+  const [responsableCargo, setResponsableCargo] = useState((cliente as any).responsable_cargo ?? '')
+
+  // Común
+  const [cuil, setCuil] = useState(cliente.cuil ?? '')
   const [email, setEmail] = useState(cliente.email ?? '')
   const [telefono, setTelefono] = useState(cliente.telefono ?? '')
   const [telefonoAlt, setTelefonoAlt] = useState(cliente.telefono_alt ?? '')
-
-  // Address
   const [domicilio, setDomicilio] = useState(cliente.domicilio ?? '')
   const [localidad, setLocalidad] = useState(cliente.localidad ?? '')
   const [provincia, setProvincia] = useState(cliente.provincia ?? '')
-
-  // Notes
   const [notas, setNotas] = useState(cliente.notas ?? '')
 
   const [touched, setTouched] = useState(false)
 
-  // Reset when dialog opens / client changes
   useEffect(() => {
     if (open) {
-      setDni(cliente.dni)
-      setNombre(cliente.nombre)
-      setApellido(cliente.apellido)
-      setCuil(cliente.cuil ?? '')
+      setTipoPersona(((cliente as any).tipo_persona as TipoPersona) ?? 'fisica')
+      setDni(cliente.dni ?? '')
+      setNombre(cliente.nombre ?? '')
+      setApellido(cliente.apellido ?? '')
       setFechaNacimiento(cliente.fecha_nacimiento ?? '')
+      setRazonSocial((cliente as any).razon_social ?? '')
+      setResponsableNombre((cliente as any).responsable_nombre ?? '')
+      setResponsableCargo((cliente as any).responsable_cargo ?? '')
+      setCuil(cliente.cuil ?? '')
       setEmail(cliente.email ?? '')
       setTelefono(cliente.telefono ?? '')
       setTelefonoAlt(cliente.telefono_alt ?? '')
@@ -65,9 +72,9 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
   }, [open, cliente])
 
   const isValid =
-    dni.trim().length > 0 &&
-    nombre.trim().length > 0 &&
-    apellido.trim().length > 0
+    tipoPersona === 'fisica'
+      ? dni.trim().length >= 7 && nombre.trim().length > 0 && apellido.trim().length > 0
+      : razonSocial.trim().length > 0 && cuil.trim().length > 0
 
   const handleSubmit = async () => {
     setTouched(true)
@@ -76,11 +83,26 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
     try {
       await update.mutateAsync({
         id: cliente.id,
-        dni: dni.trim(),
-        nombre: nombre.trim(),
-        apellido: apellido.trim(),
+        tipo_persona: tipoPersona,
+        ...(tipoPersona === 'fisica'
+          ? {
+              dni: dni.trim(),
+              nombre: nombre.trim(),
+              apellido: apellido.trim(),
+              fecha_nacimiento: fechaNacimiento || null,
+              razon_social: null,
+              responsable_nombre: null,
+              responsable_cargo: null,
+            }
+          : {
+              razon_social: razonSocial.trim(),
+              responsable_nombre: responsableNombre.trim() || null,
+              responsable_cargo: responsableCargo.trim() || null,
+              nombre: null,
+              apellido: null,
+              dni: null,
+            }),
         cuil: cuil.trim() || null,
-        fecha_nacimiento: fechaNacimiento || null,
         email: email.trim() || null,
         telefono: telefono.trim() || null,
         telefono_alt: telefonoAlt.trim() || null,
@@ -88,7 +110,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
         localidad: localidad.trim() || null,
         provincia: provincia || null,
         notas: notas.trim() || null,
-      })
+      } as never)
       toast.success('Cliente actualizado correctamente')
       onClose()
     } catch {
@@ -97,8 +119,6 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
   }
 
   if (!open) return null
-
-  const errorClass = 'mt-1 text-xs text-rose-400'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -111,49 +131,112 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
         </div>
 
         <div className="space-y-6">
-          {/* --- Identity section --- */}
+          {/* Tipo de persona */}
           <div>
-            <p className={sectionClass}>Datos personales</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Apellido *</label>
-                <input
-                  value={apellido}
-                  onChange={(e) => setApellido(e.target.value)}
-                  className={`${inputClass} ${touched && !apellido.trim() ? 'border-rose-500/50' : ''}`}
-                />
-                {touched && !apellido.trim() && <p className={errorClass}>Obligatorio</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Nombre *</label>
-                <input
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  className={`${inputClass} ${touched && !nombre.trim() ? 'border-rose-500/50' : ''}`}
-                />
-                {touched && !nombre.trim() && <p className={errorClass}>Obligatorio</p>}
-              </div>
-              <div>
-                <label className={labelClass}>DNI *</label>
-                <input
-                  value={dni}
-                  onChange={(e) => setDni(e.target.value)}
-                  className={`${inputClass} ${touched && !dni.trim() ? 'border-rose-500/50' : ''}`}
-                />
-                {touched && !dni.trim() && <p className={errorClass}>Obligatorio</p>}
-              </div>
-              <div>
-                <label className={labelClass}>CUIL</label>
-                <CuilInput value={cuil} onChange={setCuil} />
-              </div>
-              <div>
-                <label className={labelClass}>Fecha de nacimiento</label>
-                <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} className={inputClass} />
-              </div>
+            <p className={sectionClass}>Tipo de cliente</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTipoPersona('fisica')}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  tipoPersona === 'fisica'
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Física
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoPersona('juridica')}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  tipoPersona === 'juridica'
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
+                }`}
+              >
+                <Building2 className="h-4 w-4" />
+                Jurídica
+              </button>
             </div>
           </div>
 
-          {/* --- Contact section --- */}
+          {/* Datos principales */}
+          {tipoPersona === 'fisica' ? (
+            <div>
+              <p className={sectionClass}>Datos personales</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Apellido *</label>
+                  <input
+                    value={apellido}
+                    onChange={(e) => setApellido(e.target.value)}
+                    className={`${inputClass} ${touched && !apellido.trim() ? 'border-rose-500/50' : ''}`}
+                  />
+                  {touched && !apellido.trim() && <p className={errorClass}>Obligatorio</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Nombre *</label>
+                  <input
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    className={`${inputClass} ${touched && !nombre.trim() ? 'border-rose-500/50' : ''}`}
+                  />
+                  {touched && !nombre.trim() && <p className={errorClass}>Obligatorio</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>DNI *</label>
+                  <input
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    inputMode="numeric"
+                    className={`${inputClass} ${touched && dni.trim().length < 7 ? 'border-rose-500/50' : ''}`}
+                  />
+                  {touched && !dni.trim() && <p className={errorClass}>Obligatorio</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>CUIL</label>
+                  <CuilInput value={cuil} onChange={setCuil} />
+                </div>
+                <div>
+                  <label className={labelClass}>Fecha de nacimiento</label>
+                  <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} className={inputClass} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className={sectionClass}>Datos de la persona jurídica</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className={labelClass}>Razón social *</label>
+                  <input
+                    value={razonSocial}
+                    onChange={(e) => setRazonSocial(e.target.value)}
+                    placeholder="Ej: Empresa S.A."
+                    className={`${inputClass} ${touched && !razonSocial.trim() ? 'border-rose-500/50' : ''}`}
+                  />
+                  {touched && !razonSocial.trim() && <p className={errorClass}>Obligatorio</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>CUIT *</label>
+                  <CuilInput value={cuil} onChange={setCuil} />
+                  {touched && !cuil.trim() && <p className={errorClass}>Obligatorio</p>}
+                </div>
+                <div>
+                  <label className={labelClass}>Nombre del responsable</label>
+                  <input value={responsableNombre} onChange={(e) => setResponsableNombre(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Cargo del responsable</label>
+                  <input value={responsableCargo} onChange={(e) => setResponsableCargo(e.target.value)} placeholder="Gerente, Apoderado…" className={inputClass} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contacto */}
           <div>
             <p className={sectionClass}>Contacto</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -172,9 +255,9 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
             </div>
           </div>
 
-          {/* --- Address section --- */}
+          {/* Domicilio */}
           <div>
-            <p className={sectionClass}>Domicilio</p>
+            <p className={sectionClass}>Domicilio {tipoPersona === 'juridica' ? 'legal' : ''}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className={labelClass}>Domicilio</label>
@@ -196,7 +279,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
             </div>
           </div>
 
-          {/* --- Notes --- */}
+          {/* Notas */}
           <div>
             <label className={labelClass}>Notas internas</label>
             <textarea
@@ -208,7 +291,6 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-6 flex justify-end gap-2 border-t border-white/5 pt-4">
           <button
             onClick={onClose}
