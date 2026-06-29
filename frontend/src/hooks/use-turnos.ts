@@ -17,9 +17,12 @@ export function useCreateTurno() {
 
   return useMutation({
     mutationFn: async (input: TablesInsert<'audiencias'>) => {
+      // created_by es NOT NULL: lo seteamos con el usuario autenticado si no vino.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
       const { data, error } = await supabase
         .from('audiencias')
-        .insert(input)
+        .insert({ ...input, created_by: input.created_by ?? user.id })
         .select()
         .single()
 
