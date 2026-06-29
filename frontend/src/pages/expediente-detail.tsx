@@ -94,7 +94,7 @@ export default function ExpedienteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const isAdmin = profile?.rol === 'ADMIN'
+  const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const visibleTabs = TABS.filter((t) => t.id !== 'caja' || tieneAccesoCaja)
 
