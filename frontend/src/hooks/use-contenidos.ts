@@ -167,6 +167,91 @@ export function useUpdateContenido() {
   })
 }
 
+// ── Guion de Reel ────────────────────────────────────────────────────────────
+// Se guarda dentro de contenidos (categoria 'video_guion') con el cuerpo en JSON
+// marcado {"_tipo":"guion_reel", ...}. Estos helpers lo generan y lo parsean.
+
+export interface GuionReel {
+  tema: string
+  titulo: string
+  duracion_estimada: string
+  hooks: string[]
+  escenas: { n: number; a_camara: string; visual: string; texto_pantalla: string }[]
+  cierre: string
+  cta: string
+  notas_edicion: string
+}
+
+/** Si el contenido es un guion de Reel (JSON marcado en cuerpo), lo devuelve parseado. */
+export function parseGuionReel(c: Pick<Contenido, 'cuerpo'>): GuionReel | null {
+  const raw = c.cuerpo?.trim()
+  if (!raw || raw[0] !== '{') return null
+  try {
+    const g = JSON.parse(raw) as Partial<GuionReel> & { _tipo?: string }
+    if (g._tipo !== 'guion_reel') return null
+    return {
+      tema: g.tema ?? '',
+      titulo: g.titulo ?? 'Guion de Reel',
+      duracion_estimada: g.duracion_estimada ?? '',
+      hooks: Array.isArray(g.hooks) ? g.hooks : [],
+      escenas: Array.isArray(g.escenas) ? g.escenas : [],
+      cierre: g.cierre ?? '',
+      cta: g.cta ?? '',
+      notas_edicion: g.notas_edicion ?? '',
+    }
+  } catch { return null }
+}
+
+// Genera un guion de Reel desde audio (grabado/subido), texto o URL de noticia.
+export function useGenerarGuionReel() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ audio, texto, url, contexto, onStage }: {
+      audio?: Blob
+      texto?: string
+      url?: string
+      contexto?: string
+      onStage?: (s: string) => void
+    }): Promise<{ id: string }> => {
+      if (audio) {
+        onStage?.('Preparando subida del audio…')
+        const ext = audio.type.includes('webm') ? 'webm' : audio.type.includes('mp4') || audio.type.includes('m4a') ? 'm4a' : 'ogg'
+        const { data: init, error: e1 } = await supabase.functions.invoke('guion-reel-generar', {
+          body: { action: 'init', filename: `idea.${ext}` },
+        })
+        if (e1) throw await fnErr(e1)
+        if ((init as { error?: string })?.error) throw new Error((init as { error: string }).error)
+        const { path, token } = init as { path: string; token: string }
+
+        onStage?.('Subiendo audio…')
+        const up = await supabase.storage.from('contenidos-media').uploadToSignedUrl(path, token, audio)
+        if (up.error) throw new Error(`Subida falló: ${up.error.message}`)
+
+        onStage?.('Transcribiendo y escribiendo el guion…')
+        const { data: proc, error: e3 } = await supabase.functions.invoke('guion-reel-generar', {
+          body: { action: 'process', path, contexto: contexto || undefined },
+        })
+        if (e3) throw await fnErr(e3)
+        if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+        return proc as { id: string }
+      }
+
+      onStage?.('Escribiendo el guion…')
+      const { data: proc, error } = await supabase.functions.invoke('guion-reel-generar', {
+        body: { action: 'process', texto: texto || undefined, url: url || undefined, contexto: contexto || undefined },
+      })
+      if (error) throw await fnErr(error)
+      if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+      return proc as { id: string }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contenidos'] })
+      qc.invalidateQueries({ queryKey: ['hoy-en-el-estudio'] })
+    },
+  })
+}
+
 export function useDeleteContenido() {
   const supabase = createClient()
   const qc = useQueryClient()

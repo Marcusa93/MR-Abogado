@@ -7,14 +7,15 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
-  CalendarDays, FolderOpen,
+  CalendarDays, FolderOpen, Clapperboard,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
-  useGenerarContenidoDesdeVideo,
+  useGenerarContenidoDesdeVideo, parseGuionReel,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
+import { GuionReelDialog, GuionReelViewer } from '@/components/contenidos/guion-reel'
 import { useGoogleDriveStatus, startGoogleDriveOAuth } from '@/hooks/use-google-drive'
 import { useLinkedInStatus, connectLinkedIn, useLinkedInPublish } from '@/hooks/use-social'
 import { createClient } from '@/lib/supabase/client'
@@ -39,6 +40,14 @@ const PLATAFORMAS_GENERABLES: { key: string; label: string; icon: React.Componen
   { key: 'facebook', label: 'Facebook', icon: Facebook },
   { key: 'youtube', label: 'YouTube / TikTok', icon: Video },
 ]
+
+// Texto de preview para una tarjeta. Los guiones de Reel guardan JSON en cuerpo,
+// así que mostramos el primer hook o el tema en vez del JSON crudo.
+function previewContenido(c: Contenido): string | null {
+  const g = parseGuionReel(c)
+  if (g) return g.hooks[0] ?? g.tema ?? 'Guion de Reel estructurado'
+  return c.cuerpo ?? null
+}
 
 const ESTADO_LABEL: Record<string, string> = Object.fromEntries(
   ESTADOS_CONTENIDO.map(e => [e.value, e.label])
@@ -152,6 +161,8 @@ export default function ContenidosPage() {
   const [filterEstado, setFilterEstado] = useState<EstadoContenido | 'all'>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Contenido | null>(null)
+  const [guionDialogOpen, setGuionDialogOpen] = useState(false)
+  const [viewingGuion, setViewingGuion] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [view, setView] = useState<'tablero' | 'calendario' | 'lista'>('tablero')
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -169,6 +180,12 @@ export default function ContenidosPage() {
       else next.add(key)
       return next
     })
+  }
+
+  // Guiones de Reel se abren en el visor estructurado; el resto, en el editor.
+  const abrirContenido = (c: Contenido) => {
+    if (parseGuionReel(c)) setViewingGuion(c)
+    else { setEditing(c); setDialogOpen(true) }
   }
 
   const runGenerar = (input: { file?: File; driveFileId?: string }) => {
@@ -274,6 +291,14 @@ export default function ContenidosPage() {
             Desde video
           </button>
           <DriveVideoButton onPicked={(fileId) => runGenerar({ driveFileId: fileId })} disabled={generar.isPending} />
+          <button
+            onClick={() => setGuionDialogOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 px-3 py-2 text-sm font-medium text-fuchsia-300 hover:bg-fuchsia-500/25 transition-colors"
+            title="Decí o escribí un tema y la IA arma un guion de Reel estructurado"
+          >
+            <Clapperboard className="h-4 w-4" />
+            Guion de Reel
+          </button>
           <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
@@ -423,13 +448,13 @@ export default function ContenidosPage() {
       ) : view === 'tablero' ? (
         <ContenidoBoard
           contenidos={contenidos}
-          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+          onEdit={abrirContenido}
           onDelete={(id) => setConfirmDelete(id)}
         />
       ) : view === 'calendario' ? (
         <ContenidoCalendar
           contenidos={contenidos}
-          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+          onEdit={abrirContenido}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -452,8 +477,14 @@ export default function ContenidosPage() {
 
                 <h3 className="text-sm font-medium text-zinc-100 line-clamp-2 leading-tight mb-2">{c.titulo}</h3>
 
-                {c.cuerpo && (
-                  <p className="text-[11px] text-zinc-500 line-clamp-3 leading-relaxed mb-2">{c.cuerpo}</p>
+                {parseGuionReel(c) && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300 mb-2">
+                    <Clapperboard className="h-3 w-3" /> Guion de Reel
+                  </span>
+                )}
+
+                {previewContenido(c) && (
+                  <p className="text-[11px] text-zinc-500 line-clamp-3 leading-relaxed mb-2">{previewContenido(c)}</p>
                 )}
 
                 {c.hashtags && (
@@ -471,9 +502,9 @@ export default function ContenidosPage() {
                   </p>
                   <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => { setEditing(c); setDialogOpen(true) }}
+                      onClick={() => abrirContenido(c)}
                       className="rounded p-1 text-zinc-500 hover:text-cyan-400"
-                      title="Editar"
+                      title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}
                     >
                       <Edit2 className="h-3 w-3" />
                     </button>
@@ -493,6 +524,8 @@ export default function ContenidosPage() {
       )}
 
       {dialogOpen && <ContenidoDialog editing={editing} onClose={() => { setDialogOpen(false); setEditing(null) }} />}
+      {guionDialogOpen && <GuionReelDialog onClose={() => setGuionDialogOpen(false)} />}
+      {viewingGuion && <GuionReelViewer contenido={viewingGuion} onClose={() => setViewingGuion(null)} />}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -720,7 +753,12 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
         <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
       </span>
       <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1">{c.titulo}</p>
-      {c.cuerpo && <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{c.cuerpo}</p>}
+      {parseGuionReel(c) && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-1.5 py-0 text-[9px] font-medium text-fuchsia-300 mb-1">
+          <Clapperboard className="h-2.5 w-2.5" /> Guion de Reel
+        </span>
+      )}
+      {previewContenido(c) && <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{previewContenido(c)}</p>}
       {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
       <div
         className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
@@ -737,7 +775,7 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
           </button>
         </div>
         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}>
             <Edit2 className="h-3 w-3" />
           </button>
           <button onClick={() => onDelete(c.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
