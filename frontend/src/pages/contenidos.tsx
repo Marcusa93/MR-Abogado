@@ -777,6 +777,17 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   const { data: liStatus } = useLinkedInStatus()
   const liPublish = useLinkedInPublish()
   const esLinkedin = categoria === 'linkedin'
+  // X: hilo semiautomático — tweets numerados, se postean uno por uno.
+  const esX = categoria === 'twitter'
+  const tweetsHilo = esX ? cuerpo.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean) : []
+  const copiarTweet = async (t: string) => {
+    try { await navigator.clipboard.writeText(t) } catch { /* sin gesto puede fallar */ }
+    toast.success('Tweet copiado')
+  }
+  const abrirTweetEnX = async (t: string) => {
+    try { await navigator.clipboard.writeText(t) } catch { /* ignore */ }
+    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(t)}`, '_blank', 'noopener')
+  }
   const handlePublicarLinkedIn = async () => {
     if (!editing) return
     try {
@@ -859,6 +870,35 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                 Copia el texto + hashtags y abre el editor de la red.{' '}
                 {dest?.prefilled ? 'En X queda pre-cargado.' : 'Pegalo (Ctrl/Cmd+V) en el editor que se abre.'} Vos/Facundo dan el último click desde su cuenta.
               </p>
+
+              {esX && tweetsHilo.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-zinc-300">
+                    Hilo de {tweetsHilo.length} {tweetsHilo.length === 1 ? 'tweet' : 'tweets'} — posteá en orden: el 1 abre X, los demás copialos y pegalos como respuesta.
+                  </p>
+                  {tweetsHilo.map((tw, i) => {
+                    const over = tw.length > 280
+                    return (
+                      <div key={i} className="rounded-md border border-white/10 bg-white/5 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-zinc-500">
+                            Tweet {i + 1} · <span className={over ? 'text-rose-400 font-medium' : 'text-zinc-500'}>{tw.length}/280</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (i === 0 ? abrirTweetEnX(tw) : copiarTweet(tw))}
+                            className="inline-flex items-center gap-1 rounded bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-300 hover:bg-cyan-500/25"
+                          >
+                            {i === 0 ? <><Send className="h-3 w-3" /> Copiar + abrir X</> : 'Copiar'}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-300 whitespace-pre-wrap leading-snug">{tw}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 {esLinkedin && (liStatus?.connected ? (
                   <button
@@ -880,14 +920,16 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                     <Linkedin className="h-3.5 w-3.5" /> Conectar LinkedIn
                   </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={handlePublicar}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
-                </button>
+                {!esX && (
+                  <button
+                    type="button"
+                    onClick={handlePublicar}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
+                  </button>
+                )}
                 {estado !== 'publicado' && (
                   <button
                     type="button"
