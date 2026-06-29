@@ -172,9 +172,25 @@ export function useDeleteContenido() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)('contenidos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
-      if (error) throw error
+      // El borrado va por edge function con service role: valida rol server-side
+      // y bypassea RLS, evitando el 403 intermitente del PATCH directo.
+      const { data, error } = await supabase.functions.invoke('contenido-eliminar', {
+        body: { id },
+      })
+      if (error) {
+        // Intentar extraer el mensaje real del cuerpo de la respuesta
+        let msg = error instanceof Error ? error.message : 'No se pudo eliminar'
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ctx = (error as any)?.context
+          if (ctx && typeof ctx.json === 'function') {
+            const b = await ctx.json()
+            if (b?.error) msg = b.error
+          }
+        } catch { /* noop */ }
+        throw new Error(msg)
+      }
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contenidos'] })
