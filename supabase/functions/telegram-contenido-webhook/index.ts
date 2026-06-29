@@ -64,14 +64,13 @@ Deno.serve(async (req) => {
   const token = Deno.env.get('TELEGRAM_BOT_TOKEN')
   const secret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET')
   const allowed = (Deno.env.get('TELEGRAM_ALLOWED_USER_IDS') ?? '').split(',').map((s) => s.trim()).filter(Boolean)
-  const targetProfile = Deno.env.get('TELEGRAM_TARGET_PROFILE_ID')
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
 
   // Verificación del secret de Telegram (si está configurado).
   if (secret && req.headers.get('x-telegram-bot-api-secret-token') !== secret) {
     return new Response('forbidden', { status: 403 })
   }
-  if (!token || !targetProfile || !apiKey) {
+  if (!token || !apiKey) {
     console.error('[telegram-webhook] faltan secrets de configuración')
     return new Response('ok') // 200 para que Telegram no reintente en loop
   }
@@ -91,6 +90,19 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+    // Perfil dueño del guion (created_by). Si no se configuró TELEGRAM_TARGET_PROFILE_ID,
+    // se usa el perfil DIRECTOR (Marco).
+    let targetProfile = Deno.env.get('TELEGRAM_TARGET_PROFILE_ID') ?? ''
+    if (!targetProfile) {
+      const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+      targetProfile = dir?.id ?? ''
+    }
+    if (!targetProfile) {
+      await tgSend(token, chatId, 'No encontré el perfil destino para guardar el guion. Avisale al admin.')
+      return new Response('ok')
+    }
+
     const texto = (msg.text ?? msg.caption ?? '').trim()
     let material = ''
     let enlace: string | null = null
