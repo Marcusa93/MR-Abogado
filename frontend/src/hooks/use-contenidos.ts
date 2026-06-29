@@ -109,16 +109,17 @@ export function useGenerarContenidoDesdeVideo() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ file, driveFileId, contexto, onStage }: {
+    mutationFn: async ({ file, driveFileId, contexto, plataformas, onStage }: {
       file?: File
       driveFileId?: string
       contexto?: string
+      plataformas?: string[]
       onStage?: (s: string) => void
     }): Promise<{ created: number }> => {
       if (driveFileId) {
         onStage?.('Procesando desde Drive: audio → transcripción → IA…')
         const { data: proc, error } = await supabase.functions.invoke('contenido-desde-video', {
-          body: { action: 'process', drive_file_id: driveFileId, contexto: contexto || undefined },
+          body: { action: 'process', drive_file_id: driveFileId, contexto: contexto || undefined, plataformas },
         })
         if (error) throw await fnErr(error)
         if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
@@ -139,7 +140,7 @@ export function useGenerarContenidoDesdeVideo() {
 
       onStage?.('Procesando: audio → transcripción → IA…')
       const { data: proc, error: e3 } = await supabase.functions.invoke('contenido-desde-video', {
-        body: { action: 'process', path, contexto: contexto || undefined },
+        body: { action: 'process', path, contexto: contexto || undefined, plataformas },
       })
       if (e3) throw await fnErr(e3)
       if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)

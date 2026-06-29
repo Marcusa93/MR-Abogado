@@ -30,6 +30,16 @@ const CATEGORIA_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIAS_CONTENIDO.map(c => [c.value, c.label])
 )
 
+// Plataformas que la IA puede generar desde un video/guion. Los `key` deben
+// coincidir con PLATAFORMAS de la edge function contenido-desde-video.
+const PLATAFORMAS_GENERABLES: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+  { key: 'x', label: 'X / Twitter', icon: Twitter },
+  { key: 'instagram', label: 'Instagram', icon: Instagram },
+  { key: 'facebook', label: 'Facebook', icon: Facebook },
+  { key: 'youtube', label: 'YouTube / TikTok', icon: Video },
+]
+
 const ESTADO_LABEL: Record<string, string> = Object.fromEntries(
   ESTADOS_CONTENIDO.map(e => [e.value, e.label])
 )
@@ -147,11 +157,27 @@ export default function ContenidosPage() {
   const videoInputRef = useRef<HTMLInputElement>(null)
   const [genStage, setGenStage] = useState<string | null>(null)
   const [filtrosOpen, setFiltrosOpen] = useState(false)
+  const [plataformas, setPlataformas] = useState<Set<string>>(
+    () => new Set(PLATAFORMAS_GENERABLES.map((p) => p.key)),
+  )
   const generar = useGenerarContenidoDesdeVideo()
 
+  const togglePlataforma = (key: string) => {
+    setPlataformas((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   const runGenerar = (input: { file?: File; driveFileId?: string }) => {
+    if (plataformas.size === 0) {
+      toast.error('Seleccioná al menos una plataforma para generar')
+      return
+    }
     generar.mutate(
-      { ...input, onStage: setGenStage },
+      { ...input, plataformas: [...plataformas], onStage: setGenStage },
       {
         onSuccess: (r) => { setGenStage(null); toast.success(`${r.created} ${r.created === 1 ? 'tarjeta generada' : 'tarjetas generadas'} desde el video`) },
         onError: (e) => { setGenStage(null); toast.error(e instanceof Error ? e.message : 'No se pudo generar') },
@@ -255,6 +281,40 @@ export default function ContenidosPage() {
             <Plus className="h-4 w-4" />
             Nuevo contenido
           </button>
+        </div>
+      </div>
+
+      {/* Selector de plataformas para generar desde video/Drive */}
+      <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] px-3 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-1">
+            Generar para:
+          </span>
+          {PLATAFORMAS_GENERABLES.map((p) => {
+            const active = plataformas.has(p.key)
+            const Icon = p.icon
+            return (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => togglePlataforma(p.key)}
+                disabled={generar.isPending}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+                  active
+                    ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                    : 'border-white/10 bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10',
+                )}
+                title={active ? `No generar para ${p.label}` : `Generar para ${p.label}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {p.label}
+              </button>
+            )
+          })}
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-500 ml-auto">
+            Tildá las redes antes de cargar el video o el Drive.
+          </span>
         </div>
       </div>
 

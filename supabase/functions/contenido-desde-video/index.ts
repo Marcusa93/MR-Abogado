@@ -30,6 +30,7 @@ const PLATAFORMAS: { key: string; categoria: string; nombre: string }[] = [
   { key: 'linkedin', categoria: 'linkedin', nombre: 'LinkedIn' },
   { key: 'x', categoria: 'twitter', nombre: 'X (Twitter)' },
   { key: 'instagram', categoria: 'instagram', nombre: 'Instagram' },
+  { key: 'facebook', categoria: 'facebook', nombre: 'Facebook' },
   { key: 'youtube', categoria: 'video_guion', nombre: 'YouTube / TikTok' },
 ]
 
@@ -159,10 +160,25 @@ REGLAS:
 - En "titulo" va el título del video; en "cuerpo" la descripción.
 - Hashtags al final de la descripción, 3 a 6.`
 
+const FB_PROMPT = `Sos Marco Rossi: abogado tecnoactivista, especialista en IA aplicada al derecho y prueba electrónica. Estudio Jurídico MR.
+
+En Facebook tu voz es cercana y conversacional, pensada para un público más amplio y menos técnico que LinkedIn. Escribís un posteo en primera persona, como quien le explica algo importante a un conocido.
+
+REGLAS:
+- Gancho claro en la primera línea.
+- Coloquial rioplatense, cálido y directo. Nada corporativo. Primera persona del singular.
+- Párrafos cortos, fáciles de leer. Podés usar algún emoji si suma tono.
+- Explicá un poco más que en X o Instagram: el público de Facebook agradece contexto.
+- Cerrá con una pregunta o invitación a comentar/compartir.
+- Temáticas: prueba electrónica (WhatsApp, capturas, emails como prueba), IA en el derecho, casos reales, el futuro del abogado.
+- No inventes datos. Si el material no lo dice, no lo afirmes.
+- Hashtags al final, 2 a 5, de alcance amplio.`
+
 const PROMPTS: Record<string, string> = {
   linkedin: LINKEDIN_PROMPT,
   x: X_PROMPT,
   instagram: IG_PROMPT,
+  facebook: FB_PROMPT,
   youtube: YT_PROMPT,
 }
 
@@ -253,7 +269,7 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const body = await req.json().catch(() => null) as
       | { action: 'init'; filename?: string }
-      | { action: 'process'; path?: string; drive_file_id?: string; contexto?: string }
+      | { action: 'process'; path?: string; drive_file_id?: string; contexto?: string; plataformas?: string[] }
       | null
     if (!body?.action) return json(req, { error: 'Falta action' }, 400)
 
@@ -330,10 +346,15 @@ Deno.serve(async (req) => {
       transcript = transcript.trim()
       if (!transcript) return json(req, { error: 'No se obtuvo texto (¿el video tiene audio hablado, o el guion tiene contenido?)' }, 422)
 
-      // 4) IA → una pieza por plataforma, cada una con SU system prompt (voz de Marco)
+      // 4) IA → una pieza por plataforma seleccionada, cada una con SU system prompt (voz de Marco)
+      const pedidas = Array.isArray(body.plataformas) && body.plataformas.length > 0
+        ? PLATAFORMAS.filter((p) => body.plataformas!.includes(p.key))
+        : PLATAFORMAS
+      if (pedidas.length === 0) return json(req, { error: 'No se seleccionó ninguna plataforma' }, 400)
+
       logLlmCall(admin, user.id, FUNCTION_NAME, transcript.length)
       const generadas = await Promise.all(
-        PLATAFORMAS.map(async (p) => ({ p, c: await generarPlataforma(PROMPTS[p.key], transcript, body.contexto, apiKey) })),
+        pedidas.map(async (p) => ({ p, c: await generarPlataforma(PROMPTS[p.key], transcript, body.contexto, apiKey) })),
       )
 
       // 5) Insertar una tarjeta (borrador) por plataforma con contenido
