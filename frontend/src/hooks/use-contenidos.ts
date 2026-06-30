@@ -202,6 +202,25 @@ export function parseGuionReel(c: Pick<Contenido, 'cuerpo'>): GuionReel | null {
   } catch { return null }
 }
 
+// ── Cola de ideas ────────────────────────────────────────────────────────────
+// Una "idea" es un tema sin desarrollar todavía. Se guarda en contenidos
+// (categoria 'otro') con el cuerpo marcado {"_tipo":"idea_contenido", texto}.
+
+export function ideaACuerpo(texto: string): string {
+  return JSON.stringify({ _tipo: 'idea_contenido', texto })
+}
+
+/** Si el contenido es una idea de la cola, devuelve su texto. */
+export function parseIdea(c: Pick<Contenido, 'cuerpo'>): { texto: string } | null {
+  const raw = c.cuerpo?.trim()
+  if (!raw || raw[0] !== '{') return null
+  try {
+    const j = JSON.parse(raw) as { _tipo?: string; texto?: string }
+    if (j._tipo !== 'idea_contenido') return null
+    return { texto: j.texto ?? '' }
+  } catch { return null }
+}
+
 // Genera un guion de Reel desde audio (grabado/subido), texto o URL de noticia.
 export function useGenerarGuionReel() {
   const supabase = createClient()

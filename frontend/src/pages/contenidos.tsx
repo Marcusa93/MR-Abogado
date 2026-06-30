@@ -11,11 +11,12 @@ import {
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
-  useGenerarContenidoDesdeVideo, parseGuionReel,
+  useGenerarContenidoDesdeVideo, parseGuionReel, parseIdea,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
 import { GuionReelDialog, GuionReelViewer } from '@/components/contenidos/guion-reel'
+import { IdeasQueue } from '@/components/contenidos/ideas-queue'
 import { useGoogleDriveStatus, startGoogleDriveOAuth } from '@/hooks/use-google-drive'
 import { useLinkedInStatus, connectLinkedIn, useLinkedInPublish } from '@/hooks/use-social'
 import { createClient } from '@/lib/supabase/client'
@@ -219,11 +220,15 @@ export default function ContenidosPage() {
     }
   }, [])
 
-  const { data: contenidos = [], isLoading } = useContenidos({
+  const { data: contenidosRaw = [], isLoading } = useContenidos({
     categoria: filterCategoria === 'all' ? null : filterCategoria,
     estado: filterEstado === 'all' ? null : filterEstado,
   })
   const deleteContenido = useDeleteContenido()
+
+  // Las ideas (cola) viven en su propio panel; el resto va al tablero/calendario/lista.
+  const ideas = useMemo(() => contenidosRaw.filter((c) => parseIdea(c)), [contenidosRaw])
+  const contenidos = useMemo(() => contenidosRaw.filter((c) => !parseIdea(c)), [contenidosRaw])
 
   const countsByEstado = useMemo(() => {
     const c: Partial<Record<EstadoContenido, number>> = {}
@@ -342,6 +347,9 @@ export default function ContenidosPage() {
           </span>
         </div>
       </div>
+
+      {/* Cola de ideas */}
+      <IdeasQueue ideas={ideas} />
 
       {genStage && (
         <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2.5">
