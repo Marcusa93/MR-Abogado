@@ -56,12 +56,15 @@ function json(req: Request, body: unknown, status = 200) {
 
 interface Reminder {
   user_id: string
-  kind: 'tarea' | 'turno' | 'plazo' | 'contenido'
+  kind: 'tarea' | 'turno' | 'plazo' | 'contenido' | 'caja'
   title: string
   url: string
   itemId: string
   itemTable?: 'tareas' | 'audiencias'
 }
+
+const MESES_NOM = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+const fmtMonto = (n: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(n))
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
@@ -203,6 +206,77 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Caja: pagos pendientes (lunes) + resumen mensual (día 1) ───────
+    // Va a la gente de caja: quienes tienen el flag o son DIRECTOR.
+    const { data: cajaPeople } = await admin
+      .from('profiles').select('id')
+      .or('tiene_acceso_caja.eq.true,rol.eq.DIRECTOR').eq('activo', true)
+    const cajaIds = (cajaPeople ?? []).map((p: { id: string }) => p.id)
+
+    if (cajaIds.length > 0) {
+      const nowAr = new Date(Date.now() - 3 * 60 * 60 * 1000)
+      const dom = nowAr.getUTCDate()
+      const dow = nowAr.getUTCDay() // 0=domingo, 1=lunes
+      const Y = nowAr.getUTCFullYear()
+      const Mn = nowAr.getUTCMonth() + 1
+      const cajaMsgs: { title: string; body: string; dedupe: string }[] = []
+
+      // Resumen del mes anterior, el día 1.
+      if (dom === 1) {
+        const py = Mn === 1 ? Y - 1 : Y
+        const pm = Mn === 1 ? 12 : Mn - 1
+        const ini = `${py}-${String(pm).padStart(2, '0')}-01`
+        const fin = `${Y}-${String(Mn).padStart(2, '0')}-01`
+        const [ing, gas] = await Promise.all([
+          admin.from('ingresos').select('monto, moneda').gte('fecha', ini).lt('fecha', fin).is('deleted_at', null),
+          admin.from('gastos').select('monto, moneda').gte('fecha', ini).lt('fecha', fin).is('deleted_at', null),
+        ])
+        const sumArs = (rows: { monto: number; moneda: string }[] | null) =>
+          (rows ?? []).filter((r) => r.moneda === 'ARS').reduce((s, r) => s + Number(r.monto), 0)
+        const ti = sumArs(ing.data), tg = sumArs(gas.data), bal = ti - tg
+        cajaMsgs.push({
+          title: `Resumen de caja — ${MESES_NOM[pm - 1]}`,
+          body: `Ingresos $${fmtMonto(ti)} · Gastos $${fmtMonto(tg)} · Balance $${fmtMonto(bal)}`,
+          dedupe: `caja-resumen-${py}-${pm}`,
+        })
+      }
+
+      // Abonos sin cobrar este mes, los lunes.
+      if (dow === 1) {
+        const [abonos, ingPeriodo] = await Promise.all([
+          admin.from('clientes_abono_mensual').select('id, monto').eq('activo', true),
+          admin.from('ingresos').select('abono_id').eq('periodo_year', Y).eq('periodo_month', Mn).not('abono_id', 'is', null).is('deleted_at', null),
+        ])
+        const cobrados = new Set((ingPeriodo.data ?? []).map((i: { abono_id: string }) => i.abono_id))
+        const pend = (abonos.data ?? []).filter((a: { id: string }) => !cobrados.has(a.id))
+        if (pend.length > 0) {
+          const total = pend.reduce((s: number, a: { monto: number }) => s + Number(a.monto), 0)
+          cajaMsgs.push({
+            title: `${pend.length} abono${pend.length !== 1 ? 's' : ''} sin cobrar`,
+            body: `Quedan $${fmtMonto(total)} por cobrar este mes. Revisá la caja.`,
+            dedupe: `caja-pendientes-${Y}-${Mn}-s${Math.ceil(dom / 7)}`,
+          })
+        }
+      }
+
+      for (const m of cajaMsgs) {
+        for (const uid of cajaIds) {
+          if (!dryRun) {
+            const { data: ex } = await admin.from('alertas').select('id')
+              .eq('destinatario_id', uid).eq('estado', 'ACTIVA')
+              .ilike('mensaje', `%[${m.dedupe}]%`).limit(1).maybeSingle()
+            if (!ex) {
+              await admin.from('alertas').insert({
+                tipo: 'CUSTOM', titulo: m.title, mensaje: `${m.body} [${m.dedupe}]`,
+                destinatario_id: uid, prioridad: 'MEDIA', origen: 'AUTOMATICA',
+              })
+            }
+          }
+          reminders.push({ user_id: uid, kind: 'caja', title: m.title, url: '/caja', itemId: m.dedupe })
+        }
+      }
+    }
+
     if (reminders.length === 0) {
       return json(req, { ok: true, reminders: 0, sent: 0, dryRun })
     }
@@ -241,12 +315,14 @@ Deno.serve(async (req) => {
       const turnos = userReminders.filter(r => r.kind === 'turno').length
       const plazos = userReminders.filter(r => r.kind === 'plazo').length
       const contenidosN = userReminders.filter(r => r.kind === 'contenido').length
+      const cajaN = userReminders.filter(r => r.kind === 'caja').length
 
       const parts: string[] = []
       if (tareas > 0) parts.push(`${tareas} tarea${tareas !== 1 ? 's' : ''}`)
       if (turnos > 0) parts.push(`${turnos} audiencia${turnos !== 1 ? 's' : ''}`)
       if (plazos > 0) parts.push(`${plazos} plazo${plazos !== 1 ? 's' : ''}`)
       if (contenidosN > 0) parts.push(`${contenidosN} contenido${contenidosN !== 1 ? 's' : ''}`)
+      if (cajaN > 0) parts.push(`${cajaN} de caja`)
 
       const payload: PushPayload = {
         title: userReminders.length === 1
