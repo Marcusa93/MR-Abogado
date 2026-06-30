@@ -134,15 +134,30 @@ export async function generarGuion(material: string, contexto: string | undefine
   } catch { return null }
 }
 
+// Serializa el guion para el campo `cuerpo` de contenidos. Guarda también el
+// material de origen (_material) para poder regenerar variantes sin el audio.
+export function guionACuerpo(guion: Guion, material?: string): string {
+  return JSON.stringify({ _tipo: 'guion_reel', ...guion, _material: (material ?? '').slice(0, 5000) })
+}
+
 // Fila para insertar en `contenidos` a partir de un guion.
-export function guionAContenidoRow(guion: Guion, createdBy: string, enlace?: string | null) {
+export function guionAContenidoRow(guion: Guion, createdBy: string, enlace?: string | null, material?: string) {
   return {
     titulo: guion.titulo || 'Guion de Reel',
     categoria: 'video_guion',
     estado: 'borrador',
-    cuerpo: JSON.stringify({ _tipo: 'guion_reel', ...guion }),
+    cuerpo: guionACuerpo(guion, material),
     notas_internas: guion.notas_edicion || null,
     enlace_referencia: enlace ?? null,
     created_by: createdBy,
   }
+}
+
+// Lee el material de origen guardado en el cuerpo de un guion (para regenerar).
+export function materialDeCuerpo(cuerpo: string | null): string {
+  if (!cuerpo) return ''
+  try {
+    const j = JSON.parse(cuerpo) as { _material?: string }
+    return j._material ?? ''
+  } catch { return '' }
 }

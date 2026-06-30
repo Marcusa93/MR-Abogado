@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
       const { data: inserted, error: insErr } = await admin
         .from('contenidos')
-        .insert(guionAContenidoRow(guion, user.id, body.url ?? null))
+        .insert(guionAContenidoRow(guion, user.id, body.url ?? null, material))
         .select('id').single()
       if (insErr) return json(req, { error: `No se pudo guardar el guion: ${insErr.message}` }, 500)
 

@@ -15,9 +15,11 @@
 //   TELEGRAM_TARGET_PROFILE_ID, OPENROUTER_API_KEY, GROQ_API_KEY|OPENAI_API_KEY
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { transcribeAudio, extraerDeUrl, generarGuion, guionAContenidoRow } from '../_shared/guion-reel-core.ts'
+import { transcribeAudio, extraerDeUrl, generarGuion, guionAContenidoRow, guionACuerpo, materialDeCuerpo } from '../_shared/guion-reel-core.ts'
 
 const TG_API = 'https://api.telegram.org'
+
+type TgButton = { text: string; callback_data: string }
 
 interface TgUpdate {
   message?: {
@@ -29,14 +31,55 @@ interface TgUpdate {
     audio?: { file_id: string; mime_type?: string }
     entities?: { type: string; offset: number; length: number }[]
   }
+  callback_query?: {
+    id: string
+    from?: { id: number }
+    message?: { chat: { id: number }; message_id: number }
+    data?: string
+  }
 }
 
-async function tgSend(token: string, chatId: number, text: string) {
+async function tgSend(token: string, chatId: number, text: string, keyboard?: TgButton[][]) {
   await fetch(`${TG_API}/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify({
+      chat_id: chatId, text, disable_web_page_preview: true,
+      ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    }),
   }).catch(() => {})
+}
+
+async function tgEdit(token: string, chatId: number, messageId: number, text: string, keyboard?: TgButton[][]) {
+  await fetch(`${TG_API}/bot${token}/editMessageText`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId, message_id: messageId, text, disable_web_page_preview: true,
+      ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    }),
+  }).catch(() => {})
+}
+
+async function tgAnswerCallback(token: string, callbackId: string, text?: string) {
+  await fetch(`${TG_API}/bot${token}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackId, ...(text ? { text } : {}) }),
+  }).catch(() => {})
+}
+
+// Resumen del guion para Telegram: título, duración, hooks. Con botones de acción.
+function resumenGuion(titulo: string, duracion: string, hooks: string[]): string {
+  const hs = hooks.slice(0, 3).map((h, i) => `${i + 1}. ${h}`).join('\n')
+  return `✅ "${titulo}" (${duracion || 'Reel'})\n\n💡 Hooks:\n${hs}\n\nYa está en la app → Contenidos. Botones para ajustarlo:`
+}
+
+function botonesGuion(id: string): TgButton[][] {
+  return [
+    [{ text: '✂️ Más corto', callback_data: `short:${id}` }, { text: '🔁 Otra versión', callback_data: `regen:${id}` }],
+    [{ text: '🗑 Descartar', callback_data: `del:${id}` }],
+  ]
 }
 
 async function tgDownload(token: string, fileId: string): Promise<{ data: ArrayBuffer; mime: string }> {
@@ -58,6 +101,47 @@ function primerUrl(text: string): string | null {
   return m ? m[0] : null
 }
 
+// Maneja los botones inline: regenerar más corto / otra versión / descartar.
+async function handleCallback(token: string, apiKey: string, callbackId: string, chatId: number, messageId: number, data: string) {
+  const [accion, id] = data.split(':')
+  if (!id) { await tgAnswerCallback(token, callbackId); return }
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+  const { data: cont } = await admin.from('contenidos')
+    .select('id, titulo, cuerpo').eq('id', id).is('deleted_at', null).maybeSingle()
+  if (!cont) { await tgAnswerCallback(token, callbackId, 'Ese guion ya no está'); return }
+
+  if (accion === 'del') {
+    await admin.from('contenidos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    await tgAnswerCallback(token, callbackId, 'Descartado')
+    await tgEdit(token, chatId, messageId, `🗑 Descartado: "${cont.titulo}"`)
+    return
+  }
+
+  if (accion === 'short' || accion === 'regen') {
+    const material = materialDeCuerpo(cont.cuerpo)
+    if (!material) { await tgAnswerCallback(token, callbackId, 'No tengo el material original para regenerar'); return }
+    await tgAnswerCallback(token, callbackId, accion === 'short' ? 'Acortando…' : 'Generando otra versión…')
+
+    const contexto = accion === 'short'
+      ? 'Hacelo MÁS CORTO y ágil: máximo 4 escenas, frases más cortas, más punch. Mismo tema.'
+      : 'Dame una versión DISTINTA: otro enfoque, otros hooks y otra estructura. Que no se parezca a la anterior. Mismo tema.'
+    const guion = await generarGuion(material, contexto, apiKey)
+    if (!guion) { await tgSend(token, chatId, 'No pude regenerar, probá de nuevo en un rato.'); return }
+
+    await admin.from('contenidos').update({
+      titulo: guion.titulo || cont.titulo,
+      cuerpo: guionACuerpo(guion, material),
+      notas_internas: guion.notas_edicion || null,
+    }).eq('id', id)
+
+    await tgEdit(token, chatId, messageId, resumenGuion(guion.titulo, guion.duracion_estimada, guion.hooks), botonesGuion(id))
+    return
+  }
+
+  await tgAnswerCallback(token, callbackId)
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok')
 
@@ -76,6 +160,21 @@ Deno.serve(async (req) => {
   }
 
   const update = await req.json().catch(() => null) as TgUpdate | null
+
+  // ── Botones inline (callback_query) ───────────────────────────────────────
+  if (update?.callback_query) {
+    const cb = update.callback_query
+    const cbChat = cb.message?.chat.id
+    const cbMsgId = cb.message?.message_id
+    if (cbChat == null || cbMsgId == null) return new Response('ok')
+    if (allowed.length > 0 && !allowed.includes(String(cb.from?.id ?? ''))) {
+      await tgAnswerCallback(token, cb.id, 'No autorizado')
+      return new Response('ok')
+    }
+    await handleCallback(token, apiKey, cb.id, cbChat, cbMsgId, cb.data ?? '')
+    return new Response('ok')
+  }
+
   const msg = update?.message
   if (!msg) return new Response('ok')
 
@@ -143,14 +242,19 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    const { error: insErr } = await admin.from('contenidos').insert(guionAContenidoRow(guion, targetProfile, enlace))
-    if (insErr) {
-      await tgSend(token, chatId, `Generé el guion pero no lo pude guardar: ${insErr.message}`)
+    const { data: inserted, error: insErr } = await admin.from('contenidos')
+      .insert(guionAContenidoRow(guion, targetProfile, enlace, material))
+      .select('id').single()
+    if (insErr || !inserted) {
+      await tgSend(token, chatId, `Generé el guion pero no lo pude guardar: ${insErr?.message ?? ''}`)
       return new Response('ok')
     }
 
-    const hook = guion.hooks[0] ? `\n\n💡 Hook: ${guion.hooks[0]}` : ''
-    await tgSend(token, chatId, `✅ Guion listo: "${guion.titulo}" (${guion.duracion_estimada || 'Reel'}).${hook}\n\nYa está en la app → Contenidos, listo para que Samira lo grabe y edite.`)
+    await tgSend(
+      token, chatId,
+      resumenGuion(guion.titulo, guion.duracion_estimada, guion.hooks),
+      botonesGuion(inserted.id),
+    )
     return new Response('ok')
   } catch (err) {
     console.error('[telegram-webhook]', err)
