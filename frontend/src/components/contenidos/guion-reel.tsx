@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  X, Mic, Square, Upload, Loader2, Type, Link2, Film, Clapperboard,
+  X, Mic, Square, SquareCheck, Upload, Loader2, Type, Link2, Film, Clapperboard,
   Sparkles, Copy, Check, Clock,
 } from 'lucide-react'
-import { useGenerarGuionReel, parseGuionReel, type GuionReel, type Contenido } from '@/hooks/use-contenidos'
+import {
+  useGenerarGuionReel, useUpdateContenido, parseGuionReel, cuerpoConDone,
+  type GuionReel, type Contenido,
+} from '@/hooks/use-contenidos'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
@@ -207,8 +210,25 @@ export function GuionReelDialog({ onClose }: { onClose: () => void }) {
 
 export function GuionReelViewer({ contenido, onClose }: { contenido: Contenido; onClose: () => void }) {
   const guion = parseGuionReel(contenido)
+  const update = useUpdateContenido()
   const [copied, setCopied] = useState(false)
+  const [done, setDone] = useState<Set<number>>(() => new Set(guion?.done ?? []))
   if (!guion) return null
+
+  const total = guion.escenas.length
+  const hechas = guion.escenas.filter((e) => done.has(e.n)).length
+  const pct = total ? Math.round((hechas / total) * 100) : 0
+  const completo = total > 0 && hechas === total
+
+  const toggleEscena = (n: number) => {
+    setDone((prev) => {
+      const next = new Set(prev)
+      if (next.has(n)) next.delete(n)
+      else next.add(n)
+      update.mutate({ id: contenido.id, cuerpo: cuerpoConDone(contenido.cuerpo, [...next]) })
+      return next
+    })
+  }
 
   const copiarTexto = async () => {
     await navigator.clipboard.writeText(guionAPlano(guion))
@@ -226,11 +246,18 @@ export function GuionReelViewer({ contenido, onClose }: { contenido: Contenido; 
               <Clapperboard className="h-3.5 w-3.5" /> Guion de Reel
             </p>
             <h3 className="text-lg font-semibold text-zinc-50 mt-0.5 truncate">{guion.titulo}</h3>
-            {guion.duracion_estimada && (
-              <p className="flex items-center gap-1 text-xs text-zinc-400 mt-0.5">
-                <Clock className="h-3 w-3" /> {guion.duracion_estimada}
-              </p>
-            )}
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {guion.duracion_estimada && (
+                <span className="flex items-center gap-1 text-xs text-zinc-400">
+                  <Clock className="h-3 w-3" /> {guion.duracion_estimada}
+                </span>
+              )}
+              {total > 0 && (
+                <span className={cn('text-xs', completo ? 'text-emerald-300' : 'text-zinc-400')}>
+                  {completo ? '✓ Todo grabado' : `${hechas} de ${total} escenas listas`}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={copiarTexto} title="Copiar guion como texto"
@@ -243,6 +270,16 @@ export function GuionReelViewer({ contenido, onClose }: { contenido: Contenido; 
             </button>
           </div>
         </div>
+
+        {/* Barra de progreso de grabación */}
+        {total > 0 && (
+          <div className="h-1 w-full bg-white/5">
+            <div
+              className={cn('h-full transition-all duration-300', completo ? 'bg-emerald-500' : 'bg-fuchsia-500')}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
 
         {/* Cuerpo scrolleable */}
         <div className="overflow-y-auto px-6 py-5 space-y-5">
@@ -260,39 +297,60 @@ export function GuionReelViewer({ contenido, onClose }: { contenido: Contenido; 
             </section>
           )}
 
-          {/* Escenas */}
+          {/* Escenas — shot list tildable */}
           {guion.escenas.length > 0 && (
             <section>
-              <p className="text-[11px] uppercase tracking-wider text-zinc-400 mb-2">Escenas</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">Shot list · tildá lo que ya grabaste</p>
+                {hechas > 0 && !completo && (
+                  <button onClick={() => { setDone(new Set()); update.mutate({ id: contenido.id, cuerpo: cuerpoConDone(contenido.cuerpo, []) }) }}
+                    className="text-[10px] text-zinc-500 hover:text-zinc-300">Reiniciar</button>
+                )}
+              </div>
               <div className="space-y-2.5">
-                {guion.escenas.map((e) => (
-                  <div key={e.n} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-fuchsia-500/20 text-[11px] font-semibold text-fuchsia-200">{e.n}</span>
-                      <span className="text-[10px] uppercase tracking-wide text-zinc-500">Escena {e.n}</span>
-                    </div>
-                    {e.a_camara && (
-                      <p className="text-sm text-zinc-100 mb-2 leading-relaxed">
-                        <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-0.5">A cámara</span>
-                        {e.a_camara}
-                      </p>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {e.visual && (
-                        <div className="rounded-md bg-cyan-500/[0.07] border border-cyan-500/15 px-2.5 py-1.5">
-                          <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-cyan-300/80 mb-0.5"><Film className="h-3 w-3" /> Visual</span>
-                          <p className="text-xs text-cyan-100/90">{e.visual}</p>
+                {guion.escenas.map((e) => {
+                  const ok = done.has(e.n)
+                  return (
+                    <div key={e.n} className={cn('rounded-lg border p-3 transition-colors',
+                      ok ? 'border-emerald-500/20 bg-emerald-500/[0.04]' : 'border-white/10 bg-white/[0.02]')}>
+                      <div className="flex items-start gap-2.5">
+                        <button onClick={() => toggleEscena(e.n)} title={ok ? 'Marcar como pendiente' : 'Marcar como grabada'}
+                          className="mt-0.5 shrink-0">
+                          {ok
+                            ? <SquareCheck className="h-5 w-5 text-emerald-400" />
+                            : <Square className="h-5 w-5 text-zinc-500 hover:text-zinc-300" />}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold',
+                              ok ? 'bg-emerald-500/20 text-emerald-200' : 'bg-fuchsia-500/20 text-fuchsia-200')}>{e.n}</span>
+                            <span className="text-[10px] uppercase tracking-wide text-zinc-500">Escena {e.n}</span>
+                          </div>
+                          {e.a_camara && (
+                            <p className={cn('text-sm mb-2 leading-relaxed', ok ? 'text-zinc-400 line-through' : 'text-zinc-100')}>
+                              <span className="text-[10px] uppercase tracking-wide text-zinc-500 block mb-0.5 no-underline">A cámara</span>
+                              {e.a_camara}
+                            </p>
+                          )}
+                          <div className={cn('grid grid-cols-1 sm:grid-cols-2 gap-2', ok && 'opacity-60')}>
+                            {e.visual && (
+                              <div className="rounded-md bg-cyan-500/[0.07] border border-cyan-500/15 px-2.5 py-1.5">
+                                <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-cyan-300/80 mb-0.5"><Film className="h-3 w-3" /> Visual</span>
+                                <p className="text-xs text-cyan-100/90">{e.visual}</p>
+                              </div>
+                            )}
+                            {e.texto_pantalla && (
+                              <div className="rounded-md bg-violet-500/[0.07] border border-violet-500/15 px-2.5 py-1.5">
+                                <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-violet-300/80 mb-0.5"><Type className="h-3 w-3" /> Texto en pantalla</span>
+                                <p className="text-xs text-violet-100/90">{e.texto_pantalla}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      {e.texto_pantalla && (
-                        <div className="rounded-md bg-violet-500/[0.07] border border-violet-500/15 px-2.5 py-1.5">
-                          <span className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-violet-300/80 mb-0.5"><Type className="h-3 w-3" /> Texto en pantalla</span>
-                          <p className="text-xs text-violet-100/90">{e.texto_pantalla}</p>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           )}

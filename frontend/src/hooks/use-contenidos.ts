@@ -180,6 +180,7 @@ export interface GuionReel {
   cierre: string
   cta: string
   notas_edicion: string
+  done: number[]
 }
 
 /** Si el contenido es un guion de Reel (JSON marcado en cuerpo), lo devuelve parseado. */
@@ -187,7 +188,7 @@ export function parseGuionReel(c: Pick<Contenido, 'cuerpo'>): GuionReel | null {
   const raw = c.cuerpo?.trim()
   if (!raw || raw[0] !== '{') return null
   try {
-    const g = JSON.parse(raw) as Partial<GuionReel> & { _tipo?: string }
+    const g = JSON.parse(raw) as Partial<GuionReel> & { _tipo?: string; _done?: number[] }
     if (g._tipo !== 'guion_reel') return null
     return {
       tema: g.tema ?? '',
@@ -198,8 +199,18 @@ export function parseGuionReel(c: Pick<Contenido, 'cuerpo'>): GuionReel | null {
       cierre: g.cierre ?? '',
       cta: g.cta ?? '',
       notas_edicion: g.notas_edicion ?? '',
+      done: Array.isArray(g._done) ? g._done : [],
     }
   } catch { return null }
+}
+
+/** Devuelve el cuerpo del guion con el set de escenas tildadas actualizado,
+ *  preservando el resto del JSON (incluido _material). */
+export function cuerpoConDone(cuerpoActual: string | null, done: number[]): string {
+  let base: Record<string, unknown> = { _tipo: 'guion_reel' }
+  try { if (cuerpoActual) base = JSON.parse(cuerpoActual) } catch { /* noop */ }
+  base._done = [...done].sort((a, b) => a - b)
+  return JSON.stringify(base)
 }
 
 // ── Cola de ideas ────────────────────────────────────────────────────────────

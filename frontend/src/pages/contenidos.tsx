@@ -50,6 +50,40 @@ function previewContenido(c: Contenido): string | null {
   return c.cuerpo ?? null
 }
 
+// ── Identidad visual por plataforma ──────────────────────────────────────────
+type Tema = { border: string; pill: string; bar: string }
+const CATEGORIA_THEME: Record<string, Tema> = {
+  instagram:         { border: 'border-pink-500/30',   pill: 'bg-pink-500/15 text-pink-300',     bar: 'bg-pink-500' },
+  linkedin:          { border: 'border-sky-500/30',    pill: 'bg-sky-500/15 text-sky-300',       bar: 'bg-sky-500' },
+  facebook:          { border: 'border-blue-500/30',   pill: 'bg-blue-500/15 text-blue-300',     bar: 'bg-blue-500' },
+  twitter:           { border: 'border-zinc-400/30',   pill: 'bg-zinc-400/15 text-zinc-200',     bar: 'bg-zinc-400' },
+  video_guion:       { border: 'border-red-500/30',    pill: 'bg-red-500/15 text-red-300',       bar: 'bg-red-500' },
+  newsletter:        { border: 'border-amber-500/30',  pill: 'bg-amber-500/15 text-amber-300',   bar: 'bg-amber-500' },
+  email_cliente:     { border: 'border-teal-500/30',   pill: 'bg-teal-500/15 text-teal-300',     bar: 'bg-teal-500' },
+  whatsapp_difusion: { border: 'border-emerald-500/30',pill: 'bg-emerald-500/15 text-emerald-300',bar: 'bg-emerald-500' },
+  blog:              { border: 'border-violet-500/30', pill: 'bg-violet-500/15 text-violet-300',  bar: 'bg-violet-500' },
+  otro:              { border: 'border-white/10',      pill: 'bg-white/5 text-zinc-300',          bar: 'bg-zinc-500' },
+}
+const GUION_THEME: Tema = { border: 'border-fuchsia-500/40', pill: 'bg-fuchsia-500/15 text-fuchsia-300', bar: 'bg-fuchsia-500' }
+
+function temaDe(c: Contenido): Tema {
+  if (parseGuionReel(c)) return GUION_THEME
+  return CATEGORIA_THEME[c.categoria] ?? CATEGORIA_THEME.otro
+}
+
+// Mini-pipeline: borrador → revisión → aprobado → publicado.
+const ESTADO_STEP: Record<string, number> = { borrador: 1, en_revision: 2, aprobado: 3, publicado: 4, archivado: 0 }
+function EstadoPipeline({ estado, bar }: { estado: EstadoContenido; bar: string }) {
+  const step = ESTADO_STEP[estado] ?? 0
+  return (
+    <div className="flex gap-1" title={ESTADO_LABEL[estado]}>
+      {[1, 2, 3, 4].map((i) => (
+        <span key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? bar : 'bg-white/10')} />
+      ))}
+    </div>
+  )
+}
+
 const ESTADO_LABEL: Record<string, string> = Object.fromEntries(
   ESTADOS_CONTENIDO.map(e => [e.value, e.label])
 )
@@ -468,32 +502,38 @@ export default function ContenidosPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {contenidos.map((c) => {
             const Icon = CATEGORIA_ICON[c.categoria]
+            const tema = temaDe(c)
+            const guion = parseGuionReel(c)
+            const headline = guion ? (guion.hooks[0] ?? guion.tema ?? c.titulo) : c.titulo
             return (
               <div
                 key={c.id}
-                className="rounded-xl border border-white/10 bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group"
+                className={cn('rounded-xl border bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group flex flex-col', tema.border)}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300">
+                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', tema.pill)}>
                     <Icon className="h-3 w-3" />
-                    {CATEGORIA_LABEL[c.categoria]}
+                    {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
                   </span>
-                  <span className={cn('rounded-full px-1.5 py-0 text-[10px] font-medium', ESTADO_CLS[c.estado])}>
-                    {ESTADO_LABEL[c.estado]}
-                  </span>
+                  {guion && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                      <Clapperboard className="h-3 w-3" /> Guion
+                    </span>
+                  )}
                 </div>
 
-                <h3 className="text-sm font-medium text-zinc-100 line-clamp-2 leading-tight mb-2">{c.titulo}</h3>
+                <h3 className={cn('text-zinc-50 leading-snug mb-2', guion ? 'text-sm font-semibold line-clamp-3' : 'text-sm font-medium line-clamp-2')}>
+                  {headline}
+                </h3>
 
-                {parseGuionReel(c) && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300 mb-2">
-                    <Clapperboard className="h-3 w-3" /> Guion de Reel
-                  </span>
-                )}
-
-                {previewContenido(c) && (
-                  <p className="text-[11px] text-zinc-500 line-clamp-3 leading-relaxed mb-2">{previewContenido(c)}</p>
-                )}
+                {guion ? (
+                  <div className="flex items-center gap-2.5 text-[10px] text-zinc-500 mb-2">
+                    {guion.escenas.length > 0 && <span className="inline-flex items-center gap-1"><ListIcon className="h-2.5 w-2.5" /> {guion.escenas.length} escenas</span>}
+                    {guion.duracion_estimada && <span className="inline-flex items-center gap-1"><Video className="h-2.5 w-2.5" /> {guion.duracion_estimada}</span>}
+                  </div>
+                ) : previewContenido(c) ? (
+                  <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed mb-2">{previewContenido(c)}</p>
+                ) : null}
 
                 {c.hashtags && (
                   <div className="flex items-center gap-1 mb-2">
@@ -502,27 +542,30 @@ export default function ContenidosPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
-                  <p className="text-[10px] text-zinc-500">
-                    {c.publicar_el
-                      ? <>📅 {formatDate(c.publicar_el)}</>
-                      : `Editado ${formatDate(c.updated_at)}`}
-                  </p>
-                  <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => abrirContenido(c)}
-                      className="rounded p-1 text-zinc-500 hover:text-cyan-400"
-                      title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(c.id)}
-                      className="rounded p-1 text-zinc-500 hover:text-rose-400"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                <div className="mt-auto pt-2.5">
+                  <EstadoPipeline estado={c.estado} bar={tema.bar} />
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <p className="text-[10px] text-zinc-500">
+                      {c.publicar_el
+                        ? <>📅 {formatDate(c.publicar_el)}</>
+                        : ESTADO_LABEL[c.estado]}
+                    </p>
+                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => abrirContenido(c)}
+                        className="rounded p-1 text-zinc-500 hover:text-cyan-400"
+                        title={guion ? 'Ver guion' : 'Editar'}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(c.id)}
+                        className="rounded p-1 text-zinc-500 hover:text-rose-400"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -629,7 +672,7 @@ function ContenidoCalendar({ contenidos, onEdit }: {
                   <div className="space-y-1">
                     {items.map((c) => (
                       <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
-                        className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+                        className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', temaDe(c).pill)}
                         title={`${c.titulo} · ${ESTADO_LABEL[c.estado]} · arrastrá para reagendar`}>
                         <span className="truncate">{c.titulo}</span>
                       </CalChip>
@@ -646,7 +689,7 @@ function ContenidoCalendar({ contenidos, onEdit }: {
         <CalSinFecha count={sinFecha.length}>
           {sinFecha.map((c) => (
             <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
-              className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', temaDe(c).pill)}
               title={`${ESTADO_LABEL[c.estado]} · arrastrá a un día para agendar`}>
               <span className="max-w-[160px] truncate">{c.titulo}</span>
             </CalChip>
@@ -790,6 +833,9 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: c.id, data: { contenido: c } })
   const Icon = CATEGORIA_ICON[c.categoria]
+  const tema = temaDe(c)
+  const guion = parseGuionReel(c)
+  const headline = guion ? (guion.hooks[0] ?? guion.tema ?? c.titulo) : c.titulo
   const i = orden.indexOf(c.estado)
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
@@ -800,19 +846,22 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
       style={style}
       {...attributes}
       {...listeners}
-      className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing"
+      className={cn('rounded-lg border bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing', tema.border)}
     >
-      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
-        <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
-      </span>
-      <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1">{c.titulo}</p>
-      {parseGuionReel(c) && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-1.5 py-0 text-[9px] font-medium text-fuchsia-300 mb-1">
-          <Clapperboard className="h-2.5 w-2.5" /> Guion de Reel
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-medium', tema.pill)}>
+          <Icon className="h-2.5 w-2.5" /> {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
         </span>
-      )}
-      {previewContenido(c) && <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{previewContenido(c)}</p>}
+        {guion && <Clapperboard className="h-3 w-3 text-fuchsia-400" />}
+      </div>
+      <p className={cn('text-zinc-50 leading-snug mb-1', guion ? 'text-xs font-semibold line-clamp-3' : 'text-xs font-medium line-clamp-2')}>{headline}</p>
+      {guion ? (
+        <p className="text-[9px] text-zinc-500 mb-1.5">{guion.escenas.length} escenas{guion.duracion_estimada ? ` · ${guion.duracion_estimada}` : ''}</p>
+      ) : previewContenido(c) ? (
+        <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{previewContenido(c)}</p>
+      ) : null}
       {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
+      <div className="mb-1.5"><EstadoPipeline estado={c.estado} bar={tema.bar} /></div>
       <div
         className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
         onPointerDown={(e) => e.stopPropagation()}
