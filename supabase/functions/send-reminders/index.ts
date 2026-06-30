@@ -56,7 +56,7 @@ function json(req: Request, body: unknown, status = 200) {
 
 interface Reminder {
   user_id: string
-  kind: 'tarea' | 'turno' | 'plazo'
+  kind: 'tarea' | 'turno' | 'plazo' | 'contenido'
   title: string
   url: string
   itemId: string
@@ -162,6 +162,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Contenidos a publicar hoy o mañana ─────────────────────────────
+    // Avisa a la(s) secretaria(s) y al creador, con una alerta in-app (CUSTOM)
+    // y push. Dedupe de la alerta por marcador [contenido:<id>].
+    const { data: contenidosDue } = await admin
+      .from('contenidos')
+      .select('id, titulo, publicar_el, created_by, estado')
+      .in('publicar_el', [today, tomorrow])
+      .is('deleted_at', null)
+      .not('estado', 'in', '(publicado,archivado)')
+
+    if (contenidosDue && contenidosDue.length > 0) {
+      const { data: secres } = await admin
+        .from('profiles').select('id').eq('rol', 'SECRETARIA').eq('activo', true)
+      const secreIds = (secres ?? []).map((s: { id: string }) => s.id)
+
+      for (const c of contenidosDue as { id: string; titulo: string; publicar_el: string; created_by: string }[]) {
+        const cuando = c.publicar_el === today ? 'hoy' : 'mañana'
+        const recipients = new Set<string>([...secreIds, c.created_by].filter(Boolean))
+        for (const uid of recipients) {
+          if (!dryRun) {
+            const { data: existing } = await admin
+              .from('alertas').select('id')
+              .eq('destinatario_id', uid).eq('estado', 'ACTIVA')
+              .ilike('mensaje', `%[contenido:${c.id}]%`).limit(1).maybeSingle()
+            if (!existing) {
+              await admin.from('alertas').insert({
+                tipo: 'CUSTOM',
+                titulo: `Contenido para publicar ${cuando}: ${c.titulo}`,
+                mensaje: `El contenido "${c.titulo}" está agendado para publicar ${cuando}. [contenido:${c.id}]`,
+                destinatario_id: uid,
+                prioridad: 'MEDIA',
+                origen: 'AUTOMATICA',
+                fecha_vencimiento: c.publicar_el,
+              })
+            }
+          }
+          reminders.push({ user_id: uid, kind: 'contenido', title: `Publicar ${cuando}: ${c.titulo}`, url: '/contenidos', itemId: c.id })
+        }
+      }
+    }
+
     if (reminders.length === 0) {
       return json(req, { ok: true, reminders: 0, sent: 0, dryRun })
     }
@@ -199,11 +240,13 @@ Deno.serve(async (req) => {
       const tareas = userReminders.filter(r => r.kind === 'tarea').length
       const turnos = userReminders.filter(r => r.kind === 'turno').length
       const plazos = userReminders.filter(r => r.kind === 'plazo').length
+      const contenidosN = userReminders.filter(r => r.kind === 'contenido').length
 
       const parts: string[] = []
       if (tareas > 0) parts.push(`${tareas} tarea${tareas !== 1 ? 's' : ''}`)
       if (turnos > 0) parts.push(`${turnos} audiencia${turnos !== 1 ? 's' : ''}`)
       if (plazos > 0) parts.push(`${plazos} plazo${plazos !== 1 ? 's' : ''}`)
+      if (contenidosN > 0) parts.push(`${contenidosN} contenido${contenidosN !== 1 ? 's' : ''}`)
 
       const payload: PushPayload = {
         title: userReminders.length === 1

@@ -585,7 +585,25 @@ function ContenidoCalendar({ contenidos, onEdit }: {
   const prev = () => setCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 })
   const next = () => setCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 })
 
+  // Arrastrar una tarjeta a un día setea publicar_el; a "sin fecha" lo limpia.
+  const update = useUpdateContenido()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
+  )
+  const onDragEnd = (e: DragEndEvent) => {
+    const c = e.active.data.current?.contenido as Contenido | undefined
+    const over = e.over?.id
+    if (!c || over == null) return
+    const fecha = over === 'sin-fecha' ? null : String(over)
+    if (c.publicar_el !== fecha) {
+      update.mutate({ id: c.id, publicar_el: fecha })
+      toast.success(fecha ? `Agendado para ${formatDate(fecha)}` : 'Sin fecha')
+    }
+  }
+
   return (
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-zinc-200">{MESES[m]} {y}</h2>
@@ -604,56 +622,83 @@ function ContenidoCalendar({ contenidos, onEdit }: {
           const items = d ? (byDate[dateStr(d)] ?? []) : []
           const esHoy = d != null && dateStr(d) === todayStr
           return (
-            <div key={i} className={cn('min-h-[92px] bg-zinc-950/40 p-1.5', !d && 'opacity-40')}>
+            <CalDia key={i} id={d ? dateStr(d) : null} vacio={!d}>
               {d && (
                 <>
                   <div className={cn('mb-1 text-[11px]', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/30 font-semibold text-violet-200' : 'text-zinc-500')}>{d}</div>
                   <div className="space-y-1">
-                    {items.map((c) => {
-                      const Icon = CATEGORIA_ICON[c.categoria]
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => onEdit(c)}
-                          className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
-                          title={`${c.titulo} · ${ESTADO_LABEL[c.estado]}`}
-                        >
-                          <Icon className="h-2.5 w-2.5 shrink-0" />
-                          <span className="truncate">{c.titulo}</span>
-                        </button>
-                      )
-                    })}
+                    {items.map((c) => (
+                      <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
+                        className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+                        title={`${c.titulo} · ${ESTADO_LABEL[c.estado]} · arrastrá para reagendar`}>
+                        <span className="truncate">{c.titulo}</span>
+                      </CalChip>
+                    ))}
                   </div>
                 </>
               )}
-            </div>
+            </CalDia>
           )
         })}
       </div>
 
       {sinFecha.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
-            Sin fecha de publicación ({sinFecha.length}) — abrí cada uno y asignale fecha
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {sinFecha.map((c) => {
-              const Icon = CATEGORIA_ICON[c.categoria]
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onEdit(c)}
-                  className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
-                  title={ESTADO_LABEL[c.estado]}
-                >
-                  <Icon className="h-3 w-3" /> <span className="max-w-[160px] truncate">{c.titulo}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <CalSinFecha count={sinFecha.length}>
+          {sinFecha.map((c) => (
+            <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
+              title={`${ESTADO_LABEL[c.estado]} · arrastrá a un día para agendar`}>
+              <span className="max-w-[160px] truncate">{c.titulo}</span>
+            </CalChip>
+          ))}
+        </CalSinFecha>
       )}
     </div>
+    </DndContext>
+  )
+}
+
+// Celda de día: zona donde se puede soltar una tarjeta para agendarla.
+function CalDia({ id, vacio, children }: { id: string | null; vacio: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: id ?? `empty-${Math.random()}`, disabled: !id })
+  return (
+    <div ref={id ? setNodeRef : undefined}
+      className={cn('min-h-[92px] bg-zinc-950/40 p-1.5 transition-colors', vacio && 'opacity-40', isOver && 'bg-violet-500/15 ring-1 ring-inset ring-violet-400/50')}>
+      {children}
+    </div>
+  )
+}
+
+// Zona "sin fecha": soltar acá limpia la fecha de publicación.
+function CalSinFecha({ count, children }: { count: number; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'sin-fecha' })
+  return (
+    <div ref={setNodeRef} className={cn('rounded-lg p-2 transition-colors', isOver && 'bg-zinc-500/10 ring-1 ring-inset ring-zinc-400/40')}>
+      <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
+        Sin fecha ({count}) — arrastrá a un día para agendar, o soltá acá para quitar la fecha
+      </p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  )
+}
+
+// Tarjeta arrastrable del calendario (click abre, drag reagenda).
+function CalChip({ c, onClick, className, title, children }: {
+  c: Contenido
+  onClick: () => void
+  className?: string
+  title?: string
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: c.id, data: { contenido: c } })
+  const Icon = CATEGORIA_ICON[c.categoria]
+  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 } : undefined
+  return (
+    <button ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={onClick}
+      className={cn(className, isDragging && 'opacity-50')} title={title}>
+      <Icon className="h-2.5 w-2.5 shrink-0" />
+      {children}
+    </button>
   )
 }
 
