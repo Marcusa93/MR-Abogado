@@ -134,6 +134,10 @@ interface GenerateInput {
   estilo_texto?: string | null
   /** Si viene, el modelo pegado se guarda como template reutilizable con este nombre. */
   guardar_como?: string | null
+  /** Modo idea libre: el abogado describe qué presentar; la IA infiere el tipo. */
+  idea_libre?: string | null
+  /** Providencia (movimiento SAE) a la que este escrito responde. */
+  responde_a_movimiento_id?: string | null
 }
 
 interface GenerateResult {

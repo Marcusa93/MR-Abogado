@@ -39,8 +39,23 @@ const TIPOS_SUGERIDOS = [
   'Expresión de agravios',
 ]
 
+// Presets de trámite: los escritos cotidianos, de un click. Pre-cargan tipo +
+// una instrucción base. La IA los completa con el contexto real del expediente.
+const TRAMITE_PRESETS: { label: string; tipo: string; instr: string }[] = [
+  { label: 'Adjunta bono', tipo: 'Adjunta bono de movilidad', instr: 'Acompañar el bono de movilidad y solicitar se tenga por cumplido a fin de notificar / diligenciar lo ordenado.' },
+  { label: 'Acompaña documental', tipo: 'Acompaña documental', instr: 'Acompañar la documental que se individualiza y solicitar se tenga presente y por agregada.' },
+  { label: 'Constituye domicilio electrónico', tipo: 'Constituye domicilio electrónico', instr: 'Constituir domicilio electrónico y denunciar el real, solicitando se tenga presente.' },
+  { label: 'Libramiento de cédula', tipo: 'Solicita libramiento de cédula', instr: 'Solicitar se libre cédula de notificación conforme lo ordenado, con los recaudos de estilo.' },
+  { label: 'Libramiento de oficio', tipo: 'Solicita libramiento de oficio', instr: 'Solicitar se libre oficio conforme lo ordenado, autorizando su diligenciamiento.' },
+  { label: 'Toma vista', tipo: 'Toma vista de las actuaciones', instr: 'Solicitar vista de las actuaciones por el plazo de ley.' },
+  { label: 'Pronto despacho', tipo: 'Pronto despacho', instr: 'Solicitar pronto despacho de lo peticionado, atento el tiempo transcurrido.' },
+  { label: 'Denuncia domicilio', tipo: 'Denuncia domicilio', instr: 'Denunciar el domicilio real de la contraria / del tercero para su notificación.' },
+]
+
 // Mismas reglas que tab-actuaciones-claves para mostrar el preview de claves
 const KEY_TYPES = new Set(['sentencia','audiencia','intimacion','embargo','traslado','decreto','cedula'])
+// Tipos de providencia a los que típicamente se "contesta"/da cumplimiento.
+const RESPONDIBLE_TYPES = new Set(['decreto','traslado','intimacion','cedula','sentencia','providencia','resolucion','auto'])
 
 function buildAbogadoFromProfile(profile: ReturnType<typeof useAuth>['profile']): EscritoEncabezadoAbogado | null {
   if (!profile) return null
@@ -78,7 +93,10 @@ function NuevoEscritoDialog({
   clavesCount: number
   onGenerated: (escritoId: string) => void
 }) {
+  const [modo, setModo] = useState<'tipo' | 'idea'>('tipo')
   const [tipo, setTipo] = useState('')
+  const [idea, setIdea] = useState('')
+  const [respondeA, setRespondeA] = useState('')
   const [titulo, setTitulo] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
   // Modelo de estilo: '' = ninguno, 'NUEVO' = pegar uno nuevo, otro = id de template guardado
@@ -87,6 +105,7 @@ function NuevoEscritoDialog({
   const [guardarComo, setGuardarComo] = useState('')
   const { data: tiposPrevios = [] } = useEscritoTiposPrevios()
   const { data: templates = [] } = useEscritoTemplates()
+  const { data: movimientos = [] } = useSaeMovements(expedienteId)
   const generate = useGenerateEscrito()
 
   const sugerencias = useMemo(() => {
@@ -94,23 +113,56 @@ function NuevoEscritoDialog({
     return Array.from(merged).sort()
   }, [tiposPrevios])
 
+  // Providencias a las que se puede "responder": tipos respondibles o con acción sugerida.
+  const providencias = useMemo(() => {
+    return movimientos
+      .filter(m => RESPONDIBLE_TYPES.has(m.tipo_movimiento ?? '') || Boolean(m.ai_suggested_action))
+      .slice(0, 40)
+  }, [movimientos])
+
+  // Al elegir una providencia, pre-cargar tipo/instrucciones o idea desde su acción sugerida.
+  const onSelectProvidencia = (id: string) => {
+    setRespondeA(id)
+    const m = movimientos.find(mv => mv.id === id)
+    const acc = m?.ai_suggested_action
+    if (!acc) return
+    const desc = [acc.titulo, acc.descripcion].filter(Boolean).join(' — ')
+    if (modo === 'idea') {
+      if (!idea.trim()) setIdea(desc)
+    } else {
+      if (!tipo.trim() && acc.titulo) setTipo(acc.titulo)
+      if (!instrucciones.trim() && desc) setInstrucciones(desc)
+    }
+  }
+
+  const aplicarPreset = (p: { tipo: string; instr: string }) => {
+    setModo('tipo')
+    setTipo(p.tipo)
+    setInstrucciones(p.instr)
+  }
+
   const reset = () => {
-    setTipo(''); setTitulo(''); setInstrucciones('')
+    setModo('tipo'); setTipo(''); setIdea(''); setRespondeA('')
+    setTitulo(''); setInstrucciones('')
     setModeloSel(''); setEstiloTexto(''); setGuardarComo('')
     generate.reset()
   }
 
   const handleClose = () => { reset(); onClose() }
 
+  const puedeGenerar = modo === 'idea' ? idea.trim().length > 3 : tipo.trim().length > 0
+
   const handleGenerate = () => {
-    if (!tipo.trim()) {
-      toast.error('Indicá el tipo de escrito')
+    if (!puedeGenerar) {
+      toast.error(modo === 'idea' ? 'Contá qué hay que presentar' : 'Indicá el tipo de escrito')
       return
     }
     generate.mutate(
       {
         expediente_id: expedienteId,
-        tipo: tipo.trim(),
+        tipo: modo === 'idea' ? '' : tipo.trim(),
+        idea_libre: modo === 'idea' ? idea.trim() : undefined,
+        responde_a_movimiento_id: respondeA || undefined,
         titulo: titulo.trim() || undefined,
         instrucciones: instrucciones.trim() || undefined,
         ...(modeloSel === 'NUEVO'
@@ -166,25 +218,106 @@ function NuevoEscritoDialog({
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">
-              Tipo de escrito *
-            </label>
-            <input
-              list="tipos-escrito"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              placeholder="ej: Contestación de demanda"
+          {/* Modo: por tipo (con presets) o idea libre */}
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setModo('tipo')}
               disabled={generate.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
-            />
-            <datalist id="tipos-escrito">
-              {sugerencias.map(s => <option key={s} value={s} />)}
-            </datalist>
-            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-              Podés escribir cualquier tipo. Los conocidos aparecen como sugerencia.
-            </p>
+              className={cn('flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                modo === 'tipo' ? 'border-violet-500/40 bg-violet-500/15 text-violet-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10')}
+            >
+              Por tipo
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo('idea')}
+              disabled={generate.isPending}
+              className={cn('flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                modo === 'idea' ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10')}
+            >
+              Idea libre
+            </button>
           </div>
+
+          {/* Responder a una providencia (opcional, ambos modos) */}
+          {providencias.length > 0 && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Responder a una actuación (opcional)
+              </label>
+              <select
+                value={respondeA}
+                onChange={(e) => onSelectProvidencia(e.target.value)}
+                disabled={generate.isPending}
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              >
+                <option value="">— El escrito no responde a una providencia puntual —</option>
+                {providencias.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.fecha} · {m.tipo_movimiento}{m.titulo ? ` · ${m.titulo.slice(0, 60)}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                Elegí la providencia que este escrito contesta o cumple. Si tiene acción sugerida, se pre-carga.
+              </p>
+            </div>
+          )}
+
+          {modo === 'idea' ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Contá qué hay que presentar *
+              </label>
+              <textarea
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                placeholder="Pegá la idea tal cual te la mandaron (ej: 'che, presentá que adjuntamos el bono y pedí que se libre la cédula al domicilio de la demandada'). La IA infiere el tipo y lo redacta bien."
+                rows={5}
+                disabled={generate.isPending}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              />
+              <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                Ideal para trámite: escribís la idea suelta y sale formal, con hilo lógico-jurídico y datos reales del expediente.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">
+                Tipo de escrito *
+              </label>
+              {/* Chips de trámite */}
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {TRAMITE_PRESETS.map(p => (
+                  <button
+                    key={p.tipo}
+                    type="button"
+                    onClick={() => aplicarPreset(p)}
+                    disabled={generate.isPending}
+                    className={cn('rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                      tipo === p.tipo ? 'border-amber-500/40 bg-amber-500/15 text-amber-200' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10')}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                list="tipos-escrito"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                placeholder="ej: Contestación de demanda"
+                disabled={generate.isPending}
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              />
+              <datalist id="tipos-escrito">
+                {sugerencias.map(s => <option key={s} value={s} />)}
+              </datalist>
+              <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                Tocá un trámite frecuente, o escribí cualquier tipo.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-300">
@@ -275,7 +408,7 @@ function NuevoEscritoDialog({
           </button>
           <button
             onClick={handleGenerate}
-            disabled={generate.isPending || !tipo.trim()}
+            disabled={generate.isPending || !puedeGenerar}
             className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {generate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}

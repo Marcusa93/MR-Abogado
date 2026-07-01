@@ -544,10 +544,20 @@ Deno.serve(async (req) => {
       estilo_texto?: string | null
       /** Si viene, se guarda estilo_texto como template reutilizable con este nombre. */
       guardar_como?: string | null
+      /** Modo idea libre: el abogado describe en sus palabras qué presentar; la IA infiere el tipo. */
+      idea_libre?: string | null
+      /** Providencia (movimiento SAE) a la que este escrito responde/da cumplimiento. */
+      responde_a_movimiento_id?: string | null
     } | null
 
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
-    if (!body?.tipo?.trim()) return json(req, { error: 'tipo de escrito requerido' }, 400)
+    const ideaLibre = body?.idea_libre?.trim() ?? ''
+    const tipoInput = body?.tipo?.trim() ?? ''
+    if (!tipoInput && !ideaLibre) {
+      return json(req, { error: 'Indicá el tipo de escrito, o describí la idea a redactar' }, 400)
+    }
+    // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo infiere.
+    const tipoEfectivo = tipoInput || 'Escrito de trámite (inferí el tipo exacto de la indicación del abogado)'
 
     // LLM guard: tamaño de input + rate limit por usuario.
     // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que
@@ -608,8 +618,26 @@ Deno.serve(async (req) => {
 
     const claves = filterClaves((movsRaw ?? []) as MovementRow[])
 
-    // 5) Determinar registro tonal según tipo
-    const registro = isTipoRetorico(body.tipo) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
+    // 4.5) Providencia a la que se responde (foco principal, si se eligió una)
+    let providenciaCtx = ''
+    if (body.responde_a_movimiento_id) {
+      const prov = ((movsRaw ?? []) as MovementRow[]).find(m => m.id === body.responde_a_movimiento_id)
+      if (prov) {
+        const plazos = prov.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
+        const acc = prov.ai_suggested_action
+          ? `\n- Acción sugerida por el análisis: ${prov.ai_suggested_action.titulo}${prov.ai_suggested_action.descripcion ? ` — ${prov.ai_suggested_action.descripcion}` : ''}`
+          : ''
+        providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
+El abogado indica que este escrito CONTESTA o DA CUMPLIMIENTO a esta providencia. El escrito debe responder o cumplir con lo que ella ordena, con coherencia procesal y lógica jurídica.
+- Fecha: ${prov.fecha}
+- Tipo: ${prov.tipo_movimiento}
+- Título: ${prov.titulo}
+- Resumen: ${prov.ai_summary ?? '(sin resumen IA)'}${plazos ? `\n- Plazos: ${plazos}` : ''}${acc}`
+      }
+    }
+
+    // 5) Determinar registro tonal según tipo (o la idea libre)
+    const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
 
     // 6) Armar contexto del expediente
     const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
@@ -649,7 +677,8 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
     // 6.5) Retrieval de normativa: fijadas al expediente + top-k por similarity
     const ragQuery = [
-      body.tipo,
+      tipoEfectivo,
+      ideaLibre,
       exp.caratula ?? '',
       exp.fuero ?? '',
       body.instrucciones ?? '',
@@ -694,7 +723,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
         await serviceClient.from('escrito_templates').insert({
           user_id: user.id,
           nombre: estiloNombre,
-          tipo: body.tipo.trim(),
+          tipo: tipoInput || 'idea libre',
           descripcion: 'Modelo cargado desde el generador de escritos.',
           source_text: estiloModelo,
           is_active: true,
@@ -728,8 +757,13 @@ ${estiloModelo}
       OUTPUT_SCHEMA,
     ].join('\n')
 
-    const userMessage = `Tipo de escrito a redactar: **${body.tipo}**
+    const userMessage = `${ideaLibre ? `El abogado te da la indicación EN SUS PALABRAS de qué hay que presentar (puede venir informal, tipo mensaje de WhatsApp). Inferí el tipo de escrito correcto y redactalo formal, bien escrito y con hilo lógico-jurídico coherente, usando el contexto del expediente. Aunque sea un escrito de mero trámite, cuidá la conexión jurídica:
+
+"${ideaLibre}"
+
+` : ''}Tipo de escrito a redactar: **${tipoEfectivo}**
 ${body.titulo ? `Título sugerido por el abogado: "${body.titulo}"` : 'Decidí vos el título según el tipo.'}
+${providenciaCtx}
 
 ${expedienteCtx}
 
