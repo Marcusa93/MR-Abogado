@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
-  Loader2, X, Trash2, Lock, Users, Repeat, Pencil,
+  Loader2, X, Trash2, Lock, Users, Repeat, Pencil, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
@@ -415,11 +415,55 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
   )
 }
 
+// ─── Navegador de mes + totales ──────────────────────────────────────────────
+
+type Mes = { year: number; month: number }
+
+function MonthNav({ mes, setMes, count, noun }: { mes: Mes; setMes: (m: Mes) => void; count: number; noun: string }) {
+  const now = new Date()
+  const esActual = mes.year === now.getFullYear() && mes.month === now.getMonth() + 1
+  const prev = () => setMes(mes.month === 1 ? { year: mes.year - 1, month: 12 } : { year: mes.year, month: mes.month - 1 })
+  const next = () => setMes(mes.month === 12 ? { year: mes.year + 1, month: 1 } : { year: mes.year, month: mes.month + 1 })
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        <button onClick={prev} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10" title="Mes anterior">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="min-w-[140px] text-center text-sm font-medium text-zinc-200">{MES_LABELS[mes.month - 1]} {mes.year}</span>
+        <button onClick={next} disabled={esActual} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10 disabled:opacity-30" title="Mes siguiente">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {!esActual && (
+          <button onClick={() => setMes({ year: now.getFullYear(), month: now.getMonth() + 1 })} className="ml-1 rounded-md px-2 py-1 text-[11px] text-cyan-400 hover:bg-white/5">
+            Mes actual
+          </button>
+        )}
+      </div>
+      <span className="text-xs text-zinc-500">{count} {noun}</span>
+    </div>
+  )
+}
+
+function TotalesMes({ items, tipo }: { items: { monto: number | string; moneda: MonedaCaja }[]; tipo: 'ingreso' | 'gasto' }) {
+  const ars = items.filter(i => i.moneda === 'ARS').reduce((s, i) => s + Number(i.monto), 0)
+  const usd = items.filter(i => i.moneda === 'USD').reduce((s, i) => s + Number(i.monto), 0)
+  const color = tipo === 'ingreso' ? 'text-emerald-300' : 'text-rose-300'
+  if (items.length === 0) return null
+  return (
+    <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+      <span className="text-[10px] uppercase tracking-wider text-zinc-500">Total del mes</span>
+      <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(ars)}</span>
+      {usd > 0 && <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(usd, 'USD')}</span>}
+    </div>
+  )
+}
+
 // ─── Ingresos ───────────────────────────────────────────────────────────────
 
 function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const now = new Date()
-  const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: ingresos = [], isLoading } = useIngresos(mes)
   const deleteIngreso = useDeleteIngreso()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -428,9 +472,8 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
-        Mostrando: {MES_LABELS[mes.month - 1]} {mes.year} · {ingresos.length} {ingresos.length === 1 ? 'ingreso' : 'ingresos'}
-      </p>
+      <MonthNav mes={mes} setMes={setMes} count={ingresos.length} noun={ingresos.length === 1 ? 'ingreso' : 'ingresos'} />
+      <TotalesMes items={ingresos} tipo="ingreso" />
 
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />
@@ -527,7 +570,7 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
 function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
-  const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: gastos = [], isLoading } = useGastos(mes)
   const deleteGasto = useDeleteGasto()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -536,9 +579,8 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
-        Mostrando: {MES_LABELS[mes.month - 1]} {mes.year} · {gastos.length} {gastos.length === 1 ? 'gasto' : 'gastos'}
-      </p>
+      <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={gastos.length === 1 ? 'gasto' : 'gastos'} />
+      <TotalesMes items={gastos} tipo="gasto" />
 
       {gastos.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Sin gastos este mes" description="Registrá un gasto con el botón de arriba." />
