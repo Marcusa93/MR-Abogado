@@ -519,6 +519,15 @@ Estos son patrones que el sistema aprendió de tu práctica anterior (correccion
 ${entries}`
 }
 
+function decodeJwtRole(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.role === 'string' ? payload.role : null
+  } catch { return null }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
@@ -526,13 +535,12 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
+    const authHeader = req.headers.get('Authorization') ?? ''
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
-    const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as {
       expediente_id?: string
@@ -548,7 +556,22 @@ Deno.serve(async (req) => {
       idea_libre?: string | null
       /** Providencia (movimiento SAE) a la que este escrito responde/da cumplimiento. */
       responde_a_movimiento_id?: string | null
+      /** Cuando lo llama service-role (ej. bot de Telegram): perfil firmante. */
+      on_behalf_of_user_id?: string | null
     } | null
+
+    // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
+    const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const isServiceRole = rawToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || decodeJwtRole(rawToken) === 'service_role'
+    let userId: string
+    if (isServiceRole) {
+      if (!body?.on_behalf_of_user_id) return json(req, { error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      userId = body.on_behalf_of_user_id
+    } else {
+      const { data: { user }, error: authError } = await anonClient.auth.getUser()
+      if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
+      userId = user.id
+    }
 
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
     const ideaLibre = body?.idea_libre?.trim() ?? ''
