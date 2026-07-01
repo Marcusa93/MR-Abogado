@@ -570,7 +570,7 @@ Deno.serve(async (req) => {
     } else {
       const { data: { user }, error: authError } = await anonClient.auth.getUser()
       if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
-      userId = user.id
+      userId = userId
     }
 
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
@@ -590,7 +590,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
-    const guard = await checkLlmGuard(guardClient, user.id, FUNCTION_NAME, inputBytes)
+    const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
     if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
     // 1) Verificar acceso al expediente (RLS-respecting client)
@@ -610,7 +610,7 @@ Deno.serve(async (req) => {
     const { data: profileRaw, error: profileError } = await serviceClient
       .from('profiles')
       .select('nombre, apellido, matricula, matricula_libro, matricula_folio, domicilio_legal, telefono, email, casillero_notif, cuit')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
     if (profileError || !profileRaw) return json(req, { error: 'Perfil del abogado no encontrado' }, 404)
 
@@ -710,9 +710,9 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
     // En paralelo: normativa + jurisprudencia + aprendizajes
     const [rag, jurisRag, aprendizajes] = await Promise.all([
-      getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
-      getRelevantJurisprudencia(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
-      getAprendizajesAplicables(serviceClient, user.id, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
+      getRelevantNormativa(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
+      getRelevantJurisprudencia(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
+      getAprendizajesAplicables(serviceClient, userId, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
     ])
     const validChunkIds = new Set<number>([
       ...rag.pinned, ...rag.retrieved,
@@ -732,7 +732,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
         .from('escrito_templates')
         .select('nombre, source_text, analysis')
         .eq('id', body.template_id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle()
       if (tpl?.source_text) {
         estiloModelo = String(tpl.source_text).slice(0, MAX_ESTILO_CHARS)
@@ -744,7 +744,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       if (body.guardar_como?.trim()) {
         estiloNombre = body.guardar_como.trim().slice(0, 120)
         await serviceClient.from('escrito_templates').insert({
-          user_id: user.id,
+          user_id: userId,
           nombre: estiloNombre,
           tipo: tipoInput || 'idea libre',
           descripcion: 'Modelo cargado desde el generador de escritos.',
@@ -853,7 +853,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       .from('escritos')
       .insert({
         expediente_id: body.expediente_id,
-        user_id: user.id,
+        user_id: userId,
         template_id: body.template_id ?? null,
         titulo: String(tituloFinal),
         tipo: tipoEfectivo,
@@ -924,7 +924,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
     }
 
-    logLlmCall(guardClient, user.id, FUNCTION_NAME, inputBytes)
+    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
     return json(req, {
       escrito_id: escritoId,
       contenido,
