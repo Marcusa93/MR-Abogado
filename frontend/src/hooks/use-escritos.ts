@@ -190,6 +190,10 @@ export function useGenerateEscrito() {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
       queryClient.invalidateQueries({ queryKey: ['escrito-tipos-previos'] })
       queryClient.invalidateQueries({ queryKey: ['escrito-templates'] })
+      // Si respondió a una providencia, refrescar actuaciones para mostrar el badge.
+      if (vars.responde_a_movimiento_id) {
+        queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
+      }
     },
   })
 }

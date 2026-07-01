@@ -833,7 +833,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
         user_id: user.id,
         template_id: body.template_id ?? null,
         titulo: String(tituloFinal),
-        tipo: body.tipo,
+        tipo: tipoEfectivo,
         contenido,
         // Snapshot inmutable de lo que generó la IA. Sirve para diffear
         // contra la versión final con correcciones del abogado y extraer
@@ -853,6 +853,15 @@ Redactá el escrito siguiendo el formato JSON indicado.`
     }
 
     const escritoId = (escrito as { id: string }).id
+
+    // 9.5) Marcar la providencia como respondida (si el escrito responde a una)
+    if (body.responde_a_movimiento_id) {
+      await serviceClient
+        .from('sae_movements')
+        .update({ respondida_at: new Date().toISOString() })
+        .eq('id', body.responde_a_movimiento_id)
+        .then(({ error }) => { if (error) console.warn('[escritos-generate] no se pudo marcar respondida', error.message) })
+    }
 
     // 10) Validar y persistir citas (descarta chunk_ids inventados)
     const rawCitas = (contenido as { citas?: unknown }).citas

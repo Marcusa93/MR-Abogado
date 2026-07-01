@@ -18,6 +18,7 @@ import {
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
+import { useCreateTarea } from '@/hooks/use-tareas'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
 import { DiagnosticoModal } from './diagnostico-modal'
@@ -111,6 +112,8 @@ function NuevoEscritoDialog({
   const { data: templates = [] } = useEscritoTemplates()
   const { data: movimientos = [] } = useSaeMovements(expedienteId)
   const generate = useGenerateEscrito()
+  const { profile } = useAuth()
+  const crearTarea = useCreateTarea()
 
   // Audio → texto para el modo idea libre
   const transcribir = useTranscribirAudio()
@@ -235,6 +238,22 @@ function NuevoEscritoDialog({
       {
         onSuccess: (data) => {
           toast.success(`Escrito generado (${data.claves_usadas} claves usadas)`)
+          // Si responde a una providencia, dejar una tarea de presentación (no queda suelto).
+          if (respondeA && profile?.id) {
+            const mov = movimientos.find(m => m.id === respondeA)
+            const ref = mov ? `${mov.tipo_movimiento} del ${mov.fecha}${mov.titulo ? ` — ${mov.titulo}` : ''}` : ''
+            crearTarea.mutate({
+              titulo: `Presentar escrito${tipo.trim() ? `: ${tipo.trim()}` : ''}`.slice(0, 200),
+              descripcion: ref ? `Responde a: ${ref}` : null,
+              expediente_id: expedienteId,
+              estado: 'PENDIENTE',
+              prioridad: 'MEDIA',
+              created_by: profile.id,
+              asignado_a: profile.id,
+            } as never, {
+              onSuccess: () => toast.success('Tarea de presentación creada'),
+            })
+          }
           onGenerated(data.escrito_id)
           handleClose()
         },

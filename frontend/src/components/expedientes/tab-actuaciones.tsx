@@ -30,6 +30,7 @@ import {
   Clock,
   Plus,
   PenLine,
+  Check,
   Users,
   Star,
   Video,
@@ -309,6 +310,11 @@ function ActuacionRow({
           {movement.fuente === 'manual' && (
             <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400 uppercase tracking-wide">
               Manual
+            </span>
+          )}
+          {(movement as { respondida_at?: string | null }).respondida_at && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[9px] font-medium text-teal-300 uppercase tracking-wide" title="Ya se generó un escrito que responde a esta providencia">
+              <Check className="h-2.5 w-2.5" /> Respondida
             </span>
           )}
         </div>
