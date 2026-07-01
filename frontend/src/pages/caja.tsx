@@ -135,7 +135,7 @@ export default function CajaPage() {
         </nav>
       </div>
 
-      {activeTab === 'resumen' && <TabResumen />}
+      {activeTab === 'resumen' && <TabResumen onGoTab={setActiveTab} />}
       {activeTab === 'ingresos' && <TabIngresos onEdit={(i) => setEditingIngreso(i)} />}
       {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
       {activeTab === 'abonos' && <TabAbonos />}
@@ -159,7 +159,7 @@ export default function CajaPage() {
 
 // ─── Resumen ────────────────────────────────────────────────────────────────
 
-function TabResumen() {
+function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
   const { data: resumen, isLoading } = useCajaResumen()
   const { data: pendientes = [] } = usePagosPendientes()
 
@@ -177,10 +177,10 @@ function TabResumen() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={mes.ingresos_usd > 0 ? `+ ${fmt(mes.ingresos_usd, 'USD')}` : null} accent="emerald" icon={TrendingUp} />
-        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={mes.gastos_usd > 0 ? `+ ${fmt(mes.gastos_usd, 'USD')}` : null} accent="rose" icon={TrendingDown} />
-        <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} />
-        <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} />
+        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={mes.ingresos_usd > 0 ? `+ ${fmt(mes.ingresos_usd, 'USD')}` : null} accent="emerald" icon={TrendingUp} onClick={() => onGoTab('ingresos')} />
+        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={mes.gastos_usd > 0 ? `+ ${fmt(mes.gastos_usd, 'USD')}` : null} accent="rose" icon={TrendingDown} onClick={() => onGoTab('gastos')} />
+        <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} onClick={() => onGoTab('ingresos')} />
+        <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} onClick={() => onGoTab('abonos')} />
       </div>
 
       {/* Pagos pendientes */}
@@ -227,7 +227,7 @@ function TabResumen() {
   )
 }
 
-function KPICard({ label, value, sub, accent, icon: Icon }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }> }) {
+function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }>; onClick?: () => void }) {
   const ring = {
     emerald: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20',
     rose: 'from-rose-500/15 to-rose-500/5 border-rose-500/20',
@@ -236,14 +236,23 @@ function KPICard({ label, value, sub, accent, icon: Icon }: { label: string; val
   }[accent]
   const iconColor = { emerald: 'text-emerald-400', rose: 'text-rose-400', cyan: 'text-cyan-400', amber: 'text-amber-400' }[accent]
   return (
-    <div className={cn('rounded-xl border bg-gradient-to-br p-3 sm:p-4', ring)}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        'rounded-xl border bg-gradient-to-br p-3 sm:p-4 text-left w-full',
+        ring,
+        onClick && 'transition-transform hover:brightness-125 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer',
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-zinc-400 leading-tight">{label}</p>
         <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', iconColor)} />
       </div>
       <p className="mt-1 text-lg sm:text-2xl font-bold text-zinc-50 tabular-nums break-all">{value}</p>
       {sub && <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{sub}</p>}
-    </div>
+    </button>
   )
 }
 
