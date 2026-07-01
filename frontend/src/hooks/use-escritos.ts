@@ -213,6 +213,11 @@ export function useUpdateEscrito() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      // Si el abogado editó el cuerpo, aprender de sus correcciones (fire-and-forget).
+      // La function se auto-saltea si no hay original o el diff es chico.
+      if (vars.patch.contenido !== undefined) {
+        supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.id } }).catch(() => {})
+      }
     },
   })
 }
@@ -273,6 +278,8 @@ export function useAttachSignedPdf() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      // El firmado es la versión final: aprender de las correcciones (fire-and-forget).
+      supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.escrito_id, trigger: 'firmar' } }).catch(() => {})
     },
   })
 }
