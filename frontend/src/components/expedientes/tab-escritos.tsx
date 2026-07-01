@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -18,6 +18,7 @@ import {
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
+import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
 import { DiagnosticoModal } from './diagnostico-modal'
 import { toast } from '@/stores/toast-store'
@@ -87,13 +88,14 @@ function buildAbogadoFromProfile(profile: ReturnType<typeof useAuth>['profile'])
 // ────────────────────────────────────────────────────────────────────────────
 
 function NuevoEscritoDialog({
-  open, onClose, expedienteId, clavesCount, onGenerated,
+  open, onClose, expedienteId, clavesCount, onGenerated, initialRespondeA,
 }: {
   open: boolean
   onClose: () => void
   expedienteId: string
   clavesCount: number
   onGenerated: (escritoId: string) => void
+  initialRespondeA?: string | null
 }) {
   const [modo, setModo] = useState<'tipo' | 'idea'>('tipo')
   const [tipo, setTipo] = useState('')
@@ -185,6 +187,17 @@ function NuevoEscritoDialog({
     setTipo(p.tipo)
     setInstrucciones(p.instr)
   }
+
+  // Pre-seleccionar la providencia si se abrió desde "Redactar respuesta".
+  const appliedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!open) { appliedRef.current = null; return }
+    if (initialRespondeA && movimientos.length && appliedRef.current !== initialRespondeA) {
+      appliedRef.current = initialRespondeA
+      onSelectProvidencia(initialRespondeA)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialRespondeA, movimientos.length])
 
   const reset = () => {
     setModo('tipo'); setTipo(''); setIdea(''); setRespondeA('')
@@ -1059,9 +1072,20 @@ export function TabEscritos({ expedienteId }: Props) {
   const deleteMut = useDeleteEscrito()
 
   const [nuevoOpen, setNuevoOpen] = useState(false)
+  const [initialRespondeA, setInitialRespondeA] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Escrito | null>(null)
   const [diagnosticando, setDiagnosticando] = useState<Escrito | null>(null)
+
+  // "Redactar respuesta" desde una actuación: abre el generador apuntado a esa providencia.
+  const respondeAPending = useEscritoIntent((s) => s.respondeA)
+  const consumirRespondeA = useEscritoIntent((s) => s.consumirRespondeA)
+  useEffect(() => {
+    if (respondeAPending) {
+      setInitialRespondeA(consumirRespondeA())
+      setNuevoOpen(true)
+    }
+  }, [respondeAPending, consumirRespondeA])
 
   const clavesCount = useMemo(() => {
     return movements.filter(m => {
@@ -1175,9 +1199,10 @@ export function TabEscritos({ expedienteId }: Props) {
 
       <NuevoEscritoDialog
         open={nuevoOpen}
-        onClose={() => setNuevoOpen(false)}
+        onClose={() => { setNuevoOpen(false); setInitialRespondeA(null) }}
         expedienteId={expedienteId}
         clavesCount={clavesCount}
+        initialRespondeA={initialRespondeA}
         onGenerated={(id) => setEditingId(id)}
       />
 
