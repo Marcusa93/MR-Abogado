@@ -593,13 +593,17 @@ Deno.serve(async (req) => {
     const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
     if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
-    // 1) Verificar acceso al expediente (RLS-respecting client)
-    const { data: expAuth, error: authExpError } = await anonClient
-      .from('expedientes')
-      .select('id')
-      .eq('id', body.expediente_id)
-      .maybeSingle()
-    if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    // 1) Verificar acceso al expediente (RLS-respecting client).
+    // En service-role (bot) se saltea: el firmante es el director y el expediente
+    // ya fue resuelto por el webhook; su existencia se valida al cargarlo abajo.
+    if (!isServiceRole) {
+      const { data: expAuth, error: authExpError } = await anonClient
+        .from('expedientes')
+        .select('id')
+        .eq('id', body.expediente_id)
+        .maybeSingle()
+      if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
