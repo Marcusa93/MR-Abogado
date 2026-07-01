@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
   PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles, FileSearch,
   AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck, Gavel,
+  Mic, Square,
 } from 'lucide-react'
 import { SugerirJurisprudenciaDialog } from './sugerir-jurisprudencia-dialog'
 import { useAuth } from '@/hooks/use-auth'
@@ -13,6 +14,7 @@ import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
   useDeleteEscrito, useUpdateEscrito, useEscritoTemplates,
   useAttachSignedPdf, usePresentarEscrito, useFetchPortalCategorias,
+  useTranscribirAudio,
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
@@ -107,6 +109,49 @@ function NuevoEscritoDialog({
   const { data: templates = [] } = useEscritoTemplates()
   const { data: movimientos = [] } = useSaeMovements(expedienteId)
   const generate = useGenerateEscrito()
+
+  // Audio → texto para el modo idea libre
+  const transcribir = useTranscribirAudio()
+  const [recording, setRecording] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const mediaRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const audioFileRef = useRef<HTMLInputElement>(null)
+
+  const volcarTranscripcion = async (blob: Blob) => {
+    try {
+      const texto = await transcribir.mutateAsync(blob)
+      setIdea((prev) => (prev.trim() ? `${prev.trim()}\n${texto}` : texto))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo transcribir el audio')
+    }
+  }
+
+  const startRec = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : ''
+      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      chunksRef.current = []
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' })
+        stream.getTracks().forEach((t) => t.stop())
+        void volcarTranscripcion(blob)
+      }
+      mr.start(); mediaRef.current = mr
+      setElapsed(0); setRecording(true)
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    } catch {
+      toast.error('No se pudo acceder al micrófono. Revisá los permisos.')
+    }
+  }
+  const stopRec = () => {
+    mediaRef.current?.stop()
+    if (timerRef.current) clearInterval(timerRef.current)
+    setRecording(false)
+  }
 
   const sugerencias = useMemo(() => {
     const merged = new Set<string>([...tiposPrevios, ...TIPOS_SUGERIDOS])
@@ -267,9 +312,35 @@ function NuevoEscritoDialog({
 
           {modo === 'idea' ? (
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-300">
-                Contá qué hay que presentar *
-              </label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium text-zinc-300">
+                  Contá qué hay que presentar *
+                </label>
+                {/* Audio → texto */}
+                <div className="flex items-center gap-1.5">
+                  <input ref={audioFileRef} type="file" accept="audio/*" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void volcarTranscripcion(f); e.target.value = '' }} />
+                  {transcribir.isPending ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-cyan-300"><Loader2 className="h-3.5 w-3.5 animate-spin" /> transcribiendo…</span>
+                  ) : recording ? (
+                    <button type="button" onClick={stopRec}
+                      className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-1 text-[11px] font-medium text-rose-300 animate-pulse">
+                      <Square className="h-3 w-3" fill="currentColor" /> {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')} — detener
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" onClick={startRec} disabled={generate.isPending}
+                        className="inline-flex items-center gap-1 rounded-md bg-cyan-500/15 px-2 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50" title="Grabar la idea por voz">
+                        <Mic className="h-3.5 w-3.5" /> Grabar
+                      </button>
+                      <button type="button" onClick={() => audioFileRef.current?.click()} disabled={generate.isPending}
+                        className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-zinc-400 hover:bg-white/10 disabled:opacity-50" title="Subir un audio (ej. de WhatsApp)">
+                        <Upload className="h-3.5 w-3.5" /> Audio
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
               <textarea
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}

@@ -148,6 +148,32 @@ interface GenerateResult {
   claves_usadas: number
 }
 
+// Transcribe un audio (grabado o subido) a texto vía edge function.
+export function useTranscribirAudio() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (audio: Blob): Promise<string> => {
+      const ext = audio.type.includes('webm') ? 'webm' : audio.type.includes('mp4') || audio.type.includes('m4a') ? 'm4a' : 'ogg'
+      const { data: init, error: e1 } = await supabase.functions.invoke('transcribir-audio', {
+        body: { action: 'init', filename: `idea.${ext}` },
+      })
+      if (e1) throw await extractFnError(e1)
+      if ((init as { error?: string })?.error) throw new Error((init as { error: string }).error)
+      const { path, token } = init as { path: string; token: string }
+
+      const up = await supabase.storage.from('contenidos-media').uploadToSignedUrl(path, token, audio)
+      if (up.error) throw new Error(`Subida falló: ${up.error.message}`)
+
+      const { data: proc, error: e3 } = await supabase.functions.invoke('transcribir-audio', {
+        body: { action: 'process', path },
+      })
+      if (e3) throw await extractFnError(e3)
+      if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+      return (proc as { texto: string }).texto
+    },
+  })
+}
+
 export function useGenerateEscrito() {
   const supabase = createClient()
   const queryClient = useQueryClient()
