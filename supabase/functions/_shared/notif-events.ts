@@ -66,6 +66,13 @@ export const NOTIF_EVENTS: NotifEvent[] = [
     pushDefault: true,
     emailDefault: false,
   },
+  {
+    key: 'CONTENIDO_PROGRAMADO',
+    label: 'Contenido programado',
+    desc: 'Cuando tenés un contenido aprobado con fecha de publicación para hoy.',
+    pushDefault: true,
+    emailDefault: false,
+  },
 ]
 
 export type NotifPrefs = Record<string, { push: boolean; email: boolean }>

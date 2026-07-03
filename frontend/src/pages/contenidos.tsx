@@ -7,11 +7,11 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
-  CalendarDays, FolderOpen,
+  CalendarDays, FolderOpen, ImagePlus, Clock,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
-  useGenerarContenidoDesdeVideo,
+  useGenerarContenidoDesdeVideo, useUploadContenidoImagen,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
@@ -52,6 +52,17 @@ const CATEGORIA_ICON: Record<CategoriaContenido, React.ComponentType<{ className
   blog: BookOpen,
   video_guion: Video,
   otro: FileText,
+}
+
+const HORARIOS_TIPS: Partial<Record<CategoriaContenido, string>> = {
+  instagram: 'Mejor alcance: ma–ju entre 9 y 11h o 18–20h. Evitá lunes.',
+  linkedin: 'Mejor alcance: ma–ju entre 8 y 10h (antes del horario laboral). Viernes bajo.',
+  facebook: 'Mejor alcance: martes y miércoles entre 13 y 16h.',
+  twitter: 'Mejor alcance: lu–vi entre 12 y 15h.',
+  newsletter: 'Mejor apertura: martes o miércoles entre 10 y 11h.',
+  email_cliente: 'Mejor apertura: ma–ju entre 10 y 11h.',
+  whatsapp_difusion: 'Mejor: ma–ju a las 11h o 19h. Evitá sábados y domingos.',
+  blog: 'Sin horario crítico. Martes o miércoles para mejor indexación.',
 }
 
 // ── Google Picker (Drive) para elegir un video ──────────────────────────────
@@ -345,6 +356,9 @@ export default function ContenidosPage() {
                 key={c.id}
                 className="rounded-xl border border-white/10 bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group"
               >
+                {c.imagen_url && (
+                  <img src={c.imagen_url} alt="" className="w-full h-32 object-cover rounded-lg mb-3" loading="lazy" />
+                )}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300">
                     <Icon className="h-3 w-3" />
@@ -621,6 +635,9 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
       {...listeners}
       className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing"
     >
+      {c.imagen_url && (
+        <img src={c.imagen_url} alt="" className="w-full h-24 object-cover rounded-md mb-2" loading="lazy" />
+      )}
       <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
         <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
       </span>
@@ -671,6 +688,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   const { user } = useAuth()
   const createContenido = useCreateContenido()
   const updateContenido = useUpdateContenido()
+  const uploadImagen = useUploadContenidoImagen()
 
   const [titulo, setTitulo] = useState(editing?.titulo ?? '')
   const [categoria, setCategoria] = useState<CategoriaContenido>(editing?.categoria ?? 'instagram')
@@ -678,6 +696,8 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   const [cuerpo, setCuerpo] = useState(editing?.cuerpo ?? '')
   const [hashtags, setHashtags] = useState(editing?.hashtags ?? '')
   const [publicarEl, setPublicarEl] = useState(editing?.publicar_el ?? '')
+  const [imagenUrl, setImagenUrl] = useState<string | null>(editing?.imagen_url ?? null)
+  const imagenRef = useRef<HTMLInputElement>(null)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -691,6 +711,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
           estado,
           cuerpo: cuerpo.trim() || null,
           hashtags: hashtags.trim() || null,
+          imagen_url: imagenUrl,
           publicar_el: publicarEl || null,
         })
         toast.success('Contenido actualizado')
@@ -700,6 +721,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
           categoria,
           cuerpo: cuerpo.trim() || null,
           hashtags: hashtags.trim() || null,
+          imagen_url: imagenUrl,
           publicar_el: publicarEl || null,
           created_by: user.id,
         })
@@ -711,7 +733,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
     }
   }
 
-  const isPending = createContenido.isPending || updateContenido.isPending
+  const isPending = createContenido.isPending || updateContenido.isPending || uploadImagen.isPending
 
   const textoPublicar = [cuerpo, hashtags].map(s => s.trim()).filter(Boolean).join('\n\n')
   const dest = composerDestino(categoria, textoPublicar)
@@ -790,6 +812,61 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
             <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Hashtags (opcional)</label>
             <input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} className={inputCls} placeholder="#abogados #derecho #tucuman" />
           </div>
+
+          {/* Imagen adjunta */}
+          <div className="space-y-2">
+            <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Imagen (opcional)</label>
+            {imagenUrl ? (
+              <div className="relative">
+                <img src={imagenUrl} alt="Vista previa" className="w-full max-h-48 object-cover rounded-lg" />
+                <button
+                  type="button"
+                  onClick={() => setImagenUrl(null)}
+                  className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-zinc-300 hover:text-rose-400 transition-colors"
+                  title="Quitar imagen"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => imagenRef.current?.click()}
+                disabled={uploadImagen.isPending}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.03] py-4 text-xs text-zinc-400 hover:border-white/25 hover:text-zinc-300 disabled:opacity-50 transition-colors"
+              >
+                {uploadImagen.isPending
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Subiendo…</>
+                  : <><ImagePlus className="h-4 w-4" /> Adjuntar imagen</>}
+              </button>
+            )}
+            <input
+              ref={imagenRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                e.target.value = ''
+                if (file.size > 10 * 1024 * 1024) { toast.error('La imagen supera 10 MB'); return }
+                try {
+                  const url = await uploadImagen.mutateAsync(file)
+                  setImagenUrl(url)
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'No se pudo subir la imagen')
+                }
+              }}
+            />
+          </div>
+
+          {/* Tips de horario por plataforma */}
+          {HORARIOS_TIPS[categoria] && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400/70 mt-0.5" />
+              <p className="text-[11px] text-amber-300/80 leading-relaxed">{HORARIOS_TIPS[categoria]}</p>
+            </div>
+          )}
 
           {editing && (
             <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3 space-y-2">

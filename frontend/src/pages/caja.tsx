@@ -2,13 +2,18 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
-  Loader2, X, Trash2, Lock, Users, Repeat, Pencil,
+  Loader2, X, Trash2, Lock, Users, Repeat, Pencil, ChevronLeft, ChevronRight,
+  DollarSign,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
   usePagosPendientes, useCreateGasto, useCreateIngreso, useCreateAbono,
   useToggleAbono, useDeleteGasto, useDeleteIngreso, useUpdateGasto, useUpdateIngreso,
-  GASTO_CATEGORIAS, INGRESO_TIPOS, type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
+  useGastosFijos, useGastosFijosPendientes, useCreateGastoFijo, useUpdateGastoFijo,
+  useToggleGastoFijo, useDeleteGastoFijo,
+  GASTO_CATEGORIAS, INGRESO_TIPOS,
+  type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
+  type GastoFijo, type GastoFijoPendiente,
 } from '@/hooks/use-caja'
 import { useClientes } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
@@ -18,8 +23,9 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
+import { useUsdRate, type CotizacionUSD } from '@/hooks/use-cotizacion'
 
-type Tab = 'resumen' | 'ingresos' | 'gastos' | 'abonos'
+type Tab = 'resumen' | 'ingresos' | 'gastos' | 'abonos' | 'gastos_fijos'
 
 const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
   const formatter = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
@@ -33,9 +39,10 @@ const CATEGORIA_GASTO_LABEL: Record<string, string> = Object.fromEntries(GASTO_C
 
 export default function CajaPage() {
   const [activeTab, setActiveTab] = useState<Tab>('resumen')
-  const [dialogOpen, setDialogOpen] = useState<null | 'gasto' | 'ingreso' | 'abono'>(null)
+  const [dialogOpen, setDialogOpen] = useState<null | 'gasto' | 'ingreso' | 'abono' | 'gasto_fijo'>(null)
   const [editingGasto, setEditingGasto] = useState<Gasto | null>(null)
   const [editingIngreso, setEditingIngreso] = useState<Ingreso | null>(null)
+  const [editingGastoFijo, setEditingGastoFijo] = useState<GastoFijo | null>(null)
   const { data: tieneAcceso, isLoading: loadingAcceso } = useTieneAccesoCaja()
 
   if (loadingAcceso) {
@@ -102,6 +109,15 @@ export default function CajaPage() {
               Nuevo abono
             </button>
           )}
+          {activeTab === 'gastos_fijos' && (
+            <button
+              onClick={() => setDialogOpen('gasto_fijo')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500/15 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/25 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nuevo gasto fijo
+            </button>
+          )}
         </div>
       </div>
 
@@ -113,6 +129,7 @@ export default function CajaPage() {
             { id: 'ingresos' as const, label: 'Ingresos', icon: TrendingUp },
             { id: 'gastos' as const, label: 'Gastos', icon: TrendingDown },
             { id: 'abonos' as const, label: 'Abonos mensuales', icon: Repeat },
+            { id: 'gastos_fijos' as const, label: 'Gastos fijos', icon: TrendingDown },
           ].map((t) => {
             const Icon = t.icon
             const isActive = activeTab === t.id
@@ -139,6 +156,7 @@ export default function CajaPage() {
       {activeTab === 'ingresos' && <TabIngresos onEdit={(i) => setEditingIngreso(i)} />}
       {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
       {activeTab === 'abonos' && <TabAbonos />}
+      {activeTab === 'gastos_fijos' && <TabGastosFijos onEdit={(gf) => setEditingGastoFijo(gf)} />}
 
       {(dialogOpen === 'gasto' || editingGasto) && (
         <DialogGasto
@@ -153,6 +171,12 @@ export default function CajaPage() {
         />
       )}
       {dialogOpen === 'abono' && <DialogAbono onClose={() => setDialogOpen(null)} />}
+      {(dialogOpen === 'gasto_fijo' || editingGastoFijo) && (
+        <DialogGastoFijo
+          initial={editingGastoFijo ?? undefined}
+          onClose={() => { setDialogOpen(null); setEditingGastoFijo(null) }}
+        />
+      )}
     </div>
   )
 }
@@ -162,6 +186,8 @@ export default function CajaPage() {
 function TabResumen() {
   const { data: resumen, isLoading } = useCajaResumen()
   const { data: pendientes = [] } = usePagosPendientes()
+  const { data: gastosFijos = [] } = useGastosFijosPendientes()
+  const { data: cotizacion } = useUsdRate()
 
   if (isLoading) return <Loader />
   if (!resumen) return null
@@ -169,19 +195,37 @@ function TabResumen() {
   const mes = resumen.mes_actual
   const balance = mes.ingresos_ars - mes.gastos_ars
 
+  const usdSubIngreso = mes.ingresos_usd > 0
+    ? cotizacion
+      ? `+ ${fmt(mes.ingresos_usd, 'USD')} ≈ ${fmt(Math.round(mes.ingresos_usd * cotizacion.venta))}`
+      : `+ ${fmt(mes.ingresos_usd, 'USD')}`
+    : null
+
+  const usdSubGasto = mes.gastos_usd > 0
+    ? cotizacion
+      ? `+ ${fmt(mes.gastos_usd, 'USD')} ≈ ${fmt(Math.round(mes.gastos_usd * cotizacion.venta))}`
+      : `+ ${fmt(mes.gastos_usd, 'USD')}`
+    : null
+
   return (
     <div className="space-y-5">
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        Período: <span className="font-medium text-zinc-700 dark:text-zinc-200">{MES_LABELS[resumen.periodo.month - 1]} {resumen.periodo.year}</span>
-      </p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Período: <span className="font-medium text-zinc-700 dark:text-zinc-200">{MES_LABELS[resumen.periodo.month - 1]} {resumen.periodo.year}</span>
+        </p>
+        <TipoCambioWidget cotizacion={cotizacion ?? null} />
+      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={mes.ingresos_usd > 0 ? `+ ${fmt(mes.ingresos_usd, 'USD')}` : null} accent="emerald" icon={TrendingUp} />
-        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={mes.gastos_usd > 0 ? `+ ${fmt(mes.gastos_usd, 'USD')}` : null} accent="rose" icon={TrendingDown} />
+        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={usdSubIngreso} accent="emerald" icon={TrendingUp} />
+        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={usdSubGasto} accent="rose" icon={TrendingDown} />
         <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} />
         <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} />
       </div>
+
+      {/* Gastos fijos del mes */}
+      {gastosFijos.length > 0 && <GastosFijosCard gastosFijos={gastosFijos} />}
 
       {/* Pagos pendientes */}
       <PagosPendientesCard pendientes={pendientes} />
@@ -223,6 +267,23 @@ function TabResumen() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function TipoCambioWidget({ cotizacion }: { cotizacion: CotizacionUSD | null }) {
+  const fmtRate = (n: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
+
+  if (!cotizacion) return null
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1">
+      <DollarSign className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+      <span className="text-[11px] text-zinc-400">
+        US$ 1 &rarr;{' '}
+        <span className="text-amber-300 font-medium tabular-nums">$ {fmtRate(cotizacion.venta)}</span>
+        <span className="text-zinc-600 ml-1">(venta) · $ {fmtRate(cotizacion.compra)} (compra)</span>
+      </span>
     </div>
   )
 }
@@ -419,18 +480,35 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
 
 function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const now = new Date()
-  const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const mesActual = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  const [mes, setMes] = useState(mesActual)
+  const esMesActual = mes.year === mesActual.year && mes.month === mesActual.month
+  const irAnterior = () => setMes(m => m.month === 1 ? { year: m.year - 1, month: 12 } : { year: m.year, month: m.month - 1 })
+  const irSiguiente = () => setMes(m => m.month === 12 ? { year: m.year + 1, month: 1 } : { year: m.year, month: m.month + 1 })
   const { data: ingresos = [], isLoading } = useIngresos(mes)
+  const { data: cotizacion } = useUsdRate()
   const deleteIngreso = useDeleteIngreso()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const arsEquivalente = (monto: number) =>
+    cotizacion ? `≈ ${fmt(Math.round(monto * cotizacion.venta))}` : null
 
   if (isLoading) return <Loader />
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
-        Mostrando: {MES_LABELS[mes.month - 1]} {mes.year} · {ingresos.length} {ingresos.length === 1 ? 'ingreso' : 'ingresos'}
-      </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <button onClick={irAnterior} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-xs font-medium text-zinc-300 w-36 text-center">{MES_LABELS[mes.month - 1]} {mes.year}</span>
+          <button onClick={irSiguiente} disabled={esMesActual} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 transition-colors">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <span className="text-xs text-zinc-500">{ingresos.length} {ingresos.length === 1 ? 'ingreso' : 'ingresos'}</span>
+      </div>
 
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />
@@ -451,7 +529,12 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
                     {i.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{i.descripcion}</p>}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <span className="text-sm font-semibold text-zinc-100 tabular-nums mr-1">{fmt(Number(i.monto), i.moneda)}</span>
+                    <div className="text-right mr-1">
+                      <p className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</p>
+                      {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
+                        <p className="text-[10px] text-amber-400 tabular-nums">{arsEquivalente(Number(i.monto))}</p>
+                      )}
+                    </div>
                     <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -486,7 +569,12 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
-                    <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <p className="font-medium text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
+                      {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
+                        <p className="text-[10px] text-amber-400">{arsEquivalente(Number(i.monto))}</p>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
@@ -527,7 +615,11 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
 function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
-  const [mes] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const mesActual = { year: now.getFullYear(), month: now.getMonth() + 1 }
+  const [mes, setMes] = useState(mesActual)
+  const esMesActual = mes.year === mesActual.year && mes.month === mesActual.month
+  const irAnterior = () => setMes(m => m.month === 1 ? { year: m.year - 1, month: 12 } : { year: m.year, month: m.month - 1 })
+  const irSiguiente = () => setMes(m => m.month === 12 ? { year: m.year + 1, month: 1 } : { year: m.year, month: m.month + 1 })
   const { data: gastos = [], isLoading } = useGastos(mes)
   const deleteGasto = useDeleteGasto()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -536,9 +628,18 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-zinc-500">
-        Mostrando: {MES_LABELS[mes.month - 1]} {mes.year} · {gastos.length} {gastos.length === 1 ? 'gasto' : 'gastos'}
-      </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <button onClick={irAnterior} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 transition-colors">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-xs font-medium text-zinc-300 w-36 text-center">{MES_LABELS[mes.month - 1]} {mes.year}</span>
+          <button onClick={irSiguiente} disabled={esMesActual} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 transition-colors">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <span className="text-xs text-zinc-500">{gastos.length} {gastos.length === 1 ? 'gasto' : 'gastos'}</span>
+      </div>
 
       {gastos.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Sin gastos este mes" description="Registrá un gasto con el botón de arriba." />
@@ -1029,6 +1130,338 @@ function DialogAbono({ onClose }: { onClose: () => void }) {
         <button type="submit" disabled={createAbono.isPending} className="w-full rounded-md bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
           {createAbono.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Crear abono
+        </button>
+      </form>
+    </DialogShell>
+  )
+}
+
+// ─── Gastos fijos (resumen card) ────────────────────────────────────────────
+
+function GastosFijosCard({ gastosFijos }: { gastosFijos: GastoFijoPendiente[] }) {
+  const pendientes = gastosFijos.filter(g => g.estado === 'pendiente')
+  const registrados = gastosFijos.filter(g => g.estado === 'registrado')
+
+  return (
+    <div className={cn(
+      'rounded-xl border p-4',
+      pendientes.length > 0
+        ? 'border-orange-500/30 bg-orange-500/[0.04]'
+        : 'border-emerald-500/30 bg-emerald-500/[0.04]'
+    )}>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          {pendientes.length > 0
+            ? <TrendingDown className="h-4 w-4 text-orange-400" />
+            : <TrendingDown className="h-4 w-4 text-emerald-400" />
+          }
+          <h3 className="text-sm font-semibold text-zinc-100">Gastos fijos del mes</h3>
+          <span className="text-[10px] text-zinc-500">
+            {registrados.length} de {gastosFijos.length} registrados
+          </span>
+        </div>
+        {pendientes.length > 0 && (
+          <span className="text-[11px] font-medium text-orange-300">
+            {pendientes.length} pendiente{pendientes.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {gastosFijos.map((g) => (
+          <GastoFijoPendienteRow key={g.gasto_fijo_id} gasto={g} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function GastoFijoPendienteRow({ gasto }: { gasto: GastoFijoPendiente }) {
+  const { user } = useAuth()
+  const createGasto = useCreateGasto()
+
+  const handleRegistrar = async () => {
+    if (!user?.id) return
+    try {
+      await createGasto.mutateAsync({
+        fecha: new Date().toISOString().slice(0, 10),
+        monto: gasto.monto,
+        moneda: gasto.moneda,
+        categoria: gasto.categoria,
+        expediente_id: null,
+        gasto_fijo_id: gasto.gasto_fijo_id,
+        descripcion: gasto.descripcion,
+        comprobante_path: null,
+        recuperable: false,
+        cargado_por: user.id,
+      })
+      toast.success(`Registrado: ${gasto.descripcion}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo registrar')
+    }
+  }
+
+  return (
+    <div className={cn(
+      'flex items-center gap-3 rounded-md border border-white/5 px-3 py-2',
+      gasto.estado === 'registrado' ? 'opacity-60' : 'bg-white/[0.02]'
+    )}>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-zinc-100 truncate">{gasto.descripcion}</p>
+        <p className="text-[11px] text-zinc-500">{CATEGORIA_GASTO_LABEL[gasto.categoria] ?? gasto.categoria}</p>
+      </div>
+      <span className="text-sm font-semibold text-zinc-100 tabular-nums shrink-0">
+        {fmt(Number(gasto.monto), gasto.moneda)}
+      </span>
+      {gasto.estado === 'registrado' ? (
+        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300 shrink-0">
+          ✓ Registrado
+        </span>
+      ) : (
+        <button
+          onClick={handleRegistrar}
+          disabled={createGasto.isPending}
+          className="inline-flex items-center gap-1 rounded-md bg-orange-500/15 px-2 py-1 text-[11px] font-medium text-orange-300 hover:bg-orange-500/25 transition-colors disabled:opacity-50 shrink-0"
+        >
+          {createGasto.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+          Registrar
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Tab gastos fijos ────────────────────────────────────────────────────────
+
+function TabGastosFijos({ onEdit }: { onEdit: (gf: GastoFijo) => void }) {
+  const { data: gastosFijos = [], isLoading } = useGastosFijos()
+  const toggle = useToggleGastoFijo()
+  const deleteGastoFijo = useDeleteGastoFijo()
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  if (isLoading) return <Loader />
+
+  if (gastosFijos.length === 0) {
+    return (
+      <EmptyState
+        icon={TrendingDown}
+        title="Sin gastos fijos"
+        description="Cargá los gastos recurrentes del estudio (alquiler, sueldos, servicios) y el sistema te va a recordar registrarlos cada mes."
+      />
+    )
+  }
+
+  return (
+    <>
+      {/* Mobile: cards */}
+      <div className="md:hidden space-y-2">
+        {gastosFijos.map((gf) => (
+          <div key={gf.id} className={cn('rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5', !gf.activo && 'opacity-50')}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-zinc-100 truncate">{gf.descripcion}</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500">
+                  {CATEGORIA_GASTO_LABEL[gf.categoria] ?? gf.categoria}
+                  {' · '}desde {formatDate(gf.fecha_inicio)}
+                  {gf.fecha_fin && <> · hasta {formatDate(gf.fecha_fin)}</>}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(gf.monto), gf.moneda)}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggle.mutate({ id: gf.id, activo: !gf.activo })}
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      gf.activo ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'
+                    )}
+                  >
+                    {gf.activo ? 'Activo' : 'Inactivo'}
+                  </button>
+                  <button onClick={() => onEdit(gf)} className="rounded p-1 text-zinc-500 hover:text-cyan-400">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => setConfirmDelete(gf.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+            <tr>
+              <th className="text-left px-3 py-2">Descripción</th>
+              <th className="text-left px-3 py-2">Categoría</th>
+              <th className="text-right px-3 py-2">Monto</th>
+              <th className="text-left px-3 py-2">Vigencia</th>
+              <th className="text-center px-3 py-2">Estado</th>
+              <th className="w-20"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {gastosFijos.map((gf) => (
+              <tr key={gf.id} className={cn('hover:bg-white/[0.02]', !gf.activo && 'opacity-50')}>
+                <td className="px-3 py-2 font-medium text-zinc-100">{gf.descripcion}</td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                    {CATEGORIA_GASTO_LABEL[gf.categoria] ?? gf.categoria}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(gf.monto), gf.moneda)}</td>
+                <td className="px-3 py-2 text-zinc-400 text-[11px]">
+                  Desde {formatDate(gf.fecha_inicio)}
+                  {gf.fecha_fin && <> · hasta {formatDate(gf.fecha_fin)}</>}
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <button
+                    onClick={() => toggle.mutate({ id: gf.id, activo: !gf.activo })}
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      gf.activo ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'
+                    )}
+                  >
+                    {gf.activo ? 'Activo' : 'Inactivo'}
+                  </button>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => onEdit(gf)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setConfirmDelete(gf.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={async () => {
+          if (!confirmDelete) return
+          try { await deleteGastoFijo.mutateAsync(confirmDelete); toast.success('Gasto fijo eliminado') }
+          catch (e) { toast.error(e instanceof Error ? e.message : 'Error al eliminar') }
+          setConfirmDelete(null)
+        }}
+        title="Eliminar gasto fijo"
+        description="¿Seguro que querés eliminar este gasto fijo? Los gastos ya registrados no se modifican."
+        confirmLabel="Eliminar"
+        variant="danger"
+      />
+    </>
+  )
+}
+
+// ─── Dialog gasto fijo ───────────────────────────────────────────────────────
+
+function DialogGastoFijo({ onClose, initial }: { onClose: () => void; initial?: GastoFijo }) {
+  const { user } = useAuth()
+  const createGastoFijo = useCreateGastoFijo()
+  const updateGastoFijo = useUpdateGastoFijo()
+  const isEditing = Boolean(initial)
+
+  const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
+  const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
+  const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
+  const [categoria, setCategoria] = useState(initial?.categoria ?? 'otro')
+  const [fechaInicio, setFechaInicio] = useState(initial?.fecha_inicio ?? new Date().toISOString().slice(0, 10))
+  const [fechaFin, setFechaFin] = useState(initial?.fecha_fin ?? '')
+  const [notas, setNotas] = useState(initial?.notas ?? '')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = parseFloat(monto)
+    if (!isFinite(n) || n <= 0) return toast.error('Monto inválido')
+    if (!descripcion.trim()) return toast.error('Ingresá una descripción')
+    try {
+      if (isEditing && initial) {
+        await updateGastoFijo.mutateAsync({
+          id: initial.id,
+          descripcion: descripcion.trim(),
+          monto: n, moneda, categoria,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin || null,
+          notas: notas || null,
+        })
+        toast.success('Gasto fijo actualizado')
+      } else {
+        if (!user?.id) return
+        await createGastoFijo.mutateAsync({
+          descripcion: descripcion.trim(),
+          monto: n, moneda, categoria,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin || null,
+          activo: true,
+          notas: notas || null,
+          created_by: user.id,
+        })
+        toast.success('Gasto fijo creado')
+      }
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo guardar')
+    }
+  }
+
+  const isPending = createGastoFijo.isPending || updateGastoFijo.isPending
+
+  return (
+    <DialogShell title={isEditing ? 'Editar gasto fijo' : 'Nuevo gasto fijo'} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <FormRow label="Descripción">
+          <input
+            type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)}
+            className={inputCls} placeholder="Ej: Alquiler + expensas" required autoFocus
+          />
+        </FormRow>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2">
+            <FormRow label="Monto">
+              <input
+                type="number" step="0.01" min="0" value={monto}
+                onChange={e => setMonto(e.target.value)} className={inputCls} placeholder="0" required
+              />
+            </FormRow>
+          </div>
+          <FormRow label="Moneda">
+            <select value={moneda} onChange={e => setMoneda(e.target.value as MonedaCaja)} className={inputCls}>
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+            </select>
+          </FormRow>
+        </div>
+        <FormRow label="Categoría">
+          <select value={categoria} onChange={e => setCategoria(e.target.value)} className={inputCls}>
+            {GASTO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </FormRow>
+        <div className="grid grid-cols-2 gap-2">
+          <FormRow label="Vigente desde">
+            <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className={inputCls} required />
+          </FormRow>
+          <FormRow label="Hasta (opcional)">
+            <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className={inputCls} />
+          </FormRow>
+        </div>
+        <FormRow label="Notas (opcional)">
+          <input type="text" value={notas} onChange={e => setNotas(e.target.value)} className={inputCls} placeholder="Ej: incluye expensas" />
+        </FormRow>
+        <button
+          type="submit" disabled={isPending}
+          className="w-full rounded-md bg-orange-500/15 px-3 py-2 text-sm font-medium text-orange-300 hover:bg-orange-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {isEditing ? 'Guardar cambios' : 'Crear gasto fijo'}
         </button>
       </form>
     </DialogShell>

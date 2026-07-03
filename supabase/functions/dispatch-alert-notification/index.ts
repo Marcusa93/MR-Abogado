@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
     } else {
       const urlAbs = url ? (url.startsWith('http') ? url : `https://app.marcorossi.com.ar${url}`) : null
       const r = await sendEmail({
-        to: profile.email,
+        to: profile.email!,
         subject: titulo,
         html: renderEmailHtml(titulo, mensaje, urlAbs),
         tags: [{ name: 'tipo', value: tipo }],

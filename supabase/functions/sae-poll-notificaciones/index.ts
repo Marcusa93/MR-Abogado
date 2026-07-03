@@ -810,12 +810,11 @@ Deno.serve(async (req) => {
         stats.push_diferidos++
       }
 
-      // Email — soporta múltiples destinatarios. Si la lista está vacía, fallback al email del perfil.
+      // Email — a las casillas configuradas en el perfil, con fallback al email del usuario.
       if (p.sae_notif_email) {
-        const recipients = (p.sae_notif_email_addresses?.length
+        const recipients = p.sae_notif_email_addresses?.length > 0
           ? p.sae_notif_email_addresses
-          : [p.email].filter((x): x is string => Boolean(x))
-        ).map(s => s.trim()).filter(Boolean)
+          : p.email ? [p.email] : []
         if (recipients.length > 0) {
           const html = renderEmailHtml(p, n, expedienteUrl)
           const subject = `📬 ${n.tipo ?? 'Notificación SAE'}${n.numero_expediente ? ` · Exp. ${n.numero_expediente}` : ''}`

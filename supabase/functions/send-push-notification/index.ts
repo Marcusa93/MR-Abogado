@@ -151,6 +151,6 @@ Deno.serve(async (req) => {
 function json(data: unknown, status: number) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(), 'Content-Type': 'application/json' },
   })
 }

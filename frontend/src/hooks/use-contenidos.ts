@@ -34,6 +34,7 @@ export interface Contenido {
   notas_internas: string | null
   hashtags: string | null
   enlace_referencia: string | null
+  imagen_url: string | null
   publicar_el: string | null
   publicado_at: string | null
   publicado_url: string | null
@@ -74,6 +75,7 @@ export function useCreateContenido() {
       categoria: CategoriaContenido
       cuerpo?: string | null
       hashtags?: string | null
+      imagen_url?: string | null
       publicar_el?: string | null
       created_by: string
     }) => {
@@ -178,6 +180,22 @@ export function useDeleteContenido() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contenidos'] })
       qc.invalidateQueries({ queryKey: ['hoy-en-el-estudio'] })
+    },
+  })
+}
+
+export function useUploadContenidoImagen() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (file: File): Promise<string> => {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const path = `images/${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage
+        .from('contenidos-media')
+        .upload(path, file, { contentType: file.type, upsert: false })
+      if (error) throw new Error(`No se pudo subir la imagen: ${error.message}`)
+      const { data } = supabase.storage.from('contenidos-media').getPublicUrl(path)
+      return data.publicUrl
     },
   })
 }

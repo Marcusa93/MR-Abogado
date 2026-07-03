@@ -41,12 +41,37 @@ export interface Gasto {
   moneda: MonedaCaja
   categoria: string
   expediente_id: string | null
+  gasto_fijo_id: string | null
   descripcion: string | null
   comprobante_path: string | null
   recuperable: boolean
   recuperado_at: string | null
   cargado_por: string
   created_at: string
+}
+
+export interface GastoFijo {
+  id: string
+  descripcion: string
+  monto: number
+  moneda: MonedaCaja
+  categoria: string
+  fecha_inicio: string
+  fecha_fin: string | null
+  activo: boolean
+  notas: string | null
+  created_by: string
+  created_at: string
+}
+
+export interface GastoFijoPendiente {
+  gasto_fijo_id: string
+  descripcion: string
+  monto: number
+  moneda: MonedaCaja
+  categoria: string
+  notas: string | null
+  estado: 'registrado' | 'pendiente'
 }
 
 export interface Ingreso {
@@ -364,6 +389,118 @@ export function useDeleteIngreso() {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Gastos fijos
+// ---------------------------------------------------------------------------
+
+export function useGastosFijos() {
+  const supabase = createClient()
+  return useQuery<GastoFijo[]>({
+    queryKey: ['gastos-fijos'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from as any)('gastos_fijos')
+        .select('*')
+        .order('activo', { ascending: false })
+        .order('descripcion', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as GastoFijo[]
+    },
+  })
+}
+
+export function useGastosFijosPendientes(year?: number, month?: number) {
+  const supabase = createClient()
+  return useQuery<GastoFijoPendiente[]>({
+    queryKey: ['gastos-fijos-pendientes', year ?? 'now', month ?? 'now'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.rpc as any)('gastos_fijos_pendientes_mes', {
+        p_year: year ?? null, p_month: month ?? null,
+      })
+      if (error) throw error
+      return (data ?? []) as GastoFijoPendiente[]
+    },
+  })
+}
+
+export function useCreateGastoFijo() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: Omit<GastoFijo, 'id' | 'created_at' | 'created_by'> & { created_by: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from as any)('gastos_fijos').insert(input).select().single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos-fijos'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
+    },
+  })
+}
+
+export function useUpdateGastoFijo() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: {
+      id: string
+      descripcion?: string
+      monto?: number
+      moneda?: MonedaCaja
+      categoria?: string
+      fecha_inicio?: string
+      fecha_fin?: string | null
+      notas?: string | null
+      activo?: boolean
+    }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('gastos_fijos').update(patch).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos-fijos'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
+    },
+  })
+}
+
+export function useToggleGastoFijo() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, activo }: { id: string; activo: boolean }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('gastos_fijos').update({ activo }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos-fijos'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
+    },
+  })
+}
+
+export function useDeleteGastoFijo() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('gastos_fijos').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos-fijos'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
     },
   })
 }
