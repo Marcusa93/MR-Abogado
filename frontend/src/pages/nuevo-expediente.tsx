@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useCreateExpediente } from '@/hooks/use-expedientes'
@@ -42,6 +42,7 @@ export default function NuevoExpedientePage() {
 
   // Block in-app navigation when form has data
   const blocker = useBlocker(isDirty)
+  const proceedingRef = useRef(false)
 
   // Block browser-level navigation (refresh, close, external links)
   useEffect(() => {
@@ -195,8 +196,8 @@ export default function NuevoExpedientePage() {
       {/* Unsaved changes warning */}
       <ConfirmDialog
         open={blocker.state === 'blocked'}
-        onClose={() => blocker.reset?.()}
-        onConfirm={() => blocker.proceed?.()}
+        onClose={() => { if (!proceedingRef.current) blocker.reset?.() }}
+        onConfirm={() => { proceedingRef.current = true; blocker.proceed?.() }}
         title="¿Descartar cambios?"
         description="Tenés cambios sin guardar en este formulario. Si salís ahora, se perderán."
         confirmLabel="Salir sin guardar"

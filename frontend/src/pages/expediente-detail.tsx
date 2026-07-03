@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { PrioridadBadge } from '@/components/shared/prioridad-badge'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -94,7 +95,7 @@ export default function ExpedienteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const isAdmin = profile?.rol === 'ADMIN'
+  const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const visibleTabs = TABS.filter((t) => t.id !== 'caja' || tieneAccesoCaja)
 
@@ -103,6 +104,17 @@ export default function ExpedienteDetailPage() {
   const deleteExpediente = useDeleteExpediente()
 
   const [activeTab, setActiveTab] = useState<TabId>('datos')
+
+  // Salto entre tabs pedido por "Redactar respuesta" (desde una actuación).
+  const pendingTab = useEscritoIntent((s) => s.pendingTab)
+  const clearPendingTab = useEscritoIntent((s) => s.clearPendingTab)
+  useEffect(() => {
+    if (pendingTab) {
+      setActiveTab(pendingTab as TabId)
+      clearPendingTab()
+    }
+  }, [pendingTab, clearPendingTab])
+
   const [estadoDialogOpen, setEstadoDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)

@@ -5,7 +5,11 @@ import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements
 import { ModalNuevaActuacion } from './modal-nueva-actuacion'
 import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
+import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import type { Tables } from '@/types/database.types'
+
+// Tipos de providencia a los que típicamente se contesta / da cumplimiento.
+const RESPONDIBLE_MOV = new Set(['decreto', 'traslado', 'intimacion', 'cedula', 'sentencia', 'providencia', 'resolucion', 'auto'])
 import {
   RefreshCw,
   Database,
@@ -25,6 +29,8 @@ import {
   BookOpen,
   Clock,
   Plus,
+  PenLine,
+  Check,
   Users,
   Star,
   Video,
@@ -201,6 +207,8 @@ function ActuacionRow({
   const aiSummary = movement.ai_summary?.trim() || null
   const aiExtracted = movement.ai_extracted ?? null
   const aiAction = movement.ai_suggested_action ?? null
+  const redactarRespuesta = useEscritoIntent((s) => s.redactarRespuesta)
+  const puedeResponder = Boolean(aiAction) || RESPONDIBLE_MOV.has(movement.tipo_movimiento ?? '')
   const aiError = movement.ai_error?.trim() || null
   const wasAnalyzed = Boolean(movement.ai_analyzed_at)
   const hasAi = Boolean(aiSummary || aiExtracted || aiAction)
@@ -304,6 +312,11 @@ function ActuacionRow({
               Manual
             </span>
           )}
+          {(movement as { respondida_at?: string | null }).respondida_at && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-teal-500/10 px-2 py-0.5 text-[9px] font-medium text-teal-300 uppercase tracking-wide" title="Ya se generó un escrito que responde a esta providencia">
+              <Check className="h-2.5 w-2.5" /> Respondida
+            </span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -362,20 +375,32 @@ function ActuacionRow({
                 </div>
               ) : null}
 
-              {aiAction && (
-                <div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onCreateFromSuggestion(aiAction) }}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-125',
-                      PRIORIDAD_COLORS[aiAction.prioridad],
-                    )}
-                    title={aiAction.descripcion}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Crear {aiAction.tipo}: {aiAction.titulo}
-                    <span className="ml-1 opacity-70">· {aiAction.prioridad.toLowerCase()}</span>
-                  </button>
+              {(aiAction || puedeResponder) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {aiAction && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onCreateFromSuggestion(aiAction) }}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-125',
+                        PRIORIDAD_COLORS[aiAction.prioridad],
+                      )}
+                      title={aiAction.descripcion}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Crear {aiAction.tipo}: {aiAction.titulo}
+                      <span className="ml-1 opacity-70">· {aiAction.prioridad.toLowerCase()}</span>
+                    </button>
+                  )}
+                  {puedeResponder && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); redactarRespuesta(movement.id) }}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] font-medium text-rose-300 transition-colors hover:brightness-125"
+                      title="Abrir el generador de escritos apuntado a esta providencia"
+                    >
+                      <PenLine className="h-3 w-3" />
+                      Redactar respuesta
+                    </button>
+                  )}
                 </div>
               )}
             </div>

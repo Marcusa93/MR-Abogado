@@ -519,6 +519,15 @@ Estos son patrones que el sistema aprendió de tu práctica anterior (correccion
 ${entries}`
 }
 
+function decodeJwtRole(token: string): string | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.role === 'string' ? payload.role : null
+  } catch { return null }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
@@ -526,13 +535,12 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
+    const authHeader = req.headers.get('Authorization') ?? ''
     const anonClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
-    const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as {
       expediente_id?: string
@@ -544,10 +552,35 @@ Deno.serve(async (req) => {
       estilo_texto?: string | null
       /** Si viene, se guarda estilo_texto como template reutilizable con este nombre. */
       guardar_como?: string | null
+      /** Modo idea libre: el abogado describe en sus palabras qué presentar; la IA infiere el tipo. */
+      idea_libre?: string | null
+      /** Providencia (movimiento SAE) a la que este escrito responde/da cumplimiento. */
+      responde_a_movimiento_id?: string | null
+      /** Cuando lo llama service-role (ej. bot de Telegram): perfil firmante. */
+      on_behalf_of_user_id?: string | null
     } | null
 
+    // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
+    const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const isServiceRole = rawToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || decodeJwtRole(rawToken) === 'service_role'
+    let userId: string
+    if (isServiceRole) {
+      if (!body?.on_behalf_of_user_id) return json(req, { error: 'service_role requiere on_behalf_of_user_id' }, 400)
+      userId = body.on_behalf_of_user_id
+    } else {
+      const { data: { user }, error: authError } = await anonClient.auth.getUser()
+      if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
+      userId = userId
+    }
+
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
-    if (!body?.tipo?.trim()) return json(req, { error: 'tipo de escrito requerido' }, 400)
+    const ideaLibre = body?.idea_libre?.trim() ?? ''
+    const tipoInput = body?.tipo?.trim() ?? ''
+    if (!tipoInput && !ideaLibre) {
+      return json(req, { error: 'Indicá el tipo de escrito, o describí la idea a redactar' }, 400)
+    }
+    // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo infiere.
+    const tipoEfectivo = tipoInput || 'Escrito de trámite (inferí el tipo exacto de la indicación del abogado)'
 
     // LLM guard: tamaño de input + rate limit por usuario.
     // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que
@@ -557,16 +590,20 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
-    const guard = await checkLlmGuard(guardClient, user.id, FUNCTION_NAME, inputBytes)
+    const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
     if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
-    // 1) Verificar acceso al expediente (RLS-respecting client)
-    const { data: expAuth, error: authExpError } = await anonClient
-      .from('expedientes')
-      .select('id')
-      .eq('id', body.expediente_id)
-      .maybeSingle()
-    if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    // 1) Verificar acceso al expediente (RLS-respecting client).
+    // En service-role (bot) se saltea: el firmante es el director y el expediente
+    // ya fue resuelto por el webhook; su existencia se valida al cargarlo abajo.
+    if (!isServiceRole) {
+      const { data: expAuth, error: authExpError } = await anonClient
+        .from('expedientes')
+        .select('id')
+        .eq('id', body.expediente_id)
+        .maybeSingle()
+      if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -577,7 +614,7 @@ Deno.serve(async (req) => {
     const { data: profileRaw, error: profileError } = await serviceClient
       .from('profiles')
       .select('nombre, apellido, matricula, matricula_libro, matricula_folio, domicilio_legal, telefono, email, casillero_notif, cuit')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
     if (profileError || !profileRaw) return json(req, { error: 'Perfil del abogado no encontrado' }, 404)
 
@@ -608,8 +645,26 @@ Deno.serve(async (req) => {
 
     const claves = filterClaves((movsRaw ?? []) as MovementRow[])
 
-    // 5) Determinar registro tonal según tipo
-    const registro = isTipoRetorico(body.tipo) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
+    // 4.5) Providencia a la que se responde (foco principal, si se eligió una)
+    let providenciaCtx = ''
+    if (body.responde_a_movimiento_id) {
+      const prov = ((movsRaw ?? []) as MovementRow[]).find(m => m.id === body.responde_a_movimiento_id)
+      if (prov) {
+        const plazos = prov.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
+        const acc = prov.ai_suggested_action
+          ? `\n- Acción sugerida por el análisis: ${prov.ai_suggested_action.titulo}${prov.ai_suggested_action.descripcion ? ` — ${prov.ai_suggested_action.descripcion}` : ''}`
+          : ''
+        providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
+El abogado indica que este escrito CONTESTA o DA CUMPLIMIENTO a esta providencia. El escrito debe responder o cumplir con lo que ella ordena, con coherencia procesal y lógica jurídica.
+- Fecha: ${prov.fecha}
+- Tipo: ${prov.tipo_movimiento}
+- Título: ${prov.titulo}
+- Resumen: ${prov.ai_summary ?? '(sin resumen IA)'}${plazos ? `\n- Plazos: ${plazos}` : ''}${acc}`
+      }
+    }
+
+    // 5) Determinar registro tonal según tipo (o la idea libre)
+    const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
 
     // 6) Armar contexto del expediente
     const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
@@ -649,7 +704,8 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
     // 6.5) Retrieval de normativa: fijadas al expediente + top-k por similarity
     const ragQuery = [
-      body.tipo,
+      tipoEfectivo,
+      ideaLibre,
       exp.caratula ?? '',
       exp.fuero ?? '',
       body.instrucciones ?? '',
@@ -658,9 +714,9 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
     // En paralelo: normativa + jurisprudencia + aprendizajes
     const [rag, jurisRag, aprendizajes] = await Promise.all([
-      getRelevantNormativa(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
-      getRelevantJurisprudencia(serviceClient, body.expediente_id, user.id, ragQuery, apiKey),
-      getAprendizajesAplicables(serviceClient, user.id, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
+      getRelevantNormativa(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
+      getRelevantJurisprudencia(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
+      getAprendizajesAplicables(serviceClient, userId, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
     ])
     const validChunkIds = new Set<number>([
       ...rag.pinned, ...rag.retrieved,
@@ -680,7 +736,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
         .from('escrito_templates')
         .select('nombre, source_text, analysis')
         .eq('id', body.template_id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle()
       if (tpl?.source_text) {
         estiloModelo = String(tpl.source_text).slice(0, MAX_ESTILO_CHARS)
@@ -692,9 +748,9 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       if (body.guardar_como?.trim()) {
         estiloNombre = body.guardar_como.trim().slice(0, 120)
         await serviceClient.from('escrito_templates').insert({
-          user_id: user.id,
+          user_id: userId,
           nombre: estiloNombre,
-          tipo: body.tipo.trim(),
+          tipo: tipoInput || 'idea libre',
           descripcion: 'Modelo cargado desde el generador de escritos.',
           source_text: estiloModelo,
           is_active: true,
@@ -728,8 +784,13 @@ ${estiloModelo}
       OUTPUT_SCHEMA,
     ].join('\n')
 
-    const userMessage = `Tipo de escrito a redactar: **${body.tipo}**
+    const userMessage = `${ideaLibre ? `El abogado te da la indicación EN SUS PALABRAS de qué hay que presentar (puede venir informal, tipo mensaje de WhatsApp). Inferí el tipo de escrito correcto y redactalo formal, bien escrito y con hilo lógico-jurídico coherente, usando el contexto del expediente. Aunque sea un escrito de mero trámite, cuidá la conexión jurídica:
+
+"${ideaLibre}"
+
+` : ''}Tipo de escrito a redactar: **${tipoEfectivo}**
 ${body.titulo ? `Título sugerido por el abogado: "${body.titulo}"` : 'Decidí vos el título según el tipo.'}
+${providenciaCtx}
 
 ${expedienteCtx}
 
@@ -796,10 +857,10 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       .from('escritos')
       .insert({
         expediente_id: body.expediente_id,
-        user_id: user.id,
+        user_id: userId,
         template_id: body.template_id ?? null,
         titulo: String(tituloFinal),
-        tipo: body.tipo,
+        tipo: tipoEfectivo,
         contenido,
         // Snapshot inmutable de lo que generó la IA. Sirve para diffear
         // contra la versión final con correcciones del abogado y extraer
@@ -819,6 +880,15 @@ Redactá el escrito siguiendo el formato JSON indicado.`
     }
 
     const escritoId = (escrito as { id: string }).id
+
+    // 9.5) Marcar la providencia como respondida (si el escrito responde a una)
+    if (body.responde_a_movimiento_id) {
+      await serviceClient
+        .from('sae_movements')
+        .update({ respondida_at: new Date().toISOString() })
+        .eq('id', body.responde_a_movimiento_id)
+        .then(({ error }) => { if (error) console.warn('[escritos-generate] no se pudo marcar respondida', error.message) })
+    }
 
     // 10) Validar y persistir citas (descarta chunk_ids inventados)
     const rawCitas = (contenido as { citas?: unknown }).citas
@@ -858,7 +928,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
     }
 
-    logLlmCall(guardClient, user.id, FUNCTION_NAME, inputBytes)
+    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
     return json(req, {
       escrito_id: escritoId,
       contenido,

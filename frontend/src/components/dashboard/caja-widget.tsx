@@ -3,7 +3,9 @@ import { Wallet, AlertTriangle, Calendar, ChevronRight, TrendingUp } from 'lucid
 import { useTieneAccesoCaja, useCajaResumen, usePagosPendientes } from '@/hooks/use-caja'
 import { cn } from '@/lib/utils'
 
-const fmt = (n: number) => `$ ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)}`
+const nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
+const fmt = (n: number) => `$ ${nf.format(n)}`
+const fmtUsd = (n: number) => `US$ ${nf.format(n)}`
 
 export function CajaWidget() {
   const { data: tieneAcceso } = useTieneAccesoCaja()
@@ -15,7 +17,10 @@ export function CajaWidget() {
   const noPagados = pendientes.filter(p => p.estado !== 'pagado')
   const atrasados = noPagados.filter(p => p.estado === 'atrasado')
 
-  const balance = resumen ? resumen.mes_actual.ingresos_ars - resumen.mes_actual.gastos_ars : 0
+  const mes = resumen?.mes_actual
+  const balance = mes ? mes.ingresos_ars - mes.gastos_ars : 0
+  const balanceUsd = mes ? mes.ingresos_usd - mes.gastos_usd : 0
+  const hayUsd = !!mes && (mes.ingresos_usd > 0 || mes.gastos_usd > 0)
 
   return (
     <Link
@@ -35,23 +40,31 @@ export function CajaWidget() {
         <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
       </div>
 
-      {resumen && (
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Ingresos mes</p>
-            <p className="text-lg font-semibold text-emerald-300 tabular-nums">{fmt(resumen.mes_actual.ingresos_ars)}</p>
+      {mes && (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Ingresos mes</p>
+              <p className="text-lg font-semibold text-emerald-300 tabular-nums">{fmt(mes.ingresos_ars)}</p>
+              {mes.ingresos_usd > 0 && <p className="text-[11px] font-medium text-emerald-400/80 tabular-nums">{fmtUsd(mes.ingresos_usd)}</p>}
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Gastos mes</p>
+              <p className="text-lg font-semibold text-rose-300 tabular-nums">{fmt(mes.gastos_ars)}</p>
+              {mes.gastos_usd > 0 && <p className="text-[11px] font-medium text-rose-400/80 tabular-nums">{fmtUsd(mes.gastos_usd)}</p>}
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Balance</p>
+              <p className={cn('text-lg font-semibold tabular-nums', balance >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+                {fmt(balance)}
+              </p>
+              {hayUsd && <p className={cn('text-[11px] font-medium tabular-nums', balanceUsd >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80')}>{fmtUsd(balanceUsd)}</p>}
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Gastos mes</p>
-            <p className="text-lg font-semibold text-rose-300 tabular-nums">{fmt(resumen.mes_actual.gastos_ars)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Balance</p>
-            <p className={cn('text-lg font-semibold tabular-nums', balance >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
-              {fmt(balance)}
-            </p>
-          </div>
-        </div>
+          {hayUsd && (
+            <p className="mt-2 text-[10px] text-zinc-500">Montos en dólares se muestran aparte — no se convierten a pesos.</p>
+          )}
+        </>
       )}
 
       {noPagados.length > 0 && (

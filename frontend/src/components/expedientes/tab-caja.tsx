@@ -1,9 +1,13 @@
 import { useState } from 'react'
-import { Wallet, Plus, Loader2, TrendingUp, TrendingDown, Lock, Coins } from 'lucide-react'
+import { Wallet, Plus, Loader2, TrendingUp, TrendingDown, Lock, Coins, Pencil, Trash2 } from 'lucide-react'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useCajaPorExpediente } from '@/hooks/use-caja-expediente'
-import { useTieneAccesoCaja, useCreateGasto, useCreateIngreso, GASTO_CATEGORIAS, INGRESO_TIPOS, type MonedaCaja } from '@/hooks/use-caja'
+import { useCajaPorExpediente, type CajaPorExpedienteGasto, type CajaPorExpedienteIngreso } from '@/hooks/use-caja-expediente'
+import {
+  useTieneAccesoCaja, useCreateGasto, useCreateIngreso,
+  useUpdateGasto, useUpdateIngreso, useDeleteGasto, useDeleteIngreso,
+  GASTO_CATEGORIAS, INGRESO_TIPOS, type MonedaCaja,
+} from '@/hooks/use-caja'
 import { useAuth } from '@/hooks/use-auth'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/stores/toast-store'
@@ -147,19 +151,32 @@ function ListaIngresos({ items }: { items: import('@/hooks/use-caja-expediente')
         <p className="text-[11px] text-zinc-500 py-2 text-center">Sin ingresos cargados a este expediente.</p>
       ) : (
         <div className="space-y-1">
-          {items.map((i) => (
-            <div key={i.id} className="flex items-center gap-2 text-xs">
-              <span className="text-zinc-500 tabular-nums w-16">{formatDate(i.fecha)}</span>
-              <span className="rounded-full bg-emerald-500/10 px-1.5 py-0 text-[10px] text-emerald-300 shrink-0">
-                {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
-              </span>
-              <span className="text-zinc-400 line-clamp-1 flex-1">{i.descripcion || '—'}</span>
-              <span className="font-medium text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</span>
-            </div>
-          ))}
+          {items.map((i) => <FilaIngreso key={i.id} i={i} />)}
         </div>
       )}
     </div>
+  )
+}
+
+function FilaIngreso({ i }: { i: CajaPorExpedienteIngreso }) {
+  const [editing, setEditing] = useState(false)
+  const del = useDeleteIngreso()
+  return (
+    <>
+      <div className="flex items-center gap-2 text-xs group">
+        <span className="text-zinc-500 tabular-nums w-16">{formatDate(i.fecha)}</span>
+        <span className="rounded-full bg-emerald-500/10 px-1.5 py-0 text-[10px] text-emerald-300 shrink-0">
+          {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
+        </span>
+        <span className="text-zinc-400 line-clamp-1 flex-1">{i.descripcion || '—'}</span>
+        <span className="font-medium text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</span>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button onClick={() => setEditing(true)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar"><Pencil className="h-3 w-3" /></button>
+          <button onClick={() => { if (confirm('¿Borrar este ingreso?')) del.mutate(i.id) }} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Borrar"><Trash2 className="h-3 w-3" /></button>
+        </div>
+      </div>
+      {editing && <EditarIngresoDialog i={i} onClose={() => setEditing(false)} />}
+    </>
   )
 }
 
@@ -174,27 +191,40 @@ function ListaGastos({ items }: { items: import('@/hooks/use-caja-expediente').C
         <p className="text-[11px] text-zinc-500 py-2 text-center">Sin gastos cargados a este expediente.</p>
       ) : (
         <div className="space-y-1">
-          {items.map((g) => (
-            <div key={g.id} className="flex items-center gap-2 text-xs">
-              <span className="text-zinc-500 tabular-nums w-16">{formatDate(g.fecha)}</span>
-              <span className="rounded-full bg-rose-500/10 px-1.5 py-0 text-[10px] text-rose-300 shrink-0">
-                {CATEGORIA_LABEL[g.categoria] ?? g.categoria}
-              </span>
-              {g.recuperable && (
-                <span className={cn(
-                  'rounded-full px-1.5 py-0 text-[10px] shrink-0',
-                  g.recuperado_at ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
-                )}>
-                  {g.recuperado_at ? 'cobrado' : 'recup.'}
-                </span>
-              )}
-              <span className="text-zinc-400 line-clamp-1 flex-1">{g.descripcion || '—'}</span>
-              <span className="font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</span>
-            </div>
-          ))}
+          {items.map((g) => <FilaGasto key={g.id} g={g} />)}
         </div>
       )}
     </div>
+  )
+}
+
+function FilaGasto({ g }: { g: CajaPorExpedienteGasto }) {
+  const [editing, setEditing] = useState(false)
+  const del = useDeleteGasto()
+  return (
+    <>
+      <div className="flex items-center gap-2 text-xs group">
+        <span className="text-zinc-500 tabular-nums w-16">{formatDate(g.fecha)}</span>
+        <span className="rounded-full bg-rose-500/10 px-1.5 py-0 text-[10px] text-rose-300 shrink-0">
+          {CATEGORIA_LABEL[g.categoria] ?? g.categoria}
+        </span>
+        {g.recuperable && (
+          <span className={cn(
+            'rounded-full px-1.5 py-0 text-[10px] shrink-0',
+            g.recuperado_at ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
+          )}>
+            {g.recuperado_at ? 'cobrado' : 'recup.'}
+          </span>
+        )}
+        <span className="text-zinc-400 line-clamp-1 flex-1">{g.descripcion || '—'}</span>
+        <span className="font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</span>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button onClick={() => setEditing(true)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar"><Pencil className="h-3 w-3" /></button>
+          <button onClick={() => { if (confirm('¿Borrar este gasto?')) del.mutate(g.id) }} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Borrar"><Trash2 className="h-3 w-3" /></button>
+        </div>
+      </div>
+      {editing && <EditarGastoDialog g={g} onClose={() => setEditing(false)} />}
+    </>
   )
 }
 
@@ -329,6 +359,109 @@ function DialogIngresoExpediente({ expedienteId, onClose }: { expedienteId: stri
         <button type="submit" disabled={createIngreso.isPending} className="w-full rounded-md bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
           {createIngreso.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Cargar ingreso
+        </button>
+      </form>
+    </DialogShell>
+  )
+}
+
+// ─── Diálogos de edición ────────────────────────────────────────────────────
+
+function EditarGastoDialog({ g, onClose }: { g: CajaPorExpedienteGasto; onClose: () => void }) {
+  const update = useUpdateGasto()
+  const [fecha, setFecha] = useState(g.fecha)
+  const [monto, setMonto] = useState(String(g.monto))
+  const [moneda, setMoneda] = useState<MonedaCaja>(g.moneda)
+  const [categoria, setCategoria] = useState(g.categoria)
+  const [descripcion, setDescripcion] = useState(g.descripcion ?? '')
+  const [recuperable, setRecuperable] = useState(g.recuperable)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = parseFloat(monto)
+    if (!isFinite(n) || n <= 0) return toast.error('Monto inválido')
+    try {
+      await update.mutateAsync({ id: g.id, fecha, monto: n, moneda, categoria, descripcion: descripcion || null, recuperable })
+      toast.success('Gasto actualizado')
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo guardar')
+    }
+  }
+
+  return (
+    <DialogShell title="Editar gasto" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} required />
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2">
+            <input type="number" step="0.01" min="0" value={monto} onChange={e => setMonto(e.target.value)} className={inputCls} placeholder="Monto" required autoFocus />
+          </div>
+          <select value={moneda} onChange={e => setMoneda(e.target.value as MonedaCaja)} className={inputCls}>
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <select value={categoria} onChange={e => setCategoria(e.target.value)} className={inputCls}>
+          {GASTO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+        <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Descripción / observación" />
+        <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+          <input type="checkbox" checked={recuperable} onChange={e => setRecuperable(e.target.checked)} className="rounded border-white/10 bg-white/5" />
+          Recuperable del cliente
+        </label>
+        <button type="submit" disabled={update.isPending} className="w-full rounded-md bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
+          {update.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Guardar cambios
+        </button>
+      </form>
+    </DialogShell>
+  )
+}
+
+function EditarIngresoDialog({ i, onClose }: { i: CajaPorExpedienteIngreso; onClose: () => void }) {
+  const update = useUpdateIngreso()
+  const [fecha, setFecha] = useState(i.fecha)
+  const [monto, setMonto] = useState(String(i.monto))
+  const [moneda, setMoneda] = useState<MonedaCaja>(i.moneda)
+  const [tipo, setTipo] = useState(i.tipo)
+  const [descripcion, setDescripcion] = useState(i.descripcion ?? '')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = parseFloat(monto)
+    if (!isFinite(n) || n <= 0) return toast.error('Monto inválido')
+    try {
+      await update.mutateAsync({ id: i.id, fecha, monto: n, moneda, tipo, descripcion: descripcion || null })
+      toast.success('Ingreso actualizado')
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo guardar')
+    }
+  }
+
+  return (
+    <DialogShell title="Editar ingreso" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls} required />
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2">
+            <input type="number" step="0.01" min="0" value={monto} onChange={e => setMonto(e.target.value)} className={inputCls} placeholder="Monto" required autoFocus />
+          </div>
+          <select value={moneda} onChange={e => setMoneda(e.target.value as MonedaCaja)} className={inputCls}>
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <select value={tipo} onChange={e => setTipo(e.target.value)} className={inputCls}>
+          {INGRESO_TIPOS.filter(t => t.value !== 'abono_mensual').map(t => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
+        <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Descripción / observación" />
+        <button type="submit" disabled={update.isPending} className="w-full rounded-md bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
+          {update.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Guardar cambios
         </button>
       </form>
     </DialogShell>

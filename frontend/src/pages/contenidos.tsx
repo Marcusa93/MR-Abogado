@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   DndContext, PointerSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable, type DragEndEvent,
@@ -7,15 +7,18 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
-  CalendarDays, FolderOpen, ImagePlus, Clock,
+  CalendarDays, FolderOpen, Clapperboard, ImagePlus, Clock,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
-  useGenerarContenidoDesdeVideo, useUploadContenidoImagen,
+  useGenerarContenidoDesdeVideo, useUploadContenidoImagen, parseGuionReel, parseIdea,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
+import { GuionReelDialog, GuionReelViewer } from '@/components/contenidos/guion-reel'
+import { IdeasQueue } from '@/components/contenidos/ideas-queue'
 import { useGoogleDriveStatus, startGoogleDriveOAuth } from '@/hooks/use-google-drive'
+import { useLinkedInStatus, connectLinkedIn, useLinkedInPublish } from '@/hooks/use-social'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
@@ -28,6 +31,58 @@ import { cn } from '@/lib/utils'
 const CATEGORIA_LABEL: Record<string, string> = Object.fromEntries(
   CATEGORIAS_CONTENIDO.map(c => [c.value, c.label])
 )
+
+// Plataformas que la IA puede generar desde un video/guion. Los `key` deben
+// coincidir con PLATAFORMAS de la edge function contenido-desde-video.
+const PLATAFORMAS_GENERABLES: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+  { key: 'x', label: 'X / Twitter', icon: Twitter },
+  { key: 'instagram', label: 'Instagram', icon: Instagram },
+  { key: 'facebook', label: 'Facebook', icon: Facebook },
+  { key: 'youtube', label: 'YouTube / TikTok', icon: Video },
+]
+
+// Texto de preview para una tarjeta. Los guiones de Reel guardan JSON en cuerpo,
+// así que mostramos el primer hook o el tema en vez del JSON crudo.
+function previewContenido(c: Contenido): string | null {
+  const g = parseGuionReel(c)
+  if (g) return g.hooks[0] ?? g.tema ?? 'Guion de Reel estructurado'
+  return c.cuerpo ?? null
+}
+
+// ── Identidad visual por plataforma ──────────────────────────────────────────
+type Tema = { border: string; pill: string; bar: string }
+const CATEGORIA_THEME: Record<string, Tema> = {
+  instagram:         { border: 'border-pink-500/30',   pill: 'bg-pink-500/15 text-pink-300',     bar: 'bg-pink-500' },
+  linkedin:          { border: 'border-sky-500/30',    pill: 'bg-sky-500/15 text-sky-300',       bar: 'bg-sky-500' },
+  facebook:          { border: 'border-blue-500/30',   pill: 'bg-blue-500/15 text-blue-300',     bar: 'bg-blue-500' },
+  twitter:           { border: 'border-zinc-400/30',   pill: 'bg-zinc-400/15 text-zinc-200',     bar: 'bg-zinc-400' },
+  video_guion:       { border: 'border-red-500/30',    pill: 'bg-red-500/15 text-red-300',       bar: 'bg-red-500' },
+  newsletter:        { border: 'border-amber-500/30',  pill: 'bg-amber-500/15 text-amber-300',   bar: 'bg-amber-500' },
+  email_cliente:     { border: 'border-teal-500/30',   pill: 'bg-teal-500/15 text-teal-300',     bar: 'bg-teal-500' },
+  whatsapp_difusion: { border: 'border-emerald-500/30',pill: 'bg-emerald-500/15 text-emerald-300',bar: 'bg-emerald-500' },
+  blog:              { border: 'border-violet-500/30', pill: 'bg-violet-500/15 text-violet-300',  bar: 'bg-violet-500' },
+  otro:              { border: 'border-white/10',      pill: 'bg-white/5 text-zinc-300',          bar: 'bg-zinc-500' },
+}
+const GUION_THEME: Tema = { border: 'border-fuchsia-500/40', pill: 'bg-fuchsia-500/15 text-fuchsia-300', bar: 'bg-fuchsia-500' }
+
+function temaDe(c: Contenido): Tema {
+  if (parseGuionReel(c)) return GUION_THEME
+  return CATEGORIA_THEME[c.categoria] ?? CATEGORIA_THEME.otro
+}
+
+// Mini-pipeline: borrador → revisión → aprobado → publicado.
+const ESTADO_STEP: Record<string, number> = { borrador: 1, en_revision: 2, aprobado: 3, publicado: 4, archivado: 0 }
+function EstadoPipeline({ estado, bar }: { estado: EstadoContenido; bar: string }) {
+  const step = ESTADO_STEP[estado] ?? 0
+  return (
+    <div className="flex gap-1" title={ESTADO_LABEL[estado]}>
+      {[1, 2, 3, 4].map((i) => (
+        <span key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? bar : 'bg-white/10')} />
+      ))}
+    </div>
+  )
+}
 
 const ESTADO_LABEL: Record<string, string> = Object.fromEntries(
   ESTADOS_CONTENIDO.map(e => [e.value, e.label])
@@ -92,15 +147,17 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
   const apiKey = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined
   if (!apiKey) return null
 
-  if (!status?.connected) {
+  // Reconectar si no está conectado o si la conexión tiene el scope viejo (drive.file).
+  const needsReconnect = !status?.connected || !status?.scope?.includes('drive.readonly')
+  if (needsReconnect) {
     return (
       <button
         type="button"
         onClick={() => startGoogleDriveOAuth().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo iniciar la conexión con Drive'))}
         className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
-        title="Conectá tu Google Drive para elegir videos"
+        title="Conectá (o reconectá) tu Google Drive para elegir videos o guiones"
       >
-        <FolderOpen className="h-4 w-4" /> Conectar Drive
+        <FolderOpen className="h-4 w-4" /> {status?.connected ? 'Reconectar Drive' : 'Conectar Drive'}
       </button>
     )
   }
@@ -115,9 +172,9 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
         throw new Error((tokenData as { error?: string })?.error || 'No se pudo obtener token de Drive')
       }
       const driveToken = (tokenData as { access_token: string }).access_token
-      const view = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
       const picker = new google.picker.PickerBuilder()
-        .addView(view)
+        .addView(new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS))
+        .addView(new google.picker.DocsView())
         .setOAuthToken(driveToken)
         .setDeveloperKey(apiKey)
         .setCallback((data: { action: string; docs?: { id: string; name: string }[] }) => {
@@ -138,7 +195,7 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
       onClick={handleClick}
       disabled={disabled || loading}
       className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
-      title="Elegir un video de tu Drive"
+      title="Elegir un video o un guion de tu Drive"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />} Desde Drive
     </button>
@@ -150,15 +207,40 @@ export default function ContenidosPage() {
   const [filterEstado, setFilterEstado] = useState<EstadoContenido | 'all'>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Contenido | null>(null)
+  const [guionDialogOpen, setGuionDialogOpen] = useState(false)
+  const [viewingGuion, setViewingGuion] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [view, setView] = useState<'tablero' | 'calendario' | 'lista'>('tablero')
   const videoInputRef = useRef<HTMLInputElement>(null)
   const [genStage, setGenStage] = useState<string | null>(null)
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
+  const [plataformas, setPlataformas] = useState<Set<string>>(
+    () => new Set(PLATAFORMAS_GENERABLES.map((p) => p.key)),
+  )
   const generar = useGenerarContenidoDesdeVideo()
 
+  const togglePlataforma = (key: string) => {
+    setPlataformas((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Guiones de Reel se abren en el visor estructurado; el resto, en el editor.
+  const abrirContenido = (c: Contenido) => {
+    if (parseGuionReel(c)) setViewingGuion(c)
+    else { setEditing(c); setDialogOpen(true) }
+  }
+
   const runGenerar = (input: { file?: File; driveFileId?: string }) => {
+    if (plataformas.size === 0) {
+      toast.error('Seleccioná al menos una plataforma para generar')
+      return
+    }
     generar.mutate(
-      { ...input, onStage: setGenStage },
+      { ...input, plataformas: [...plataformas], onStage: setGenStage },
       {
         onSuccess: (r) => { setGenStage(null); toast.success(`${r.created} ${r.created === 1 ? 'tarjeta generada' : 'tarjetas generadas'} desde el video`) },
         onError: (e) => { setGenStage(null); toast.error(e instanceof Error ? e.message : 'No se pudo generar') },
@@ -173,11 +255,25 @@ export default function ContenidosPage() {
     runGenerar({ file })
   }
 
-  const { data: contenidos = [], isLoading } = useContenidos({
+  // Aviso al volver del OAuth de LinkedIn
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('linkedin') === 'connected') toast.success('LinkedIn conectado')
+    else if (p.get('linkedin_error')) toast.error(`LinkedIn: ${p.get('linkedin_error')}`)
+    if (p.has('linkedin') || p.has('linkedin_error')) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  const { data: contenidosRaw = [], isLoading } = useContenidos({
     categoria: filterCategoria === 'all' ? null : filterCategoria,
     estado: filterEstado === 'all' ? null : filterEstado,
   })
   const deleteContenido = useDeleteContenido()
+
+  // Las ideas (cola) viven en su propio panel; el resto va al tablero/calendario/lista.
+  const ideas = useMemo(() => contenidosRaw.filter((c) => parseIdea(c)), [contenidosRaw])
+  const contenidos = useMemo(() => contenidosRaw.filter((c) => !parseIdea(c)), [contenidosRaw])
 
   const countsByEstado = useMemo(() => {
     const c: Partial<Record<EstadoContenido, number>> = {}
@@ -246,6 +342,14 @@ export default function ContenidosPage() {
           </button>
           <DriveVideoButton onPicked={(fileId) => runGenerar({ driveFileId: fileId })} disabled={generar.isPending} />
           <button
+            onClick={() => setGuionDialogOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 px-3 py-2 text-sm font-medium text-fuchsia-300 hover:bg-fuchsia-500/25 transition-colors"
+            title="Decí o escribí un tema y la IA arma un guion de Reel estructurado"
+          >
+            <Clapperboard className="h-4 w-4" />
+            Guion de Reel
+          </button>
+          <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
           >
@@ -255,15 +359,73 @@ export default function ContenidosPage() {
         </div>
       </div>
 
+      {/* Selector de plataformas para generar desde video/Drive */}
+      <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] px-3 py-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-1">
+            Generar para:
+          </span>
+          {PLATAFORMAS_GENERABLES.map((p) => {
+            const active = plataformas.has(p.key)
+            const Icon = p.icon
+            return (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => togglePlataforma(p.key)}
+                disabled={generar.isPending}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+                  active
+                    ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                    : 'border-white/10 bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10',
+                )}
+                title={active ? `No generar para ${p.label}` : `Generar para ${p.label}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {p.label}
+              </button>
+            )
+          })}
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-500 ml-auto">
+            Tildá las redes antes de cargar el video o el Drive.
+          </span>
+        </div>
+      </div>
+
+      {/* Cola de ideas */}
+      <IdeasQueue ideas={ideas} />
+
       {genStage && (
-        <div className="flex items-center gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2 text-xs text-cyan-200">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          {genStage} — puede tardar 1-2 min, no cierres la pestaña.
+        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-cyan-200">
+            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+            <span className="font-medium">{genStage}</span>
+          </div>
+          <p className="mt-1 text-[10px] text-cyan-300/60">Escribiendo con tu voz para cada red. Puede tardar 1-2 min — no cierres la pestaña.</p>
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-cyan-500/10">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-cyan-400/60" />
+          </div>
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="space-y-3">
+      {/* Filtros: colapsables en mobile */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setFiltrosOpen((v) => !v)}
+          className="sm:hidden mb-2 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300"
+        >
+          <ListIcon className="h-3.5 w-3.5" />
+          Filtros
+          {((filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)) > 0 && (
+            <span className="rounded-full bg-violet-500/30 px-1.5 text-[10px] text-violet-200">
+              {(filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)}
+            </span>
+          )}
+        </button>
+      </div>
+      <div className={cn('space-y-3', filtrosOpen ? 'block' : 'hidden sm:block')}>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5">Estado</p>
           <div className="flex flex-wrap gap-1.5">
@@ -339,41 +501,53 @@ export default function ContenidosPage() {
       ) : view === 'tablero' ? (
         <ContenidoBoard
           contenidos={contenidos}
-          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+          onEdit={abrirContenido}
           onDelete={(id) => setConfirmDelete(id)}
         />
       ) : view === 'calendario' ? (
         <ContenidoCalendar
           contenidos={contenidos}
-          onEdit={(c) => { setEditing(c); setDialogOpen(true) }}
+          onEdit={abrirContenido}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {contenidos.map((c) => {
             const Icon = CATEGORIA_ICON[c.categoria]
+            const tema = temaDe(c)
+            const guion = parseGuionReel(c)
+            const headline = guion ? (guion.hooks[0] ?? guion.tema ?? c.titulo) : c.titulo
             return (
               <div
                 key={c.id}
-                className="rounded-xl border border-white/10 bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group"
+                className={cn('rounded-xl border bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group flex flex-col', tema.border)}
               >
                 {c.imagen_url && (
                   <img src={c.imagen_url} alt="" className="w-full h-32 object-cover rounded-lg mb-3" loading="lazy" />
                 )}
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300">
+                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', tema.pill)}>
                     <Icon className="h-3 w-3" />
-                    {CATEGORIA_LABEL[c.categoria]}
+                    {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
                   </span>
-                  <span className={cn('rounded-full px-1.5 py-0 text-[10px] font-medium', ESTADO_CLS[c.estado])}>
-                    {ESTADO_LABEL[c.estado]}
-                  </span>
+                  {guion && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                      <Clapperboard className="h-3 w-3" /> Guion
+                    </span>
+                  )}
                 </div>
 
-                <h3 className="text-sm font-medium text-zinc-100 line-clamp-2 leading-tight mb-2">{c.titulo}</h3>
+                <h3 className={cn('text-zinc-50 leading-snug mb-2', guion ? 'text-sm font-semibold line-clamp-3' : 'text-sm font-medium line-clamp-2')}>
+                  {headline}
+                </h3>
 
-                {c.cuerpo && (
-                  <p className="text-[11px] text-zinc-500 line-clamp-3 leading-relaxed mb-2">{c.cuerpo}</p>
-                )}
+                {guion ? (
+                  <div className="flex items-center gap-2.5 text-[10px] text-zinc-500 mb-2">
+                    {guion.escenas.length > 0 && <span className="inline-flex items-center gap-1"><ListIcon className="h-2.5 w-2.5" /> {guion.escenas.length} escenas</span>}
+                    {guion.duracion_estimada && <span className="inline-flex items-center gap-1"><Video className="h-2.5 w-2.5" /> {guion.duracion_estimada}</span>}
+                  </div>
+                ) : previewContenido(c) ? (
+                  <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed mb-2">{previewContenido(c)}</p>
+                ) : null}
 
                 {c.hashtags && (
                   <div className="flex items-center gap-1 mb-2">
@@ -382,27 +556,30 @@ export default function ContenidosPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
-                  <p className="text-[10px] text-zinc-500">
-                    {c.publicar_el
-                      ? <>📅 {formatDate(c.publicar_el)}</>
-                      : `Editado ${formatDate(c.updated_at)}`}
-                  </p>
-                  <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => { setEditing(c); setDialogOpen(true) }}
-                      className="rounded p-1 text-zinc-500 hover:text-cyan-400"
-                      title="Editar"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(c.id)}
-                      className="rounded p-1 text-zinc-500 hover:text-rose-400"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                <div className="mt-auto pt-2.5">
+                  <EstadoPipeline estado={c.estado} bar={tema.bar} />
+                  <div className="flex items-center justify-between gap-2 mt-2">
+                    <p className="text-[10px] text-zinc-500">
+                      {c.publicar_el
+                        ? <>📅 {formatDate(c.publicar_el)}</>
+                        : ESTADO_LABEL[c.estado]}
+                    </p>
+                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => abrirContenido(c)}
+                        className="rounded p-1 text-zinc-500 hover:text-cyan-400"
+                        title={guion ? 'Ver guion' : 'Editar'}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(c.id)}
+                        className="rounded p-1 text-zinc-500 hover:text-rose-400"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -412,6 +589,8 @@ export default function ContenidosPage() {
       )}
 
       {dialogOpen && <ContenidoDialog editing={editing} onClose={() => { setDialogOpen(false); setEditing(null) }} />}
+      {guionDialogOpen && <GuionReelDialog onClose={() => setGuionDialogOpen(false)} />}
+      {viewingGuion && <GuionReelViewer contenido={viewingGuion} onClose={() => setViewingGuion(null)} />}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -463,7 +642,25 @@ function ContenidoCalendar({ contenidos, onEdit }: {
   const prev = () => setCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 })
   const next = () => setCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 })
 
+  // Arrastrar una tarjeta a un día setea publicar_el; a "sin fecha" lo limpia.
+  const update = useUpdateContenido()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
+  )
+  const onDragEnd = (e: DragEndEvent) => {
+    const c = e.active.data.current?.contenido as Contenido | undefined
+    const over = e.over?.id
+    if (!c || over == null) return
+    const fecha = over === 'sin-fecha' ? null : String(over)
+    if (c.publicar_el !== fecha) {
+      update.mutate({ id: c.id, publicar_el: fecha })
+      toast.success(fecha ? `Agendado para ${formatDate(fecha)}` : 'Sin fecha')
+    }
+  }
+
   return (
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-zinc-200">{MESES[m]} {y}</h2>
@@ -482,56 +679,83 @@ function ContenidoCalendar({ contenidos, onEdit }: {
           const items = d ? (byDate[dateStr(d)] ?? []) : []
           const esHoy = d != null && dateStr(d) === todayStr
           return (
-            <div key={i} className={cn('min-h-[92px] bg-zinc-950/40 p-1.5', !d && 'opacity-40')}>
+            <CalDia key={i} id={d ? dateStr(d) : null} vacio={!d}>
               {d && (
                 <>
                   <div className={cn('mb-1 text-[11px]', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/30 font-semibold text-violet-200' : 'text-zinc-500')}>{d}</div>
                   <div className="space-y-1">
-                    {items.map((c) => {
-                      const Icon = CATEGORIA_ICON[c.categoria]
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => onEdit(c)}
-                          className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
-                          title={`${c.titulo} · ${ESTADO_LABEL[c.estado]}`}
-                        >
-                          <Icon className="h-2.5 w-2.5 shrink-0" />
-                          <span className="truncate">{c.titulo}</span>
-                        </button>
-                      )
-                    })}
+                    {items.map((c) => (
+                      <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
+                        className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', temaDe(c).pill)}
+                        title={`${c.titulo} · ${ESTADO_LABEL[c.estado]} · arrastrá para reagendar`}>
+                        <span className="truncate">{c.titulo}</span>
+                      </CalChip>
+                    ))}
                   </div>
                 </>
               )}
-            </div>
+            </CalDia>
           )
         })}
       </div>
 
       {sinFecha.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
-            Sin fecha de publicación ({sinFecha.length}) — abrí cada uno y asignale fecha
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {sinFecha.map((c) => {
-              const Icon = CATEGORIA_ICON[c.categoria]
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onEdit(c)}
-                  className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', ESTADO_CLS[c.estado])}
-                  title={ESTADO_LABEL[c.estado]}
-                >
-                  <Icon className="h-3 w-3" /> <span className="max-w-[160px] truncate">{c.titulo}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <CalSinFecha count={sinFecha.length}>
+          {sinFecha.map((c) => (
+            <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
+              className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', temaDe(c).pill)}
+              title={`${ESTADO_LABEL[c.estado]} · arrastrá a un día para agendar`}>
+              <span className="max-w-[160px] truncate">{c.titulo}</span>
+            </CalChip>
+          ))}
+        </CalSinFecha>
       )}
     </div>
+    </DndContext>
+  )
+}
+
+// Celda de día: zona donde se puede soltar una tarjeta para agendarla.
+function CalDia({ id, vacio, children }: { id: string | null; vacio: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: id ?? `empty-${Math.random()}`, disabled: !id })
+  return (
+    <div ref={id ? setNodeRef : undefined}
+      className={cn('min-h-[92px] bg-zinc-950/40 p-1.5 transition-colors', vacio && 'opacity-40', isOver && 'bg-violet-500/15 ring-1 ring-inset ring-violet-400/50')}>
+      {children}
+    </div>
+  )
+}
+
+// Zona "sin fecha": soltar acá limpia la fecha de publicación.
+function CalSinFecha({ count, children }: { count: number; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'sin-fecha' })
+  return (
+    <div ref={setNodeRef} className={cn('rounded-lg p-2 transition-colors', isOver && 'bg-zinc-500/10 ring-1 ring-inset ring-zinc-400/40')}>
+      <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
+        Sin fecha ({count}) — arrastrá a un día para agendar, o soltá acá para quitar la fecha
+      </p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  )
+}
+
+// Tarjeta arrastrable del calendario (click abre, drag reagenda).
+function CalChip({ c, onClick, className, title, children }: {
+  c: Contenido
+  onClick: () => void
+  className?: string
+  title?: string
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: c.id, data: { contenido: c } })
+  const Icon = CATEGORIA_ICON[c.categoria]
+  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 } : undefined
+  return (
+    <button ref={setNodeRef} style={style} {...listeners} {...attributes} onClick={onClick}
+      className={cn(className, isDragging && 'opacity-50')} title={title}>
+      <Icon className="h-2.5 w-2.5 shrink-0" />
+      {children}
+    </button>
   )
 }
 
@@ -623,6 +847,9 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: c.id, data: { contenido: c } })
   const Icon = CATEGORIA_ICON[c.categoria]
+  const tema = temaDe(c)
+  const guion = parseGuionReel(c)
+  const headline = guion ? (guion.hooks[0] ?? guion.tema ?? c.titulo) : c.titulo
   const i = orden.indexOf(c.estado)
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
@@ -633,16 +860,25 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
       style={style}
       {...attributes}
       {...listeners}
-      className="rounded-lg border border-white/10 bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing"
+      className={cn('rounded-lg border bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing', tema.border)}
     >
       {c.imagen_url && (
         <img src={c.imagen_url} alt="" className="w-full h-24 object-cover rounded-md mb-2" loading="lazy" />
       )}
-      <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 mb-1.5">
-        <Icon className="h-3 w-3" /> {CATEGORIA_LABEL[c.categoria]}
-      </span>
-      <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight mb-1.5">{c.titulo}</p>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-medium', tema.pill)}>
+          <Icon className="h-2.5 w-2.5" /> {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
+        </span>
+        {guion && <Clapperboard className="h-3 w-3 text-fuchsia-400" />}
+      </div>
+      <p className={cn('text-zinc-50 leading-snug mb-1', guion ? 'text-xs font-semibold line-clamp-3' : 'text-xs font-medium line-clamp-2')}>{headline}</p>
+      {guion ? (
+        <p className="text-[9px] text-zinc-500 mb-1.5">{guion.escenas.length} escenas{guion.duracion_estimada ? ` · ${guion.duracion_estimada}` : ''}</p>
+      ) : previewContenido(c) ? (
+        <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{previewContenido(c)}</p>
+      ) : null}
       {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
+      <div className="mb-1.5"><EstadoPipeline estado={c.estado} bar={tema.bar} /></div>
       <div
         className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
         onPointerDown={(e) => e.stopPropagation()}
@@ -658,7 +894,7 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
           </button>
         </div>
         <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}>
             <Edit2 className="h-3 w-3" />
           </button>
           <button onClick={() => onDelete(c.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
@@ -675,7 +911,11 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
 function composerDestino(categoria: CategoriaContenido, texto: string): { url: string; prefilled: boolean; label: string } | null {
   const enc = encodeURIComponent(texto)
   switch (categoria) {
-    case 'twitter': return { url: `https://x.com/intent/tweet?text=${enc}`, prefilled: true, label: 'X' }
+    case 'twitter': {
+      // El intent de X solo carga un tweet: abrimos el primero del hilo.
+      const first = texto.split(/\n\s*\n/)[0] ?? texto
+      return { url: `https://x.com/intent/tweet?text=${encodeURIComponent(first)}`, prefilled: true, label: 'X' }
+    }
     case 'linkedin': return { url: 'https://www.linkedin.com/feed/?shareActive=true', prefilled: false, label: 'LinkedIn' }
     case 'instagram': return { url: 'https://www.instagram.com/', prefilled: false, label: 'Instagram' }
     case 'facebook': return { url: 'https://www.facebook.com/', prefilled: false, label: 'Facebook' }
@@ -741,12 +981,42 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
     if (!textoPublicar) { toast.error('No hay texto para publicar'); return }
     try { await navigator.clipboard.writeText(textoPublicar) } catch { /* clipboard puede fallar sin gesto */ }
     if (dest) window.open(dest.url, '_blank', 'noopener')
-    toast.success(dest?.prefilled ? 'Abrí X con el texto cargado' : dest ? `Texto copiado — pegalo en ${dest.label}` : 'Texto copiado al portapapeles')
+    const esHilo = categoria === 'twitter' && textoPublicar.split(/\n\s*\n/).length > 1
+    toast.success(
+      esHilo ? 'Abrí X con el primer tweet. El hilo completo está copiado: pegá el resto como respuestas.'
+        : dest?.prefilled ? 'Abrí X con el texto cargado'
+        : dest ? `Texto copiado — pegalo en ${dest.label}`
+        : 'Texto copiado al portapapeles',
+    )
   }
   const handleMarcarPublicado = async () => {
     if (!editing) return
     try { await updateContenido.mutateAsync({ id: editing.id, estado: 'publicado' }); toast.success('Marcado como publicado'); onClose() }
     catch (err) { toast.error(err instanceof Error ? err.message : 'Error') }
+  }
+
+  // LinkedIn: publicación automática (un click) para tarjetas de LinkedIn
+  const { data: liStatus } = useLinkedInStatus()
+  const liPublish = useLinkedInPublish()
+  const esLinkedin = categoria === 'linkedin'
+  // X: hilo semiautomático — tweets numerados, se postean uno por uno.
+  const esX = categoria === 'twitter'
+  const tweetsHilo = esX ? cuerpo.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean) : []
+  const copiarTweet = async (t: string) => {
+    try { await navigator.clipboard.writeText(t) } catch { /* sin gesto puede fallar */ }
+    toast.success('Tweet copiado')
+  }
+  const abrirTweetEnX = async (t: string) => {
+    try { await navigator.clipboard.writeText(t) } catch { /* ignore */ }
+    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(t)}`, '_blank', 'noopener')
+  }
+  const handlePublicarLinkedIn = async () => {
+    if (!editing) return
+    try {
+      await liPublish.mutateAsync({ cuerpo: cuerpo.trim(), hashtags: hashtags.trim() || undefined, contenido_id: editing.id })
+      toast.success('¡Publicado en LinkedIn!')
+      onClose()
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo publicar en LinkedIn') }
   }
 
   const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/20'
@@ -774,26 +1044,28 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                 {CATEGORIAS_CONTENIDO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
-            {editing && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Estado</label>
-                <select value={estado} onChange={e => setEstado(e.target.value as EstadoContenido)} className={inputCls}>
-                  {ESTADOS_CONTENIDO.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                </select>
-              </div>
-            )}
-            {!editing && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
-                <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
-              </div>
-            )}
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
+              <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
+            </div>
           </div>
 
           {editing && (
             <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
-              <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
+              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Estado del flujo</label>
+              <div className="flex flex-wrap gap-1">
+                {ESTADOS_CONTENIDO.map((e) => (
+                  <button
+                    key={e.value}
+                    type="button"
+                    onClick={() => setEstado(e.value)}
+                    className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                      estado === e.value ? `${ESTADO_CLS[e.value]} ring-1 ring-current` : 'bg-white/5 text-zinc-400 hover:bg-white/10')}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -875,15 +1147,66 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
                 Copia el texto + hashtags y abre el editor de la red.{' '}
                 {dest?.prefilled ? 'En X queda pre-cargado.' : 'Pegalo (Ctrl/Cmd+V) en el editor que se abre.'} Vos/Facundo dan el último click desde su cuenta.
               </p>
+
+              {esX && tweetsHilo.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-zinc-300">
+                    Hilo de {tweetsHilo.length} {tweetsHilo.length === 1 ? 'tweet' : 'tweets'} — posteá en orden: el 1 abre X, los demás copialos y pegalos como respuesta.
+                  </p>
+                  {tweetsHilo.map((tw, i) => {
+                    const over = tw.length > 280
+                    return (
+                      <div key={i} className="rounded-md border border-white/10 bg-white/5 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-zinc-500">
+                            Tweet {i + 1} · <span className={over ? 'text-rose-400 font-medium' : 'text-zinc-500'}>{tw.length}/280</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (i === 0 ? abrirTweetEnX(tw) : copiarTweet(tw))}
+                            className="inline-flex items-center gap-1 rounded bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-300 hover:bg-cyan-500/25"
+                          >
+                            {i === 0 ? <><Send className="h-3 w-3" /> Copiar + abrir X</> : 'Copiar'}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-300 whitespace-pre-wrap leading-snug">{tw}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handlePublicar}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
-                </button>
+                {esLinkedin && (liStatus?.connected ? (
+                  <button
+                    type="button"
+                    onClick={handlePublicarLinkedIn}
+                    disabled={liPublish.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#0a66c2] px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-50 transition"
+                    title={liStatus.accountName ? `Publicar como ${liStatus.accountName}` : 'Publicar en tu LinkedIn'}
+                  >
+                    {liPublish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Linkedin className="h-3.5 w-3.5" />}
+                    Publicar en LinkedIn
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => connectLinkedIn().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo conectar LinkedIn'))}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0a66c2]/40 px-3 py-1.5 text-xs font-medium text-[#4aa3e8] hover:bg-[#0a66c2]/10 transition"
+                  >
+                    <Linkedin className="h-3.5 w-3.5" /> Conectar LinkedIn
+                  </button>
+                ))}
+                {!esX && (
+                  <button
+                    type="button"
+                    onClick={handlePublicar}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
+                  </button>
+                )}
                 {estado !== 'publicado' && (
                   <button
                     type="button"

@@ -271,6 +271,7 @@ export function useCreateGasto() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }
@@ -289,6 +290,7 @@ export function useCreateIngreso() {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }
@@ -323,6 +325,7 @@ export function useUpdateGasto() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }
@@ -340,6 +343,7 @@ export function useUpdateIngreso() {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }
@@ -372,6 +376,7 @@ export function useDeleteGasto() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }
@@ -389,6 +394,7 @@ export function useDeleteIngreso() {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
     },
   })
 }

@@ -152,7 +152,7 @@ export default function CajaPage() {
         </nav>
       </div>
 
-      {activeTab === 'resumen' && <TabResumen />}
+      {activeTab === 'resumen' && <TabResumen onGoTab={setActiveTab} />}
       {activeTab === 'ingresos' && <TabIngresos onEdit={(i) => setEditingIngreso(i)} />}
       {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
       {activeTab === 'abonos' && <TabAbonos />}
@@ -183,7 +183,7 @@ export default function CajaPage() {
 
 // ─── Resumen ────────────────────────────────────────────────────────────────
 
-function TabResumen() {
+function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
   const { data: resumen, isLoading } = useCajaResumen()
   const { data: pendientes = [] } = usePagosPendientes()
   const { data: gastosFijos = [] } = useGastosFijosPendientes()
@@ -218,10 +218,10 @@ function TabResumen() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={usdSubIngreso} accent="emerald" icon={TrendingUp} />
-        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={usdSubGasto} accent="rose" icon={TrendingDown} />
-        <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} />
-        <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} />
+        <KPICard label="Ingresos del mes" value={fmt(mes.ingresos_ars)} sub={usdSubIngreso} accent="emerald" icon={TrendingUp} onClick={() => onGoTab('ingresos')} />
+        <KPICard label="Gastos del mes" value={fmt(mes.gastos_ars)} sub={usdSubGasto} accent="rose" icon={TrendingDown} onClick={() => onGoTab('gastos')} />
+        <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} onClick={() => onGoTab('ingresos')} />
+        <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} onClick={() => onGoTab('abonos')} />
       </div>
 
       {/* Gastos fijos del mes */}
@@ -288,7 +288,7 @@ function TipoCambioWidget({ cotizacion }: { cotizacion: CotizacionUSD | null }) 
   )
 }
 
-function KPICard({ label, value, sub, accent, icon: Icon }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }> }) {
+function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }>; onClick?: () => void }) {
   const ring = {
     emerald: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20',
     rose: 'from-rose-500/15 to-rose-500/5 border-rose-500/20',
@@ -297,14 +297,23 @@ function KPICard({ label, value, sub, accent, icon: Icon }: { label: string; val
   }[accent]
   const iconColor = { emerald: 'text-emerald-400', rose: 'text-rose-400', cyan: 'text-cyan-400', amber: 'text-amber-400' }[accent]
   return (
-    <div className={cn('rounded-xl border bg-gradient-to-br p-3 sm:p-4', ring)}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        'rounded-xl border bg-gradient-to-br p-3 sm:p-4 text-left w-full',
+        ring,
+        onClick && 'transition-transform hover:brightness-125 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer',
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-zinc-400 leading-tight">{label}</p>
         <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', iconColor)} />
       </div>
       <p className="mt-1 text-lg sm:text-2xl font-bold text-zinc-50 tabular-nums break-all">{value}</p>
       {sub && <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{sub}</p>}
-    </div>
+    </button>
   )
 }
 
@@ -476,15 +485,55 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
   )
 }
 
+// ─── Navegador de mes + totales ──────────────────────────────────────────────
+
+type Mes = { year: number; month: number }
+
+function MonthNav({ mes, setMes, count, noun }: { mes: Mes; setMes: (m: Mes) => void; count: number; noun: string }) {
+  const now = new Date()
+  const esActual = mes.year === now.getFullYear() && mes.month === now.getMonth() + 1
+  const prev = () => setMes(mes.month === 1 ? { year: mes.year - 1, month: 12 } : { year: mes.year, month: mes.month - 1 })
+  const next = () => setMes(mes.month === 12 ? { year: mes.year + 1, month: 1 } : { year: mes.year, month: mes.month + 1 })
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        <button onClick={prev} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10" title="Mes anterior">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="min-w-[140px] text-center text-sm font-medium text-zinc-200">{MES_LABELS[mes.month - 1]} {mes.year}</span>
+        <button onClick={next} disabled={esActual} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10 disabled:opacity-30" title="Mes siguiente">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {!esActual && (
+          <button onClick={() => setMes({ year: now.getFullYear(), month: now.getMonth() + 1 })} className="ml-1 rounded-md px-2 py-1 text-[11px] text-cyan-400 hover:bg-white/5">
+            Mes actual
+          </button>
+        )}
+      </div>
+      <span className="text-xs text-zinc-500">{count} {noun}</span>
+    </div>
+  )
+}
+
+function TotalesMes({ items, tipo }: { items: { monto: number | string; moneda: MonedaCaja }[]; tipo: 'ingreso' | 'gasto' }) {
+  const ars = items.filter(i => i.moneda === 'ARS').reduce((s, i) => s + Number(i.monto), 0)
+  const usd = items.filter(i => i.moneda === 'USD').reduce((s, i) => s + Number(i.monto), 0)
+  const color = tipo === 'ingreso' ? 'text-emerald-300' : 'text-rose-300'
+  if (items.length === 0) return null
+  return (
+    <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+      <span className="text-[10px] uppercase tracking-wider text-zinc-500">Total del mes</span>
+      <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(ars)}</span>
+      {usd > 0 && <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(usd, 'USD')}</span>}
+    </div>
+  )
+}
+
 // ─── Ingresos ───────────────────────────────────────────────────────────────
 
 function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const now = new Date()
-  const mesActual = { year: now.getFullYear(), month: now.getMonth() + 1 }
-  const [mes, setMes] = useState(mesActual)
-  const esMesActual = mes.year === mesActual.year && mes.month === mesActual.month
-  const irAnterior = () => setMes(m => m.month === 1 ? { year: m.year - 1, month: 12 } : { year: m.year, month: m.month - 1 })
-  const irSiguiente = () => setMes(m => m.month === 12 ? { year: m.year + 1, month: 1 } : { year: m.year, month: m.month + 1 })
+  const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: ingresos = [], isLoading } = useIngresos(mes)
   const { data: cotizacion } = useUsdRate()
   const deleteIngreso = useDeleteIngreso()
@@ -497,18 +546,8 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button onClick={irAnterior} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-xs font-medium text-zinc-300 w-36 text-center">{MES_LABELS[mes.month - 1]} {mes.year}</span>
-          <button onClick={irSiguiente} disabled={esMesActual} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 transition-colors">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <span className="text-xs text-zinc-500">{ingresos.length} {ingresos.length === 1 ? 'ingreso' : 'ingresos'}</span>
-      </div>
+      <MonthNav mes={mes} setMes={setMes} count={ingresos.length} noun={ingresos.length === 1 ? 'ingreso' : 'ingresos'} />
+      <TotalesMes items={ingresos} tipo="ingreso" />
 
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />
@@ -615,11 +654,7 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
 function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
-  const mesActual = { year: now.getFullYear(), month: now.getMonth() + 1 }
-  const [mes, setMes] = useState(mesActual)
-  const esMesActual = mes.year === mesActual.year && mes.month === mesActual.month
-  const irAnterior = () => setMes(m => m.month === 1 ? { year: m.year - 1, month: 12 } : { year: m.year, month: m.month - 1 })
-  const irSiguiente = () => setMes(m => m.month === 12 ? { year: m.year + 1, month: 1 } : { year: m.year, month: m.month + 1 })
+  const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: gastos = [], isLoading } = useGastos(mes)
   const deleteGasto = useDeleteGasto()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -628,18 +663,8 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button onClick={irAnterior} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 transition-colors">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-xs font-medium text-zinc-300 w-36 text-center">{MES_LABELS[mes.month - 1]} {mes.year}</span>
-          <button onClick={irSiguiente} disabled={esMesActual} className="rounded p-0.5 text-zinc-500 hover:text-zinc-200 disabled:opacity-30 transition-colors">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <span className="text-xs text-zinc-500">{gastos.length} {gastos.length === 1 ? 'gasto' : 'gastos'}</span>
-      </div>
+      <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={gastos.length === 1 ? 'gasto' : 'gastos'} />
+      <TotalesMes items={gastos} tipo="gasto" />
 
       {gastos.length === 0 ? (
         <EmptyState icon={TrendingDown} title="Sin gastos este mes" description="Registrá un gasto con el botón de arriba." />

@@ -17,6 +17,12 @@ export function createClient() {
     )
   }
 
-  client = supabaseCreateClient<Database>(url, key)
+  client = supabaseCreateClient<Database>(url, key, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
   return client
 }

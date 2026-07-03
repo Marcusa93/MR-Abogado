@@ -5,7 +5,7 @@
 // Bumping CACHE_NAME invalida cualquier cache previo (incluido alba-crm-v1).
 // ---------------------------------------------------------------------------
 
-const CACHE_NAME = 'mr-abogado-v2'
+const CACHE_NAME = 'mr-abogado-v3'
 
 // Static assets to pre-cache on install
 const PRECACHE_URLS = [

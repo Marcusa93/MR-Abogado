@@ -4,13 +4,14 @@ import { CrearTareaDialog } from './crear-tarea-dialog'
 import { VerTareaDialog } from './ver-tarea-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PrioridadBadge } from '@/components/shared/prioridad-badge'
-import { useCompletarTarea, useDeleteTarea, type TareaWithRelations } from '@/hooks/use-tareas'
+import { useCompletarTarea, useDeleteTarea, useUpdateTarea, type TareaWithRelations } from '@/hooks/use-tareas'
 import { useAuthStore } from '@/stores/auth-store'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { ESTADO_TAREA_LABELS } from '@/types/enums'
 import type { Tables } from '@/types/database.types'
 import { cn } from '@/lib/utils'
-import { CheckSquare, Plus, Loader2, Trash2 } from 'lucide-react'
+import { CheckSquare, Plus, Loader2, Trash2, X } from 'lucide-react'
+import { toast } from '@/stores/toast-store'
 
 type TareaWithAsignado = Tables<'tareas'> & {
   asignado: Tables<'profiles'> | null
@@ -41,6 +42,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
   const [verTarea, setVerTarea] = useState<TareaWithRelations | null>(null)
   const completarTarea = useCompletarTarea()
   const deleteTarea = useDeleteTarea()
+  const updateTarea = useUpdateTarea()
   const profile = useAuthStore((s) => s.profile)
 
   const openTarea = (tarea: TareaWithAsignado) => {
@@ -60,16 +62,32 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
     } as any)
   }
 
-  const isAdmin = profile?.rol === 'ADMIN'
+  const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
 
   const canComplete = (estado: string) =>
     estado === 'PENDIENTE' || estado === 'EN_PROGRESO'
 
-  // Use completada_at as indicator of "done" for display purposes
   const isCompletada = (tarea: TareaWithAsignado) =>
     tarea.estado === 'COMPLETADA' || tarea.completada_at !== null
 
-  const visibleTareas = tareas
+  const isCancelada = (tarea: TareaWithAsignado) => tarea.estado === 'CANCELADA'
+
+  const handleCancelar = async (e: React.MouseEvent, tareaId: string) => {
+    e.stopPropagation()
+    try {
+      await updateTarea.mutateAsync({ id: tareaId, estado: 'CANCELADA' })
+      toast.success('Tarea cancelada')
+    } catch {
+      toast.error('No se pudo cancelar la tarea')
+    }
+  }
+
+  // Ordenar: activas primero, canceladas al final
+  const sortedTareas = [...tareas].sort((a, b) => {
+    const aCanc = isCancelada(a) ? 1 : 0
+    const bCanc = isCancelada(b) ? 1 : 0
+    return aCanc - bCanc
+  })
 
   return (
     <>
@@ -87,7 +105,7 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
         </div>
       }
     >
-      {visibleTareas.length === 0 ? (
+      {sortedTareas.length === 0 ? (
         <EmptyState
           icon={CheckSquare}
           title="Sin tareas"
@@ -96,102 +114,121 @@ export function TabTareas({ tareas, expedienteId, expedienteInfo }: TabTareasPro
         />
       ) : (
         <div className="space-y-2">
-          {visibleTareas.map((tarea) => (
-            <div
-              key={tarea.id}
-              onClick={() => openTarea(tarea)}
-              className={cn(
-                'group flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-3 cursor-pointer hover:bg-white/[0.07] transition-colors',
-                isCompletada(tarea) && 'opacity-50'
-              )}
-            >
-              {/* Complete button or status icon */}
-              {canComplete(tarea.estado) ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    completarTarea.mutate(tarea.id)
-                  }}
-                  disabled={completarTarea.isPending}
-                  title="Completar tarea"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-emerald-500/15 hover:text-emerald-400 transition-colors"
-                >
-                  {completarTarea.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckSquare className="h-4 w-4" />
-                  )}
-                </button>
-              ) : (
-                <div
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                    tarea.estado === 'COMPLETADA'
-                      ? 'bg-emerald-500/15'
-                      : 'bg-white/5'
-                  )}
-                >
-                  <CheckSquare
-                    className={cn(
-                      'h-4 w-4',
-                      tarea.estado === 'COMPLETADA'
-                        ? 'text-emerald-400'
-                        : 'text-zinc-600 dark:text-zinc-300'
-                    )}
-                  />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p
-                  className={cn(
-                    'text-sm font-medium',
-                    isCompletada(tarea)
-                      ? 'text-zinc-700 dark:text-zinc-300 line-through'
-                      : 'text-zinc-900 dark:text-zinc-100'
-                  )}
-                >
-                  {tarea.titulo}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                  <StatusBadge
-                    label={ESTADO_TAREA_LABELS[tarea.estado as keyof typeof ESTADO_TAREA_LABELS] ?? tarea.estado}
-                    color={getTareaColor(tarea.estado)}
-                  />
-                  {tarea.asignado && (
-                    <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
-                      {tarea.asignado.nombre} {tarea.asignado.apellido}
-                    </span>
-                  )}
-                  {tarea.fecha_vencimiento && (
-                    <span className="text-[11px] text-zinc-600 dark:text-zinc-300">
-                      Vence: {formatDate(tarea.fecha_vencimiento)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center gap-1 shrink-0">
-                {isAdmin && (
+          {sortedTareas.map((tarea) => {
+            const cancelada = isCancelada(tarea)
+            return (
+              <div
+                key={tarea.id}
+                onClick={() => !cancelada && openTarea(tarea)}
+                className={cn(
+                  'group flex items-center gap-3 rounded-lg border p-3 transition-colors',
+                  cancelada
+                    ? 'border-rose-500/20 bg-rose-500/[0.04] cursor-default'
+                    : 'border-white/5 bg-white/5 cursor-pointer hover:bg-white/[0.07]',
+                  isCompletada(tarea) && !cancelada && 'opacity-50',
+                )}
+              >
+                {/* Complete button / status icon */}
+                {canComplete(tarea.estado) && !cancelada ? (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (confirm('¿Eliminar esta tarea permanentemente?')) {
-                        deleteTarea.mutate({ tareaId: tarea.id, expedienteId })
-                      }
+                      completarTarea.mutate(tarea.id)
                     }}
-                    disabled={deleteTarea.isPending}
-                    title="Eliminar tarea"
-                    className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                    disabled={completarTarea.isPending}
+                    title="Completar tarea"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-emerald-500/15 hover:text-emerald-400 transition-colors"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    {completarTarea.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckSquare className="h-4 w-4" />
+                    )}
                   </button>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      tarea.estado === 'COMPLETADA' ? 'bg-emerald-500/15' :
+                      cancelada ? 'bg-rose-500/15' : 'bg-white/5',
+                    )}
+                  >
+                    <CheckSquare
+                      className={cn(
+                        'h-4 w-4',
+                        tarea.estado === 'COMPLETADA' ? 'text-emerald-400' :
+                        cancelada ? 'text-rose-400' : 'text-zinc-600 dark:text-zinc-300',
+                      )}
+                    />
+                  </div>
                 )}
-              </div>
 
-              <PrioridadBadge prioridad={tarea.prioridad} compact />
-            </div>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      'text-sm font-medium',
+                      cancelada
+                        ? 'line-through text-rose-400/70'
+                        : isCompletada(tarea)
+                          ? 'text-zinc-700 dark:text-zinc-300 line-through'
+                          : 'text-zinc-900 dark:text-zinc-100',
+                    )}
+                  >
+                    {tarea.titulo}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                    <StatusBadge
+                      label={ESTADO_TAREA_LABELS[tarea.estado as keyof typeof ESTADO_TAREA_LABELS] ?? tarea.estado}
+                      color={getTareaColor(tarea.estado)}
+                    />
+                    {tarea.asignado && (
+                      <span className={cn('text-[11px]', cancelada ? 'text-rose-400/50' : 'text-zinc-600 dark:text-zinc-300')}>
+                        {tarea.asignado.nombre} {tarea.asignado.apellido}
+                      </span>
+                    )}
+                    {tarea.fecha_vencimiento && (
+                      <span className={cn('text-[11px]', cancelada ? 'text-rose-400/50' : 'text-zinc-600 dark:text-zinc-300')}>
+                        Vence: {formatDate(tarea.fecha_vencimiento)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Cancelar — visible para todos en tareas no canceladas */}
+                  {!cancelada && (
+                    <button
+                      onClick={(e) => handleCancelar(e, tarea.id)}
+                      disabled={updateTarea.isPending}
+                      title="Cancelar tarea"
+                      className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {/* Eliminar permanente — solo admin/director */}
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm('¿Eliminar esta tarea permanentemente?')) {
+                          deleteTarea.mutate({ tareaId: tarea.id, expedienteId })
+                        }
+                      }}
+                      disabled={deleteTarea.isPending}
+                      title="Eliminar permanentemente"
+                      className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <PrioridadBadge prioridad={tarea.prioridad} compact />
+              </div>
+            )
+          })}
         </div>
       )}
     </Card>

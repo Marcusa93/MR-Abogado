@@ -134,6 +134,10 @@ interface GenerateInput {
   estilo_texto?: string | null
   /** Si viene, el modelo pegado se guarda como template reutilizable con este nombre. */
   guardar_como?: string | null
+  /** Modo idea libre: el abogado describe qué presentar; la IA infiere el tipo. */
+  idea_libre?: string | null
+  /** Providencia (movimiento SAE) a la que este escrito responde. */
+  responde_a_movimiento_id?: string | null
 }
 
 interface GenerateResult {
@@ -142,6 +146,32 @@ interface GenerateResult {
   modelo: string
   registro_tonal: 'retorico' | 'procesal'
   claves_usadas: number
+}
+
+// Transcribe un audio (grabado o subido) a texto vía edge function.
+export function useTranscribirAudio() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (audio: Blob): Promise<string> => {
+      const ext = audio.type.includes('webm') ? 'webm' : audio.type.includes('mp4') || audio.type.includes('m4a') ? 'm4a' : 'ogg'
+      const { data: init, error: e1 } = await supabase.functions.invoke('transcribir-audio', {
+        body: { action: 'init', filename: `idea.${ext}` },
+      })
+      if (e1) throw await extractFnError(e1)
+      if ((init as { error?: string })?.error) throw new Error((init as { error: string }).error)
+      const { path, token } = init as { path: string; token: string }
+
+      const up = await supabase.storage.from('contenidos-media').uploadToSignedUrl(path, token, audio)
+      if (up.error) throw new Error(`Subida falló: ${up.error.message}`)
+
+      const { data: proc, error: e3 } = await supabase.functions.invoke('transcribir-audio', {
+        body: { action: 'process', path },
+      })
+      if (e3) throw await extractFnError(e3)
+      if ((proc as { error?: string })?.error) throw new Error((proc as { error: string }).error)
+      return (proc as { texto: string }).texto
+    },
+  })
 }
 
 export function useGenerateEscrito() {
@@ -160,6 +190,10 @@ export function useGenerateEscrito() {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
       queryClient.invalidateQueries({ queryKey: ['escrito-tipos-previos'] })
       queryClient.invalidateQueries({ queryKey: ['escrito-templates'] })
+      // Si respondió a una providencia, refrescar actuaciones para mostrar el badge.
+      if (vars.responde_a_movimiento_id) {
+        queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
+      }
     },
   })
 }
@@ -183,6 +217,11 @@ export function useUpdateEscrito() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      // Si el abogado editó el cuerpo, aprender de sus correcciones (fire-and-forget).
+      // La function se auto-saltea si no hay original o el diff es chico.
+      if (vars.patch.contenido !== undefined) {
+        supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.id } }).catch(() => {})
+      }
     },
   })
 }
@@ -243,6 +282,8 @@ export function useAttachSignedPdf() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      // El firmado es la versión final: aprender de las correcciones (fire-and-forget).
+      supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.escrito_id, trigger: 'firmar' } }).catch(() => {})
     },
   })
 }
