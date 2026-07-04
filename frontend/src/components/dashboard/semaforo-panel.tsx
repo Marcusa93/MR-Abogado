@@ -17,6 +17,11 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { formatDateCompact } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import { ClipboardList, Calendar, Search } from 'lucide-react'
+import {
+  ESTADO_INTERNO_LABELS,
+  ESTADO_BADGE_COLORS,
+  type EstadoInterno,
+} from '@/types/enums'
 
 // ---------------------------------------------------------------------------
 // Counter Card
@@ -215,15 +220,18 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                   Expediente
                 </th>
                 <th className="px-3 py-3 text-left dashboard-eyebrow text-[10px]">
-                  Prioridad
+                  Etapa
                 </th>
                 <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] sm:table-cell">
+                  Prioridad
+                </th>
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] md:table-cell">
                   Responsable
                 </th>
-                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] md:table-cell">
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] lg:table-cell">
                   Turno
                 </th>
-                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] md:table-cell">
+                <th className="hidden px-3 py-3 text-left dashboard-eyebrow text-[10px] lg:table-cell">
                   Tareas
                 </th>
               </tr>
@@ -267,14 +275,20 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                           <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100 max-w-[260px]">
                             {exp.caratula || `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim() || '-'}
                           </p>
-                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-700 dark:text-zinc-300">
+                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-300">
+                            {exp.fuero && (
+                              <>
+                                <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">{exp.fuero}</span>
+                                <span className="text-zinc-400">·</span>
+                              </>
+                            )}
                             {exp.tipos_tramite && (
                               <>
                                 <span className="truncate">{exp.tipos_tramite.nombre}</span>
-                                <span className="text-zinc-700 dark:text-zinc-200">·</span>
+                                <span className="text-zinc-400">·</span>
                               </>
                             )}
-                            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(exp as any).numero}</span>
+                            <span className="font-mono text-[10px]">{(exp as any).numero}</span>
                           </div>
                         </div>
                         {exp.clientes?.telefono && (
@@ -283,13 +297,27 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                       </div>
                     </td>
 
-                    {/* Prioridad */}
+                    {/* Etapa procesal */}
                     <td className="px-3 py-3">
+                      {exp.estado_interno ? (
+                        <span className={cn(
+                          'inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap',
+                          ESTADO_BADGE_COLORS[exp.estado_interno as EstadoInterno] ?? 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-700 dark:text-zinc-300'
+                        )}>
+                          {ESTADO_INTERNO_LABELS[exp.estado_interno as EstadoInterno] ?? exp.estado_interno}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Prioridad */}
+                    <td className="px-3 py-3 hidden sm:table-cell">
                       <PrioridadBadge prioridad={exp.prioridad} compact />
                     </td>
 
                     {/* Responsable */}
-                    <td className="px-3 py-3 hidden sm:table-cell">
+                    <td className="px-3 py-3 hidden md:table-cell">
                       {(() => {
                         const miembros = (exp.miembros ?? []) as any[]
                         const responsable = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
@@ -310,7 +338,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     </td>
 
                     {/* Turno */}
-                    <td className="px-3 py-3 hidden md:table-cell">
+                    <td className="px-3 py-3 hidden lg:table-cell">
                       {nextTurno ? (
                         <span className="dashboard-chip dashboard-chip-success">
                           <Calendar className="h-3 w-3" />
@@ -322,7 +350,7 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
                     </td>
 
                     {/* Tareas pendientes */}
-                    <td className="px-3 py-3 hidden md:table-cell">
+                    <td className="px-3 py-3 hidden lg:table-cell">
                       {pendingTareas > 0 ? (
                         <span className="dashboard-chip dashboard-chip-warning">
                           {pendingTareas}
