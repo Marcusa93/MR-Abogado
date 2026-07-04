@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { Card, StatusBadge, getTurnoColor } from './detail-helpers'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -9,27 +11,75 @@ import {
   ESTADO_AUDIENCIA_VALUES,
   type EstadoAudiencia,
 } from '@/types/enums'
-import { useUpdateTurno, useDeleteTurno, useAudienciaAsignados } from '@/hooks/use-turnos'
+import { useUpdateTurno, useDeleteTurno, useAudienciaAsignados, useAssignAudienciaUsers, useRemoveAudienciaUser } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
 import type { Tables } from '@/types/database.types'
 import {
   CalendarClock, Plus, Pencil, Trash2, X, Check, Loader2, Video, Sparkles,
-  Paperclip, VideoOff, ChevronDown, ChevronUp, FileText, Eye, Users,
+  Paperclip, VideoOff, ChevronDown, ChevronUp, FileText, Eye, Users, CalendarPlus,
 } from 'lucide-react'
 import { useSaeMovements, useSetMovementAudiencia, useSaeDocument, passesAudienciaFilter, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { TranscriptionPanel } from './transcription-panel'
 import { extractAttachments, type SaeAttachment } from './tab-actuaciones'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 
+// ── Parser de movimiento SAE → valores de agenda ──────────────────────────────
+
+function parseHoraFromText(text: string): string | undefined {
+  const patterns = [
+    /\b(\d{1,2}:\d{2})\s*(?:hs?|horas?)\b/i,
+    /\ba\s+las\s+(\d{1,2}:\d{2})\b/i,
+    /\bhora[:\s]+(\d{1,2}:\d{2})\b/i,
+  ]
+  for (const pat of patterns) {
+    const match = text.match(pat)
+    if (match?.[1]) {
+      const [h] = match[1].split(':')
+      if (parseInt(h, 10) <= 23) return match[1].padStart(5, '0')
+    }
+  }
+  return undefined
+}
+
+function parseMovementSchedule(movement: SaeMovement) {
+  const suggested = movement.ai_suggested_action
+  const aiDate = suggested?.tipo === 'turno' && suggested.fecha ? suggested.fecha : null
+  const extractedDate = movement.ai_extracted?.fechas?.find(
+    (f) => f.tipo.toLowerCase().includes('audiencia'),
+  )?.fecha_iso
+  const fecha = aiDate ?? extractedDate ?? movement.fecha
+
+  const textToSearch = [movement.titulo, movement.cuerpo].filter(Boolean).join(' ')
+  const hora = parseHoraFromText(textToSearch)
+
+  return { fecha, hora, notas: movement.titulo }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface TabTurnosProps {
   audiencias: Tables<'audiencias'>[]
   expedienteId: string
 }
 
+type DialogState = {
+  open: boolean
+  saeMovementId?: string
+  initialValues?: { fecha?: string; hora?: string; notas?: string }
+}
+
 export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
   const turnos = audiencias
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogState, setDialogState] = useState<DialogState>({ open: false })
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  const openBlank = () => setDialogState({ open: true })
+  const closeDialog = () => setDialogState({ open: false })
+
+  const handleAgendarFromMovement = (movement: SaeMovement) => {
+    const parsed = parseMovementSchedule(movement)
+    setDialogState({ open: true, saeMovementId: movement.id, initialValues: parsed })
+  }
 
   // Actuaciones marcadas (manual o auto por audio adjunto) como audiencia
   const { data: movements = [] } = useSaeMovements(expedienteId)
@@ -100,7 +150,7 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
       title="Audiencias"
       headerRight={
         <button
-          onClick={() => setDialogOpen(true)}
+          onClick={openBlank}
           className="flex items-center gap-1 rounded-lg bg-gradient-cyan px-3 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -123,6 +173,8 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
                 movement={m}
                 expedienteId={expedienteId}
                 onOpenPdf={handleOpenPdf}
+                isScheduled={turnos.some((t) => t.sae_movement_id === m.id)}
+                onAgendar={() => handleAgendarFromMovement(m)}
               />
             ))}
           </div>
@@ -163,9 +215,11 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
       )}
     </Card>
     <CrearTurnoDialog
-      open={dialogOpen}
-      onClose={() => setDialogOpen(false)}
+      open={dialogState.open}
+      onClose={closeDialog}
       expedienteId={expedienteId}
+      saeMovementId={dialogState.saeMovementId}
+      initialValues={dialogState.initialValues}
     />
     <SaePdfViewerDialog
       open={viewer.open}
@@ -305,6 +359,26 @@ function TurnoRow({
 const inputClass =
   'h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
 
+function useActiveProfilesSimple() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profiles-activos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido, nombre_completo')
+        .eq('activo', true)
+        .order('apellido')
+      if (error) throw error
+      return (data ?? []).map((p) => ({
+        id: p.id,
+        label: p.nombre_completo ?? [p.nombre, p.apellido].filter(Boolean).join(' ') ?? p.id,
+      }))
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 function TurnoEditRow({
   turno,
   expedienteId,
@@ -315,11 +389,20 @@ function TurnoEditRow({
   onDone: () => void
 }) {
   const updateTurno = useUpdateTurno()
+  const assignUsers = useAssignAudienciaUsers()
+  const removeUser = useRemoveAudienciaUser()
+  const { data: asignados = [] } = useAudienciaAsignados(turno.id)
+  const { data: allProfiles = [] } = useActiveProfilesSimple()
+
   const [tipoTurno, setTipoTurno] = useState((turno as any).tipo_audiencia_id ?? '')
   const [estado, setEstado] = useState(turno.estado)
   const [fecha, setFecha] = useState(turno.fecha)
   const [hora, setHora] = useState(turno.hora ?? '')
   const [notas, setNotas] = useState(turno.notas ?? '')
+  const [showAssign, setShowAssign] = useState(false)
+
+  const assignedIds = new Set(asignados.map((a) => a.profile_id))
+  const availableToAdd = allProfiles.filter((p) => !assignedIds.has(p.id))
 
   const handleSave = async () => {
     try {
@@ -337,6 +420,14 @@ function TurnoEditRow({
     } catch {
       toast.error('Error al actualizar turno')
     }
+  }
+
+  const handleRemoveAsignado = (profileId: string) => {
+    removeUser.mutate({ audienciaId: turno.id, profileId })
+  }
+
+  const handleAddAsignado = (profileId: string) => {
+    assignUsers.mutate({ audienciaId: turno.id, profileIds: [profileId] })
   }
 
   return (
@@ -384,13 +475,74 @@ function TurnoEditRow({
           className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
         />
       </div>
+
+      {/* Asignados */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[10px] font-medium text-zinc-600 dark:text-zinc-300 flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            Asignados
+          </label>
+          {availableToAdd.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAssign((v) => !v)}
+              className="text-[10px] text-amber-400 hover:text-amber-300"
+            >
+              {showAssign ? 'Cerrar' : '+ Agregar'}
+            </button>
+          )}
+        </div>
+        {asignados.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {asignados.map((a) => {
+              const p = a.profiles
+              const nombre = p?.nombre_completo ?? [p?.nombre, p?.apellido].filter(Boolean).join(' ') ?? '—'
+              return (
+                <span
+                  key={a.profile_id}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 pl-2 pr-1 py-0.5 text-[10px] font-medium text-amber-300"
+                >
+                  {nombre}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAsignado(a.profile_id)}
+                    className="rounded-full p-0.5 hover:bg-rose-500/20 hover:text-rose-400 transition-colors"
+                    title="Quitar asignado"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        )}
+        {showAssign && availableToAdd.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {availableToAdd.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleAddAsignado(p.id)}
+                className="rounded-full px-2.5 py-0.5 text-[10px] font-medium border border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-300 transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {asignados.length === 0 && !showAssign && (
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">Sin asignados.</p>
+        )}
+      </div>
+
       <div className="flex justify-end gap-2">
         <button onClick={onDone} className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
           Cancelar
         </button>
         <button
           onClick={handleSave}
-          disabled={updateTurno.isPending || !fecha || !tipoTurno}
+          disabled={updateTurno.isPending || !fecha}
           className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-3 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50"
         >
           {updateTurno.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
@@ -407,10 +559,14 @@ function ActuacionAudienciaRow({
   movement,
   expedienteId,
   onOpenPdf,
+  isScheduled,
+  onAgendar,
 }: {
   movement: SaeMovement
   expedienteId: string
   onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
+  isScheduled: boolean
+  onAgendar: () => void
 }) {
   const audioOnly = !movement.is_audiencia && hasAudioAttachment(movement)
   const aiSummary = movement.ai_summary?.trim()
@@ -478,14 +634,31 @@ function ActuacionAudienciaRow({
           )}
           <TranscriptionPanel movement={movement} />
         </div>
-        <button
-          onClick={handleExclude}
-          className="shrink-0 inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-colors opacity-0 group-hover:opacity-100"
-          title="Excluir de Audiencias (no volverá a aparecer aunque tenga audio adjunto o tipo audiencia)"
-        >
-          <VideoOff className="h-3 w-3" />
-          Excluir
-        </button>
+        <div className="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isScheduled ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-[10px] font-medium text-amber-300">
+              <CalendarPlus className="h-3 w-3" />
+              Agendada
+            </span>
+          ) : (
+            <button
+              onClick={onAgendar}
+              className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
+              title="Crear audiencia en la agenda a partir de esta actuación"
+            >
+              <CalendarPlus className="h-3 w-3" />
+              Agendar
+            </button>
+          )}
+          <button
+            onClick={handleExclude}
+            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium text-zinc-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30 transition-colors"
+            title="Excluir de Audiencias (no volverá a aparecer aunque tenga audio adjunto o tipo audiencia)"
+          >
+            <VideoOff className="h-3 w-3" />
+            Excluir
+          </button>
+        </div>
       </div>
 
       {expanded && canExpand && (

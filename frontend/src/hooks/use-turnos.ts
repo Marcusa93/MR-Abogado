@@ -142,3 +142,29 @@ export function useAssignAudienciaUsers() {
     },
   })
 }
+
+export function useRemoveAudienciaUser() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      audienciaId,
+      profileId,
+    }: {
+      audienciaId: string
+      profileId: string
+    }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('audiencia_asignados')
+        .delete()
+        .eq('audiencia_id', audienciaId)
+        .eq('profile_id', profileId)
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['audiencia-asignados', variables.audienciaId] })
+    },
+  })
+}

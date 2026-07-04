@@ -88,6 +88,8 @@ interface CrearTurnoDialogProps {
   onClose: () => void
   /** Si se omite, el diálogo muestra un selector de expediente */
   expedienteId?: string
+  /** Cuando viene de una actuación SAE, se guarda el vínculo */
+  saeMovementId?: string
   initialValues?: {
     fecha?: string
     hora?: string
@@ -99,6 +101,7 @@ export function CrearTurnoDialog({
   open,
   onClose,
   expedienteId,
+  saeMovementId,
   initialValues,
 }: CrearTurnoDialogProps) {
   const createTurno = useCreateTurno()
@@ -152,6 +155,7 @@ export function CrearTurnoDialog({
         hora: hora || null,
         estado: 'PENDIENTE',
         notas: notas.trim() || null,
+        sae_movement_id: saeMovementId ?? null,
       })
 
       if (selectedProfileIds.length > 0 && audiencia?.id) {
@@ -197,12 +201,14 @@ export function CrearTurnoDialog({
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              Nueva audiencia
+              {saeMovementId ? 'Agendar audiencia' : 'Nueva audiencia'}
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
-              {needsExpediente
-                ? 'Seleccioná el expediente y completá los datos.'
-                : 'Registra una audiencia para este expediente.'}
+              {saeMovementId
+                ? 'Desde actuación SAE. Revisá y completá los datos.'
+                : needsExpediente
+                  ? 'Seleccioná el expediente y completá los datos.'
+                  : 'Registra una audiencia para este expediente.'}
             </p>
           </div>
           <button
