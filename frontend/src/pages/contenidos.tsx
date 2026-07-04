@@ -248,8 +248,8 @@ export default function ContenidosPage() {
     )
   }
   const handleVideo = (file: File) => {
-    if (file.size > 200 * 1024 * 1024) {
-      toast.error('El video supera 200 MB. Recortalo o comprimilo antes (los videos editados para redes suelen ser más livianos).')
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error('El video supera 500 MB. Recortalo o comprimilo antes (los videos editados para redes suelen ser más livianos).')
       return
     }
     runGenerar({ file })
