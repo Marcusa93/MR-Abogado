@@ -262,7 +262,7 @@ export function useCreateGasto() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: Omit<Gasto, 'id' | 'created_at' | 'cargado_por' | 'recuperado_at'> & { cargado_por: string }) => {
+    mutationFn: async (input: Omit<Gasto, 'id' | 'created_at' | 'cargado_por' | 'recuperado_at' | 'gasto_fijo_id'> & { cargado_por: string; gasto_fijo_id?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from as any)('gastos').insert(input).select().single()
       if (error) throw error
