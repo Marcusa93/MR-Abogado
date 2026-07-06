@@ -130,6 +130,7 @@ export interface CajaResumen {
   }
   anio_actual: { ingresos_ars: number; gastos_ars: number }
   gastos_por_categoria_mes: { categoria: string; monto: number }[]
+  gastos_por_categoria_mes_usd: { categoria: string; monto: number }[]
   ingresos_por_tipo_mes: { tipo: string; monto: number }[]
   abonos_activos: number
   abonos_total_mensual_ars: number

@@ -237,8 +237,21 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
           accent="emerald"
         />
         <DesglosePorBucket
-          titulo="Gastos por categoría"
-          data={resumen.gastos_por_categoria_mes.map(g => ({ label: CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria, valor: g.monto }))}
+          titulo={`Gastos por categoría${resumen.gastos_por_categoria_mes_usd.length > 0 && cotizacion ? ' (USD convertido)' : ''}`}
+          data={(() => {
+            const map = new Map<string, number>()
+            for (const g of resumen.gastos_por_categoria_mes) {
+              map.set(g.categoria, (map.get(g.categoria) ?? 0) + g.monto)
+            }
+            if (cotizacion) {
+              for (const g of resumen.gastos_por_categoria_mes_usd) {
+                map.set(g.categoria, (map.get(g.categoria) ?? 0) + g.monto * cotizacion.venta)
+              }
+            }
+            return Array.from(map.entries())
+              .sort((a, b) => b[1] - a[1])
+              .map(([cat, val]) => ({ label: CATEGORIA_GASTO_LABEL[cat] ?? cat, valor: Math.round(val) }))
+          })()}
           accent="rose"
         />
       </div>
