@@ -570,7 +570,7 @@ Deno.serve(async (req) => {
     } else {
       const { data: { user }, error: authError } = await anonClient.auth.getUser()
       if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
-      userId = userId
+      userId = user.id
     }
 
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
