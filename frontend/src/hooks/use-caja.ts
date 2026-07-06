@@ -201,7 +201,7 @@ export function useGastos(month?: { year: number; month: number }) {
     staleTime: 30_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase.from as any)('gastos').select('*').order('fecha', { ascending: false })
+      let q = (supabase.from as any)('gastos').select('*').is('deleted_at', null).order('fecha', { ascending: false })
       if (month) {
         const start = `${month.year}-${String(month.month).padStart(2, '0')}-01`
         const nextM = month.month === 12 ? 1 : month.month + 1
@@ -223,7 +223,7 @@ export function useIngresos(month?: { year: number; month: number }) {
     staleTime: 30_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase.from as any)('ingresos').select('*').order('fecha', { ascending: false })
+      let q = (supabase.from as any)('ingresos').select('*').is('deleted_at', null).order('fecha', { ascending: false })
       if (month) {
         const start = `${month.year}-${String(month.month).padStart(2, '0')}-01`
         const nextM = month.month === 12 ? 1 : month.month + 1
