@@ -11,7 +11,6 @@ import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { formatDateWithWeekday } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
-import { WhatsAppButton } from '@/components/shared/whatsapp-button'
 import {
   Loader2,
   CheckCircle,
@@ -26,10 +25,10 @@ import {
   Send,
   AlertCircle,
   CheckSquare,
-  ExternalLink,
   Plus,
   Calendar,
   ListChecks,
+  MapPin,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -59,6 +58,7 @@ const ESTADOS_EN_PROCESO = [
 interface AgendaTurno {
   id: string
   fecha: string
+  hora: string | null
   tipo_audiencia?: { nombre: string } | null
   organismo?: { nombre: string } | null
   estado: string
@@ -82,11 +82,9 @@ function useAgendaSecretaria() {
     queryKey: ['agenda'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0]
-      // Extend to 60 days so the MiniCalendar can show dots for the whole visible month
-      const next60 = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]
-      const next7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+      const past14 = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0]
+      const next90 = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]
 
-      // Expedientes en tramite que necesitan control
       const { data: exps } = await supabase
         .from('expedientes')
         .select(
@@ -133,11 +131,10 @@ function useAgendaSecretaria() {
         }
       })
 
-      // Audiencias proximas
       const { data: turnosData } = await supabase
         .from('audiencias')
         .select(
-          `id, fecha, estado, notas,
+          `id, fecha, hora, estado, notas,
            tipo_audiencia:catalogo_tipos_audiencia!audiencias_tipo_audiencia_id_fkey (nombre),
            organismo:organismos!audiencias_organismo_id_fkey (nombre),
            expediente:expedientes!audiencias_expediente_id_fkey (
@@ -145,11 +142,11 @@ function useAgendaSecretaria() {
              clientes!expedientes_cliente_id_fkey (nombre, apellido)
            )`
         )
-        .gte('fecha', today)
-        .lte('fecha', next60)
+        .gte('fecha', past14)
+        .lte('fecha', next90)
         .in('estado', ['PENDIENTE', 'CONFIRMADA'])
         .order('fecha', { ascending: true })
-        .limit(100)
+        .limit(200)
 
       return {
         expedientes: expedientes
@@ -203,17 +200,17 @@ function SeguimientoForm({
           <select
             value={canal}
             onChange={(e) => setCanal(e.target.value as CreateSeguimientoInput['canal'])}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
+            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
           >
             <option value="WEB">Web</option>
-            <option value="TELEFONO">Tel{'\u00E9'}fono</option>
+            <option value="TELEFONO">Tel{'é'}fono</option>
             <option value="PRESENCIAL">Presencial</option>
             <option value="EMAIL">Email</option>
           </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
-            Pr{'\u00F3'}ximo control <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
+            Pr{'ó'}ximo control <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
           </label>
           <input
             type="date"
@@ -226,7 +223,7 @@ function SeguimientoForm({
                 setProximoControl(new Date().toISOString().split('T')[0])
               }
             }}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
+            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
           />
         </div>
       </div>
@@ -240,7 +237,7 @@ function SeguimientoForm({
           value={resultado}
           onChange={(e) => setResultado(e.target.value)}
           placeholder="Ej: En proceso, Resolución dictada..."
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
+          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
         />
       </div>
 
@@ -252,7 +249,7 @@ function SeguimientoForm({
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:ring-amber-500/15"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
         />
       </div>
 
@@ -282,7 +279,262 @@ function SeguimientoForm({
 }
 
 // ---------------------------------------------------------------------------
-// Mini Calendar — monthly grid with turno dots
+// Vista semanal de audiencias — hero component
+// ---------------------------------------------------------------------------
+
+const DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function getMondayOfWeek(offset: number): Date {
+  const today = new Date()
+  const dow = today.getDay()
+  const diffToMon = dow === 0 ? -6 : 1 - dow
+  const mon = new Date(today)
+  mon.setDate(today.getDate() + diffToMon + offset * 7)
+  mon.setHours(0, 0, 0, 0)
+  return mon
+}
+
+function SemanaAudienciasView({
+  turnos,
+  onNuevaAudiencia,
+  onExpedienteClick,
+}: {
+  turnos: AgendaTurno[]
+  onNuevaAudiencia: () => void
+  onExpedienteClick: (expId: string) => void
+}) {
+  const [weekOffset, setWeekOffset] = useState(0)
+
+  const weekDays = useMemo(() => {
+    const mon = getMondayOfWeek(weekOffset)
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(mon)
+      d.setDate(mon.getDate() + i)
+      return d
+    })
+  }, [weekOffset])
+
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  const weekLabel = useMemo(() => {
+    const ini = weekDays[0]
+    const fin = weekDays[6]
+    const sameMonth = ini.getMonth() === fin.getMonth()
+    if (sameMonth) {
+      return `${ini.getDate()} – ${fin.getDate()} de ${ini.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}`
+    }
+    return `${ini.getDate()} ${MESES_CORTO[ini.getMonth()]} – ${fin.getDate()} ${MESES_CORTO[fin.getMonth()]} ${fin.getFullYear()}`
+  }, [weekDays])
+
+  const turnosByDate = useMemo(() => {
+    const map: Record<string, AgendaTurno[]> = {}
+    for (const t of turnos) {
+      ;(map[t.fecha] ??= []).push(t)
+    }
+    for (const dateStr in map) {
+      map[dateStr].sort((a, b) => {
+        if (!a.hora && !b.hora) return 0
+        if (!a.hora) return 1
+        if (!b.hora) return -1
+        return a.hora.localeCompare(b.hora)
+      })
+    }
+    return map
+  }, [turnos])
+
+  const totalSemana = weekDays.reduce((acc, d) => {
+    const ds = d.toISOString().split('T')[0]
+    return acc + (turnosByDate[ds]?.length ?? 0)
+  }, 0)
+
+  return (
+    <div className="rounded-xl border border-white/10 glass-card p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <CalendarClock className="h-5 w-5 text-sky-400" />
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 leading-none">
+              Audiencias de la semana
+            </h2>
+            <p className="text-[11px] text-zinc-500 mt-0.5 capitalize">{weekLabel}</p>
+          </div>
+          {totalSemana > 0 && (
+            <span className="rounded-full bg-sky-900/40 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
+              {totalSemana}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {weekOffset !== 0 && (
+            <button
+              onClick={() => setWeekOffset(0)}
+              className="rounded-lg px-2 py-1 text-[11px] font-medium text-amber-400 hover:bg-amber-900/30"
+            >
+              Esta semana
+            </button>
+          )}
+          <button
+            onClick={() => setWeekOffset((w) => w - 1)}
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onNuevaAudiencia}
+            className="ml-1 flex items-center gap-1 rounded-lg bg-gradient-cyan px-2.5 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90"
+          >
+            <Plus className="h-3 w-3" />
+            Nueva
+          </button>
+        </div>
+      </div>
+
+      {/* Grid de 7 días */}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="grid grid-cols-7 gap-2 min-w-[560px]">
+          {weekDays.map((day, i) => {
+            const dateStr = day.toISOString().split('T')[0]
+            const dayTurnos = turnosByDate[dateStr] ?? []
+            const isToday = dateStr === todayStr
+            const isPast = dateStr < todayStr
+            const hasAudiencias = dayTurnos.length > 0
+
+            return (
+              <div
+                key={dateStr}
+                className={cn(
+                  'rounded-xl border flex flex-col min-h-[130px] overflow-hidden',
+                  isToday
+                    ? 'border-amber-500/40 bg-amber-500/[0.07]'
+                    : hasAudiencias
+                    ? 'border-sky-500/25 bg-sky-500/[0.06]'
+                    : 'border-white/5 bg-white/[0.02]'
+                )}
+              >
+                {/* Encabezado del día */}
+                <div
+                  className={cn(
+                    'px-2 py-1.5 text-center border-b',
+                    isToday
+                      ? 'border-amber-500/20 bg-amber-500/10'
+                      : hasAudiencias
+                      ? 'border-sky-500/15 bg-sky-500/10'
+                      : 'border-white/5'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'text-[10px] font-semibold uppercase tracking-wider',
+                      isToday ? 'text-amber-400' : isPast ? 'text-zinc-600' : 'text-zinc-400'
+                    )}
+                  >
+                    {DIAS_CORTO[i]}
+                  </div>
+                  <div
+                    className={cn(
+                      'text-base font-bold leading-none mt-0.5',
+                      isToday ? 'text-amber-300' : isPast ? 'text-zinc-600' : 'text-zinc-200'
+                    )}
+                  >
+                    {day.getDate()}
+                  </div>
+                  <div
+                    className={cn(
+                      'text-[9px] mt-0.5',
+                      isPast && !isToday ? 'text-zinc-700' : 'text-zinc-500'
+                    )}
+                  >
+                    {MESES_CORTO[day.getMonth()]}
+                  </div>
+                </div>
+
+                {/* Contenido: audiencias o guión vacío */}
+                <div className="flex-1 p-1.5 space-y-1.5">
+                  {dayTurnos.length === 0 ? (
+                    <div className="h-full flex items-center justify-center">
+                      <span className="text-[10px] text-zinc-700">–</span>
+                    </div>
+                  ) : (
+                    dayTurnos.map((turno) => (
+                      <button
+                        key={turno.id}
+                        onClick={() => turno.expediente && onExpedienteClick(turno.expediente.id)}
+                        className={cn(
+                          'w-full rounded-lg p-2 text-left transition-colors group',
+                          turno.estado === 'CONFIRMADA'
+                            ? 'bg-sky-900/40 hover:bg-sky-900/60 border border-sky-700/30'
+                            : 'bg-white/5 hover:bg-white/10 border border-white/5'
+                        )}
+                      >
+                        {/* Hora — dato más importante */}
+                        <div className="flex items-center gap-1 mb-1">
+                          {turno.hora ? (
+                            <span className="text-[13px] font-bold text-sky-200 tabular-nums leading-none">
+                              {turno.hora.slice(0, 5)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-zinc-500 italic">sin hora</span>
+                          )}
+                          {turno.estado === 'CONFIRMADA' && (
+                            <span className="rounded-full bg-emerald-900/50 px-1.5 py-0.5 text-[8px] font-medium text-emerald-400">
+                              conf.
+                            </span>
+                          )}
+                        </div>
+                        {/* Tipo */}
+                        <div className="text-[10px] text-zinc-300 leading-tight truncate font-medium">
+                          {turno.tipo_audiencia?.nombre ?? 'Audiencia'}
+                        </div>
+                        {/* Caratula / cliente */}
+                        {turno.expediente && (
+                          <div className="text-[9px] text-amber-400 truncate mt-0.5">
+                            {turno.expediente.clientes
+                              ? turno.expediente.clientes.apellido.toUpperCase()
+                              : turno.expediente.caratula.slice(0, 18)}
+                          </div>
+                        )}
+                        {/* Organismo */}
+                        {turno.organismo && (
+                          <div className="flex items-center gap-0.5 mt-0.5">
+                            <MapPin className="h-2.5 w-2.5 text-zinc-600 shrink-0" />
+                            <span className="text-[9px] text-zinc-500 truncate">
+                              {turno.organismo.nombre}
+                            </span>
+                          </div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Leyenda rápida si hay audiencias sin hora */}
+      {turnos.some((t) => {
+        const ds = t.fecha
+        return weekDays.some((d) => d.toISOString().split('T')[0] === ds) && !t.hora
+      }) && (
+        <p className="mt-2 text-[10px] text-zinc-600">
+          Algunas audiencias no tienen hora registrada. Editá el turno para agregarla.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Mini Calendar — monthly grid with turno dots (navegación secundaria)
 // ---------------------------------------------------------------------------
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -304,7 +556,6 @@ function MiniCalendar({
   const month = currentMonth.getMonth()
   const todayStr = new Date().toISOString().split('T')[0]
 
-  // Build turno lookup by date
   const turnosByDate = useMemo(() => {
     const map: Record<string, AgendaTurno[]> = {}
     for (const t of turnos) {
@@ -313,19 +564,14 @@ function MiniCalendar({
     return map
   }, [turnos])
 
-  // Calendar grid
   const days = useMemo(() => {
     const firstDay = new Date(year, month, 1)
-    // Monday = 0 offset
     let startOffset = firstDay.getDay() - 1
     if (startOffset < 0) startOffset = 6
-
     const daysInMonth = new Date(year, month + 1, 0).getDate()
     const cells: (number | null)[] = []
-
     for (let i = 0; i < startOffset; i++) cells.push(null)
     for (let d = 1; d <= daysInMonth; d++) cells.push(d)
-    // Pad to full weeks
     while (cells.length % 7 !== 0) cells.push(null)
     return cells
   }, [year, month])
@@ -342,9 +588,8 @@ function MiniCalendar({
 
   return (
     <div>
-      {/* Month navigation */}
       <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
+        <button onClick={prevMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-200">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-2">
@@ -355,12 +600,11 @@ function MiniCalendar({
             Hoy
           </button>
         </div>
-        <button onClick={nextMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200">
+        <button onClick={nextMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-200">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-px mb-1">
         {WEEKDAYS.map((d) => (
           <div key={d} className="text-center text-[10px] font-medium text-zinc-700 dark:text-zinc-300 py-1">
@@ -369,7 +613,6 @@ function MiniCalendar({
         ))}
       </div>
 
-      {/* Day cells */}
       <div className="grid grid-cols-7 gap-px">
         {days.map((day, i) => {
           if (day === null) return <div key={i} />
@@ -411,10 +654,9 @@ function MiniCalendar({
         })}
       </div>
 
-      {/* Selected date detail */}
       {selectedDate && (
         <div className="mt-4 border-t border-white/5 pt-3">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-2">
+          <p className="text-xs font-medium text-zinc-500 mb-2 capitalize">
             {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-AR', {
               weekday: 'long',
               day: 'numeric',
@@ -422,45 +664,44 @@ function MiniCalendar({
             })}
           </p>
           {selectedTurnos.length === 0 ? (
-            <p className="text-xs text-zinc-700 dark:text-zinc-300 text-center py-3">Sin audiencias este día</p>
+            <p className="text-xs text-zinc-600 text-center py-2">Sin audiencias</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {selectedTurnos.map((turno) => (
                 <button
                   key={turno.id}
                   onClick={() => turno.expediente && onTurnoClick(turno.expediente.id)}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors hover:bg-white/5',
-                    turno.estado === 'CONFIRMADA' ? 'border-emerald-900/30' : 'border-white/5'
-                  )}
+                  className="flex w-full items-center gap-2 rounded-lg border border-white/5 bg-white/5 p-2 text-left hover:bg-white/10"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-900/30">
-                    <CalendarClock className="h-3.5 w-3.5 text-sky-400" />
-                  </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                    <div className="flex items-center gap-1.5">
+                      {turno.hora && (
+                        <span className="text-xs font-bold text-sky-300 tabular-nums shrink-0">
+                          {turno.hora.slice(0, 5)}
+                        </span>
+                      )}
+                      <span className="text-xs font-medium text-zinc-200 truncate">
                         {turno.tipo_audiencia?.nombre ?? 'Audiencia'}
-                      </span>
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-                          turno.estado === 'CONFIRMADA'
-                            ? 'bg-emerald-900/30 text-emerald-400'
-                            : 'bg-amber-900/30 text-amber-400'
-                        )}
-                      >
-                        {turno.estado}
                       </span>
                     </div>
                     {turno.expediente && (
-                      <p className="mt-0.5 text-[11px] text-amber-400 truncate">
+                      <p className="mt-0.5 text-[10px] text-amber-400 truncate">
                         {turno.expediente.clientes
                           ? `${turno.expediente.clientes.apellido} ${turno.expediente.clientes.nombre}`
-                          : turno.expediente.caratula || turno.expediente.numero}
+                          : turno.expediente.caratula}
                       </p>
                     )}
                   </div>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
+                      turno.estado === 'CONFIRMADA'
+                        ? 'bg-emerald-900/30 text-emerald-400'
+                        : 'bg-amber-900/30 text-amber-400'
+                    )}
+                  >
+                    {turno.estado}
+                  </span>
                 </button>
               ))}
             </div>
@@ -492,6 +733,7 @@ export default function AgendaSecretariaPage() {
   const [crearTareaOpen, setCrearTareaOpen] = useState(false)
   const [crearAudienciaOpen, setCrearAudienciaOpen] = useState(false)
   const [completedExps, setCompletedExps] = useState<Set<string>>(new Set())
+  const [mostrarTodosExps, setMostrarTodosExps] = useState(false)
 
   const toggleExpand = (id: string) => {
     setExpandedExp((prev) => (prev === id ? null : id))
@@ -515,67 +757,50 @@ export default function AgendaSecretariaPage() {
   const tareasVencidas = tareasData?.data ?? []
   const alertasList = alertas ?? []
 
+  const todayStr = new Date().toISOString().split('T')[0]
+  const audienciasHoy = turnos.filter((t) => t.fecha === todayStr)
+  const expVisible = mostrarTodosExps ? expedientes : expedientes.slice(0, 8)
+
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Audiencias y agenda
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Resumen diario de seguimientos, audiencias y tareas pendientes
-        </p>
-      </div>
-
-      {/* Daily summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="glass-card-glow rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Calendar className="h-4 w-4 text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Hoy</span>
-          </div>
-          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Agenda
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Audiencias, seguimientos y tareas pendientes
           </p>
         </div>
-        <div className="glass-card-glow rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2 mb-1">
-            <CalendarClock className="h-4 w-4 text-sky-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Audiencias</span>
-          </div>
-          <p className="text-lg font-bold text-sky-400">
-            {turnos.filter(t => t.fecha === new Date().toISOString().split('T')[0]).length} hoy
-            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1">/ {turnos.filter(t => t.fecha <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).length} semana</span>
-          </p>
-        </div>
-        <div className="glass-card-glow rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2 mb-1">
-            <FileSearch className="h-4 w-4 text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Revisar</span>
-          </div>
-          <p className="text-lg font-bold text-amber-400">
-            {expedientes.filter(e => e.dias_sin_control > 14).length}
-            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1"> atrasados</span>
-          </p>
-        </div>
-        <div className="glass-card-glow rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2 mb-1">
-            <ListChecks className="h-4 w-4 text-rose-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Vencidas</span>
-          </div>
-          <p className="text-lg font-bold text-rose-400">
-            {tareasVencidas.length}
-            <span className="text-xs text-zinc-700 dark:text-zinc-300 font-normal ml-1"> tareas</span>
-          </p>
+        {/* KPIs rápidos */}
+        <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500">
+          {audienciasHoy.length > 0 && (
+            <span className="rounded-full bg-sky-900/40 px-3 py-1 font-medium text-sky-300">
+              {audienciasHoy.length} audiencia{audienciasHoy.length > 1 ? 's' : ''} hoy
+            </span>
+          )}
+          {tareasVencidas.length > 0 && (
+            <span className="rounded-full bg-rose-900/30 px-3 py-1 font-medium text-rose-400">
+              {tareasVencidas.length} tarea{tareasVencidas.length > 1 ? 's' : ''} vencida{tareasVencidas.length > 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Grid layout */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* ---- Section 1: Expedientes para revisar ---- */}
+      {/* ── HERO: Vista semanal de audiencias ── */}
+      <SemanaAudienciasView
+        turnos={turnos}
+        onNuevaAudiencia={() => setCrearAudienciaOpen(true)}
+        onExpedienteClick={(expId) => navigate(`/expedientes/${expId}`)}
+      />
+
+      {/* ── Grid principal ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Expedientes para revisar — 2/3 */}
         <div className="lg:col-span-2 rounded-xl border border-white/10 glass-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <FileSearch className="h-5 w-5 text-amber-400" />
+            <FileSearch className="h-4 w-4 text-amber-400" />
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               Expedientes para revisar
             </h2>
@@ -589,131 +814,111 @@ export default function AgendaSecretariaPage() {
               No hay expedientes pendientes de control.
             </p>
           ) : (
-            <div className="space-y-2">
-              {expedientes.map((exp) => {
-                const isExpanded = expandedExp === exp.id
-                const isDone = completedExps.has(exp.id)
+            <>
+              <div className="space-y-1.5">
+                {expVisible.map((exp) => {
+                  const isExpanded = expandedExp === exp.id
+                  const isDone = completedExps.has(exp.id)
 
-                return (
-                  <div
-                    key={exp.id}
-                    className={cn(
-                      'rounded-lg border transition-colors',
-                      isDone
-                        ? 'border-emerald-900 bg-emerald-950/20'
-                        : 'border-white/5 bg-white/5 hover:bg-zinc-100 dark:bg-white/[0.04]'
-                    )}
-                  >
-                    <div className="flex items-center gap-3 p-3">
-                      {/* Done indicator */}
-                      {isDone && (
-                        <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
+                  return (
+                    <div
+                      key={exp.id}
+                      className={cn(
+                        'rounded-lg border transition-colors',
+                        isDone
+                          ? 'border-emerald-900 bg-emerald-950/20'
+                          : 'border-white/5 bg-white/[0.03] hover:bg-white/[0.05]'
                       )}
+                    >
+                      <div className="flex items-center gap-3 p-3">
+                        {isDone && <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />}
 
-                      {/* Dias sin control badge */}
-                      <div
-                        className={cn(
-                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
-                          exp.dias_sin_control > 30
-                            ? 'bg-rose-900/40 text-rose-400'
-                            : exp.dias_sin_control > 14
-                            ? 'bg-amber-900/40 text-amber-400'
-                            : 'bg-amber-900/40 text-amber-400'
-                        )}
-                        title={`${exp.dias_sin_control} d\u00EDas sin control`}
-                      >
-                        {exp.dias_sin_control}d
-                      </div>
-
-                      {/* Expediente info */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => navigate(`/expedientes/${exp.id}`)}
-                            className="font-mono text-xs text-amber-400 hover:underline"
-                          >
-                            {exp.caratula || exp.numero_expediente}
-                          </button>
-                          <EstadoBadge estado={exp.estado_interno} compact />
-                        </div>
-                        <p className="text-xs text-zinc-800 dark:text-zinc-200 truncate mt-0.5">
-                          {exp.clientes
-                            ? `${exp.clientes.apellido} ${exp.clientes.nombre}`
-                            : 'Sin cliente'}
-                          {' \u2014 '}
-                          {(exp as any).numero_expediente}
-                        </p>
-                      </div>
-
-                      {/* Expand / collapse */}
-                      {!isDone && (
-                        <button
-                          onClick={() => toggleExpand(exp.id)}
-                          className="shrink-0 rounded-lg border border-white/10 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-800 dark:hover:text-zinc-200"
-                          title="Registrar seguimiento"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
+                        <div
+                          className={cn(
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
+                            exp.dias_sin_control > 30
+                              ? 'bg-rose-900/40 text-rose-400'
+                              : 'bg-amber-900/40 text-amber-400'
                           )}
-                        </button>
+                          title={`${exp.dias_sin_control} días sin control`}
+                        >
+                          {exp.dias_sin_control}d
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => navigate(`/expedientes/${exp.id}`)}
+                              className="font-mono text-xs text-amber-400 hover:underline truncate max-w-[220px]"
+                            >
+                              {exp.caratula || exp.numero_expediente}
+                            </button>
+                            <EstadoBadge estado={exp.estado_interno} compact />
+                          </div>
+                          <p className="text-xs text-zinc-500 truncate mt-0.5">
+                            {exp.clientes
+                              ? `${exp.clientes.apellido}, ${exp.clientes.nombre}`
+                              : 'Sin cliente'}
+                          </p>
+                        </div>
+
+                        {!isDone && (
+                          <button
+                            onClick={() => toggleExpand(exp.id)}
+                            className="shrink-0 rounded-lg border border-white/10 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-200"
+                            title="Registrar seguimiento"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3">
+                          <SeguimientoForm
+                            expedienteId={exp.id}
+                            onDone={() => handleSeguimientoDone(exp.id)}
+                          />
+                        </div>
                       )}
                     </div>
+                  )
+                })}
+              </div>
 
-                    {/* Inline form */}
-                    {isExpanded && (
-                      <div className="px-3 pb-3">
-                        <SeguimientoForm
-                          expedienteId={exp.id}
-                          onDone={() => handleSeguimientoDone(exp.id)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+              {expedientes.length > 8 && (
+                <button
+                  onClick={() => setMostrarTodosExps((v) => !v)}
+                  className="mt-3 w-full text-center text-xs text-amber-400 hover:underline"
+                >
+                  {mostrarTodosExps
+                    ? 'Ver menos'
+                    : `Ver todos (${expedientes.length - 8} más)`}
+                </button>
+              )}
+            </>
           )}
         </div>
 
-        {/* ---- Section 2: Turnos — calendar + list ---- */}
-        <div className="rounded-xl border border-white/10 glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarClock className="h-5 w-5 text-sky-400" />
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              Audiencias
-            </h2>
-            <span className="rounded-full bg-sky-900/30 px-2 py-0.5 text-xs font-medium text-sky-400">
-              {turnos.length}
-            </span>
-            <button
-              onClick={() => setCrearAudienciaOpen(true)}
-              className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-cyan px-2.5 py-1 text-xs font-medium text-zinc-950 hover:opacity-90"
-            >
-              <Plus className="h-3 w-3" />
-              Nueva
-            </button>
-          </div>
-
-          <MiniCalendar turnos={turnos} onTurnoClick={(expId) => navigate(`/expedientes/${expId}`)} />
-        </div>
-
-        {/* ---- Section 3: Tareas vencidas + Alertas ---- */}
-        <div className="space-y-6">
+        {/* Columna derecha: tareas + alertas + mini calendario — 1/3 */}
+        <div className="space-y-5">
           {/* Tareas vencidas */}
-          <div className="rounded-xl border border-white/10 glass-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="h-5 w-5 text-rose-400" />
+          <div className="rounded-xl border border-white/10 glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-rose-400" />
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                 Tareas vencidas
               </h2>
-              <span className="rounded-full bg-rose-900/30 px-2 py-0.5 text-xs font-medium text-rose-400">
+              <span className="ml-auto rounded-full bg-rose-900/30 px-2 py-0.5 text-xs font-medium text-rose-400">
                 {tareasVencidas.length}
               </span>
               <button
                 onClick={() => setCrearTareaOpen(true)}
-                className="ml-auto flex items-center gap-1 rounded-lg bg-gradient-cyan px-2.5 py-1 text-xs font-medium text-zinc-950 hover:opacity-90"
+                className="flex items-center gap-1 rounded-lg bg-gradient-cyan px-2 py-1 text-xs font-medium text-zinc-950 hover:opacity-90"
               >
                 <Plus className="h-3 w-3" />
                 Nueva
@@ -721,51 +926,43 @@ export default function AgendaSecretariaPage() {
             </div>
 
             {tareasVencidas.length === 0 ? (
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-4">
-                No hay tareas vencidas.
-              </p>
+              <p className="text-xs text-zinc-600 text-center py-3">Sin tareas vencidas.</p>
             ) : (
-              <div className="space-y-2">
-                {tareasVencidas.slice(0, 5).map((tarea) => (
+              <div className="space-y-1.5">
+                {tareasVencidas.slice(0, 6).map((tarea) => (
                   <div
                     key={tarea.id}
-                    className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-2.5"
+                    className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-white/[0.03] p-2.5"
                   >
                     <button
                       onClick={() => completarTarea.mutate(tarea.id)}
-                      className="shrink-0 rounded p-1 text-zinc-700 dark:text-zinc-300 hover:text-emerald-400"
+                      className="shrink-0 text-zinc-700 hover:text-emerald-400"
                       title="Completar"
                     >
                       <CheckSquare className="h-4 w-4" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-900 dark:text-zinc-50 truncate">
-                        {tarea.titulo}
-                      </p>
+                      <p className="text-xs font-medium text-zinc-100 truncate">{tarea.titulo}</p>
                       {tarea.expediente && (
                         <button
-                          onClick={() =>
-                            navigate(`/expedientes/${tarea.expediente!.id}`)
-                          }
-                          className="text-[10px] text-amber-400 hover:underline"
+                          onClick={() => navigate(`/expedientes/${tarea.expediente!.id}`)}
+                          className="text-[10px] text-amber-400 hover:underline truncate block"
                         >
                           {tarea.expediente.caratula || (tarea.expediente as any).numero_expediente}
                         </button>
                       )}
                     </div>
-                    <span className="shrink-0 text-[10px] font-medium text-rose-400">
-                      {tarea.fecha_vencimiento
-                        ? formatDateWithWeekday(tarea.fecha_vencimiento)
-                        : ''}
+                    <span className="shrink-0 text-[10px] font-medium text-rose-400 whitespace-nowrap">
+                      {tarea.fecha_vencimiento ? formatDateWithWeekday(tarea.fecha_vencimiento) : ''}
                     </span>
                   </div>
                 ))}
-                {tareasVencidas.length > 5 && (
+                {tareasVencidas.length > 6 && (
                   <button
                     onClick={() => navigate('/tareas')}
                     className="w-full text-center text-xs text-amber-400 hover:underline pt-1"
                   >
-                    Ver todas las tareas vencidas ({tareasVencidas.length})
+                    Ver todas ({tareasVencidas.length})
                   </button>
                 )}
               </div>
@@ -773,11 +970,11 @@ export default function AgendaSecretariaPage() {
           </div>
 
           {/* Alertas */}
-          <div className="rounded-xl border border-white/10 glass-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Bell className="h-5 w-5 text-amber-400" />
+          <div className="rounded-xl border border-white/10 glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell className="h-4 w-4 text-amber-400" />
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                Alertas pendientes
+                Alertas
               </h2>
               <span className="ml-auto rounded-full bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-400">
                 {alertasList.length}
@@ -785,27 +982,21 @@ export default function AgendaSecretariaPage() {
             </div>
 
             {alertasList.length === 0 ? (
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-4">
-                Sin alertas pendientes.
-              </p>
+              <p className="text-xs text-zinc-600 text-center py-3">Sin alertas.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {alertasList.slice(0, 5).map((alerta) => (
                   <div
                     key={alerta.id}
-                    className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 p-2.5"
+                    className="flex items-start gap-2.5 rounded-lg border border-white/5 bg-white/[0.03] p-2.5"
                   >
-                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-900 dark:text-zinc-50 truncate">
-                        {alerta.titulo}
-                      </p>
+                      <p className="text-xs font-medium text-zinc-100 truncate">{alerta.titulo}</p>
                       {alerta.expediente && (
                         <button
-                          onClick={() =>
-                            navigate(`/expedientes/${alerta.expediente!.id}`)
-                          }
-                          className="text-[10px] text-amber-400 hover:underline"
+                          onClick={() => navigate(`/expedientes/${alerta.expediente!.id}`)}
+                          className="text-[10px] text-amber-400 hover:underline truncate block"
                         >
                           {alerta.expediente.caratula || (alerta.expediente as any).numero_expediente}
                         </button>
@@ -813,7 +1004,7 @@ export default function AgendaSecretariaPage() {
                     </div>
                     <button
                       onClick={() => resolverAlerta.mutate(alerta.id)}
-                      className="shrink-0 rounded-lg bg-emerald-900/30 px-2 py-1 text-[10px] font-medium text-emerald-400 hover:bg-emerald-900/50"
+                      className="shrink-0 rounded-lg bg-emerald-900/30 px-2 py-1 text-[10px] font-medium text-emerald-400 hover:bg-emerald-900/50 whitespace-nowrap"
                     >
                       Resolver
                     </button>
@@ -824,24 +1015,31 @@ export default function AgendaSecretariaPage() {
                     onClick={() => navigate('/alertas')}
                     className="w-full text-center text-xs text-amber-400 hover:underline pt-1"
                   >
-                    Ver todas las alertas ({alertasList.length})
+                    Ver todas ({alertasList.length})
                   </button>
                 )}
               </div>
             )}
           </div>
+
+          {/* Mini calendario */}
+          <div className="rounded-xl border border-white/10 glass-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="h-4 w-4 text-zinc-500" />
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Calendario
+              </h2>
+            </div>
+            <MiniCalendar
+              turnos={turnos}
+              onTurnoClick={(expId) => navigate(`/expedientes/${expId}`)}
+            />
+          </div>
         </div>
       </div>
 
-      <CrearTareaDialog
-        open={crearTareaOpen}
-        onClose={() => setCrearTareaOpen(false)}
-      />
-
-      <CrearTurnoDialog
-        open={crearAudienciaOpen}
-        onClose={() => setCrearAudienciaOpen(false)}
-      />
+      <CrearTareaDialog open={crearTareaOpen} onClose={() => setCrearTareaOpen(false)} />
+      <CrearTurnoDialog open={crearAudienciaOpen} onClose={() => setCrearAudienciaOpen(false)} />
     </div>
   )
 }
