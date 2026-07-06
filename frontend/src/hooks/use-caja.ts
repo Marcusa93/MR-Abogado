@@ -264,9 +264,8 @@ export function useCreateGasto() {
   return useMutation({
     mutationFn: async (input: Omit<Gasto, 'id' | 'created_at' | 'cargado_por' | 'recuperado_at' | 'gasto_fijo_id'> & { cargado_por: string; gasto_fijo_id?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from as any)('gastos').insert(input).select().single()
+      const { error } = await (supabase.from as any)('gastos').insert(input)
       if (error) throw error
-      return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gastos'] })
@@ -283,9 +282,8 @@ export function useCreateIngreso() {
   return useMutation({
     mutationFn: async (input: Omit<Ingreso, 'id' | 'created_at'>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from as any)('ingresos').insert(input).select().single()
+      const { error } = await (supabase.from as any)('ingresos').insert(input)
       if (error) throw error
-      return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
