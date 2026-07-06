@@ -272,6 +272,7 @@ export function useCreateGasto() {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
     },
   })
 }
