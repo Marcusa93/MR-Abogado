@@ -369,8 +369,7 @@ export function useDeleteGasto() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)('gastos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+      const { error } = await supabase.rpc('soft_delete_gasto', { p_id: id })
       if (error) throw error
     },
     onSuccess: () => {
@@ -386,8 +385,7 @@ export function useDeleteIngreso() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)('ingresos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+      const { error } = await supabase.rpc('soft_delete_ingreso', { p_id: id })
       if (error) throw error
     },
     onSuccess: () => {
