@@ -51,7 +51,8 @@ async function fetchBluelytics(): Promise<CotizacionUSD | null> {
 export function useUsdRate() {
   return useQuery<CotizacionUSD | null>({
     queryKey: ['cotizacion-usd'],
-    staleTime: 30 * 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
     retry: 1,
     queryFn: async () => {
       const result = await fetchMonedapi()
