@@ -25,20 +25,45 @@ function normalizeResponse(data: unknown): CotizacionUSD | null {
   return null
 }
 
-// Cotización USD/ARS desde monedapi.ar — refresca cada 30 min
+async function fetchMonedapi(): Promise<CotizacionUSD | null> {
+  if (!MONEDAPI_KEY) return null
+  try {
+    const res = await fetch('https://monedapi.ar/v1/cotizacion/usd', {
+      headers: { Authorization: `Bearer ${MONEDAPI_KEY}` },
+    })
+    if (!res.ok) return null
+    return normalizeResponse(await res.json())
+  } catch {
+    return null
+  }
+}
+
+// Fallback público: Bluelytics devuelve el tipo oficial BNA sin autenticación
+async function fetchBluelytics(): Promise<CotizacionUSD | null> {
+  try {
+    const res = await fetch('https://api.bluelytics.com.ar/v2/latest')
+    if (!res.ok) return null
+    const data = await res.json() as Record<string, unknown>
+    if (data.oficial && typeof data.oficial === 'object') {
+      return normalizeResponse(data.oficial)
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Cotización USD/ARS (BNA). Usa MonedAPI si hay clave, Bluelytics como fallback.
+// Refresca cada 30 minutos.
 export function useUsdRate() {
   return useQuery<CotizacionUSD | null>({
     queryKey: ['cotizacion-usd'],
     staleTime: 30 * 60_000,
     retry: 1,
     queryFn: async () => {
-      if (!MONEDAPI_KEY) return null
-      const res = await fetch('https://monedapi.ar/v1/cotizacion/usd', {
-        headers: { Authorization: `Bearer ${MONEDAPI_KEY}` },
-      })
-      if (!res.ok) return null
-      const data: unknown = await res.json()
-      return normalizeResponse(data)
+      const result = await fetchMonedapi()
+      if (result) return result
+      return fetchBluelytics()
     },
   })
 }

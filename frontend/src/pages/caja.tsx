@@ -578,7 +578,7 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
     <div className="space-y-3">
       <MonthNav mes={mes} setMes={setMes} count={ingresos.length} noun={ingresos.length === 1 ? 'ingreso' : 'ingresos'} />
       <TotalesMes items={ingresos} tipo="ingreso" />
-      {totalUSD > 0 && <TipoCambioWidget cotizacion={cotizacion ?? null} />}
+      <TipoCambioWidget cotizacion={cotizacion ?? null} />
 
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />
