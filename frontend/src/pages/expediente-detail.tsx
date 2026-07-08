@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EstadoBadge } from '@/components/shared/estado-badge'
@@ -44,6 +44,7 @@ import {
   CalendarClock,
   CheckSquare,
   Paperclip,
+  Video,
   Clock,
   Loader2,
   AlertCircle,
@@ -72,17 +73,13 @@ import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 const TABS = [
   { id: 'datos', label: 'Datos', icon: FileText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
   { id: 'actuaciones', label: 'SAE', icon: Database, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'tareas', label: 'Tareas', icon: CheckSquare, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'audiencias', label: 'Audiencias', icon: CalendarClock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
   { id: 'claves', label: 'Actuaciones claves', icon: Star, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'documentos', label: 'Documentos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
-  { id: 'escritos', label: 'Escritos', icon: PenLine, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
-  { id: 'normativa', label: 'Normativa', icon: BookMarked, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'jurisprudencia', label: 'Jurisprudencia', icon: Gavel, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
+  { id: 'audiencias-grabadas', label: 'Audiencias grabadas', icon: Video, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'agenda', label: 'Agenda', icon: CalendarClock, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'escritos', label: 'Escritos y notas', icon: PenLine, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
+  { id: 'documentos', label: 'Documentos jurídicos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
   { id: 'vision-ia', label: 'Visión IA', icon: Sparkles, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'notas', label: 'Notas', icon: MessageSquareText, activeClasses: 'border-pink-400 text-pink-400', badgeClasses: 'bg-pink-500/15 text-pink-400' },
   { id: 'caja', label: 'Caja', icon: Wallet, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'timeline', label: 'Timeline', icon: Clock, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -382,9 +379,8 @@ export default function ExpedienteDetailPage() {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             let count: number | null = null
-            if (tab.id === 'audiencias') count = audiencias.length
-            if (tab.id === 'tareas') count = tareas.length
-            if (tab.id === 'notas') count = (expediente.expediente_notas ?? []).length
+            if (tab.id === 'agenda') count = tareas.length
+            if (tab.id === 'audiencias-grabadas') count = audiencias.length
 
             return (
               <button
@@ -419,7 +415,20 @@ export default function ExpedienteDetailPage() {
 
       {/* Tab Content */}
       <div className="mt-4">
-        {activeTab === 'datos' && <TabGeneral expediente={expediente} />}
+        {activeTab === 'datos' && (
+          <div className="space-y-4">
+            <TabGeneral expediente={expediente} />
+            <Card title="Línea de tiempo">
+              {timelineLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-300" />
+                </div>
+              ) : (
+                <TimelineExpediente events={timeline ?? []} />
+              )}
+            </Card>
+          </div>
+        )}
         {activeTab === 'actuaciones' && (
           <TabActuaciones
             expedienteId={id!}
@@ -427,46 +436,35 @@ export default function ExpedienteDetailPage() {
             ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
           />
         )}
-        {activeTab === 'tareas' && (
-          <TabTareas
-            tareas={tareas}
-            expedienteId={id!}
-            expedienteInfo={{
-              id: expediente.id,
-              numero: (expediente as any).numero,
-              caratula: expediente.caratula,
-              clientes: expediente.clientes
-                ? {
-                    id: expediente.clientes.id,
-                    nombre: expediente.clientes.nombre,
-                    apellido: expediente.clientes.apellido,
-                    dni: expediente.clientes.dni,
-                    cuil: expediente.clientes.cuil,
-                  }
-                : null,
-            }}
-          />
-        )}
-        {activeTab === 'audiencias' && <TabTurnos audiencias={audiencias} expedienteId={id!} />}
         {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
-        {activeTab === 'documentos' && <TabDocumentos expedienteId={id!} />}
-        {activeTab === 'escritos' && <TabEscritos expedienteId={id!} />}
-        {activeTab === 'normativa' && <TabNormativa expedienteId={id!} />}
-        {activeTab === 'jurisprudencia' && <TabJurisprudencia expedienteId={id!} />}
-        {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
-        {activeTab === 'notas' && <ComentariosPanel expedienteId={id!} />}
-        {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
-        {activeTab === 'timeline' && (
-          <Card title="Línea de tiempo">
-            {timelineLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-300" />
-              </div>
-            ) : (
-              <TimelineExpediente events={timeline ?? []} />
-            )}
-          </Card>
+        {activeTab === 'audiencias-grabadas' && <TabTurnos audiencias={audiencias} expedienteId={id!} mode="grabadas" />}
+        {activeTab === 'agenda' && (
+          <div className="space-y-4">
+            <TabTareas
+              tareas={tareas}
+              expedienteId={id!}
+              expedienteInfo={{
+                id: expediente.id,
+                numero: (expediente as any).numero,
+                caratula: expediente.caratula,
+                clientes: expediente.clientes
+                  ? {
+                      id: expediente.clientes.id,
+                      nombre: expediente.clientes.nombre,
+                      apellido: expediente.clientes.apellido,
+                      dni: expediente.clientes.dni,
+                      cuil: expediente.clientes.cuil,
+                    }
+                  : null,
+              }}
+            />
+            <TabTurnos audiencias={audiencias} expedienteId={id!} mode="agenda" />
+          </div>
         )}
+        {activeTab === 'escritos' && <EscritosNotasTab expedienteId={id!} />}
+        {activeTab === 'documentos' && <DocumentosJuridicosTab expedienteId={id!} />}
+        {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
+        {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
       </div>
 
       {/* Change Estado Dialog */}
@@ -581,5 +579,58 @@ export default function ExpedienteDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-solapas (filtro segmentado) para agrupar tabs relacionadas
+// ---------------------------------------------------------------------------
+
+function SubTabs({ tabs }: { tabs: { id: string; label: string; render: () => ReactNode }[] }) {
+  const [sub, setSub] = useState(tabs[0]?.id)
+  const active = tabs.find((t) => t.id === sub) ?? tabs[0]
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setSub(t.id)}
+            className={cn(
+              'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+              sub === t.id
+                ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-200'
+                : 'border-white/10 bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div>{active?.render()}</div>
+    </div>
+  )
+}
+
+function EscritosNotasTab({ expedienteId }: { expedienteId: string }) {
+  return (
+    <SubTabs
+      tabs={[
+        { id: 'escritos', label: 'Escritos', render: () => <TabEscritos expedienteId={expedienteId} /> },
+        { id: 'notas', label: 'Notas', render: () => <ComentariosPanel expedienteId={expedienteId} /> },
+      ]}
+    />
+  )
+}
+
+function DocumentosJuridicosTab({ expedienteId }: { expedienteId: string }) {
+  return (
+    <SubTabs
+      tabs={[
+        { id: 'documentos', label: 'Documentos', render: () => <TabDocumentos expedienteId={expedienteId} /> },
+        { id: 'normativa', label: 'Normativa', render: () => <TabNormativa expedienteId={expedienteId} /> },
+        { id: 'jurisprudencia', label: 'Jurisprudencia', render: () => <TabJurisprudencia expedienteId={expedienteId} /> },
+      ]}
+    />
   )
 }

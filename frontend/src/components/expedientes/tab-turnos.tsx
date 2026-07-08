@@ -60,6 +60,9 @@ function parseMovementSchedule(movement: SaeMovement) {
 interface TabTurnosProps {
   audiencias: Tables<'audiencias'>[]
   expedienteId: string
+  /** 'grabadas' = solo audiencias detectadas en SAE; 'agenda' = solo las fijadas;
+   *  undefined = ambas (comportamiento original). */
+  mode?: 'grabadas' | 'agenda'
 }
 
 type DialogState = {
@@ -68,8 +71,10 @@ type DialogState = {
   initialValues?: { fecha?: string; hora?: string; notas?: string }
 }
 
-export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
+export function TabTurnos({ audiencias, expedienteId, mode }: TabTurnosProps) {
   const turnos = audiencias
+  const showGrabadas = mode !== 'agenda'
+  const showAgenda = mode !== 'grabadas'
   const [dialogState, setDialogState] = useState<DialogState>({ open: false })
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -147,8 +152,8 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
   return (
     <>
     <Card
-      title="Audiencias"
-      headerRight={
+      title={mode === 'grabadas' ? 'Audiencias grabadas' : 'Audiencias'}
+      headerRight={showAgenda ? (
         <button
           onClick={openBlank}
           className="flex items-center gap-1 rounded-lg bg-gradient-cyan px-3 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90"
@@ -156,62 +161,76 @@ export function TabTurnos({ audiencias, expedienteId }: TabTurnosProps) {
           <Plus className="h-3.5 w-3.5" />
           Agregar
         </button>
-      }
+      ) : undefined}
     >
-      {/* Audiencias detectadas en actuaciones SAE (manual o por adjunto de audio) */}
-      {audienciasFromActuaciones.length > 0 && (
-        <div className="mb-4 space-y-2">
-          <p className="text-[10px] uppercase tracking-wider text-cyan-300/80 font-medium flex items-center gap-1.5">
-            <Video className="h-3 w-3" />
-            Desde actuaciones SAE
-            <span className="text-zinc-500 dark:text-zinc-400 font-normal normal-case">· {audienciasFromActuaciones.length}</span>
-          </p>
-          <div className="space-y-2">
-            {audienciasFromActuaciones.map((m) => (
-              <ActuacionAudienciaRow
-                key={m.id}
-                movement={m}
-                expedienteId={expedienteId}
-                onOpenPdf={handleOpenPdf}
-                isScheduled={turnos.some((t) => t.sae_movement_id === m.id)}
-                onAgendar={() => handleAgendarFromMovement(m)}
-              />
-            ))}
+      {/* Grabadas: audiencias detectadas en actuaciones SAE (manual o por audio) */}
+      {showGrabadas && (
+        audienciasFromActuaciones.length > 0 ? (
+          <div className={showAgenda ? 'mb-4 space-y-2' : 'space-y-2'}>
+            <p className="text-[10px] uppercase tracking-wider text-cyan-300/80 font-medium flex items-center gap-1.5">
+              <Video className="h-3 w-3" />
+              Desde actuaciones SAE
+              <span className="text-zinc-500 dark:text-zinc-400 font-normal normal-case">· {audienciasFromActuaciones.length}</span>
+            </p>
+            <div className="space-y-2">
+              {audienciasFromActuaciones.map((m) => (
+                <ActuacionAudienciaRow
+                  key={m.id}
+                  movement={m}
+                  expedienteId={expedienteId}
+                  onOpenPdf={handleOpenPdf}
+                  isScheduled={turnos.some((t) => t.sae_movement_id === m.id)}
+                  onAgendar={() => handleAgendarFromMovement(m)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : !showAgenda ? (
+          <EmptyState
+            icon={Video}
+            title="Sin audiencias grabadas"
+            description="Marcá una actuación como audiencia con el 📹 en el tab SAE, o esperá a que se detecte por el audio adjunto."
+            size="sm"
+          />
+        ) : null
       )}
 
-      {turnos.length === 0 && audienciasFromActuaciones.length === 0 ? (
-        <EmptyState
-          icon={CalendarClock}
-          title="Sin audiencias"
-          description="No hay audiencias registradas. Podés agendar una con 'Agregar' o marcar una actuación SAE como audiencia (📹 en el tab SAE)."
-          size="sm"
-        />
-      ) : turnos.length === 0 ? (
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">No hay audiencias agendadas manualmente. Las de arriba vienen del SAE.</p>
-      ) : (
-        <div className="space-y-3">
-          {[...turnos]
-            .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-            .map((turno) =>
-              editingId === turno.id ? (
-                <TurnoEditRow
-                  key={turno.id}
-                  turno={turno}
-                  expedienteId={expedienteId}
-                  onDone={() => setEditingId(null)}
-                />
-              ) : (
-                <TurnoRow
-                  key={turno.id}
-                  turno={turno}
-                  expedienteId={expedienteId}
-                  onEdit={() => setEditingId(turno.id)}
-                />
-              )
-            )}
-        </div>
+      {/* Agenda: audiencias fijadas manualmente o agendadas desde SAE */}
+      {showAgenda && (
+        turnos.length === 0 ? (
+          showGrabadas && audienciasFromActuaciones.length > 0 ? (
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">No hay audiencias agendadas manualmente. Las de arriba vienen del SAE.</p>
+          ) : (
+            <EmptyState
+              icon={CalendarClock}
+              title="Sin audiencias agendadas"
+              description="Agregá una con 'Agregar', o agendá una desde 'Audiencias grabadas'."
+              size="sm"
+            />
+          )
+        ) : (
+          <div className="space-y-3">
+            {[...turnos]
+              .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+              .map((turno) =>
+                editingId === turno.id ? (
+                  <TurnoEditRow
+                    key={turno.id}
+                    turno={turno}
+                    expedienteId={expedienteId}
+                    onDone={() => setEditingId(null)}
+                  />
+                ) : (
+                  <TurnoRow
+                    key={turno.id}
+                    turno={turno}
+                    expedienteId={expedienteId}
+                    onEdit={() => setEditingId(turno.id)}
+                  />
+                )
+              )}
+          </div>
+        )
       )}
     </Card>
     <CrearTurnoDialog
