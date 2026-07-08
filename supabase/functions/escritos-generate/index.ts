@@ -837,26 +837,40 @@ ${body.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.i
 
 Redactá el escrito siguiendo el formato JSON indicado.`
 
-    // 8) Llamar al LLM
-    const aiRes = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://app.marcorossi.com.ar',
-        'X-Title': 'MR Abogado Escritos',
-      },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-        temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
-        max_tokens: 3500,
-        response_format: { type: 'json_object' },
-      }),
-    })
+    // 8) Llamar al LLM — timeout de 22s para que la edge function no quede colgada
+    const llmAc = new AbortController()
+    const llmTid = setTimeout(() => llmAc.abort(), 22_000)
+    let aiRes: Response
+    try {
+      aiRes = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://app.marcorossi.com.ar',
+          'X-Title': 'MR Abogado Escritos',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
+          max_tokens: 3500,
+          response_format: { type: 'json_object' },
+        }),
+        signal: llmAc.signal,
+      })
+    } catch (e) {
+      clearTimeout(llmTid)
+      if ((e as Error)?.name === 'AbortError') {
+        return json(req, { error: 'El modelo tardó demasiado en responder. Intentá de nuevo.' }, 504)
+      }
+      throw e
+    } finally {
+      clearTimeout(llmTid)
+    }
 
     if (!aiRes.ok) {
       const txt = await aiRes.text()
@@ -877,6 +891,20 @@ Redactá el escrito siguiendo el formato JSON indicado.`
         contenido = JSON.parse(stripped)
       } catch {
         return json(req, { error: 'El modelo devolvió JSON inválido', raw: raw.slice(0, 500) }, 502)
+      }
+    }
+
+    // 8.5) Detectar mismatch tipo solicitado ↔ título generado.
+    // Si el tipo pedido no aparece en el título, loguear como warning.
+    // La corrección del prompt ya debería evitarlo; esto es para auditoría.
+    if (tipoInput) {
+      const tituloGen = ((contenido as { titulo?: string })?.titulo ?? '').toLowerCase()
+      const tipoKeywords = tipoInput.toLowerCase()
+        .split(/[\s\/\-]+/)
+        .filter(w => w.length > 3 && !['para', 'por', 'del', 'los', 'las', 'una', 'con', 'que'].includes(w))
+      const matchesTitulo = tipoKeywords.some(w => tituloGen.includes(w))
+      if (!matchesTitulo) {
+        console.warn(`[escritos-generate] ⚠️ tipo/titulo mismatch — tipo="${tipoInput}" titulo="${tituloGen}"`)
       }
     }
 

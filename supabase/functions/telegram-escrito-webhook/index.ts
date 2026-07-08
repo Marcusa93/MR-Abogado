@@ -29,6 +29,24 @@ interface TgUpdate {
 
 interface Exp { id: string; numero: string | null; numero_sae: string | null; caratula: string | null }
 
+// Estado de la sesión conversacional por chat_id.
+// pending: se llena cuando el bot pregunta el tipo al usuario (texto corto sin tipo detectado).
+interface TelegramSession {
+  chat_id: number
+  expediente_id: string | null
+  last_escrito_id: string | null
+  last_tipo: string | null
+  pending: TelegramPending | null
+  updated_at: string
+}
+
+interface TelegramPending {
+  step: 'await_tipo'
+  expediente_id: string
+  caratula: string | null
+  idea_limpia: string
+}
+
 async function tgSend(token: string, chatId: number, text: string) {
   await fetch(`${TG_API}/bot${token}/sendMessage`, {
     method: 'POST',
@@ -136,6 +154,32 @@ function inferirTipoEscrito(texto: string): string | null {
   return null
 }
 
+// Helpers de sesión conversacional
+async function loadSession(admin: ReturnType<typeof createClient>, chatId: number): Promise<TelegramSession | null> {
+  const { data } = await admin
+    .from('telegram_escrito_sessions')
+    .select('*')
+    .eq('chat_id', chatId)
+    .maybeSingle()
+  return data as TelegramSession | null
+}
+
+async function saveSession(admin: ReturnType<typeof createClient>, s: Partial<TelegramSession> & { chat_id: number }) {
+  await admin.from('telegram_escrito_sessions').upsert({
+    ...s,
+    updated_at: new Date().toISOString(),
+  }).catch(e => console.warn('[telegram-escrito] session save error', e))
+}
+
+// La sesión pending expira a los 30 minutos para no confundir mensajes viejos
+function isPendingValid(session: TelegramSession | null): session is TelegramSession & { pending: TelegramPending } {
+  if (!session?.pending || !session.updated_at) return false
+  return Date.now() - new Date(session.updated_at).getTime() < 30 * 60 * 1000
+}
+
+// Palabras clave de "reintentá" — sin número de expediente en el texto
+const REINTENTAR_RE = /\b(reintent[aá]|de\s+nuevo|regenera[rl]?|hacé?\s+otro|volvé?\s+a\s+hacer|repetí?)\b/i
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok')
 
@@ -181,52 +225,180 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // Resolver expediente
-    const { unico, candidatos } = await resolverExpediente(admin, texto)
-    if (!unico) {
-      if (candidatos.length === 0) {
-        await tgSend(token, chatId, `No encontré el expediente. Reenviá diciendo el número (SAE o interno), ej. "687/22".\n\nTe entendí: "${texto.slice(0, 200)}"`)
-      } else {
-        await tgSend(token, chatId, `Encontré varios expedientes. Reenviá con el número exacto:\n${listaExpes(candidatos)}`)
+    // Sesión conversacional
+    const session = await loadSession(admin, chatId)
+
+    // Helper para llamar a escritos-generate con timeout de 30s
+    async function callEscritosGenerate(body: Record<string, unknown>): Promise<{ ok: boolean; out: { escrito_id?: string; contenido?: { titulo?: string }; error?: string } | null }> {
+      const ac = new AbortController()
+      const tid = setTimeout(() => ac.abort(), 30_000)
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify(body),
+          signal: ac.signal,
+        })
+        const out = await res.json().catch(() => null) as { escrito_id?: string; contenido?: { titulo?: string }; error?: string } | null
+        return { ok: res.ok, out }
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') {
+          await tgSend(token, chatId, 'El escrito tardó demasiado en generarse (timeout). Probá desde la app o reintentá en unos minutos.')
+          return { ok: false, out: null }
+        }
+        throw e
+      } finally {
+        clearTimeout(tid)
       }
+    }
+
+    // CASO A: respuesta a una confirmación pendiente de tipo de escrito
+    // El usuario respondió "Recurso de apelación" o "sí" a nuestra pregunta anterior.
+    const tieneNumeroExpediente = /\d{3,}\/\d{2,}|\b\d{4,}\b/.test(texto)
+    if (isPendingValid(session) && !tieneNumeroExpediente) {
+      const { expediente_id, caratula, idea_limpia } = session.pending
+
+      // Cancelar
+      if (/^\s*(no|cancelar|cancel)\s*$/i.test(texto.trim())) {
+        await saveSession(admin, { chat_id: chatId, pending: null })
+        await tgSend(token, chatId, 'Cancelado. Mandame un nuevo mensaje cuando quieras.')
+        return new Response('ok')
+      }
+
+      // "sí / ok / dale" → generar con idea_libre original
+      const esSi = /^\s*(sí|si|ok|dale|yes|generar?|generá|adelante)\s*$/i.test(texto.trim())
+      const tipoRespuesta = esSi ? null : inferirTipoEscrito(texto) ?? texto.trim()
+
+      await tgSend(token, chatId, `📝 Generando${tipoRespuesta ? ` "${tipoRespuesta}"` : ' con la descripción libre'} para ${caratula ?? 'el expediente'}…`)
+
+      const genBody: Record<string, unknown> = {
+        expediente_id,
+        on_behalf_of_user_id: targetProfile,
+      }
+      if (tipoRespuesta) {
+        genBody.tipo = tipoRespuesta
+        genBody.instrucciones = idea_limpia
+      } else {
+        genBody.idea_libre = idea_limpia
+      }
+
+      const { ok, out } = await callEscritosGenerate(genBody)
+      await saveSession(admin, {
+        chat_id: chatId,
+        expediente_id,
+        last_escrito_id: out?.escrito_id ?? session.last_escrito_id,
+        last_tipo: tipoRespuesta ?? session.last_tipo,
+        pending: null,
+      })
+
+      if (!ok || !out || out.error) {
+        await tgSend(token, chatId, `No pude generar el escrito: ${out?.error ?? 'error desconocido'}. Probá desde la app.`)
+        return new Response('ok')
+      }
+      const titulo = out.contenido?.titulo ? `"${out.contenido.titulo}"` : 'El borrador'
+      await tgSend(token, chatId, `✅ ${titulo} listo en ${caratula ?? 'el expediente'}.\n\nRevisalo en la app → Expedientes → solapa Escritos.`)
       return new Response('ok')
     }
 
-    await tgSend(token, chatId, `📄 Expediente: ${unico.caratula ?? unico.numero_sae ?? unico.numero}. Redactando el borrador…`)
+    // CASO B: "reintentá" sin número de expediente → usar último expediente de la sesión
+    const esReintento = REINTENTAR_RE.test(texto) && !tieneNumeroExpediente && !!session?.expediente_id
+    let expFinal: Exp | null = null
+    let textoParaIdea = texto
 
-    // Limpiar el texto: sacar referencia al expediente y prefijos comunes
-    const ideaLimpia = texto
+    if (esReintento && session?.expediente_id) {
+      const { data: expData } = await admin
+        .from('expedientes')
+        .select('id, numero, numero_sae, caratula')
+        .eq('id', session.expediente_id)
+        .maybeSingle()
+      if (expData) {
+        expFinal = expData as Exp
+        // El texto del reintento ("reintentá con tono más formal") es la nueva instrucción
+        textoParaIdea = texto.replace(REINTENTAR_RE, '').replace(/^\s*[:\-,]\s*/, '').trim()
+        await tgSend(token, chatId, `🔄 Regenerando para ${expFinal.caratula ?? expFinal.numero_sae ?? expFinal.numero}…`)
+      }
+    }
+
+    // CASO C: flujo normal — resolver expediente desde el texto
+    if (!expFinal) {
+      const { unico, candidatos } = await resolverExpediente(admin, texto)
+      if (!unico) {
+        if (candidatos.length === 0) {
+          await tgSend(token, chatId, `No encontré el expediente. Reenviá diciendo el número (SAE o interno), ej. "687/22".\n\nTe entendí: "${texto.slice(0, 200)}"`)
+        } else {
+          await tgSend(token, chatId, `Encontré varios expedientes. Reenviá con el número exacto:\n${listaExpes(candidatos)}`)
+        }
+        return new Response('ok')
+      }
+      expFinal = unico
+    }
+
+    // Limpiar texto → idea del escrito
+    const ideaLimpia = textoParaIdea
       .replace(/\b(en\s+)?expediente\s+[\d\/\-]+[,.]?\s*/gi, '')
       .replace(/^(quiero que hagamos escrito|quiero hacer|hacer un escrito|redactá|redactar)\s*[:\-]?\s*/i, '')
       .trim()
 
-    // Intentar detectar el tipo de escrito con keywords.
-    // Si se detecta, se manda como `tipo` explícito (más confiable que
-    // dejar que la IA infiera). El texto completo pasa como `instrucciones`.
     const tipoDetectado = inferirTipoEscrito(ideaLimpia)
-    console.log('[telegram-escrito] ideaLimpia:', ideaLimpia.slice(0, 200))
-    console.log('[telegram-escrito] tipoDetectado:', tipoDetectado)
+    console.log('[telegram-escrito] expediente:', expFinal.id, '| ideaLimpia:', ideaLimpia.slice(0, 150))
+    console.log('[telegram-escrito] tipoDetectado:', tipoDetectado, '| reintento:', esReintento)
 
-    // Generar con el mismo motor de la app, en nombre del director
-    const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
-      body: JSON.stringify({
-        expediente_id: unico.id,
-        ...(tipoDetectado
-          ? { tipo: tipoDetectado, instrucciones: ideaLimpia }
-          : { idea_libre: ideaLimpia }),
-        on_behalf_of_user_id: targetProfile,
-      }),
+    // Si no se detectó tipo y el texto es corto/ambiguo → preguntar al usuario
+    // Para textos largos, el path idea_libre tiene suficiente contexto.
+    if (!tipoDetectado && ideaLimpia.length < 80 && !esReintento) {
+      await saveSession(admin, {
+        chat_id: chatId,
+        expediente_id: expFinal.id,
+        last_escrito_id: session?.last_escrito_id ?? null,
+        last_tipo: session?.last_tipo ?? null,
+        pending: {
+          step: 'await_tipo',
+          expediente_id: expFinal.id,
+          caratula: expFinal.caratula,
+          idea_limpia: ideaLimpia || texto,
+        },
+      })
+      await tgSend(token, chatId,
+        `📄 Expediente: ${expFinal.caratula ?? expFinal.numero_sae ?? expFinal.numero}.\n\n` +
+        `No pude identificar el tipo de escrito. ¿Qué tipo es?\n` +
+        `Ej: "Embargo preventivo", "Recurso de apelación", "Contestación de traslado".\n\n` +
+        `O respondé "sí" para generar con la descripción libre.`
+      )
+      return new Response('ok')
+    }
+
+    await tgSend(token, chatId, `📄 Expediente: ${expFinal.caratula ?? expFinal.numero_sae ?? expFinal.numero}. Redactando el borrador…`)
+
+    // Para reintentá: si no hay tipo en el texto nuevo, reutilizar el tipo anterior
+    const tipoFinal = tipoDetectado ?? (esReintento ? session?.last_tipo ?? null : null)
+
+    const genBody: Record<string, unknown> = {
+      expediente_id: expFinal.id,
+      on_behalf_of_user_id: targetProfile,
+    }
+    if (tipoFinal) {
+      genBody.tipo = tipoFinal
+      genBody.instrucciones = ideaLimpia
+    } else {
+      genBody.idea_libre = ideaLimpia
+    }
+
+    const { ok, out } = await callEscritosGenerate(genBody)
+    await saveSession(admin, {
+      chat_id: chatId,
+      expediente_id: expFinal.id,
+      last_escrito_id: out?.escrito_id ?? session?.last_escrito_id ?? null,
+      last_tipo: tipoFinal ?? session?.last_tipo ?? null,
+      pending: null,
     })
-    const out = await res.json().catch(() => null) as { escrito_id?: string; contenido?: { titulo?: string }; error?: string } | null
-    if (!res.ok || !out || out.error) {
-      await tgSend(token, chatId, `No pude generar el escrito: ${out?.error ?? res.status}. Probá de nuevo o desde la app.`)
+
+    if (!ok || !out || out.error) {
+      await tgSend(token, chatId, `No pude generar el escrito: ${out?.error ?? 'error interno'}. Probá de nuevo o desde la app.`)
       return new Response('ok')
     }
 
     const titulo = out.contenido?.titulo ? `"${out.contenido.titulo}"` : 'El borrador'
-    await tgSend(token, chatId, `✅ ${titulo} listo en ${unico.caratula ?? 'el expediente'}.\n\nRevisalo en la app → Expedientes → solapa Escritos.`)
+    await tgSend(token, chatId, `✅ ${titulo} listo en ${expFinal.caratula ?? 'el expediente'}.\n\nRevisalo en la app → Expedientes → solapa Escritos.`)
     return new Response('ok')
   } catch (err) {
     console.error('[telegram-escrito]', err)
