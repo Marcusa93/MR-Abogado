@@ -579,8 +579,11 @@ Deno.serve(async (req) => {
     if (!tipoInput && !ideaLibre) {
       return json(req, { error: 'Indicá el tipo de escrito, o describí la idea a redactar' }, 400)
     }
-    // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo infiere.
-    const tipoEfectivo = tipoInput || 'Escrito de trámite (inferí el tipo exacto de la indicación del abogado)'
+    // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo determina libremente.
+    // No anclar con "Escrito de trámite" — sesga a defaultear en pronto despacho.
+    const tipoEfectivo = tipoInput || (ideaLibre
+      ? 'A determinar por vos según la indicación del abogado — identificá el tipo ESPECÍFICO (ej: embargo preventivo, recurso, demanda, contestación, etc.), nunca uses "escrito de trámite" genérico salvo que eso sea realmente lo pedido'
+      : 'Escrito de trámite')
 
     // LLM guard: tamaño de input + rate limit por usuario.
     // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que

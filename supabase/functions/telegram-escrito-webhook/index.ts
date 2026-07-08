@@ -165,13 +165,21 @@ Deno.serve(async (req) => {
 
     await tgSend(token, chatId, `📄 Expediente: ${unico.caratula ?? unico.numero_sae ?? unico.numero}. Redactando el borrador…`)
 
+    // Limpiar el texto antes de mandarlo como idea_libre:
+    // - sacar la referencia al expediente (ya fue resuelta)
+    // - sacar prefijos comunes tipo "quiero que hagamos escrito:"
+    const ideaLimpia = texto
+      .replace(/\b(en\s+)?expediente\s+[\d\/\-]+[,.]?\s*/gi, '')
+      .replace(/^(quiero que hagamos escrito|quiero hacer|hacer un escrito|redactá|redactar)\s*[:\-]?\s*/i, '')
+      .trim()
+
     // Generar con el mismo motor de la app, en nombre del director
     const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
       body: JSON.stringify({
         expediente_id: unico.id,
-        idea_libre: texto,
+        idea_libre: ideaLimpia,
         on_behalf_of_user_id: targetProfile,
       }),
     })
