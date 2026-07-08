@@ -13,6 +13,7 @@ import { CrearSeguimientoDialog } from '@/components/expedientes/crear-seguimien
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { TabGeneral } from '@/components/expedientes/tab-general'
+import { EtapaProcesalPanel } from '@/components/expedientes/etapa-procesal-panel'
 import { TabTurnos } from '@/components/expedientes/tab-turnos'
 import { TabTareas } from '@/components/expedientes/tab-tareas'
 import { TabDocumentos } from '@/components/expedientes/tab-documentos'
@@ -417,6 +418,7 @@ export default function ExpedienteDetailPage() {
       <div className="mt-4">
         {activeTab === 'datos' && (
           <div className="space-y-4">
+            <EtapaProcesalPanel expedienteId={id!} etapaActual={(expediente as any).etapa_procesal ?? null} />
             <TabGeneral expediente={expediente} />
             <Card title="Línea de tiempo">
               {timelineLoading ? (
