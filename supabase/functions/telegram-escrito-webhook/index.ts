@@ -107,6 +107,30 @@ function listaExpes(cands: Exp[]): string {
   return cands.map(e => `• ${e.numero_sae ?? e.numero ?? 's/n'} — ${(e.caratula ?? 's/carátula').slice(0, 70)}`).join('\n')
 }
 
+// Extrae el tipo de escrito desde el texto del abogado usando keywords.
+// Si lo detecta, se manda como `tipo` explícito (más confiable que dejar
+// que la IA infiera). El texto completo va como `instrucciones`.
+function inferirTipoEscrito(texto: string): string | null {
+  const t = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  if (/embargo\s+preventivo/.test(t)) return 'Embargo preventivo'
+  if (/levantamiento\s+de\s+embargo/.test(t)) return 'Levantamiento de embargo'
+  if (/recurso\s+de\s+apelaci[o]n/.test(t)) return 'Recurso de apelación'
+  if (/recurso\s+de\s+reposici[o]n|recurso\s+de\s+revocatoria/.test(t)) return 'Recurso de reposición'
+  if (/regulaci[o]n\s+de\s+honorarios|regular\s+honorarios/.test(t)) return 'Regulación de honorarios'
+  if (/contestaci[o]n\s+de\s+traslado|contest[ao]r?\s+(?:el\s+)?traslado/.test(t)) return 'Contestación de traslado'
+  if (/apertura\s+a\s+prueba|abrir\s+a\s+prueba/.test(t)) return 'Apertura a prueba'
+  if (/ofrecimiento\s+de\s+prueba|ofrez[co]\s+prueba/.test(t)) return 'Ofrecimiento de prueba'
+  if (/beneficio\s+de\s+litigar\s+sin\s+gastos/.test(t)) return 'Beneficio de litigar sin gastos'
+  if (/desistimiento/.test(t)) return 'Desistimiento'
+  if (/caducidad\s+de\s+instancia|perenci[o]n/.test(t)) return 'Caducidad de instancia'
+  if (/excepci[o]n\s+de\s+prescripci[o]n|prescripci[o]n/.test(t)) return 'Excepción de prescripción'
+  if (/opone\s+excepci[o]n|excepciones\s+previas/.test(t)) return 'Oposición de excepciones'
+  if (/nulidad/.test(t)) return 'Planteo de nulidad'
+  if (/ampliaci[o]n\s+de\s+demanda/.test(t)) return 'Ampliación de demanda'
+  if (/pronto\s+despacho/.test(t)) return 'Pronto despacho'
+  return null
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok')
 
@@ -165,13 +189,16 @@ Deno.serve(async (req) => {
 
     await tgSend(token, chatId, `📄 Expediente: ${unico.caratula ?? unico.numero_sae ?? unico.numero}. Redactando el borrador…`)
 
-    // Limpiar el texto antes de mandarlo como idea_libre:
-    // - sacar la referencia al expediente (ya fue resuelta)
-    // - sacar prefijos comunes tipo "quiero que hagamos escrito:"
+    // Limpiar el texto: sacar referencia al expediente y prefijos comunes
     const ideaLimpia = texto
       .replace(/\b(en\s+)?expediente\s+[\d\/\-]+[,.]?\s*/gi, '')
       .replace(/^(quiero que hagamos escrito|quiero hacer|hacer un escrito|redactá|redactar)\s*[:\-]?\s*/i, '')
       .trim()
+
+    // Intentar detectar el tipo de escrito con keywords.
+    // Si se detecta, se manda como `tipo` explícito (más confiable que
+    // dejar que la IA infiera). El texto completo pasa como `instrucciones`.
+    const tipoDetectado = inferirTipoEscrito(ideaLimpia)
 
     // Generar con el mismo motor de la app, en nombre del director
     const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {
@@ -179,7 +206,9 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
       body: JSON.stringify({
         expediente_id: unico.id,
-        idea_libre: ideaLimpia,
+        ...(tipoDetectado
+          ? { tipo: tipoDetectado, instrucciones: ideaLimpia }
+          : { idea_libre: ideaLimpia }),
         on_behalf_of_user_id: targetProfile,
       }),
     })

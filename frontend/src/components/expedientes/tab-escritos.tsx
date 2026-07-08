@@ -938,62 +938,62 @@ function EscritoEditorModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-3 sm:px-5 py-2 sm:py-3 gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      {/* Header mobile: 2 filas. Desktop: 1 fila */}
+      <div className="border-b border-white/10">
+        {/* Fila 1: cerrar + título + estado */}
+        <div className="flex items-center gap-2 px-3 py-2">
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-zinc-400 hover:bg-white/5" title="Cerrar">
+            <X className="h-4 w-4" />
+          </button>
           <input
             value={titulo}
             onChange={(e) => { setTitulo(e.target.value); setDirty(true) }}
-            className="bg-transparent text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40"
           />
-          <span className="hidden sm:inline text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
-            {escrito.tipo} · {escrito.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {dirty && <span className="hidden sm:inline text-[10px] text-amber-400 mr-1">sin guardar</span>}
           <select
             value={estado}
             onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
             disabled={update.isPending || estado === 'firmado' || estado === 'presentado_sae'}
             className={cn(
-              'h-7 rounded-lg border bg-white dark:bg-zinc-900/80 px-1.5 text-[11px] font-medium focus:outline-none transition-colors',
+              'h-7 shrink-0 rounded-lg border bg-white dark:bg-zinc-900/80 px-1.5 text-[11px] font-medium focus:outline-none transition-colors',
               estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
               estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
               estado === 'firmado'   && 'border-cyan-500/40 text-cyan-300',
               estado === 'presentado_sae' && 'border-violet-500/40 text-violet-300',
               estado === 'presentado' && 'border-violet-500/40 text-violet-300',
             )}
-            title={estado === 'firmado' || estado === 'presentado_sae'
-              ? 'Estado controlado por el workflow de firma/presentación'
-              : 'Estado del escrito'}
+            title={estado === 'firmado' || estado === 'presentado_sae' ? 'Estado controlado por el workflow' : 'Estado del escrito'}
           >
             <option value="borrador">Borrador</option>
             <option value="final">Final</option>
             {estado === 'firmado' && <option value="firmado">Firmado</option>}
-            {estado === 'presentado_sae' && <option value="presentado_sae">Presentado SAE</option>}
+            {estado === 'presentado_sae' && <option value="presentado_sae">Pres. SAE</option>}
             <option value="presentado">Presentado</option>
           </select>
+        </div>
+        {/* Fila 2: acciones */}
+        <div className="flex items-center gap-1.5 px-3 pb-2">
+          {dirty && <span className="text-[10px] text-amber-400 mr-auto">sin guardar</span>}
           <button
             onClick={handleSave}
             disabled={!dirty || update.isPending}
-            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
             title="Guardar"
           >
             {update.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            <span className="hidden sm:inline">Guardar</span>
+            Guardar
           </button>
           <button
             onClick={() => setSugerirOpen(true)}
-            className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
-            title="Buscar jurisprudencia afín al párrafo activo"
+            className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
+            title="Buscar jurisprudencia"
           >
             <Gavel className="h-3 w-3" />
-            <span className="hidden md:inline">Jurisprudencia</span>
+            <span className="hidden sm:inline">Jurisprudencia</span>
           </button>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
+            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
             title="Imprimir / PDF"
           >
             <Printer className="h-3 w-3" />
@@ -1001,14 +1001,11 @@ function EscritoEditorModal({
           </button>
           <button
             onClick={onRequestDelete}
-            className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
-            title="Eliminar escrito"
+            className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
+            title="Eliminar"
           >
             <Trash2 className="h-3 w-3" />
             <span className="hidden sm:inline">Eliminar</span>
-          </button>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5" title="Cerrar">
-            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
