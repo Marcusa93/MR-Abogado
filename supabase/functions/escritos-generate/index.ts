@@ -62,7 +62,7 @@ const SKILL_LEGAL = `# Disciplina de redacción jurídica
 - No inventar hechos, fechas, partes ni citas legales. Si un dato falta, omitirlo o referirlo como "según se desprende de las actuaciones".
 - Citar normas y jurisprudencia con cuidado: solo si surgen del expediente o son notorias (CCyCN, CPCCN, leyes provinciales). En caso de duda, NO citar.
 - Distinguir entre hechos (con respaldo en la prueba) e interpretaciones (presentadas como argumentos).
-- Estructura: introducción → hechos → derecho → petitorio. Sin saltos ni redundancias.
+- La estructura de secciones varía según el tipo. No agregar HECHOS ni DERECHO salvo que el tipo lo exija. Ver reglas en el Formato de salida.
 - Tono formal pero claro. No abusar del latinismo ni de circunloquios vacíos.
 - No usar muletillas evidentes de IA ("en conclusión", "es importante destacar que", "como abogado").`
 
@@ -114,12 +114,13 @@ const OUTPUT_SCHEMA = `# Formato de salida (OBLIGATORIO)
 Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma (sin markdown, sin backticks, sin texto antes ni después):
 
 {
-  "titulo": "string en MAYÚSCULAS, entre comillas, ej: \\"CONTESTA TRASLADO Y OPONE EXCEPCIONES\\"",
+  "titulo": "string en MAYÚSCULAS, ej: \\"SOLICITA EMBARGO PREVENTIVO POR HONORARIOS\\"",
   "encabezado_juez": "string, ej: \\"SR. JUEZ DE PRIMERA INSTANCIA EN LO CIVIL Y COMERCIAL DE LA Xª NOMINACIÓN\\"",
   "caratula": "string, la carátula del expediente tal como viene",
+  "presentacion": "string — fórmula de apertura que indica el carácter del abogado. El nombre y datos profesionales ya están en el encabezado. Ej: \\"En mi carácter de apoderado de la parte actora, a V.S. respetuosamente digo:\\" / \\"Por mi propio derecho, a V.S. respetuosamente digo:\\" / \\"En mi carácter de apoderado del demandado, a V.S. respetuosamente digo:\\"",
   "secciones": [
     {
-      "titulo": "PERSONERÍA" | "OBJETO" | "HECHOS" | "DERECHO" | "PRUEBA" | "PETITORIO" | etc — en MAYÚSCULAS,
+      "titulo": "OBJETO" | "PERSONERÍA" | "HECHOS" | "DERECHO" | "PRUEBA" | "PETITORIO" | "AGRAVIOS" | etc — en MAYÚSCULAS,
       "parrafos": ["string", "string", ...]
     }
   ],
@@ -128,17 +129,39 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma (sin markdown, sin
   ]
 }
 
-Reglas del JSON:
-- "secciones" SIEMPRE comienza con "PERSONERÍA" (acreditando poder), y SIEMPRE termina con "PETITORIO".
-- Cada "parrafos" es un array de strings sin saltos de línea internos. El renderer agrega sangría automáticamente.
-- No incluyas el encabezado del abogado en "secciones" — eso lo arma el renderer con los datos del perfil.
-- NO uses markdown adentro de los strings (nada de **negrita**, *cursiva*, listas con guiones).
+## Reglas de secciones — elegí SOLO las que corresponden al tipo de escrito
 
-Reglas para "citas":
-- Si la sección "Normativa disponible" trae chunks, USALOS para fundar en derecho. Cada chunk citado va en "citas" con su chunk_id numérico exacto.
-- "cita_texto" es el fragmento literal o casi-literal que tomaste del chunk (máx 250 caracteres).
-- SOLO podés usar chunk_id que aparezcan en la sección "Normativa disponible". No inventes números.
-- Si no hay normativa disponible o no necesitás citar, devolvé "citas": [].`
+OBLIGATORIAS en todo escrito:
+- "OBJETO": propósito y contenido principal. Siempre es la primera sección (o la segunda si hay PERSONERÍA).
+- "PETITORIO": peticiones concretas al juez. Siempre la última sección.
+
+CONDICIONALES — incluir SOLO cuando el tipo lo exige:
+- "PERSONERÍA": ÚNICAMENTE en el primer escrito de apersonamiento del abogado en la causa. Si el expediente ya tiene actuaciones del mismo letrado, NO incluir.
+- "HECHOS": SOLO en demanda, contestación de demanda, y escritos que requieren relato fáctico extenso. NO en pronto despacho, embargo, oficio, contestación de traslado corta, recursos simples.
+- "DERECHO": SOLO junto con HECHOS o cuando el escrito requiere fundamento normativo extenso. NO en trámites.
+- "PRUEBA": cuando se ofrece o produce prueba.
+- "AGRAVIOS": en recursos de apelación (reemplaza a HECHOS/DERECHO).
+- Otras que el tipo canónico argentino requiera.
+
+## Estructura típica por tipo (guía, adaptarla al caso concreto)
+- Pronto despacho / oficio / libramiento / escrito de trámite:  OBJETO → PETITORIO
+- Embargo preventivo / medida cautelar:                         OBJETO → PETITORIO
+- Contestación de traslado (corta):                             OBJETO → PETITORIO
+- Recurso de apelación:                                         OBJETO → AGRAVIOS → PETITORIO
+- Demanda / contestación de demanda completa:                   OBJETO → HECHOS → DERECHO → PRUEBA → PETITORIO
+- Primer escrito de apersonamiento:                             PERSONERÍA → OBJETO → PETITORIO
+- Regulación de honorarios:                                     OBJETO → PETITORIO
+
+## Reglas del JSON
+- Cada "parrafos" es un array de strings sin saltos de línea internos. El renderer agrega sangría.
+- NO incluyas el bloque del abogado (nombre, matrícula, domicilio) en secciones ni en "presentacion" — lo arma el renderer con los datos del perfil.
+- NO uses markdown dentro de los strings (nada de **negrita**, *cursiva*, listas con guiones).
+
+## Reglas para "citas"
+- Si la sección "Normativa disponible" trae chunks, USALOS. Cada chunk citado va en "citas" con su chunk_id numérico exacto.
+- "cita_texto" es el fragmento literal o casi-literal del chunk (máx 250 caracteres).
+- SOLO usá chunk_id que aparezcan en la sección "Normativa disponible". No inventes números.
+- Si no hay normativa o no necesitás citar, devolvé "citas": [].`
 
 interface Profile {
   nombre: string | null

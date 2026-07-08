@@ -101,6 +101,13 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
         {buildEncabezadoParrafo(abogado).substring(abogado.nombreCompleto.length)}
       </p>
 
+      {/* Presentación — carácter del abogado y fórmula de apertura ante el juez */}
+      {contenido.presentacion && (
+        <p style={{ textIndent: '5cm', margin: '0 0 0.8cm 0' }}>
+          {contenido.presentacion}
+        </p>
+      )}
+
       {/* Secciones */}
       {contenido.secciones?.map((sec, i) => (
         <div key={i}>

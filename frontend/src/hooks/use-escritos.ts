@@ -10,6 +10,7 @@ export interface EscritoContenido {
   titulo: string
   encabezado_juez: string
   caratula: string
+  presentacion?: string
   secciones: EscritoSeccion[]
 }
 
