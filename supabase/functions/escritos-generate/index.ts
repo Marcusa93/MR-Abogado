@@ -109,6 +109,36 @@ Este es un escrito de trámite. Debe ser claro, directo, sin retórica.
 - Ejemplos: "Vengo a solicitar pronto despacho de la causa.", "Acompaño escrito de ofrecimiento de prueba.", "Solicito se libre oficio a la entidad bancaria indicada."`,
 }
 
+// Contexto procesal específico por fuero — se inyecta en el system prompt
+// para guiar vocabulario, citas y estructura canónica de cada fuero.
+function getFueroCtx(fuero: string | null): string {
+  if (!fuero) return ''
+  const f = fuero.toLowerCase()
+  if (/laboral|trabajo/.test(f)) return `
+# Fuero laboral — Tucumán
+- Destinatario: "Sr./Sra. Juez/a del Trabajo de la Xª Nominación" o "Excma. Cámara del Trabajo".
+- Citar LCT (Ley 20.744), LRT (Ley 24.557), CCT aplicable. Indemnización: art. 245 LCT.
+- Contestación de demanda: negar cada hecho en forma circunstanciada (art. 65 CPCC Tucumán).
+- Liquidar diferencias salariales, SAC, vacaciones, horas extra con rubros itemizados.
+- Prescripción: 2 años desde extinción del vínculo (art. 256 LCT).`
+  if (/civil|comercial/.test(f)) return `
+# Fuero civil y comercial — Tucumán
+- Aplicar CPCC de Tucumán (Ley 6.176) y CCyCN.
+- Destinatario: "Sr./Sra. Juez/a de Primera Instancia en lo Civil y Comercial de la Xª Nominación".
+- Prescripción genérica: 5 años (art. 2560 CCyCN); verificar la específica según pretensión.`
+  if (/familia|sucesi/.test(f)) return `
+# Fuero de familia — Tucumán
+- Tono no adversarial salvo en litigios explícitos.
+- Citar interés superior del niño (Ley 26.061, art. 3) cuando hay menores involucrados.
+- Destinatario: "Excma. Cámara de Familia y Sucesiones" o "Sr./Sra. Juez/a de Familia".`
+  if (/previsional|seguridad\s+social|jubil|pensi[oó]n/.test(f)) return `
+# Fuero previsional / seguridad social
+- Citar Ley 24.241 (SIJP), Ley 26.417 (movilidad), Ley 27.426.
+- Demandado habitual: ANSES. Tribunal federal.
+- Prescripción: 2 años (art. 82 Ley 18.037 por analogía); verificar según caso.`
+  return ''
+}
+
 const OUTPUT_SCHEMA = `# Formato de salida (OBLIGATORIO)
 
 Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma (sin markdown, sin backticks, sin texto antes ni después):
@@ -156,6 +186,7 @@ CONDICIONALES — incluir SOLO cuando el tipo lo exige:
 - Cada "parrafos" es un array de strings sin saltos de línea internos. El renderer agrega sangría.
 - NO incluyas el bloque del abogado (nombre, matrícula, domicilio) en secciones ni en "presentacion" — lo arma el renderer con los datos del perfil.
 - NO uses markdown dentro de los strings (nada de **negrita**, *cursiva*, listas con guiones).
+- Los párrafos del "PETITORIO" deben ser ítems numerados en romano: "I. Que se tenga por presentado el presente escrito.", "II. Que se libre oficio a...", etc. Cada ítem es un string separado en el array "parrafos".
 
 ## Reglas para "citas"
 - Si la sección "Normativa disponible" trae chunks, USALOS. Cada chunk citado va en "citas" con su chunk_id numérico exacto.
@@ -581,6 +612,8 @@ Deno.serve(async (req) => {
       responde_a_movimiento_id?: string | null
       /** Cuando lo llama service-role (ej. bot de Telegram): perfil firmante. */
       on_behalf_of_user_id?: string | null
+      /** Borrador anterior que el abogado quiere mejorar (en lugar de generar desde cero). */
+      borrador_previo?: unknown
     } | null
 
     // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
@@ -708,8 +741,15 @@ El abogado indica que este escrito CONTESTA o DA CUMPLIMIENTO a esta providencia
 - Observaciones internas: ${exp.observaciones ?? '(ninguna)'}
 ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
+    const movsRecientes = claves.length === 0
+      ? ((movsRaw ?? []) as MovementRow[]).slice(0, 8)
+      : []
     const clavesCtx = claves.length === 0
-      ? '\n## Actuaciones claves\n(No hay actuaciones marcadas como claves todavía.)'
+      ? `\n## Actuaciones recientes (no hay claves marcadas — contexto general)\n${
+          movsRecientes.length === 0
+            ? '(Sin actuaciones registradas.)'
+            : movsRecientes.map(m => `- ${m.fecha} · ${m.tipo_movimiento}: ${m.titulo}${m.ai_summary ? ` — ${m.ai_summary.slice(0, 120)}` : ''}`).join('\n')
+        }`
       : `\n## Actuaciones claves (las únicas que considerás como contexto)\n${claves.map((m, i) => {
         const partes = m.ai_extracted?.partes?.join(', ')
         const fechas = m.ai_extracted?.fechas?.map(f => `${f.tipo} ${f.fecha_iso}: ${f.descripcion}`).join('; ')
@@ -797,6 +837,7 @@ ${estiloModelo}
       : ''
 
     // 7) Armar system prompt
+    const fueroCtx = getFueroCtx(exp.fuero ?? null)
     const systemPrompt = [
       'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
       'Trabajás exclusivamente con el material que se te entrega (perfil del abogado, expediente y actuaciones claves). NUNCA inventes hechos, partes, fechas ni citas legales.',
@@ -804,12 +845,19 @@ ${estiloModelo}
       SKILL_LEGAL,
       '',
       ARGENTINA_OVERRIDE,
+      fueroCtx,
       '',
       registro.instrucciones,
       estiloCtx ? `\n${estiloCtx}` : '',
       '',
       OUTPUT_SCHEMA,
     ].join('\n')
+
+    const borradorPrevioCtx = body.borrador_previo
+      ? `\n## Borrador anterior (el abogado quiere mejorarlo, no rehacerlo desde cero)
+Conservá la estructura que funciona. Aplicá los cambios que indica el abogado en las instrucciones.
+${JSON.stringify(body.borrador_previo, null, 2).slice(0, 3500)}`
+      : ''
 
     const userMessage = ideaLibre
       ? `## Indicación del abogado (verbatim — puede ser informal o de WhatsApp)
@@ -837,6 +885,8 @@ ${abogadoCtx}
 
 ${body.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
 
+${borradorPrevioCtx}
+
 Redactá el escrito siguiendo el formato JSON indicado.`
       : `## TIPO DE ESCRITO (determinado por el abogado — seguí esto sin excepción)
 **${tipoEfectivo}**
@@ -857,6 +907,8 @@ ${aprendizajesCtx}
 ${abogadoCtx}
 
 ${body.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.instrucciones.trim()}` : ''}
+
+${borradorPrevioCtx}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
 
@@ -914,6 +966,70 @@ Redactá el escrito siguiendo el formato JSON indicado.`
         contenido = JSON.parse(stripped)
       } catch {
         return json(req, { error: 'El modelo devolvió JSON inválido', raw: raw.slice(0, 500) }, 502)
+      }
+    }
+
+    // 8.4) Validar estructura mínima del JSON. Si falla, un reintento con corrección.
+    function validarContenidoEscrito(c: unknown): string[] {
+      const errs: string[] = []
+      if (!c || typeof c !== 'object') return ['no es un objeto JSON']
+      const o = c as Record<string, unknown>
+      if (!o.presentacion || typeof o.presentacion !== 'string' || !o.presentacion.trim())
+        errs.push('falta "presentacion" con la fórmula de apertura')
+      if (!Array.isArray(o.secciones) || o.secciones.length === 0) {
+        errs.push('"secciones" vacías o ausentes')
+      } else {
+        const secs = o.secciones as Array<{ titulo?: string; parrafos?: unknown[] }>
+        if (!secs.some(s => s.titulo?.toUpperCase().includes('OBJETO')))
+          errs.push('falta sección OBJETO')
+        if (!secs.some(s => s.titulo?.toUpperCase().includes('PETITORIO')))
+          errs.push('falta sección PETITORIO')
+        for (const sec of secs) {
+          if (!Array.isArray(sec.parrafos) || sec.parrafos.filter(Boolean).length === 0)
+            errs.push(`sección "${sec.titulo}" sin párrafos`)
+        }
+      }
+      return errs
+    }
+
+    const erroresEstructura = validarContenidoEscrito(contenido)
+    if (erroresEstructura.length > 0) {
+      console.warn('[escritos-generate] estructura inválida, reintentando:', erroresEstructura)
+      const retryMsg = `${userMessage}
+
+⚠️ CORRECCIÓN NECESARIA: tu respuesta anterior tiene problemas estructurales:
+${erroresEstructura.map(e => `- ${e}`).join('\n')}
+
+Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "presentacion", una sección "OBJETO" y una sección "PETITORIO" con párrafos numerados en romano.`
+      const retryAc = new AbortController()
+      const retryTid = setTimeout(() => retryAc.abort(), 18_000)
+      const retryRes = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://app.marcorossi.com.ar',
+          'X-Title': 'MR Abogado Escritos',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: retryMsg },
+          ],
+          temperature: 0,
+          max_tokens: 3500,
+          response_format: { type: 'json_object' },
+        }),
+        signal: retryAc.signal,
+      }).catch(e => { clearTimeout(retryTid); console.warn('[escritos-generate] retry aborted', e); return null })
+      clearTimeout(retryTid)
+      if (retryRes?.ok) {
+        const retryPayload = await retryRes.json() as { choices?: { message?: { content?: string } }[] }
+        const retryRaw = retryPayload.choices?.[0]?.message?.content?.trim()
+        if (retryRaw) {
+          try { contenido = JSON.parse(retryRaw) } catch { /* mantener el original */ }
+        }
       }
     }
 

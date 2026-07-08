@@ -56,12 +56,33 @@ function flattenEscrito(c: unknown): string {
   return parts.join('\n')
 }
 
+// ─── Extrae los títulos de secciones de un contenido jsonb de escrito ──
+function getSeccionesTitulos(c: unknown): string[] {
+  if (!c || typeof c !== 'object') return []
+  const obj = c as Record<string, unknown>
+  if (!Array.isArray(obj.secciones)) return []
+  return (obj.secciones as Array<{ titulo?: string }>).map(s => s.titulo ?? '').filter(Boolean)
+}
+
 // ─── Diff char-level acotado para que el prompt no explote ─────────────
-function summarizeDiff(orig: string, final: string): { changed_chars: number; resumen: string } {
+function summarizeDiff(
+  orig: string, final: string,
+  origContenido?: unknown, finalContenido?: unknown
+): { changed_chars: number; resumen: string } {
   if (orig === final) return { changed_chars: 0, resumen: '(sin cambios)' }
   // Naive: tomamos las primeras N divergencias por sección/párrafo
   const maxSnippet = 1500
-  const sample = `--- ORIGINAL (lo que generó la IA) ---
+  const origSecs = getSeccionesTitulos(origContenido)
+  const finalSecs = getSeccionesTitulos(finalContenido)
+  const secQuitadas = origSecs.filter(s => !finalSecs.includes(s))
+  const secAgregadas = finalSecs.filter(s => !origSecs.includes(s))
+  const estructuraNota = [
+    secQuitadas.length > 0 ? `SECCIONES ELIMINADAS POR EL ABOGADO: ${secQuitadas.join(', ')}` : '',
+    secAgregadas.length > 0 ? `SECCIONES AGREGADAS POR EL ABOGADO: ${secAgregadas.join(', ')}` : '',
+    origSecs.length > 0 ? `Estructura original: ${origSecs.join(' → ')}` : '',
+    finalSecs.length > 0 ? `Estructura final: ${finalSecs.join(' → ')}` : '',
+  ].filter(Boolean).join('\n')
+  const sample = `${estructuraNota ? estructuraNota + '\n\n' : ''}--- ORIGINAL (lo que generó la IA) ---
 ${orig.slice(0, maxSnippet)}${orig.length > maxSnippet ? '\n[...]' : ''}
 
 --- FINAL (lo que firmó el abogado, con sus correcciones) ---
@@ -83,6 +104,9 @@ Te paso el TEXTO ORIGINAL (lo que generó una IA) y el TEXTO FINAL (lo que el ab
 
 REGLAS ESTRICTAS:
 - SOLO patrones generalizables (estilo, fórmulas, citas tipo, registro tonal). No detalles del caso puntual.
+- Si el abogado eliminó secciones (como PERSONERÍA, HECHOS, DERECHO), extraé eso como patrón estructural: ej "En escritos de tipo Embargo preventivo, no incluir sección PERSONERÍA ni HECHOS — solo OBJETO y PETITORIO".
+- Si reorganizó o agregó secciones, extraé el patrón análogo.
+- Para aprendizajes estructurales, usar target_kind: "estilo" con target_ref_text: el tipo o fuero del escrito.
 - Si el diff es solo cambios cosméticos (typos, espaciado, nombres), devolvé [].
 - Si no podés identificar un patrón claro, devolvé [].
 - Cada patrón debe ser **accionable**: tiene que poder leerse como una regla aplicable a futuros escritos.
@@ -181,7 +205,11 @@ Deno.serve(async (req) => {
     // 2) Diffear
     const origText = flattenEscrito((escrito as { contenido_original: unknown }).contenido_original)
     const finalText = flattenEscrito((escrito as { contenido: unknown }).contenido)
-    const diff = summarizeDiff(origText, finalText)
+    const diff = summarizeDiff(
+      origText, finalText,
+      (escrito as { contenido_original: unknown }).contenido_original,
+      (escrito as { contenido: unknown }).contenido,
+    )
     if (diff.changed_chars < MIN_DIFF_CHARS) {
       return json(req, { ok: true, skipped: true, reason: `Diff muy chico (${diff.changed_chars} chars). Mínimo ${MIN_DIFF_CHARS}.` })
     }

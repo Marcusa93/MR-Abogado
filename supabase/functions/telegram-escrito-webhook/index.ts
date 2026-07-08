@@ -302,6 +302,21 @@ Deno.serve(async (req) => {
 
     // CASO B: "reintentá" sin número de expediente → usar último expediente de la sesión
     const esReintento = REINTENTAR_RE.test(texto) && !tieneNumeroExpediente && !!session?.expediente_id
+
+    // Si es reintento con escrito anterior disponible, recuperar su contenido
+    // para pasarlo como borrador_previo → el LLM mejora en vez de rehacer desde cero.
+    let borradorPrevio: unknown = undefined
+    if (esReintento && session?.last_escrito_id) {
+      const { data: ultimoEscrito } = await admin
+        .from('escritos')
+        .select('contenido, tipo')
+        .eq('id', session.last_escrito_id)
+        .maybeSingle()
+      if (ultimoEscrito?.contenido) {
+        borradorPrevio = (ultimoEscrito as { contenido: unknown }).contenido
+      }
+    }
+
     let expFinal: Exp | null = null
     let textoParaIdea = texto
 
@@ -381,6 +396,10 @@ Deno.serve(async (req) => {
       genBody.instrucciones = ideaLimpia
     } else {
       genBody.idea_libre = ideaLimpia
+    }
+
+    if (esReintento && borradorPrevio) {
+      genBody.borrador_previo = borradorPrevio
     }
 
     const { ok, out } = await callEscritosGenerate(genBody)
