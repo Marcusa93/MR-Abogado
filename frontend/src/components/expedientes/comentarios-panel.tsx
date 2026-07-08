@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Send, Lock, Unlock, Trash2 } from 'lucide-react'
+import { Send, Lock, Unlock, Trash2, Search, X } from 'lucide-react'
 import { useNotas, useCreateNota, useDeleteNota, type NotaWithAuthor } from '@/hooks/use-notas'
 import { useAuthStore } from '@/stores/auth-store'
 import { renderMentionParts } from '@/lib/utils/mentions'
@@ -130,6 +130,12 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
   const createNota = useCreateNota()
   const [contenido, setContenido] = useState('')
   const [esPrivada, setEsPrivada] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+
+  const q = busqueda.trim().toLowerCase()
+  const notasFiltradas = q
+    ? notas.filter((n) => (n.contenido ?? '').toLowerCase().includes(q))
+    : notas
 
   async function handleSubmit() {
     const trimmed = contenido.trim()
@@ -187,6 +193,24 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
         </div>
       </div>
 
+      {/* Buscador */}
+      {notas.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar en las notas…"
+            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+          />
+          {busqueda && (
+            <button onClick={() => setBusqueda('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Notes list */}
       {isLoading ? (
         <div className="space-y-3">
@@ -207,9 +231,13 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
             Usá @ para mencionar a un compañero
           </p>
         </div>
+      ) : notasFiltradas.length === 0 ? (
+        <div className="py-8 text-center">
+          <p className="text-sm text-zinc-700 dark:text-zinc-300">Ninguna nota coincide con "{busqueda.trim()}"</p>
+        </div>
       ) : (
         <div className="space-y-1">
-          {notas.map((nota) => (
+          {notasFiltradas.map((nota) => (
             <NotaItem key={nota.id} nota={nota} expedienteId={expedienteId} />
           ))}
         </div>

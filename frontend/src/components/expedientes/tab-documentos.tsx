@@ -54,6 +54,7 @@ const CATEGORIAS: { value: string; label: string }[] = [
   { value: 'sentencia', label: 'Sentencia' },
   { value: 'cedula', label: 'Cédula / Notificación' },
   { value: 'escrito', label: 'Escrito presentado' },
+  { value: 'doctrina', label: 'Doctrina' },
   { value: 'otro', label: 'Otro' },
 ]
 
