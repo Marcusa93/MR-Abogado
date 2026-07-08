@@ -130,6 +130,7 @@ export interface CajaResumen {
   }
   anio_actual: { ingresos_ars: number; gastos_ars: number }
   gastos_por_categoria_mes: { categoria: string; monto: number }[]
+  gastos_por_categoria_mes_usd: { categoria: string; monto: number }[]
   ingresos_por_tipo_mes: { tipo: string; monto: number }[]
   abonos_activos: number
   abonos_total_mensual_ars: number
@@ -200,7 +201,7 @@ export function useGastos(month?: { year: number; month: number }) {
     staleTime: 30_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase.from as any)('gastos').select('*').order('fecha', { ascending: false })
+      let q = (supabase.from as any)('gastos').select('*').is('deleted_at', null).order('fecha', { ascending: false })
       if (month) {
         const start = `${month.year}-${String(month.month).padStart(2, '0')}-01`
         const nextM = month.month === 12 ? 1 : month.month + 1
@@ -222,7 +223,7 @@ export function useIngresos(month?: { year: number; month: number }) {
     staleTime: 30_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q = (supabase.from as any)('ingresos').select('*').order('fecha', { ascending: false })
+      let q = (supabase.from as any)('ingresos').select('*').is('deleted_at', null).order('fecha', { ascending: false })
       if (month) {
         const start = `${month.year}-${String(month.month).padStart(2, '0')}-01`
         const nextM = month.month === 12 ? 1 : month.month + 1
@@ -264,14 +265,14 @@ export function useCreateGasto() {
   return useMutation({
     mutationFn: async (input: Omit<Gasto, 'id' | 'created_at' | 'cargado_por' | 'recuperado_at' | 'gasto_fijo_id'> & { cargado_por: string; gasto_fijo_id?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from as any)('gastos').insert(input).select().single()
+      const { error } = await (supabase.from as any)('gastos').insert(input)
       if (error) throw error
-      return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
     },
   })
 }
@@ -282,9 +283,8 @@ export function useCreateIngreso() {
   return useMutation({
     mutationFn: async (input: Omit<Ingreso, 'id' | 'created_at'>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from as any)('ingresos').insert(input).select().single()
+      const { error } = await (supabase.from as any)('ingresos').insert(input)
       if (error) throw error
-      return data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ingresos'] })
@@ -370,7 +370,7 @@ export function useDeleteGasto() {
   return useMutation({
     mutationFn: async (id: string) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)('gastos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+      const { error } = await (supabase.rpc as any)('soft_delete_gasto', { p_id: id })
       if (error) throw error
     },
     onSuccess: () => {
@@ -387,7 +387,7 @@ export function useDeleteIngreso() {
   return useMutation({
     mutationFn: async (id: string) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from as any)('ingresos').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+      const { error } = await (supabase.rpc as any)('soft_delete_ingreso', { p_id: id })
       if (error) throw error
     },
     onSuccess: () => {

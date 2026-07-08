@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Wallet, AlertTriangle, Calendar, ChevronRight, TrendingUp } from 'lucide-react'
+import { Wallet, AlertTriangle, Calendar, ChevronRight, TrendingUp, DollarSign } from 'lucide-react'
 import { useTieneAccesoCaja, useCajaResumen, usePagosPendientes } from '@/hooks/use-caja'
+import { useUsdRate } from '@/hooks/use-cotizacion'
 import { cn } from '@/lib/utils'
 
 const nf = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
@@ -11,6 +12,7 @@ export function CajaWidget() {
   const { data: tieneAcceso } = useTieneAccesoCaja()
   const { data: resumen } = useCajaResumen()
   const { data: pendientes = [] } = usePagosPendientes()
+  const { data: cotizacion } = useUsdRate()
 
   if (!tieneAcceso) return null
 
@@ -32,39 +34,67 @@ export function CajaWidget() {
           : 'border-emerald-500/20 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.05]'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-emerald-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Caja del estudio</h3>
         </div>
-        <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+        <div className="flex items-center gap-2">
+          {cotizacion && (
+            <div className="flex items-center gap-1 rounded border border-amber-500/20 bg-amber-500/[0.06] px-2 py-0.5">
+              <DollarSign className="h-3 w-3 text-amber-400 shrink-0" />
+              <span className="text-[10px] text-zinc-400 tabular-nums">
+                1 US$ = <span className="text-amber-300 font-medium">$ {nf.format(cotizacion.venta)}</span>
+              </span>
+            </div>
+          )}
+          <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+        </div>
       </div>
 
       {mes && (
-        <>
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Ingresos mes</p>
-              <p className="text-lg font-semibold text-emerald-300 tabular-nums">{fmt(mes.ingresos_ars)}</p>
-              {mes.ingresos_usd > 0 && <p className="text-[11px] font-medium text-emerald-400/80 tabular-nums">{fmtUsd(mes.ingresos_usd)}</p>}
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Gastos mes</p>
-              <p className="text-lg font-semibold text-rose-300 tabular-nums">{fmt(mes.gastos_ars)}</p>
-              {mes.gastos_usd > 0 && <p className="text-[11px] font-medium text-rose-400/80 tabular-nums">{fmtUsd(mes.gastos_usd)}</p>}
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">Balance</p>
-              <p className={cn('text-lg font-semibold tabular-nums', balance >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
-                {fmt(balance)}
-              </p>
-              {hayUsd && <p className={cn('text-[11px] font-medium tabular-nums', balanceUsd >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80')}>{fmtUsd(balanceUsd)}</p>}
-            </div>
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Ingresos mes</p>
+            <p className="text-lg font-semibold text-emerald-300 tabular-nums">{fmt(mes.ingresos_ars)}</p>
+            {mes.ingresos_usd > 0 && (
+              <>
+                <p className="text-[11px] font-medium text-emerald-400/80 tabular-nums">{fmtUsd(mes.ingresos_usd)}</p>
+                {cotizacion && (
+                  <p className="text-[10px] text-zinc-500 tabular-nums">≈ {fmt(Math.round(mes.ingresos_usd * cotizacion.venta))}</p>
+                )}
+              </>
+            )}
           </div>
-          {hayUsd && (
-            <p className="mt-2 text-[10px] text-zinc-500">Montos en dólares se muestran aparte — no se convierten a pesos.</p>
-          )}
-        </>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Gastos mes</p>
+            <p className="text-lg font-semibold text-rose-300 tabular-nums">{fmt(mes.gastos_ars)}</p>
+            {mes.gastos_usd > 0 && (
+              <>
+                <p className="text-[11px] font-medium text-rose-400/80 tabular-nums">{fmtUsd(mes.gastos_usd)}</p>
+                {cotizacion && (
+                  <p className="text-[10px] text-zinc-500 tabular-nums">≈ {fmt(Math.round(mes.gastos_usd * cotizacion.venta))}</p>
+                )}
+              </>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Balance</p>
+            <p className={cn('text-lg font-semibold tabular-nums', balance >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+              {fmt(balance)}
+            </p>
+            {hayUsd && (
+              <>
+                <p className={cn('text-[11px] font-medium tabular-nums', balanceUsd >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80')}>
+                  {fmtUsd(balanceUsd)}
+                </p>
+                {cotizacion && (
+                  <p className="text-[10px] text-zinc-500 tabular-nums">≈ {fmt(Math.round(balanceUsd * cotizacion.venta))}</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {noPagados.length > 0 && (

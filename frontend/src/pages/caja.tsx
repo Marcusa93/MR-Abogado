@@ -237,8 +237,21 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
           accent="emerald"
         />
         <DesglosePorBucket
-          titulo="Gastos por categoría"
-          data={resumen.gastos_por_categoria_mes.map(g => ({ label: CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria, valor: g.monto }))}
+          titulo={`Gastos por categoría${resumen.gastos_por_categoria_mes_usd.length > 0 && cotizacion ? ' (USD convertido)' : ''}`}
+          data={(() => {
+            const map = new Map<string, number>()
+            for (const g of resumen.gastos_por_categoria_mes) {
+              map.set(g.categoria, (map.get(g.categoria) ?? 0) + g.monto)
+            }
+            if (cotizacion) {
+              for (const g of resumen.gastos_por_categoria_mes_usd) {
+                map.set(g.categoria, (map.get(g.categoria) ?? 0) + g.monto * cotizacion.venta)
+              }
+            }
+            return Array.from(map.entries())
+              .sort((a, b) => b[1] - a[1])
+              .map(([cat, val]) => ({ label: CATEGORIA_GASTO_LABEL[cat] ?? cat, valor: Math.round(val) }))
+          })()}
           accent="rose"
         />
       </div>
@@ -516,15 +529,29 @@ function MonthNav({ mes, setMes, count, noun }: { mes: Mes; setMes: (m: Mes) => 
 }
 
 function TotalesMes({ items, tipo }: { items: { monto: number | string; moneda: MonedaCaja }[]; tipo: 'ingreso' | 'gasto' }) {
+  const { data: cotizacion } = useUsdRate()
   const ars = items.filter(i => i.moneda === 'ARS').reduce((s, i) => s + Number(i.monto), 0)
   const usd = items.filter(i => i.moneda === 'USD').reduce((s, i) => s + Number(i.monto), 0)
   const color = tipo === 'ingreso' ? 'text-emerald-300' : 'text-rose-300'
   if (items.length === 0) return null
+  const fmtRate = (n: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
       <span className="text-[10px] uppercase tracking-wider text-zinc-500">Total del mes</span>
       <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(ars)}</span>
-      {usd > 0 && <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(usd, 'USD')}</span>}
+      {usd > 0 && (
+        <div className="flex items-center gap-1.5">
+          <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(usd, 'USD')}</span>
+          {cotizacion ? (
+            <span className="text-xs tabular-nums text-amber-400">
+              ≈ {fmt(Math.round(usd * cotizacion.venta))}
+              <span className="text-zinc-600 ml-1">(a ${fmtRate(cotizacion.venta)}/USD)</span>
+            </span>
+          ) : (
+            <span className="text-xs text-zinc-600">(cotización no disponible)</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -542,12 +569,16 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const arsEquivalente = (monto: number) =>
     cotizacion ? `≈ ${fmt(Math.round(monto * cotizacion.venta))}` : null
 
+  const ingresoUSD = ingresos.filter(i => i.moneda === 'USD')
+  const totalUSD = ingresoUSD.reduce((s, i) => s + Number(i.monto), 0)
+
   if (isLoading) return <Loader />
 
   return (
     <div className="space-y-3">
       <MonthNav mes={mes} setMes={setMes} count={ingresos.length} noun={ingresos.length === 1 ? 'ingreso' : 'ingresos'} />
       <TotalesMes items={ingresos} tipo="ingreso" />
+      <TipoCambioWidget cotizacion={cotizacion ?? null} />
 
       {ingresos.length === 0 ? (
         <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registrá un ingreso con el botón de arriba." />

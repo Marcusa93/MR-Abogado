@@ -8,37 +8,56 @@ export interface CotizacionUSD {
   actualizacion?: string
 }
 
-function normalizeResponse(data: unknown): CotizacionUSD | null {
-  if (!data || typeof data !== 'object') return null
-  const d = data as Record<string, unknown>
-  if (typeof d.compra === 'number' && typeof d.venta === 'number') {
-    return { compra: d.compra, venta: d.venta, actualizacion: d.actualizacion as string | undefined }
+// MonedAPI /api/cotizaciones devuelve un array con entradas por origen
+async function fetchMonedapi(): Promise<CotizacionUSD | null> {
+  if (!MONEDAPI_KEY) return null
+  try {
+    const res = await fetch('https://monedapi.ar/api/cotizaciones', {
+      headers: { Authorization: `Bearer ${MONEDAPI_KEY}` },
+    })
+    if (!res.ok) return null
+    const data: unknown = await res.json()
+    if (!Array.isArray(data)) return null
+    // Preferir BNA, caer a la primera entrada USD disponible
+    const bna = data.find((d: any) => d.origen === 'BNA' && d.moneda === 'USD')
+    const entry = bna ?? data.find((d: any) => d.moneda === 'USD')
+    if (!entry) return null
+    return {
+      compra: Number(entry.compra),
+      venta: Number(entry.venta),
+      actualizacion: entry.actualizado ?? undefined,
+    }
+  } catch {
+    return null
   }
-  if (typeof d.buy === 'number' && typeof d.sell === 'number') {
-    return { compra: d.buy, venta: d.sell }
-  }
-  if (typeof d.value_buy === 'number' && typeof d.value_sell === 'number') {
-    return { compra: d.value_buy, venta: d.value_sell }
-  }
-  if (d.usd && typeof d.usd === 'object') return normalizeResponse(d.usd)
-  if (d.oficial && typeof d.oficial === 'object') return normalizeResponse(d.oficial)
-  return null
 }
 
-// Cotización USD/ARS desde monedapi.ar — refresca cada 30 min
+// Fallback público: Bluelytics BNA oficial, sin autenticación
+async function fetchBluelytics(): Promise<CotizacionUSD | null> {
+  try {
+    const res = await fetch('https://api.bluelytics.com.ar/v2/latest')
+    if (!res.ok) return null
+    const data = await res.json() as Record<string, unknown>
+    const oficial = data.oficial as Record<string, number> | undefined
+    if (!oficial) return null
+    return { compra: oficial.value_buy, venta: oficial.value_sell }
+  } catch {
+    return null
+  }
+}
+
+// Cotización USD/ARS (BNA). Usa MonedAPI si hay clave, Bluelytics como fallback.
+// Refresca cada 30 minutos.
 export function useUsdRate() {
   return useQuery<CotizacionUSD | null>({
     queryKey: ['cotizacion-usd'],
-    staleTime: 30 * 60_000,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
     retry: 1,
     queryFn: async () => {
-      if (!MONEDAPI_KEY) return null
-      const res = await fetch('https://monedapi.ar/v1/cotizacion/usd', {
-        headers: { Authorization: `Bearer ${MONEDAPI_KEY}` },
-      })
-      if (!res.ok) return null
-      const data: unknown = await res.json()
-      return normalizeResponse(data)
+      const result = await fetchMonedapi()
+      if (result) return result
+      return fetchBluelytics()
     },
   })
 }
