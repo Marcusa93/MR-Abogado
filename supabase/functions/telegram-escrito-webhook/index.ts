@@ -110,23 +110,28 @@ function listaExpes(cands: Exp[]): string {
 // Extrae el tipo de escrito desde el texto del abogado usando keywords.
 // Si lo detecta, se manda como `tipo` explícito (más confiable que dejar
 // que la IA infiera). El texto completo va como `instrucciones`.
+// NOTA: sin normalize/NFD — se usan alternativas [oó], [aá] para cubrir
+// tanto texto con tilde como transcripciones sin tilde de notas de voz.
 function inferirTipoEscrito(texto: string): string | null {
-  const t = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const t = texto.toLowerCase()
+  // Embargo preventivo — detecta "embargo preventivo", "embargo de/por honorarios"
   if (/embargo\s+preventivo/.test(t)) return 'Embargo preventivo'
+  if (/embargo\s+(de|por)\s+honorarios/.test(t)) return 'Embargo preventivo'
+  if (/embargo\s+(preventibo|pribentivo|pribentibo)/.test(t)) return 'Embargo preventivo'
   if (/levantamiento\s+de\s+embargo/.test(t)) return 'Levantamiento de embargo'
-  if (/recurso\s+de\s+apelaci[o]n/.test(t)) return 'Recurso de apelación'
-  if (/recurso\s+de\s+reposici[o]n|recurso\s+de\s+revocatoria/.test(t)) return 'Recurso de reposición'
-  if (/regulaci[o]n\s+de\s+honorarios|regular\s+honorarios/.test(t)) return 'Regulación de honorarios'
-  if (/contestaci[o]n\s+de\s+traslado|contest[ao]r?\s+(?:el\s+)?traslado/.test(t)) return 'Contestación de traslado'
+  if (/recurso\s+de\s+apelaci[oó]n/.test(t)) return 'Recurso de apelación'
+  if (/recurso\s+de\s+(reposici[oó]n|revocatoria)/.test(t)) return 'Recurso de reposición'
+  if (/regulaci[oó]n\s+de\s+honorarios|regular\s+honorarios/.test(t)) return 'Regulación de honorarios'
+  if (/contestaci[oó]n\s+de\s+traslado|contest[ao]r?\s+(?:el\s+)?traslado/.test(t)) return 'Contestación de traslado'
   if (/apertura\s+a\s+prueba|abrir\s+a\s+prueba/.test(t)) return 'Apertura a prueba'
-  if (/ofrecimiento\s+de\s+prueba|ofrez[co]\s+prueba/.test(t)) return 'Ofrecimiento de prueba'
+  if (/ofrecimiento\s+de\s+prueba|ofrec[eo]\s+prueba/.test(t)) return 'Ofrecimiento de prueba'
   if (/beneficio\s+de\s+litigar\s+sin\s+gastos/.test(t)) return 'Beneficio de litigar sin gastos'
   if (/desistimiento/.test(t)) return 'Desistimiento'
-  if (/caducidad\s+de\s+instancia|perenci[o]n/.test(t)) return 'Caducidad de instancia'
-  if (/excepci[o]n\s+de\s+prescripci[o]n|prescripci[o]n/.test(t)) return 'Excepción de prescripción'
-  if (/opone\s+excepci[o]n|excepciones\s+previas/.test(t)) return 'Oposición de excepciones'
+  if (/caducidad\s+de\s+instancia|perenci[oó]n/.test(t)) return 'Caducidad de instancia'
+  if (/prescripci[oó]n/.test(t)) return 'Excepción de prescripción'
+  if (/opone\s+excepci[oó]n|excepciones\s+previas/.test(t)) return 'Oposición de excepciones'
   if (/nulidad/.test(t)) return 'Planteo de nulidad'
-  if (/ampliaci[o]n\s+de\s+demanda/.test(t)) return 'Ampliación de demanda'
+  if (/ampliaci[oó]n\s+de\s+demanda/.test(t)) return 'Ampliación de demanda'
   if (/pronto\s+despacho/.test(t)) return 'Pronto despacho'
   return null
 }
@@ -199,6 +204,8 @@ Deno.serve(async (req) => {
     // Si se detecta, se manda como `tipo` explícito (más confiable que
     // dejar que la IA infiera). El texto completo pasa como `instrucciones`.
     const tipoDetectado = inferirTipoEscrito(ideaLimpia)
+    console.log('[telegram-escrito] ideaLimpia:', ideaLimpia.slice(0, 200))
+    console.log('[telegram-escrito] tipoDetectado:', tipoDetectado)
 
     // Generar con el mismo motor de la app, en nombre del director
     const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {

@@ -691,7 +691,9 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
         const partes = m.ai_extracted?.partes?.join(', ')
         const fechas = m.ai_extracted?.fechas?.map(f => `${f.tipo} ${f.fecha_iso}: ${f.descripcion}`).join('; ')
         const plazos = m.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
-        const accion = m.ai_suggested_action ? `Acción sugerida: ${m.ai_suggested_action.titulo}${m.ai_suggested_action.descripcion ? ` — ${m.ai_suggested_action.descripcion}` : ''}` : ''
+        // "Próxima acción": es un recordatorio de agenda para el abogado, NO determina el tipo de escrito.
+        // Se rotula explícitamente para que el LLM no lo tome como instrucción al generar el escrito.
+        const accion = m.ai_suggested_action ? `Próxima acción de agenda (solo referencia — NO usés esto para elegir el tipo de escrito): ${m.ai_suggested_action.titulo}${m.ai_suggested_action.descripcion ? ` — ${m.ai_suggested_action.descripcion}` : ''}` : ''
         return `### Clave ${i + 1} (${m.fecha} · ${m.tipo_movimiento})
 - Título: ${m.titulo}
 - Resumen: ${m.ai_summary ?? '(sin resumen IA)'}${partes ? `\n- Partes: ${partes}` : ''}${fechas ? `\n- Fechas: ${fechas}` : ''}${plazos ? `\n- Plazos: ${plazos}` : ''}${accion ? `\n- ${accion}` : ''}`
@@ -792,7 +794,7 @@ ${estiloModelo}
 
 ## Tu tarea
 - Identificá el tipo EXACTO de escrito que corresponde a esta indicación. Ejemplos posibles: EMBARGO PREVENTIVO POR HONORARIOS, RECURSO DE APELACIÓN, CONTESTACIÓN DE TRASLADO, REGULACIÓN DE HONORARIOS, LEVANTAMIENTO DE EMBARGO, APERTURA A PRUEBA, etc.
-- NO defaultees a "PRONTO DESPACHO" ni a un escrito de trámite genérico salvo que eso sea literalmente lo que el abogado pidió.
+- NO defaultees a "PRONTO DESPACHO" ni a un escrito de trámite genérico salvo que eso sea literalmente lo que el abogado pidió. Las "Próximas acciones de agenda" que puedas ver en las actuaciones son recordatorios para el abogado, no instrucciones para vos — ignoralas al elegir el tipo.
 - Redactá el escrito COMPLETO y formal, respetando fielmente el tipo pedido, el contenido y todas las instrucciones del abogado.
 ${body.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en MAYÚSCULAS según el tipo identificado.'}
 
@@ -813,8 +815,10 @@ ${abogadoCtx}
 ${body.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
-      : `Tipo de escrito a redactar: **${tipoEfectivo}**
-${body.titulo ? `Título sugerido por el abogado: "${body.titulo}"` : 'Decidí vos el título según el tipo.'}
+      : `## TIPO DE ESCRITO (determinado por el abogado — seguí esto sin excepción)
+**${tipoEfectivo}**
+${body.titulo ? `Título sugerido: "${body.titulo}"` : `Determiná el título en MAYÚSCULAS para un escrito de tipo "${tipoEfectivo}".`}
+⚠️ Las "Próximas acciones de agenda" que aparezcan en las actuaciones son recordatorios del sistema de gestión para el abogado. NO determinan el tipo de escrito. El abogado ya te indicó el tipo arriba — respetalo sin excepción.
 ${providenciaCtx}
 
 ${expedienteCtx}
