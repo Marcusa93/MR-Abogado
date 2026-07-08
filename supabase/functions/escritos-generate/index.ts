@@ -707,8 +707,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
     // 6.5) Retrieval de normativa: fijadas al expediente + top-k por similarity
     const ragQuery = [
-      tipoEfectivo,
-      ideaLibre,
+      ideaLibre || tipoEfectivo,  // idea libre como contexto primario para RAG
       exp.caratula ?? '',
       exp.fuero ?? '',
       body.instrucciones ?? '',
@@ -787,11 +786,34 @@ ${estiloModelo}
       OUTPUT_SCHEMA,
     ].join('\n')
 
-    const userMessage = `${ideaLibre ? `El abogado te da la indicación EN SUS PALABRAS de qué hay que presentar (puede venir informal, tipo mensaje de WhatsApp). Inferí el tipo de escrito correcto y redactalo formal, bien escrito y con hilo lógico-jurídico coherente, usando el contexto del expediente. Aunque sea un escrito de mero trámite, cuidá la conexión jurídica:
-
+    const userMessage = ideaLibre
+      ? `## Indicación del abogado (verbatim — puede ser informal o de WhatsApp)
 "${ideaLibre}"
 
-` : ''}Tipo de escrito a redactar: **${tipoEfectivo}**
+## Tu tarea
+- Identificá el tipo EXACTO de escrito que corresponde a esta indicación. Ejemplos posibles: EMBARGO PREVENTIVO POR HONORARIOS, RECURSO DE APELACIÓN, CONTESTACIÓN DE TRASLADO, REGULACIÓN DE HONORARIOS, LEVANTAMIENTO DE EMBARGO, APERTURA A PRUEBA, etc.
+- NO defaultees a "PRONTO DESPACHO" ni a un escrito de trámite genérico salvo que eso sea literalmente lo que el abogado pidió.
+- Redactá el escrito COMPLETO y formal, respetando fielmente el tipo pedido, el contenido y todas las instrucciones del abogado.
+${body.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en MAYÚSCULAS según el tipo identificado.'}
+
+${providenciaCtx}
+
+${expedienteCtx}
+
+${clavesCtx}
+
+${normativaCtx}
+
+${jurisprudenciaCtx}
+
+${aprendizajesCtx}
+
+${abogadoCtx}
+
+${body.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
+
+Redactá el escrito siguiendo el formato JSON indicado.`
+      : `Tipo de escrito a redactar: **${tipoEfectivo}**
 ${body.titulo ? `Título sugerido por el abogado: "${body.titulo}"` : 'Decidí vos el título según el tipo.'}
 ${providenciaCtx}
 

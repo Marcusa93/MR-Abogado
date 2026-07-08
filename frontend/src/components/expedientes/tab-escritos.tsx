@@ -934,28 +934,30 @@ function EscritoEditorModal({
     setDirty(true)
   }
 
+  const [viewTab, setViewTab] = useState<'editor' | 'preview'>('editor')
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 sm:px-5 py-2 sm:py-3 gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <input
             value={titulo}
             onChange={(e) => { setTitulo(e.target.value); setDirty(true) }}
-            className="bg-transparent text-base font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
+            className="bg-transparent text-sm sm:text-base font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40 min-w-0 flex-1"
           />
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
+          <span className="hidden sm:inline text-[10px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
             {escrito.tipo} · {escrito.registro_tonal === 'retorico' ? 'retórico' : 'procesal'}
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {dirty && <span className="text-[10px] text-amber-400">cambios sin guardar</span>}
+        <div className="flex items-center gap-1 shrink-0">
+          {dirty && <span className="hidden sm:inline text-[10px] text-amber-400 mr-1">sin guardar</span>}
           <select
             value={estado}
             onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
             disabled={update.isPending || estado === 'firmado' || estado === 'presentado_sae'}
             className={cn(
-              'h-7 rounded-lg border bg-white dark:bg-zinc-900/80 px-2 text-[11px] font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition-colors',
+              'h-7 rounded-lg border bg-white dark:bg-zinc-900/80 px-1.5 text-[11px] font-medium focus:outline-none transition-colors',
               estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
               estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
               estado === 'firmado'   && 'border-cyan-500/40 text-cyan-300',
@@ -969,41 +971,43 @@ function EscritoEditorModal({
             <option value="borrador">Borrador</option>
             <option value="final">Final</option>
             {estado === 'firmado' && <option value="firmado">Firmado</option>}
-            {estado === 'presentado_sae' && <option value="presentado_sae">Presentado al SAE</option>}
-            <option value="presentado">Presentado (manual)</option>
+            {estado === 'presentado_sae' && <option value="presentado_sae">Presentado SAE</option>}
+            <option value="presentado">Presentado</option>
           </select>
           <button
             onClick={handleSave}
             disabled={!dirty || update.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
+            title="Guardar"
           >
             {update.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            Guardar
+            <span className="hidden sm:inline">Guardar</span>
           </button>
           <button
             onClick={() => setSugerirOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
+            className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
             title="Buscar jurisprudencia afín al párrafo activo"
           >
             <Gavel className="h-3 w-3" />
-            Jurisprudencia
+            <span className="hidden md:inline">Jurisprudencia</span>
           </button>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
+            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
+            title="Imprimir / PDF"
           >
             <Printer className="h-3 w-3" />
-            Imprimir / PDF
+            <span className="hidden sm:inline">PDF</span>
           </button>
           <button
             onClick={onRequestDelete}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
+            className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
             title="Eliminar escrito"
           >
             <Trash2 className="h-3 w-3" />
-            Eliminar
+            <span className="hidden sm:inline">Eliminar</span>
           </button>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5" title="Cerrar">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1012,10 +1016,35 @@ function EscritoEditorModal({
       {/* Workflow: Firmar → Presentar */}
       <WorkflowBar escrito={escrito} />
 
+      {/* Toggle editor/preview — solo visible en mobile */}
+      <div className="flex lg:hidden border-b border-white/10 bg-slate-950">
+        <button
+          onClick={() => setViewTab('editor')}
+          className={cn('flex-1 py-2 text-xs font-medium transition-colors',
+            viewTab === 'editor' ? 'text-violet-300 border-b-2 border-violet-400' : 'text-zinc-500 hover:text-zinc-300')}
+        >
+          Editar
+        </button>
+        <button
+          onClick={() => setViewTab('preview')}
+          className={cn('flex-1 py-2 text-xs font-medium transition-colors',
+            viewTab === 'preview' ? 'text-cyan-300 border-b-2 border-cyan-400' : 'text-zinc-500 hover:text-zinc-300')}
+        >
+          Vista previa
+        </button>
+        <button
+          onClick={() => setSugerirOpen(true)}
+          className="px-4 py-2 text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors"
+          title="Buscar jurisprudencia"
+        >
+          <Gavel className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       {/* Split: editor + preview */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2">
         {/* Editor */}
-        <div className="overflow-y-auto border-r border-white/10 p-5 space-y-4">
+        <div className={cn('overflow-y-auto border-r border-white/10 p-4 sm:p-5 space-y-4', viewTab === 'preview' && 'hidden lg:block')}>
           <div className="grid grid-cols-1 gap-2">
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Encabezado al juez</label>
             <input
@@ -1060,7 +1089,7 @@ function EscritoEditorModal({
         </div>
 
         {/* Preview */}
-        <div className="overflow-y-auto bg-zinc-100 p-5">
+        <div className={cn('overflow-y-auto bg-zinc-100 p-3 sm:p-5', viewTab === 'editor' && 'hidden lg:block')}>
           <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center' }}>
             <EscritoPreview ref={previewRef} contenido={contenido} abogado={{ ...abogado, nombreCompleto: abogado.nombreCompleto || '—' }} />
           </div>
