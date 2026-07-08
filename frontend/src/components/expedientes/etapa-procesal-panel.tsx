@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Check, Plus, X, Loader2 } from 'lucide-react'
+import { Check, Plus, X, Loader2, Sparkles } from 'lucide-react'
 import { Card } from './detail-helpers'
 import { useUpdateExpediente } from '@/hooks/use-expedientes'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,22 @@ export function EtapaProcesalPanel({ expedienteId, etapaActual }: Props) {
   const update = useUpdateExpediente()
   const [addingCustom, setAddingCustom] = useState(false)
   const [custom, setCustom] = useState('')
+  const [sugiriendo, setSugiriendo] = useState(false)
+  const [sugerencia, setSugerencia] = useState<{ etapa: string; razon: string } | null>(null)
+
+  const sugerir = async () => {
+    setSugiriendo(true); setSugerencia(null)
+    try {
+      const { data, error } = await createClient().functions.invoke('sugerir-etapa', { body: { expediente_id: expedienteId } })
+      if (error) throw error
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      setSugerencia(data as { etapa: string; razon: string })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo sugerir la etapa')
+    } finally {
+      setSugiriendo(false)
+    }
+  }
 
   // Si la etapa actual es una personalizada (no está en las predefinidas), la sumamos a la fila.
   const etapas = etapaActual && !ETAPAS_PREDEF.includes(etapaActual)
@@ -51,7 +68,44 @@ export function EtapaProcesalPanel({ expedienteId, etapaActual }: Props) {
   }
 
   return (
-    <Card title="Etapa procesal">
+    <Card
+      title="Etapa procesal"
+      headerRight={
+        <button
+          onClick={sugerir}
+          disabled={sugiriendo || update.isPending}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-2.5 py-1 text-xs font-medium text-violet-300 hover:bg-violet-500/25 disabled:opacity-50"
+          title="Inferir la etapa a partir de las actuaciones"
+        >
+          {sugiriendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Sugerir (IA)
+        </button>
+      }
+    >
+      {sugerencia && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-violet-500/25 bg-violet-500/[0.07] px-3 py-2">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-zinc-100">
+              La IA sugiere: <span className="font-semibold text-violet-200">{sugerencia.etapa}</span>
+            </p>
+            {sugerencia.razon && <p className="mt-0.5 text-[11px] text-zinc-400">{sugerencia.razon}</p>}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => { setEtapa(sugerencia.etapa); setSugerencia(null) }}
+              disabled={update.isPending}
+              className="rounded-md bg-violet-500/20 px-2 py-1 text-[11px] font-medium text-violet-200 hover:bg-violet-500/30 disabled:opacity-50"
+            >
+              Aplicar
+            </button>
+            <button onClick={() => setSugerencia(null)} className="rounded-md p-1 text-zinc-500 hover:text-zinc-300">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-1.5">
         {etapas.map((etapa, i) => {
           const isActual = etapa === etapaActual
