@@ -130,40 +130,62 @@ Deno.serve(async (req) => {
   const startedAt = new Date().toISOString()
 
   try {
-    // ── Auth ────────────────────────────────────────────────────────────────
-    const anonClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-    )
-    const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
+    // ── Parse body + auth ────────────────────────────────────────────────────
+    // Acepta JWT de usuario (UI) o service_role + on_behalf_of_user_id (cron batch).
+    let bodyParsed: { expediente_id?: string; on_behalf_of_user_id?: string }
+    try { bodyParsed = await req.json() } catch { bodyParsed = {} }
 
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const isServiceRole = authHeader.replace(/^Bearer\s+/i, '').trim() === supabaseServiceKey
 
-    const { expediente_id } = await req.json()
+    let userId: string
+    let pushAuth: string
+    let anonClient: ReturnType<typeof createClient> | null = null
+
+    if (isServiceRole) {
+      if (!bodyParsed.on_behalf_of_user_id) {
+        return json(req, { error: 'on_behalf_of_user_id requerido para service_role' }, 400)
+      }
+      userId = bodyParsed.on_behalf_of_user_id
+      pushAuth = `Bearer ${supabaseServiceKey}`
+    } else {
+      anonClient = createClient(
+        supabaseUrl,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } },
+      )
+      const { data: { user }, error: authError } = await anonClient.auth.getUser()
+      if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
+      userId = user.id
+      pushAuth = authHeader
+    }
+
+    const { expediente_id } = bodyParsed
     if (!expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
+
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // ── Expediente ──────────────────────────────────────────────────────────
     const { data: exp, error: expError } = await serviceClient
       .from('expedientes')
-      .select('id, numero_sae, estado_sae, fuero')
+      .select('id, numero_sae, estado_sae, fuero, caratula')
       .eq('id', expediente_id)
       .single()
     if (expError || !exp) return json(req, { error: 'Expediente no encontrado' }, 404)
     if (!exp.numero_sae) return json(req, { error: 'El expediente no tiene número SAE configurado' }, 400)
 
-    const canSync = await canSyncExpedienteSae(anonClient, expediente_id)
-    if (!canSync) return json(req, { error: 'Sin permisos para sincronizar este expediente SAE' }, 403)
+    if (anonClient) {
+      const canSync = await canSyncExpedienteSae(anonClient, expediente_id)
+      if (!canSync) return json(req, { error: 'Sin permisos para sincronizar este expediente SAE' }, 403)
+    }
 
     // ── Credenciales SAE ────────────────────────────────────────────────────
     const { data: cred, error: credError } = await serviceClient
       .from('sae_credentials')
       .select('id, username, encrypted_secret, status')
-      .eq('profile_id', user.id)
+      .eq('profile_id', userId)
       .eq('provider', 'justucuman')
       .maybeSingle()
     if (credError) throw credError
@@ -172,7 +194,7 @@ Deno.serve(async (req) => {
 
     const password = await readSaePassword(cred.encrypted_secret, {
       serviceClient,
-      userId: user.id,
+      userId,
     })
     if (!password) {
       return json(req, { error: 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.' }, 500)
@@ -181,7 +203,7 @@ Deno.serve(async (req) => {
     // ── Crear log de sincronización ──────────────────────────────────────────
     const { data: logEntry } = await serviceClient
       .from('sae_sync_logs')
-      .insert({ expediente_id, profile_id: user.id, status: 'iniciado', started_at: startedAt })
+      .insert({ expediente_id, profile_id: userId, status: 'iniciado', started_at: startedAt })
       .select('id')
       .single()
 
@@ -210,7 +232,7 @@ Deno.serve(async (req) => {
       const { data: ownLink } = await serviceClient
         .from('expediente_sae_links')
         .select('procid, jurisdiction_id')
-        .eq('profile_id', user.id)
+        .eq('profile_id', userId)
         .eq('provider', 'justucuman')
         .eq('expediente_id', expediente_id)
         .maybeSingle()
@@ -322,7 +344,7 @@ Deno.serve(async (req) => {
         .from('expediente_sae_links')
         .upsert({
           expediente_id,
-          profile_id: user.id,
+          profile_id: userId,
           provider: 'justucuman',
           numero_sae: exp.numero_sae,
           procid,
@@ -343,7 +365,7 @@ Deno.serve(async (req) => {
         await serviceClient
           .from('expediente_sae_links')
           .update({ last_sync_at: syncedAt, updated_at: syncedAt } as never)
-          .eq('profile_id', user.id)
+          .eq('profile_id', userId)
           .eq('provider', 'justucuman')
           .eq('expediente_id', expediente_id)
         return json(req, { success: true, nuevas: 0, duplicadas: 0, message: 'El expediente no tiene actuaciones registradas en SAE.' })
@@ -437,33 +459,32 @@ Deno.serve(async (req) => {
         try {
           const importantTypes = new Set(['sentencia', 'audiencia', 'intimacion', 'embargo'])
           const importantNew = insertedRows.filter(r => importantTypes.has(r.movement.tipo_movimiento))
-          const numero = exp.numero_sae
           const emoji = importantNew.length > 0 ? '⚠️' : '📬'
-          const plural = nuevas !== 1
-          const title = `${emoji} ${numero}: ${nuevas} actuación${plural ? 'es' : ''} nueva${plural ? 's' : ''}`
-          const importantTypeNames = [...new Set(importantNew.map(r => r.movement.tipo_movimiento))]
-          const body = importantNew.length > 0
-            ? `Incluye: ${importantTypeNames.join(', ')}`
-            : insertedRows[0]?.movement.titulo.slice(0, 80) ?? 'Tocá para ver el expediente'
+          const caratula = (exp as { caratula?: string | null }).caratula
+          const label = caratula ? caratula.slice(0, 45) : (exp.numero_sae ?? 'expediente')
+          const title = `${emoji} ${label}`
+          const reciente = insertedRows[0]?.movement.titulo ?? ''
+          const pushBody = nuevas === 1
+            ? reciente.slice(0, 100)
+            : `${nuevas} actuaciones · ${reciente.slice(0, 70)}`
 
           await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: req.headers.get('Authorization') ?? '',
+              Authorization: pushAuth,
             },
             body: JSON.stringify({
-              user_ids: [user.id],
+              user_ids: [userId],
               payload: {
                 title,
-                body,
+                body: pushBody,
                 url: `/expedientes/${expediente_id}`,
                 tag: `sae-sync-${expediente_id}`,
               },
             }),
           })
         } catch (pushErr) {
-          // No fallar el sync si push falla
           console.error('[sae-sync] push error', pushErr)
         }
       }
@@ -483,7 +504,7 @@ Deno.serve(async (req) => {
       await serviceClient
         .from('expediente_sae_links')
         .update({ last_sync_at: new Date().toISOString(), updated_at: new Date().toISOString() } as never)
-        .eq('profile_id', user.id)
+        .eq('profile_id', userId)
         .eq('provider', 'justucuman')
         .eq('expediente_id', expediente_id)
 
