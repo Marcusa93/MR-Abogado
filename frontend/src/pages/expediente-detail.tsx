@@ -28,6 +28,7 @@ import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { ExpedienteSimilaresPanel } from '@/components/expedientes/expediente-similares-panel'
 import { ExpedienteBriefPanel } from '@/components/expedientes/expediente-brief-panel'
 import { TabCaja } from '@/components/expedientes/tab-caja'
+import { TabProceso } from '@/components/expedientes/tab-proceso'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
@@ -73,6 +74,7 @@ import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 
 const TABS = [
   { id: 'datos', label: 'Datos', icon: FileText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
+  { id: 'proceso', label: 'Proceso', icon: Gavel, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'actuaciones', label: 'SAE', icon: Database, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
   { id: 'claves', label: 'Actuaciones claves', icon: Star, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'audiencias-grabadas', label: 'Audiencias grabadas', icon: Video, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
@@ -430,6 +432,9 @@ export default function ExpedienteDetailPage() {
               )}
             </Card>
           </div>
+        )}
+        {activeTab === 'proceso' && (
+          <TabProceso expedienteId={id!} expediente={expediente as any} />
         )}
         {activeTab === 'actuaciones' && (
           <TabActuaciones
