@@ -391,6 +391,54 @@ export const BOGABOT_TOOLS = [
     },
   },
   {
+    name: 'buscar_cliente',
+    description: 'Busca clientes por nombre, apellido, email o DNI/CUIT. Devuelve expedientes activos de cada uno. Usalo cuando el abogado pregunta por una persona sin saber el número de expediente, o quiere saber cuántas causas tiene un cliente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Nombre, apellido, email o número de documento del cliente' },
+        limit: { type: 'number', description: 'Máximo de resultados (default 5, max 10)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'resumen_dia',
+    description: 'Resumen del día actual: audiencias de hoy, tareas vencidas o que vencen hoy, y notificaciones SAE urgentes sin leer. Ideal para la primera consulta del día ("¿qué tengo hoy?", "cómo arrancamos", "resumen de hoy").',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'crear_seguimiento',
+    description: 'Registra una nota o seguimiento interno en un expediente. Para anotar reuniones, llamadas, acuerdos o cualquier novedad del caso. Requiere confirmación del usuario antes de ejecutarse.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_ref: { type: 'string', description: 'Número, nombre del cliente o carátula del expediente' },
+        observacion: { type: 'string', description: 'Texto completo de la nota o seguimiento' },
+        canal: { type: 'string', enum: ['web', 'telefono', 'presencial', 'email'], description: 'Canal del contacto (default: web)' },
+      },
+      required: ['expediente_ref', 'observacion'],
+    },
+  },
+  {
+    name: 'agendar_audiencia',
+    description: 'Agenda una audiencia en un expediente. Requiere confirmación del usuario antes de ejecutarse.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expediente_ref: { type: 'string', description: 'Número, nombre del cliente o carátula del expediente' },
+        fecha: { type: 'string', description: 'Fecha de la audiencia en formato YYYY-MM-DD' },
+        hora: { type: 'string', description: 'Hora en formato HH:MM (opcional)' },
+        descripcion: { type: 'string', description: 'Tipo o descripción de la audiencia. Ej: "Audiencia de conciliación", "Prueba testimonial", "Pericial"' },
+      },
+      required: ['expediente_ref', 'fecha', 'descripcion'],
+    },
+  },
+  {
     name: 'agregar_jurisprudencia',
     description: 'Agrega un fallo al corpus PROPIO del usuario para que quede indexado y buscable después con buscar_jurisprudencia_local. Acepta URL de InfoLEG/SAIJ, o texto completo del fallo pegado. Usalo cuando el usuario diga "agregá este fallo", "subí esta sentencia", "indexá esto", o cuando pegue un link a un fallo. Opcional: metadata (carátula, tribunal, fecha) que sobreescribe la extraída automáticamente.',
     input_schema: {
@@ -1183,6 +1231,184 @@ export const TOOL_HANDLERS: Record<string, Handler> = {
       }
     } catch (e) {
       return { error: e instanceof Error ? e.message : 'ingesta falló' }
+    }
+  },
+
+  buscar_cliente: async (admin, user, args) => {
+    const query = String(args.query ?? '').trim()
+    if (!query) return { error: 'Falta la búsqueda' }
+    const limit = Math.min(Number(args.limit ?? 5), 10)
+    const isDni = /^\d{7,15}$/.test(query)
+    const term = `%${query.replace(/[%_\\]/g, '')}%`
+
+    let q = admin
+      .from('clientes')
+      .select('id, apellido, nombre, dni, telefono, email')
+      .is('deleted_at', null)
+    if (isDni) {
+      q = (q as any).eq('dni', query)
+    } else {
+      q = (q as any).or(`apellido.ilike.${term},nombre.ilike.${term},email.ilike.${term}`)
+    }
+    const { data: clientes, error } = await (q as any).limit(limit)
+    if (error) return { error: (error as any).message }
+    if (!clientes || (clientes as any[]).length === 0) {
+      return { result: { clientes: [], mensaje: `Sin resultados para "${query}"` } }
+    }
+
+    const allowedIds = await getAllowedExpedienteIds(admin, user)
+    const enriched = await Promise.all((clientes as any[]).map(async (c) => {
+      let q2 = admin
+        .from('expedientes')
+        .select('id, numero, caratula, estado_interno')
+        .eq('cliente_id', c.id)
+        .is('deleted_at', null)
+      if (allowedIds) q2 = q2.in('id', allowedIds)
+      const { data: exps } = await q2.limit(20)
+      return {
+        id: c.id,
+        nombre: `${c.apellido}, ${c.nombre}`.trim(),
+        dni: c.dni,
+        telefono: c.telefono ?? null,
+        email: c.email ?? null,
+        expedientes_count: (exps ?? []).length,
+        expedientes: (exps ?? []).map((e: any) => ({ id: e.id, numero: e.numero, caratula: e.caratula, estado: e.estado_interno })),
+      }
+    }))
+    return { result: { clientes: enriched, total: enriched.length } }
+  },
+
+  resumen_dia: async (admin, user, _args) => {
+    const today = new Date().toISOString().split('T')[0]
+    const allowedIds = await getAllowedExpedienteIds(admin, user)
+
+    const [audienciasRes, tareasVencidasRes, tareasHoyRes, notifRes] = await Promise.all([
+      (() => {
+        let q = admin
+          .from('audiencias')
+          .select('id, fecha, hora, notas, expediente_id, expediente:expedientes!audiencias_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre))')
+          .eq('fecha', today)
+          .neq('estado', 'CANCELADA')
+        if (allowedIds) q = q.in('expediente_id', allowedIds)
+        return q.order('hora', { ascending: true })
+      })(),
+      (() => {
+        let q = admin
+          .from('tareas')
+          .select('id, titulo, fecha_vencimiento, prioridad, expediente_id, expediente:expedientes!tareas_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre))')
+          .lt('fecha_vencimiento', today)
+          .neq('estado', 'COMPLETADA')
+        if (!user.is_staff) q = (q as any).eq('asignado_a', user.user_id)
+        if (allowedIds) q = q.in('expediente_id', allowedIds)
+        return q.order('fecha_vencimiento', { ascending: true }).limit(15)
+      })(),
+      (() => {
+        let q = admin
+          .from('tareas')
+          .select('id, titulo, fecha_vencimiento, prioridad, expediente_id, expediente:expedientes!tareas_expediente_id_fkey(numero, caratula, clientes:clientes(apellido, nombre))')
+          .eq('fecha_vencimiento', today)
+          .neq('estado', 'COMPLETADA')
+        if (!user.is_staff) q = (q as any).eq('asignado_a', user.user_id)
+        if (allowedIds) q = q.in('expediente_id', allowedIds)
+        return q.limit(15)
+      })(),
+      (() => {
+        let q = admin
+          .from('sae_notificaciones')
+          .select('id, titulo, tipo, prioridad, fecha_emision, expediente_id, expediente:expedientes(caratula, clientes:clientes(apellido, nombre))')
+          .eq('leida', false)
+          .eq('prioridad', 'URGENTE')
+        if (allowedIds) q = q.in('expediente_id', allowedIds)
+        return q.order('fecha_emision', { ascending: false }).limit(10)
+      })(),
+    ])
+
+    const audiencias = (audienciasRes.data ?? []) as any[]
+    const tareasVencidas = (tareasVencidasRes.data ?? []) as any[]
+    const tareasHoy = (tareasHoyRes.data ?? []) as any[]
+    const notifUrgentes = (notifRes.data ?? []) as any[]
+
+    return {
+      result: {
+        fecha: today,
+        audiencias_hoy: audiencias.map((a) => ({
+          id: a.id,
+          hora: a.hora,
+          expediente: expedienteLabel(a.expediente),
+          notas: a.notas,
+        })),
+        tareas_vencidas: tareasVencidas.map((t) => ({
+          id: t.id,
+          titulo: t.titulo,
+          vencio: t.fecha_vencimiento,
+          prioridad: t.prioridad,
+          expediente: t.expediente ? expedienteLabel(t.expediente) : null,
+        })),
+        tareas_hoy: tareasHoy.map((t) => ({
+          id: t.id,
+          titulo: t.titulo,
+          prioridad: t.prioridad,
+          expediente: t.expediente ? expedienteLabel(t.expediente) : null,
+        })),
+        notificaciones_urgentes: notifUrgentes.map((n) => ({
+          id: n.id,
+          titulo: n.titulo,
+          tipo: n.tipo,
+          fecha: n.fecha_emision,
+          expediente: n.expediente ? expedienteLabel(n.expediente) : null,
+        })),
+        resumen: `${audiencias.length} audiencias hoy · ${tareasVencidas.length} tareas vencidas · ${tareasHoy.length} vencen hoy · ${notifUrgentes.length} notif urgentes`,
+      },
+    }
+  },
+
+  crear_seguimiento: async (admin, user, args) => {
+    const ref = String(args.expediente_ref ?? '').trim()
+    const observacion = String(args.observacion ?? '').trim()
+    if (!observacion) return { error: 'Falta la observación del seguimiento' }
+    const exp = await resolveExpediente(admin, ref, user)
+    if ('error' in exp) return exp
+    const canal = (args.canal && ['web', 'telefono', 'presencial', 'email'].includes(String(args.canal)))
+      ? String(args.canal)
+      : 'web'
+    return {
+      pending_action: {
+        type: 'crear_seguimiento',
+        label: `Crear seguimiento en ${exp.label}`,
+        description: `Canal: ${canal} · "${observacion.slice(0, 120)}${observacion.length > 120 ? '…' : ''}"`,
+        resolved_args: {
+          expediente_id: exp.id,
+          expediente_label: exp.label,
+          observacion,
+          canal,
+        },
+      },
+    }
+  },
+
+  agendar_audiencia: async (admin, user, args) => {
+    const ref = String(args.expediente_ref ?? '').trim()
+    const fecha = String(args.fecha ?? '').trim()
+    const descripcion = String(args.descripcion ?? '').trim()
+    if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida. Usá formato YYYY-MM-DD' }
+    if (!descripcion) return { error: 'Falta la descripción de la audiencia' }
+    const exp = await resolveExpediente(admin, ref, user)
+    if ('error' in exp) return exp
+    const hora = args.hora ? String(args.hora).trim() : null
+    const horaLabel = hora ? ` a las ${hora}` : ''
+    return {
+      pending_action: {
+        type: 'agendar_audiencia',
+        label: `Audiencia en ${exp.label}`,
+        description: `${descripcion}${horaLabel} · ${fecha}`,
+        resolved_args: {
+          expediente_id: exp.id,
+          expediente_label: exp.label,
+          fecha,
+          hora: hora ?? null,
+          notas: descripcion,
+        },
+      },
     }
   },
 }

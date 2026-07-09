@@ -14,6 +14,7 @@ export type ChatActionType =
   | 'cambiar_estado_expediente'
   | 'crear_seguimiento'
   | 'crear_tarea'
+  | 'agendar_audiencia'
 
 export interface ChatAction {
   type: ChatActionType
@@ -249,7 +250,7 @@ export function useChatActionExecutor() {
             action.params.expediente_id || action.params.expediente_ref,
           )
           const { data: { user } } = await supabase.auth.getUser()
-          const canal = (action.params.canal as TablesInsert<'seguimientos'>['canal']) || 'WEB'
+          const canal = (action.params.canal as TablesInsert<'seguimientos'>['canal']) || 'web'
           const { error } = await supabase
             .from('seguimientos')
             .insert({
@@ -264,6 +265,27 @@ export function useChatActionExecutor() {
           return { message: `Seguimiento registrado correctamente.` }
         }
 
+        case 'agendar_audiencia': {
+          const expedienteId = isUuid(action.params.expediente_id)
+            ? action.params.expediente_id!
+            : await resolveExpedienteId(supabase, action.params.expediente_id || action.params.expediente_ref)
+          const { data: { user } } = await supabase.auth.getUser()
+          const fecha = (action.params.fecha || '').trim()
+          if (!fecha) throw new Error('Falta la fecha de la audiencia.')
+          const payload: Record<string, unknown> = {
+            expediente_id: expedienteId,
+            fecha,
+            hora: action.params.hora || null,
+            notas: action.params.notas || action.params.descripcion || null,
+            estado: 'PENDIENTE',
+            created_by: user?.id ?? '',
+          }
+          const { error } = await supabase.from('audiencias').insert(payload as never)
+          if (error) throw error
+          const horaLabel = action.params.hora ? ` a las ${action.params.hora}` : ''
+          return { message: `Audiencia agendada para el ${fecha}${horaLabel}.` }
+        }
+
         default:
           throw new Error(`Acción no soportada: ${action.type}`)
       }
@@ -275,6 +297,7 @@ export function useChatActionExecutor() {
       queryClient.invalidateQueries({ queryKey: ['expedientes'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['seguimientos'] })
+      queryClient.invalidateQueries({ queryKey: ['audiencias'] })
     },
   })
 }
