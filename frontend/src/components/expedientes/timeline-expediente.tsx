@@ -9,6 +9,8 @@ import {
   CheckSquare,
   Paperclip,
   Clock,
+  Database,
+  Star,
 } from 'lucide-react'
 
 const EVENT_CONFIG: Record<
@@ -44,6 +46,11 @@ const EVENT_CONFIG: Record<
     icon: Paperclip,
     color: 'text-blue-400',
     bg: 'bg-blue-950/40',
+  },
+  actuacion_sae: {
+    icon: Database,
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-950/40',
   },
 }
 
@@ -109,13 +116,23 @@ export function TimelineExpediente({
               <div className="min-w-0 flex-1 pt-0.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                      {event.titulo}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                        {event.titulo}
+                      </p>
+                      {event.tipo === 'actuacion_sae' && !!event.metadata?.is_key && (
+                        <Star className="h-3 w-3 shrink-0 text-amber-400 fill-amber-400" />
+                      )}
+                    </div>
                     {event.detalle && (
                       <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2">
                         {event.detalle}
                       </p>
+                    )}
+                    {event.tipo === 'actuacion_sae' && (
+                      <span className="mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                        SAE · {String(event.metadata?.tipo_movimiento ?? '').replace(/_/g, ' ')}
+                      </span>
                     )}
                     {event.usuario_nombre && (
                       <div className="mt-1 flex items-center gap-1.5">

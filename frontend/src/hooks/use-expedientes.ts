@@ -513,7 +513,7 @@ export function useUltimoCambioEstado(expedienteId: string | undefined) {
 
 export interface TimelineEvent {
   id: string
-  tipo: 'estado' | 'seguimiento' | 'turno' | 'nota' | 'tarea' | 'documento'
+  tipo: 'estado' | 'seguimiento' | 'turno' | 'nota' | 'tarea' | 'documento' | 'actuacion_sae'
   fecha: string
   titulo: string
   detalle: string | null
@@ -529,7 +529,7 @@ export function useExpedienteTimeline(expedienteId: string | undefined, options?
     enabled: !!expedienteId && (options?.enabled !== false),
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
-      const [historial, seguimientos, audiencias, notas] = await Promise.all([
+      const [historial, seguimientos, audiencias, notas, saeMovements] = await Promise.all([
         supabase
           .from('historial_estados_expediente')
           .select('*, changed_by_profile:profiles!historial_estados_expediente_changed_by_fkey(nombre, apellido)')
@@ -550,11 +550,17 @@ export function useExpedienteTimeline(expedienteId: string | undefined, options?
           .select('*, created_by_profile:profiles!expediente_notas_created_by_fkey(nombre, apellido)')
           .eq('expediente_id', expedienteId!)
           .order('created_at', { ascending: false }),
+        supabase
+          .from('sae_movements')
+          .select('id, fecha, titulo, tipo_movimiento, ai_summary, is_key')
+          .eq('expediente_id', expedienteId!)
+          .order('fecha', { ascending: false })
+          .limit(50),
       ])
 
       // FIX: Verificar errores de cada query (Supabase no lanza excepciones)
       const firstError =
-        historial.error ?? seguimientos.error ?? audiencias.error ?? notas.error
+        historial.error ?? seguimientos.error ?? audiencias.error ?? notas.error ?? saeMovements.error
       if (firstError) throw firstError
 
       const events: TimelineEvent[] = []
@@ -605,6 +611,18 @@ export function useExpedienteTimeline(expedienteId: string | undefined, options?
           titulo: 'Nota agregada',
           detalle: n.contenido,
           usuario_nombre: p ? `${p.nombre} ${p.apellido}` : null,
+        })
+      }
+
+      for (const m of saeMovements.data ?? []) {
+        events.push({
+          id: m.id,
+          tipo: 'actuacion_sae',
+          fecha: m.fecha,
+          titulo: m.titulo,
+          detalle: m.ai_summary ?? null,
+          usuario_nombre: null,
+          metadata: { tipo_movimiento: m.tipo_movimiento, is_key: m.is_key },
         })
       }
 

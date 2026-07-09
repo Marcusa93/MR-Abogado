@@ -25,6 +25,8 @@ import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/sem
 import { MisTareasPanel } from '@/components/dashboard/mis-tareas-panel'
 import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
+import { FueroDistributionPanel } from '@/components/dashboard/fuero-distribution-panel'
+import { ActividadRecienteDashboardPanel } from '@/components/dashboard/actividad-reciente-dashboard-panel'
 import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
 import { CajaWidget } from '@/components/dashboard/caja-widget'
 import { ErrorState } from '@/components/shared/error-state'
@@ -369,6 +371,16 @@ export function DashboardView({
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <PlazosProximosPanel />
         <ActuacionesRecientesPanel />
+      </div>
+
+      <SectionHeading
+        eyebrow="perspectiva del estudio"
+        title="Fuero y actividad"
+      />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <FueroDistributionPanel expedientes={expedientes ?? []} />
+        <ActividadRecienteDashboardPanel />
       </div>
 
       <div className="dashboard-divider" />
