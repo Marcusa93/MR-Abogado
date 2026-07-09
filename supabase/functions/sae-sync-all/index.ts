@@ -78,19 +78,23 @@ Deno.serve(async (req) => {
     return json(req, { ok: true, message: 'Ningún expediente requiere sync', synced: 0 })
   }
 
-  // Sincronizar en batches de 5 para no saturar el SAE ni el edge function pool
-  const BATCH = 5
+  // Agrupar por profile_id y procesar secuencialmente dentro de cada usuario.
+  // Evita múltiples logins simultáneos al SAE para la misma cuenta.
+  const byProfile = new Map<string, typeof toSync>()
+  for (const link of toSync) {
+    const list = byProfile.get(link.profile_id) ?? []
+    list.push(link)
+    byProfile.set(link.profile_id, list)
+  }
+
   const results: { expediente_id: string; ok: boolean; nuevas?: number; error?: string }[] = []
 
-  for (let i = 0; i < toSync.length; i += BATCH) {
-    const batch = toSync.slice(i, i + BATCH)
-    const batchResults = await Promise.all(
-      batch.map(link =>
-        syncOne(link.profile_id, link.expediente_id)
-          .then(r => ({ expediente_id: link.expediente_id, ...r }))
-      )
-    )
-    results.push(...batchResults)
+  for (const [profileId, links] of byProfile) {
+    for (const link of links) {
+      const r = await syncOne(profileId, link.expediente_id)
+        .catch(e => ({ ok: false as const, error: e instanceof Error ? e.message : 'Error' }))
+      results.push({ expediente_id: link.expediente_id, ...r })
+    }
   }
 
   const exitosos = results.filter(r => r.ok).length
