@@ -61,6 +61,8 @@ const ContenidosPage = lazyWithRetry(() => import('@/pages/contenidos'))
 const ContactosProfesionalesPage = lazyWithRetry(() => import('@/pages/contactos-profesionales'))
 const NotificacionesSaePage = lazyWithRetry(() => import('@/pages/notificaciones-sae'))
 const NotificacionesPage = lazyWithRetry(() => import('@/pages/notificaciones'))
+const ConsultasPage = lazyWithRetry(() => import('@/pages/consultas'))
+const ConsultaDetallePage = lazyWithRetry(() => import('@/pages/consulta-detalle'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -142,6 +144,8 @@ export const router = createBrowserRouter([
       { path: 'contactos-profesionales', element: <SuspenseWrapper><ContactosProfesionalesPage /></SuspenseWrapper> },
       { path: 'notificaciones-sae', element: <SuspenseWrapper><NotificacionesSaePage /></SuspenseWrapper> },
       { path: 'notificaciones', element: <SuspenseWrapper><NotificacionesPage /></SuspenseWrapper> },
+      { path: 'consultas', element: <SuspenseWrapper><ConsultasPage /></SuspenseWrapper> },
+      { path: 'consultas/:id', element: <SuspenseWrapper><ConsultaDetallePage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout
       { path: '*', element: <SuspenseWrapper><NotFoundPage /></SuspenseWrapper> },
     ],

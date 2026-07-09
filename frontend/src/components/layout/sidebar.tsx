@@ -27,6 +27,7 @@ import {
   ChevronDown,
   ChevronRight,
   UserCog,
+  ClipboardList,
 } from 'lucide-react'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
@@ -73,6 +74,7 @@ const navItems: readonly NavItem[] = [
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
 
   // CASOS — todo lo del expediente
+  { href: '/consultas', label: 'Consultas', icon: ClipboardList, group: 'casos' },
   { href: '/clientes', label: 'Clientes', icon: Users, group: 'casos' },
   { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'casos' },
   { href: '/contactos-profesionales', label: 'Profesionales', icon: UserCog, group: 'casos', hideForSecretaria: true },
