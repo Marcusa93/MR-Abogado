@@ -133,6 +133,7 @@ export interface DashboardViewProps {
   expedientes?: ExpedienteWithRelations[]
   prodMetrics?: ProductivityMetricsData
   alertas: AlertaWithExpediente[]
+  tasaExito: number | null
   onRetry?: () => void
 }
 
@@ -164,9 +165,9 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? 'Buen día' : hour < 18 ? 'Buenas tardes' : 'Buenas noches'
   const userName = profile?.nombre || 'Usuario'
 
-  // Pipeline counts (5 categories)
-  const pipelineCounts = useMemo(() => {
-    if (!expedientes) return null
+  // Pipeline counts (5 categories) + tasa de éxito desde datos reales
+  const { pipelineCounts, tasaExito } = useMemo(() => {
+    if (!expedientes) return { pipelineCounts: null, tasaExito: null }
     const counts: Record<PipelineCategory, number> = {
       analisis: 0, iniciar: 0, iniciados: 0, favorable: 0, desfavorable: 0,
     }
@@ -174,7 +175,12 @@ export default function DashboardPage() {
       const cat = getExpCategory(exp)
       counts[cat]++
     })
-    return { ...counts, total: expedientes.length }
+    const closed = counts.favorable + counts.desfavorable
+    const tasa = closed > 0 ? Math.round((counts.favorable / closed) * 100) : null
+    return {
+      pipelineCounts: { ...counts, total: expedientes.length },
+      tasaExito: tasa,
+    }
   }, [expedientes])
 
   // Contextual subtitle
@@ -210,6 +216,7 @@ export default function DashboardPage() {
       expedientes={expedientes}
       prodMetrics={prodMetrics}
       alertas={alertas ?? []}
+      tasaExito={tasaExito}
       onRetry={() => { refetchPanel(); refetchMetrics() }}
     />
   )
@@ -228,6 +235,7 @@ export function DashboardView({
   expedientes,
   prodMetrics,
   alertas,
+  tasaExito,
   onRetry,
 }: DashboardViewProps) {
   const nextTurno = metrics?.turnos_proximos?.[0] ?? null
@@ -344,7 +352,7 @@ export function DashboardView({
       {metricsLoading ? (
         <KPIStripSkeleton />
       ) : metrics ? (
-        <KPIStrip metrics={metrics} />
+        <KPIStrip metrics={metrics} tasaExitoOverride={tasaExito} />
       ) : null}
 
       <SectionHeading
@@ -364,21 +372,13 @@ export function DashboardView({
       <AbogadosPanel />
 
       <SectionHeading
-        eyebrow="radar sae"
-        title="Movimiento judicial"
+        eyebrow="radar"
+        title="Judicial y estudio"
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <PlazosProximosPanel />
         <ActuacionesRecientesPanel />
-      </div>
-
-      <SectionHeading
-        eyebrow="perspectiva del estudio"
-        title="Fuero y actividad"
-      />
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <FueroDistributionPanel expedientes={expedientes ?? []} />
         <ActividadRecienteDashboardPanel />
       </div>

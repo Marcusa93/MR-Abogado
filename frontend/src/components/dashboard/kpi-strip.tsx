@@ -60,7 +60,20 @@ function KPICard({ title, value, delta, icon, color = 'accent' }: {
 // KPI Strip — compact 5-card row
 // ---------------------------------------------------------------------------
 
-export function KPIStrip({ metrics }: { metrics: DashboardMetrics }) {
+export function KPIStrip({
+  metrics,
+  tasaExitoOverride,
+}: {
+  metrics: DashboardMetrics
+  tasaExitoOverride?: number | null
+}) {
+  const tasaExitoValue =
+    tasaExitoOverride != null
+      ? `${tasaExitoOverride}%`
+      : metrics.tasa_exito > 0
+      ? `${metrics.tasa_exito}%`
+      : '—'
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 animate-stagger-fade-in">
       <KPICard
@@ -79,9 +92,9 @@ export function KPIStrip({ metrics }: { metrics: DashboardMetrics }) {
       />
       <KPICard
         title="Tasa de Éxito"
-        value={`${metrics.tasa_exito}%`}
+        value={tasaExitoValue}
         icon={<TrendingUp className="h-4.5 w-4.5" />}
-        color="success"
+        color={tasaExitoValue === '—' ? 'accent' : 'success'}
       />
       <KPICard
         title="Turnos Semana"

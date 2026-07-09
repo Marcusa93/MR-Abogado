@@ -143,39 +143,39 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
   }, [])
 
   return (
-    <div className="space-y-4">
-      {/* Counter cards + search */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        {/* Total */}
-        <button
-          onClick={() => handleFilterClick('todos')}
-          className={cn(
-            'dashboard-panel-muted flex flex-col items-center gap-1 rounded-2xl border px-4 py-3 transition-all',
-            activeFilter === 'todos'
-              ? 'border-[rgb(87_124_142_/_22%)] bg-[rgb(87_124_142_/_10%)] text-[rgb(48_86_104)] shadow-[0_18px_40px_rgb(87_124_142_/_10%)] -translate-y-0.5 dark:text-[rgb(221_232_238)]'
-              : 'hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.07]'
-          )}
-        >
-          <span
+    <div className="space-y-3">
+      {/* Counter cards — horizontal scroll en mobile */}
+      <div className="overflow-x-auto pb-1 -mx-1 px-1">
+        <div className="flex items-center gap-2.5 min-w-max">
+          {/* Total */}
+          <button
+            onClick={() => handleFilterClick('todos')}
             className={cn(
-              'text-xl font-bold tabular-nums',
-              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-900 dark:text-zinc-50'
+              'dashboard-panel-muted flex flex-col items-center gap-1 rounded-2xl border px-4 py-3 transition-all',
+              activeFilter === 'todos'
+                ? 'border-[rgb(87_124_142_/_22%)] bg-[rgb(87_124_142_/_10%)] text-[rgb(48_86_104)] shadow-[0_18px_40px_rgb(87_124_142_/_10%)] -translate-y-0.5 dark:text-[rgb(221_232_238)]'
+                : 'hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.07]'
             )}
           >
-            {counts.todos}
-          </span>
-          <span
-            className={cn(
-              'text-[11px] font-medium',
-              activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-600 dark:text-zinc-300'
-            )}
-          >
-            Total
-          </span>
-        </button>
+            <span
+              className={cn(
+                'text-xl font-bold tabular-nums',
+                activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-900 dark:text-zinc-50'
+              )}
+            >
+              {counts.todos}
+            </span>
+            <span
+              className={cn(
+                'text-[11px] font-medium',
+                activeFilter === 'todos' ? 'text-[rgb(48_86_104)] dark:text-[rgb(221_232_238)]' : 'text-zinc-600 dark:text-zinc-300'
+              )}
+            >
+              Total
+            </span>
+          </button>
 
-        {PIPELINE_CATEGORIES.map(
-          (cat) => (
+          {PIPELINE_CATEGORIES.map((cat) => (
             <CounterCard
               key={cat}
               color={cat}
@@ -183,20 +183,20 @@ export function SemaforoPanel({ expedientes }: SemaforoPanelProps) {
               isActive={activeFilter === cat}
               onClick={() => handleFilterClick(cat)}
             />
-          )
-        )}
-
-        {/* Search */}
-        <div className="relative ml-auto">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-500" />
-          <input
-            type="text"
-            placeholder="Buscar expediente, cliente..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE) }}
-            className="dashboard-input h-10 w-64 rounded-xl pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-50 outline-none transition-all placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-          />
+          ))}
         </div>
+      </div>
+
+      {/* Search — full width en mobile, ancho fijo en sm+ */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-500" />
+        <input
+          type="text"
+          placeholder="Buscar expediente, cliente..."
+          value={searchTerm}
+          onChange={(e) => { setSearchTerm(e.target.value); setVisibleCount(PAGE_SIZE) }}
+          className="dashboard-input h-10 w-full sm:w-72 rounded-xl pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-50 outline-none transition-all placeholder:text-zinc-500 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        />
       </div>
 
       {/* Table */}
