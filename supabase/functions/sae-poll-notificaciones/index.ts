@@ -36,7 +36,7 @@ import { classifyNotifPriority } from '../_shared/notif-priority.ts'
 const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
-const MAX_REDIRECT_HOPS = 12     // SSO puede encadenar 4-6 saltos
+const MAX_REDIRECT_HOPS = 20     // SSO puede encadenar 4-6 saltos; 20 da margen ante cambios
 
 // ─── Walk de redirects manual con cookie accumulation ──────────────────────
 // Deno fetch sigue redirects automáticamente PERO se come los Set-Cookie de
@@ -592,14 +592,23 @@ Deno.serve(async (req) => {
       continue
     }
 
-    // 3) Login al SAE
+    // 3) Login al SAE (1 reintento con 2s de espera para errores de red transitorios)
     let session: SaeSession
     try {
       session = await authenticateWithSae({ username: cred.username, password })
-    } catch (e) {
-      const code = e instanceof SaeError ? e.code : 'AUTH_UNKNOWN'
-      stats.errores.push({ profile_id: p.id, error: `Login: ${code}` })
-      continue
+    } catch (firstErr) {
+      if (firstErr instanceof SaeError) {
+        stats.errores.push({ profile_id: p.id, error: `Login: ${firstErr.code}` })
+        continue
+      }
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        session = await authenticateWithSae({ username: cred.username, password })
+      } catch (e) {
+        const code = e instanceof SaeError ? e.code : 'AUTH_UNKNOWN'
+        stats.errores.push({ profile_id: p.id, error: `Login (retry): ${code}` })
+        continue
+      }
     }
 
     // 4) Fetch notificaciones del portal

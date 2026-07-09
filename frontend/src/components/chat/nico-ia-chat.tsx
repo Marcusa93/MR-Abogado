@@ -325,8 +325,14 @@ function ChatBubble({
         .trim()
     : cleanContent
 
-  // Convertir el pending_action a ChatAction
-  const chatAction: ChatAction | null = pending && pending.type ? {
+  // Acción vencida si tiene más de 15 minutos sin confirmar
+  const ACTION_EXPIRY_MS = 15 * 60 * 1000
+  const isExpired = message.pending_action_at
+    ? Date.now() - new Date(message.pending_action_at).getTime() > ACTION_EXPIRY_MS
+    : false
+
+  // Convertir el pending_action a ChatAction (solo si no venció)
+  const chatAction: ChatAction | null = pending && pending.type && !isExpired ? {
     type: pending.type as ChatAction['type'],
     label: pending.label,
     description: pending.description,
@@ -406,6 +412,12 @@ function ChatBubble({
               isPending={!!actionPending}
               isExecuted={!!alreadyExecuted}
             />
+          </div>
+        )}
+        {/* Acción propuesta pero vencida (no se confirmó en 15 min) */}
+        {pending && !chatAction && !alreadyExecuted && isExpired && (
+          <div className="mt-2 rounded-lg border border-zinc-500/20 bg-zinc-500/5 px-3 py-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            Acción no ejecutada — pedila de nuevo si la necesitás.
           </div>
         )}
       </div>
@@ -555,6 +567,7 @@ export function NicoIAChat() {
             ? `Voy a ${result.pending_action.label.toLowerCase()}: ${result.pending_action.description}`
             : 'Listo.'),
           pending_action: result.pending_action ?? null,
+          pending_action_at: result.pending_action ? new Date().toISOString() : undefined,
           tool_trace: result.tool_calls.map(t => ({ name: t.name, output_summary: t.output_summary })),
         })
       } catch (err) {

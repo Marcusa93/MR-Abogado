@@ -15,6 +15,8 @@ export interface ChatMessage {
     description: string
     resolved_args: Record<string, unknown>
   } | null
+  /** ISO timestamp del momento en que se propuso la acción — para expirarla */
+  pending_action_at?: string
   /** Si la acción ya fue ejecutada por el usuario */
   executed?: boolean
   /** Trace de tool calls hechos por el agent al generar este mensaje */
