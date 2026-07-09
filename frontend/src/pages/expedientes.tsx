@@ -37,8 +37,49 @@ import {
   LayoutList,
   X,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { ESTADOS_PIPELINE, ESTADO_INTERNO_LABELS } from '@/types/enums'
+import { timeAgo } from '@/lib/utils/date-helpers'
+
+// ---------------------------------------------------------------------------
+// Fuero badge
+// ---------------------------------------------------------------------------
+
+const FUERO_STYLE: Record<string, { bg: string; text: string; label: string }> = {
+  laboral:        { bg: 'bg-amber-100 dark:bg-amber-900/30',    text: 'text-amber-800 dark:text-amber-300',  label: 'Laboral' },
+  civil:          { bg: 'bg-blue-100 dark:bg-blue-900/30',      text: 'text-blue-800 dark:text-blue-300',    label: 'Civil' },
+  familia:        { bg: 'bg-rose-100 dark:bg-rose-900/30',      text: 'text-rose-800 dark:text-rose-300',    label: 'Familia' },
+  penal:          { bg: 'bg-red-100 dark:bg-red-900/30',        text: 'text-red-800 dark:text-red-300',      label: 'Penal' },
+  previsional:    { bg: 'bg-violet-100 dark:bg-violet-900/30',  text: 'text-violet-800 dark:text-violet-300',label: 'Previsional' },
+  administrativo: { bg: 'bg-teal-100 dark:bg-teal-900/30',     text: 'text-teal-800 dark:text-teal-300',    label: 'Adm.' },
+  comercial:      { bg: 'bg-indigo-100 dark:bg-indigo-900/30',  text: 'text-indigo-800 dark:text-indigo-300',label: 'Comercial' },
+  otro:           { bg: 'bg-zinc-100 dark:bg-zinc-800',         text: 'text-zinc-600 dark:text-zinc-400',    label: 'Otro' },
+}
+
+function FueroBadge({ fuero }: { fuero?: string | null }) {
+  if (!fuero) return null
+  const s = FUERO_STYLE[fuero] ?? FUERO_STYLE.otro
+  return (
+    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shrink-0', s.bg, s.text)}>
+      {s.label}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SAE sync pill — muestra cuándo fue la última sincronización
+// ---------------------------------------------------------------------------
+
+function SyncPill({ fecha, className }: { fecha?: string | null; className?: string }) {
+  if (!fecha) return null
+  return (
+    <span className={cn('flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500', className)}>
+      <RefreshCw className="h-2.5 w-2.5" />
+      {timeAgo(fecha)}
+    </span>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Sortable header helper
@@ -85,6 +126,7 @@ function SortHeader({
 function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () => void }) {
   const cliente = expediente.clientes
   const tipo = expediente.tipos_tramite
+  const organismo = expediente.organismo
   const semaforoColor = calcularSemaforo({
     estado_interno: expediente.estado_interno,
     audiencias: expediente.audiencias ?? [],
@@ -93,13 +135,14 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 
   const clienteFull = cliente ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim() : ''
   const title = expediente.caratula || clienteFull || expediente.numero || '-'
+  const hasSae = !!(expediente.numero_sae || expediente.ultima_sincronizacion_sae)
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'group w-full text-left rounded-xl p-4 cursor-pointer transition-all',
+        'group w-full text-left rounded-xl cursor-pointer transition-all',
         'border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80',
         'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
         'border-l-[3px]',
@@ -110,19 +153,26 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
         })
       )}
     >
-      <div className="flex items-start gap-3">
+      {/* Fila principal */}
+      <div className="flex items-start gap-3 p-4 pb-3">
         <SemaforoBadge color={semaforoColor} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
-            {title}
-          </p>
+          <div className="flex items-start gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate flex-1 min-w-0">
+              {title}
+            </p>
+            <FueroBadge fuero={expediente.fuero} />
+          </div>
           {expediente.numero && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
               {expediente.numero}
+              {expediente.numero_sae && (
+                <span className="ml-2 text-amber-600 dark:text-amber-400 font-bold">SAE {expediente.numero_sae}</span>
+              )}
             </p>
           )}
           {clienteFull && title !== clienteFull && (
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-1 truncate">{clienteFull}</p>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-0.5 truncate">{clienteFull}</p>
           )}
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             <EstadoBadge estado={expediente.estado_interno} compact />
@@ -140,6 +190,19 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
           </div>
         )}
       </div>
+
+      {/* Fila de contexto — visible siempre, más info en hover */}
+      {(organismo || hasSae) && (
+        <div className={cn(
+          'flex items-center gap-3 px-4 pb-3 pt-0 border-t border-zinc-100 dark:border-white/5',
+          'text-[11px] text-zinc-400 dark:text-zinc-500',
+        )}>
+          {organismo?.nombre && (
+            <span className="truncate flex-1">{organismo.nombre}</span>
+          )}
+          <SyncPill fecha={expediente.ultima_sincronizacion_sae} className="shrink-0 ml-auto" />
+        </div>
+      )}
     </button>
   )
 }
@@ -519,31 +582,40 @@ export default function ExpedientesPage() {
                         />
                       </td>
 
-                      {/* Expediente: avatar + caratula + numero + tipo */}
+                      {/* Expediente: avatar + caratula + numero + tipo + fuero */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                              {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
-                            </p>
-                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                                {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
+                              </p>
+                              <FueroBadge fuero={(expediente as any).fuero} />
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                               {tipo && (
                                 <span className="truncate">{tipo.nombre}</span>
                               )}
                               {(expediente as any).numero_sae && (
                                 <>
                                   <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">SAE: {(expediente as any).numero_sae}</span>
+                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">SAE {(expediente as any).numero_sae}</span>
                                 </>
                               )}
                               {tipo && (expediente as any).numero && (
                                 <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               )}
                               <span className="font-mono text-zinc-600 dark:text-zinc-300 text-[10px]">{(expediente as any).numero}</span>
+                              <SyncPill fecha={(expediente as any).ultima_sincronizacion_sae} className="hidden xl:flex ml-1" />
                             </div>
+                            {(expediente as any).organismo?.nombre && (
+                              <p className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5 max-w-[260px] group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+                                {(expediente as any).organismo.nombre}
+                              </p>
+                            )}
                           </div>
                           {cliente?.telefono && (
                             <div onClick={(e) => e.stopPropagation()}>

@@ -153,6 +153,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           *,
           clientes (id, nombre, apellido, telefono),
           tipos_tramite (id, nombre),
+          organismo:organismos(id, nombre, tipo),
           abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
           audiencias (id, estado, fecha),
