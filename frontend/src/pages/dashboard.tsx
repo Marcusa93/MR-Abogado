@@ -518,3 +518,4 @@ function AlertasMiniPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
     </div>
   )
 }
+
