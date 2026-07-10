@@ -87,7 +87,7 @@ CREATE TRIGGER set_updated_at_prueba_informativa
 DO $$
 DECLARE
   v_tipo_id uuid;
-  e uuid[] := ARRAY[NULL::uuid, NULL, NULL, NULL, NULL, NULL, NULL, NULL]::uuid[];
+  e1 uuid; e2 uuid; e3 uuid; e4 uuid; e5 uuid; e6 uuid; e7 uuid; e8 uuid;
 BEGIN
   IF EXISTS (SELECT 1 FROM public.tipos_proceso_judicial WHERE codigo = 'ordinario_laboral_tucuman') THEN
     RAISE NOTICE 'Ya existe ordinario_laboral_tucuman, skip.'; RETURN;
@@ -110,7 +110,7 @@ BEGIN
     (v_tipo_id,'demanda','Demanda',1,'Presentación del escrito de demanda laboral.',NULL,false,
      '[{"codigo":"con_cautelar","nombre":"Con medida cautelar (embargo preventivo)","descripcion":"Solicitar embargo sobre haberes o bienes del empleador al inicio"}]'::jsonb,
      '[{"tipo":"demanda_laboral","descripcion":"Escrito inicial"}]'::jsonb,false)
-  RETURNING id INTO e[1];
+  RETURNING id INTO e1;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -118,7 +118,7 @@ BEGIN
     (v_tipo_id,'contestacion','Contestación de demanda',2,'El demandado contesta en plazo legal. Puede oponer excepciones.',NULL,false,
      '[{"codigo":"replica_excepcion","nombre":"Replicar excepciones opuestas","descripcion":"Contestar excepciones del demandado"},{"codigo":"ampliar_demanda","nombre":"Ampliar demanda","descripcion":"Ampliar hechos o montos si surgen nuevos elementos del informe patronal"}]'::jsonb,
      '[{"tipo":"replica_excepciones","descripcion":"Contestación de excepciones"},{"tipo":"ampliacion_demanda","descripcion":"Ampliación de demanda"}]'::jsonb,false)
-  RETURNING id INTO e[2];
+  RETURNING id INTO e2;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -126,7 +126,7 @@ BEGIN
     (v_tipo_id,'apertura_prueba','Apertura a prueba',3,'Decreto que abre el período de prueba. Se fija el término probatorio (habitualmente 40 días hábiles en laboral Tucumán).',40,false,
      '[{"codigo":"ofrecer_prueba","nombre":"Ofrecer prueba","descripcion":"Presentar lista de testigos, peritos, documentos, informativa"},{"codigo":"ampliar_prueba","nombre":"Ampliar prueba ofrecida","descripcion":"En plazo, agregar medios probatorios no incluidos inicialmente"}]'::jsonb,
      '[{"tipo":"ofrecimiento_prueba","descripcion":"Escrito de ofrecimiento de prueba"},{"tipo":"oficio_informativa","descripcion":"Oficios a organismos para prueba informativa"}]'::jsonb,false)
-  RETURNING id INTO e[3];
+  RETURNING id INTO e3;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -134,7 +134,7 @@ BEGIN
     (v_tipo_id,'produccion_prueba','Producción de prueba',4,'Período activo de producción de prueba: audiencias de testigos, peritos, oficios informativa.',NULL,false,
      '[{"codigo":"urgir_produccion","nombre":"Urgir producción de prueba","descripcion":"Intimar producción antes del vencimiento del término"},{"codigo":"pedir_prorroga","nombre":"Pedir prórroga del término","descripcion":"Si queda prueba pendiente por causas no imputables"}]'::jsonb,
      '[{"tipo":"urgimiento_prueba","descripcion":"Urgimiento de producción de prueba"},{"tipo":"prorroga_termino","descripcion":"Pedido de prórroga del término probatorio"}]'::jsonb,false)
-  RETURNING id INTO e[4];
+  RETURNING id INTO e4;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -142,7 +142,7 @@ BEGIN
     (v_tipo_id,'clausura_prueba','Clausura de prueba',5,'Decreto de clausura del término probatorio. Queda en estado de alegatos.',NULL,false,
      '[{"codigo":"pedir_apertura_cuaderno","nombre":"Pedir apertura cuaderno de prueba","descripcion":"Solicitar vista de los cuadernos para redactar alegatos"}]'::jsonb,
      '[]'::jsonb,false)
-  RETURNING id INTO e[5];
+  RETURNING id INTO e5;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -150,7 +150,7 @@ BEGIN
     (v_tipo_id,'alegatos','Alegatos',6,'Presentación de los alegatos sobre el mérito de la prueba producida.',NULL,false,
      '[{"codigo":"presentar_alegato","nombre":"Presentar alegato","descripcion":"Analizar la prueba producida y concluir sobre los hechos y el derecho"}]'::jsonb,
      '[{"tipo":"alegato","descripcion":"Escrito de alegatos"}]'::jsonb,false)
-  RETURNING id INTO e[6];
+  RETURNING id INTO e6;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -158,7 +158,7 @@ BEGIN
     (v_tipo_id,'sentencia_primera','Sentencia de primera instancia',7,'El juez dicta sentencia. Plazo legal para apelar: 5 días hábiles (verificar CPL Tucumán).',5,true,
      '[{"codigo":"apelar","nombre":"Apelar la sentencia","descripcion":"Recurso de apelación ante la Cámara del Trabajo"},{"codigo":"ejecutar","nombre":"Ejecutar sentencia favorable","descripcion":"Iniciar ejecución si la sentencia es favorable y firme"},{"codigo":"aceptar","nombre":"Aceptar — dejar firme","descripcion":"No apelar, sentencia firme"}]'::jsonb,
      '[{"tipo":"recurso_apelacion_laboral","descripcion":"Recurso de apelación"},{"tipo":"expresion_agravios","descripcion":"Expresión de agravios ante la Cámara"}]'::jsonb,false)
-  RETURNING id INTO e[7];
+  RETURNING id INTO e7;
 
   INSERT INTO public.etapas_proceso
     (tipo_proceso_id, codigo, nombre, orden, descripcion, plazo_dias, plazo_es_perentorio, decisiones_posibles, escritos_tipicos, es_terminal)
@@ -166,17 +166,17 @@ BEGIN
     (v_tipo_id,'camara','Sentencia de Cámara',8,'Resolución del tribunal de alzada.',NULL,false,
      '[{"codigo":"recurso_casacion","nombre":"Recurso de casación (CSJT)","descripcion":"Si hay cuestión de derecho importante"},{"codigo":"ejecutar","nombre":"Ejecutar","descripcion":"Si la sentencia es favorable y firme"}]'::jsonb,
      '[{"tipo":"recurso_casacion","descripcion":"Recurso de casación ante la CSJT"}]'::jsonb,true)
-  RETURNING id INTO e[8];
+  RETURNING id INTO e8;
 
   -- Transiciones
   INSERT INTO public.transiciones_proceso (etapa_origen_id, etapa_destino_id, condicion, descripcion) VALUES
-    (e[1],e[2],'siempre','Luego de la demanda, el demandado contesta'),
-    (e[2],e[3],'siempre','Vencido el plazo de contestación, se abre a prueba'),
-    (e[3],e[4],'siempre','Apertura: comienza la producción'),
-    (e[4],e[5],'siempre','Vencido el término, se clausura'),
-    (e[5],e[6],'siempre','Clausurada la prueba, se presentan alegatos'),
-    (e[6],e[7],'siempre','Alegatos presentados, el juez dicta sentencia'),
-    (e[7],e[8],'si_apela','Si alguna parte apela');
+    (e1,e2,'siempre','Luego de la demanda, el demandado contesta'),
+    (e2,e3,'siempre','Vencido el plazo de contestación, se abre a prueba'),
+    (e3,e4,'siempre','Apertura: comienza la producción'),
+    (e4,e5,'siempre','Vencido el término, se clausura'),
+    (e5,e6,'siempre','Clausurada la prueba, se presentan alegatos'),
+    (e6,e7,'siempre','Alegatos presentados, el juez dicta sentencia'),
+    (e7,e8,'si_apela','Si alguna parte apela');
 
   RAISE NOTICE 'Ordinario Laboral Tucumán creado. id=%', v_tipo_id;
 END $$;
