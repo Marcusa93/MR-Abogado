@@ -2,9 +2,10 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Calendar, Bell, ArrowRight, ChevronRight, Plus, CheckSquare, CalendarClock,
-  Timer, AlertTriangle, Zap, FolderOpen,
+  Plus, CalendarClock, Bell, ArrowRight, ChevronRight,
+  Clock, Zap, CheckSquare, FolderOpen,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics'
@@ -18,112 +19,32 @@ import {
 } from '@/hooks/use-panel-expedientes'
 import { useAlertas } from '@/hooks/use-alertas'
 import type { AlertaWithExpediente } from '@/hooks/use-alertas'
-import { useTareas } from '@/hooks/use-tareas'
-import type { TareaWithRelations } from '@/hooks/use-tareas'
-import { KPIStrip, KPIStripSkeleton } from '@/components/dashboard/kpi-strip'
-import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/semaforo-panel'
 import { MisTareasPanel } from '@/components/dashboard/mis-tareas-panel'
 import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
-import { FueroDistributionPanel } from '@/components/dashboard/fuero-distribution-panel'
-import { ActividadRecienteDashboardPanel } from '@/components/dashboard/actividad-reciente-dashboard-panel'
+import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/semaforo-panel'
 import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
 import { CajaWidget } from '@/components/dashboard/caja-widget'
 import { ErrorState } from '@/components/shared/error-state'
 import { timeAgo } from '@/lib/utils/date-helpers'
-import { ESTADOS_TERMINALES } from '@/types/enums'
+import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
+
 const TIPO_TURNO_LABELS: Record<string, string> = {
   INICIO_TRAMITE: 'Inicio de trámite',
   AUDIENCIA: 'Audiencia',
   PERICIAL: 'Pericial',
   OTRO: 'Otro',
 }
-import type { PlazoProximo, ActuacionReciente } from '@/hooks/use-sae-dashboard'
-import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
 
 // ---------------------------------------------------------------------------
-// Productivity metrics (client-side calculation)
+// Types
 // ---------------------------------------------------------------------------
-
-function useProductivityMetrics() {
-  const supabase = createClient()
-  const today = new Date().toISOString().split('T')[0]
-  const in48h = new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0]
-
-  return useQuery({
-    queryKey: ['dashboard-productivity'],
-    queryFn: async () => {
-      const [tareasProxRes, finalizadosRes, historialFinalRes, estancadosRes] = await Promise.all([
-        supabase
-          .from('tareas')
-          .select('id, titulo, fecha_vencimiento', { count: 'exact' })
-          .in('estado', ['PENDIENTE', 'EN_PROGRESO', 'pendiente', 'en_progreso'])
-          .gt('fecha_vencimiento', today)
-          .lte('fecha_vencimiento', in48h)
-          .limit(5),
-        supabase
-          .from('expedientes')
-          .select('id, created_at')
-          .in('estado_interno', [...ESTADOS_TERMINALES])
-          .is('deleted_at', null)
-          .limit(200),
-        // Get the actual finalization date from historial (more accurate than updated_at)
-        supabase
-          .from('historial_estados_expediente')
-          .select('expediente_id, created_at')
-          .in('estado_nuevo', [...ESTADOS_TERMINALES])
-          .order('created_at', { ascending: false })
-          .limit(400),
-        supabase
-          .from('expedientes')
-          .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null)
-          .not('estado_interno', 'in', `("${ESTADOS_TERMINALES.join('","')}")`)
-          .lt('updated_at', new Date(Date.now() - 30 * 86400000).toISOString()),
-      ])
-
-      const finalizados = finalizadosRes.data ?? []
-      let avgDays: number | null = null
-      if (finalizados.length > 0) {
-        // Build a map of expediente_id → first (most recent) finalization date from historial
-        const finalDateMap = new Map<string, string>()
-        for (const h of (historialFinalRes.data ?? [])) {
-          if (!finalDateMap.has(h.expediente_id)) {
-            finalDateMap.set(h.expediente_id, h.created_at)
-          }
-        }
-        const total = finalizados.reduce((sum, e: any) => {
-          if (!e.created_at) return sum
-          const finalDate = finalDateMap.get(e.id)
-          if (!finalDate) return sum
-          return sum + Math.max(0, Math.floor((new Date(finalDate).getTime() - new Date(e.created_at).getTime()) / 86400000))
-        }, 0)
-        const withFinalDate = finalizados.filter((e: any) => finalDateMap.has(e.id)).length
-        avgDays = withFinalDate > 0 ? Math.round(total / withFinalDate) : null
-      }
-
-      return {
-        tareasProximas48h: tareasProxRes.count ?? 0,
-        tiempoPromedioResolucion: avgDays,
-        expedientesEstancados: estancadosRes.count ?? 0,
-      }
-    },
-    staleTime: 120_000,
-  })
-}
 
 type PipelineCounts = Record<PipelineCategory, number> & { total: number }
-
-export interface ProductivityMetricsData {
-  tareasProximas48h: number
-  tiempoPromedioResolucion: number | null
-  expedientesEstancados: number
-}
 
 export interface DashboardViewProps {
   greeting: string
   userName: string
-  subtitle: string
   todayLabel: string
   metricsLoading: boolean
   metrics?: DashboardMetrics
@@ -131,10 +52,34 @@ export interface DashboardViewProps {
   panelLoading: boolean
   panelError: boolean
   expedientes?: ExpedienteWithRelations[]
-  prodMetrics?: ProductivityMetricsData
   alertas: AlertaWithExpediente[]
   tasaExito: number | null
+  tareasHoy: { id: string; titulo: string }[]
   onRetry?: () => void
+}
+
+// ---------------------------------------------------------------------------
+// Query: tareas que vencen hoy
+// ---------------------------------------------------------------------------
+
+function useTareasHoy() {
+  const supabase = createClient()
+  const today = new Date().toISOString().split('T')[0]
+
+  return useQuery({
+    queryKey: ['tareas-hoy', today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tareas')
+        .select('id, titulo')
+        .in('estado', ['PENDIENTE', 'EN_PROGRESO', 'pendiente', 'en_progreso'])
+        .eq('fecha_vencimiento', today)
+        .limit(6)
+      if (error) throw error
+      return (data ?? []) as { id: string; titulo: string }[]
+    },
+    staleTime: 60_000,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -143,70 +88,37 @@ export interface DashboardViewProps {
 
 export default function DashboardPage() {
   const { profile } = useAuth()
-  const isAdmin = profile?.rol === 'ADMIN'
-  // Por default todos ven todos los expedientes del estudio.
-  // El filtrado "mis casos" se hace manualmente desde el toggle del Kanban.
-  const abogadoId: string | undefined = undefined
 
   const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useDashboardMetrics()
-  const { data: expedientes, isLoading: panelLoading, isError: panelError, refetch: refetchPanel } = usePanelExpedientes(abogadoId)
+  const { data: expedientes, isLoading: panelLoading, isError: panelError, refetch: refetchPanel } = usePanelExpedientes()
   const { data: alertas } = useAlertas()
-  const { data: prodMetrics } = useProductivityMetrics()
+  const { data: tareasHoy = [] } = useTareasHoy()
 
-  // Quick count for greeting
-  const { data: misTareasData } = useTareas({
-    asignado_a: isAdmin ? undefined : profile?.id,
-    pageSize: 1,
-  })
-  const tareasPendientes = misTareasData?.count ?? 0
-
-  // Greeting based on time of day
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Buen día' : hour < 18 ? 'Buenas tardes' : 'Buenas noches'
   const userName = profile?.nombre || 'Usuario'
 
-  // Pipeline counts (5 categories) + tasa de éxito desde datos reales
   const { pipelineCounts, tasaExito } = useMemo(() => {
     if (!expedientes) return { pipelineCounts: null, tasaExito: null }
     const counts: Record<PipelineCategory, number> = {
       analisis: 0, iniciar: 0, iniciados: 0, favorable: 0, desfavorable: 0,
     }
-    expedientes.forEach((exp) => {
-      const cat = getExpCategory(exp)
-      counts[cat]++
-    })
+    expedientes.forEach((exp) => { counts[getExpCategory(exp)]++ })
     const closed = counts.favorable + counts.desfavorable
-    const tasa = closed > 0 ? Math.round((counts.favorable / closed) * 100) : null
     return {
       pipelineCounts: { ...counts, total: expedientes.length },
-      tasaExito: tasa,
+      tasaExito: closed > 0 ? Math.round((counts.favorable / closed) * 100) : null,
     }
   }, [expedientes])
 
-  // Contextual subtitle
-  const subtitle = useMemo(() => {
-    const parts: string[] = []
-    if (tareasPendientes > 0) {
-      parts.push(`${tareasPendientes} tarea${tareasPendientes > 1 ? 's' : ''} pendiente${tareasPendientes > 1 ? 's' : ''}`)
-    }
-    const turnosCount = metrics?.turnos_semana ?? 0
-    if (turnosCount > 0) {
-      parts.push(`${turnosCount} turno${turnosCount > 1 ? 's' : ''} esta semana`)
-    }
-    if (parts.length === 0) return new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    return `Tenés ${parts.join(' y ')}`
-  }, [tareasPendientes, metrics])
-
   const todayLabel = new Date().toLocaleDateString('es-AR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long',
   })
+
   return (
     <DashboardView
       greeting={greeting}
       userName={userName}
-      subtitle={subtitle}
       todayLabel={todayLabel}
       metricsLoading={metricsLoading}
       metrics={metrics}
@@ -214,534 +126,395 @@ export default function DashboardPage() {
       panelLoading={panelLoading}
       panelError={panelError}
       expedientes={expedientes}
-      prodMetrics={prodMetrics}
       alertas={alertas ?? []}
       tasaExito={tasaExito}
+      tareasHoy={tareasHoy}
       onRetry={() => { refetchPanel(); refetchMetrics() }}
     />
   )
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard View
+// ---------------------------------------------------------------------------
+
 export function DashboardView({
   greeting,
   userName,
-  subtitle,
   todayLabel,
-  metricsLoading,
   metrics,
   pipelineCounts,
   panelLoading,
   panelError,
   expedientes,
-  prodMetrics,
   alertas,
   tasaExito,
+  tareasHoy,
   onRetry,
 }: DashboardViewProps) {
-  const nextTurno = metrics?.turnos_proximos?.[0] ?? null
+  const today = new Date().toISOString().split('T')[0]
+  const turnosHoy = (metrics?.turnos_proximos ?? []).filter((t) => t.fecha === today)
+  const hayHoy = turnosHoy.length > 0 || tareasHoy.length > 0
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      <section className="dashboard-hero px-4 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-9">
-        <div className="relative z-10 grid gap-5 sm:gap-6 lg:grid-cols-[minmax(0,1.3fr)_390px] lg:items-end">
-          {/* Texto + CTAs */}
-          <div className="max-w-3xl">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight tracking-tight text-white">
-              {greeting}, {userName}.
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-white/70 sm:text-base">
-              {subtitle}.
-            </p>
+    <div className="space-y-5 animate-fade-in">
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                to="/expedientes/nuevo"
-                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-[#07131f]"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo expediente
-              </Link>
-              <Link
-                to="/tareas"
-                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
-              >
-                <CheckSquare className="h-4 w-4" />
-                Tareas
-              </Link>
-              <Link
-                to="/agenda"
-                className="btn-interactive inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
-              >
-                <CalendarClock className="h-4 w-4" />
-                Agenda
-              </Link>
-            </div>
-
-            <p className="mt-4 text-xs font-medium text-white/55">{todayLabel}</p>
-          </div>
-
-          {/* Snapshot — info accionable, todo clickable */}
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">
-              Resumen del estudio
-            </p>
-            <div className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-2.5">
-              <Link
-                to="/expedientes"
-                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
-              >
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Expedientes activos</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{pipelineCounts?.total ?? 0}</span>
-                  <ArrowRight className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
-                </div>
-              </Link>
-              <Link
-                to="/alertas"
-                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
-              >
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Alertas abiertas</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{alertas?.length ?? 0}</span>
-                  <Bell className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
-                </div>
-              </Link>
-              <Link
-                to="/tareas"
-                className="btn-interactive group rounded-xl border border-white/10 bg-black/10 px-3 py-2.5 hover:bg-black/20 hover:border-white/20 transition-colors"
-              >
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-white/45">Vencen en 48h</p>
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{prodMetrics?.tareasProximas48h ?? 0}</span>
-                  <Zap className="h-3.5 w-3.5 text-white/40 group-hover:text-white/80 transition-colors" />
-                </div>
-              </Link>
-            </div>
-
-            {/* Próximo turno — clickable a agenda */}
-            <Link
-              to="/agenda"
-              className="btn-interactive mt-3 block rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 hover:bg-white/[0.08] hover:border-white/20 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">Próximo turno</p>
-                  {nextTurno ? (
-                    <>
-                      <p className="mt-1 text-sm font-semibold text-white truncate">
-                        {nextTurno.cliente_nombre} {nextTurno.cliente_apellido}
-                      </p>
-                      <p className="mt-0.5 text-xs text-white/60 truncate">
-                        {TIPO_TURNO_LABELS[nextTurno.tipo_turno as keyof typeof TIPO_TURNO_LABELS] ?? nextTurno.tipo_turno}
-                        {' · '}{nextTurno.fecha}
-                        {nextTurno.hora ? ` · ${nextTurno.hora.slice(0, 5)}` : ''}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-1 text-sm text-white/55">Sin turnos programados</p>
-                  )}
-                </div>
-                <ArrowRight className="h-4 w-4 text-white/40 mt-0.5 flex-shrink-0" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* KPI Strip */}
-      {metricsLoading ? (
-        <KPIStripSkeleton />
-      ) : metrics ? (
-        <KPIStrip metrics={metrics} tasaExitoOverride={tasaExito} />
-      ) : null}
-
-      <SectionHeading
-        eyebrow="operación diaria"
-        title="Lo inmediato del estudio"
+      {/* 1. Hero compacto */}
+      <CompactHero
+        greeting={greeting}
+        userName={userName}
+        todayLabel={todayLabel}
+        totalExpedientes={pipelineCounts?.total ?? 0}
+        alertasCount={alertas.length}
+        turnosSemana={metrics?.turnos_semana ?? 0}
+        tasaExito={tasaExito}
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <MisTareasPanel />
-        <UpcomingTurnosPanel turnos={metrics?.turnos_proximos ?? []} />
-      </div>
+      {/* 2. Strip de hoy */}
+      {hayHoy && <HoyStrip turnosHoy={turnosHoy} tareasHoy={tareasHoy} />}
 
-      {/* Caja — solo visible si tiene_acceso_caja */}
+      {/* 3. Caja + Abogados (condicionales, director) */}
       <CajaWidget />
-
-      {/* Panel "Por abogado" — solo visible para el director */}
       <AbogadosPanel />
 
-      <SectionHeading
-        eyebrow="radar"
-        title="Judicial y estudio"
-      />
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      {/* 4. Grilla principal: tareas · plazos · pipeline */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <MisTareasPanel />
         <PlazosProximosPanel />
-        <ActuacionesRecientesPanel />
-        <FueroDistributionPanel expedientes={expedientes ?? []} />
-        <ActividadRecienteDashboardPanel />
+        <PipelineMiniCard pipelineCounts={pipelineCounts} tasaExito={tasaExito} />
       </div>
 
-      <div className="dashboard-divider" />
+      {/* 5. SAE recientes + alertas */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ActuacionesRecientesPanel />
+        <AlertasMiniPanel alertas={alertas} />
+      </div>
 
-      <SectionHeading
-        eyebrow="pipeline activo"
-        title="Estado de los expedientes"
-      />
-
-      {pipelineCounts && pipelineCounts.total > 0 && (
-        <PipelineFunnelBar counts={pipelineCounts} />
-      )}
-
+      {/* 6. Semáforo de expedientes */}
       {panelLoading ? (
         <SemaforoPanelSkeleton />
       ) : panelError ? (
-        <ErrorState
-          message="No se pudieron cargar los expedientes."
-          onRetry={onRetry}
-        />
+        <ErrorState message="No se pudieron cargar los expedientes." onRetry={onRetry} />
       ) : expedientes ? (
         <SemaforoPanel expedientes={expedientes} />
       ) : null}
 
-      <div className="dashboard-divider" />
-
-      <SectionHeading
-        eyebrow="rendimiento"
-        title="Productividad y alertas"
-      />
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {prodMetrics && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:col-span-2">
-            <ProductivityCard
-              title="Tareas próx. 48h"
-              value={prodMetrics.tareasProximas48h}
-              icon={<Zap className="h-4 w-4" />}
-              tone={prodMetrics.tareasProximas48h > 0 ? 'warning' : 'accent'}
-              to="/tareas"
-            />
-            <ProductivityCard
-              title="Prom. resolución"
-              value={
-                prodMetrics.tiempoPromedioResolucion !== null
-                  ? `${prodMetrics.tiempoPromedioResolucion}d`
-                  : 'Sin datos'
-              }
-              icon={<Timer className="h-4 w-4" />}
-              tone="success"
-              tooltip="Promedio de días desde la creación hasta la finalización de expedientes"
-            />
-            <ProductivityCard
-              title="Estancados >30d"
-              value={prodMetrics.expedientesEstancados}
-              icon={<AlertTriangle className="h-4 w-4" />}
-              tone={prodMetrics.expedientesEstancados > 0 ? 'danger' : 'accent'}
-              to="/expedientes"
-            />
-          </div>
-        )}
-
-        <ActiveAlertasPanel alertas={alertas ?? []} />
-      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Shared dashboard blocks
+// CompactHero
 // ---------------------------------------------------------------------------
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string
-  title: string
-  description?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <p className="dashboard-eyebrow">{eyebrow}</p>
-      <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
-        {title}
-      </h2>
-      {description && (
-        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-          {description}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function ProductivityCard({
-  title,
+function StatPill({
   value,
+  label,
   icon,
-  tone,
-  tooltip,
   to,
+  tone = 'neutral',
 }: {
-  title: string
   value: number | string
+  label: string
   icon: React.ReactNode
-  tone: 'accent' | 'warning' | 'success' | 'danger'
-  tooltip?: string
   to?: string
+  tone?: 'neutral' | 'danger' | 'success'
 }) {
-  const toneClasses = {
-    accent: 'dashboard-stat-orb',
-    warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-    success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    danger: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
-  }
-
-  const content = (
-    <div className="flex items-center gap-3">
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="dashboard-eyebrow text-[10px]">{title}</p>
-        <p
-          className="mt-1 text-xl font-black tracking-tight text-zinc-950 dark:text-zinc-50"
-          title={tooltip}
-        >
-          {value}
-        </p>
-      </div>
-      {to && <ArrowRight className="h-3.5 w-3.5 text-zinc-400 shrink-0" />}
-    </div>
+  const cls = cn(
+    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+    tone === 'danger'
+      ? 'border-rose-400/30 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25'
+      : tone === 'success'
+      ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'
+      : 'border-white/15 bg-white/10 text-white/80 hover:bg-white/15',
   )
-
-  if (to) {
-    return (
-      <Link to={to} className="dashboard-panel block rounded-[1.4rem] px-4 py-4 hover:border-white/20 transition-colors">
-        {content}
-      </Link>
-    )
-  }
-  return (
-    <div className="dashboard-panel rounded-[1.4rem] px-4 py-4" title={tooltip}>
-      {content}
-    </div>
+  const inner = (
+    <>
+      {icon}
+      <span className="font-bold">{value}</span>
+      <span className="font-normal opacity-75">{label}</span>
+    </>
   )
+  return to
+    ? <Link to={to} className={cls}>{inner}</Link>
+    : <span className={cls}>{inner}</span>
 }
 
-// ---------------------------------------------------------------------------
-// Pipeline Funnel Bar — 5 categories
-// ---------------------------------------------------------------------------
-
-const FUNNEL_COLORS: Record<PipelineCategory, { bar: string; hex: string }> = {
-  analisis: { bar: 'bg-slate-400/70', hex: '#8ea2ae' },
-  iniciar: { bar: 'bg-amber-400/90', hex: '#c9a460' },
-  iniciados: { bar: 'bg-[#577c8e]', hex: '#577c8e' },
-  favorable: { bar: 'bg-emerald-500/85', hex: '#4d8b78' },
-  desfavorable: { bar: 'bg-rose-500/85', hex: '#b66b7b' },
-}
-
-function PipelineFunnelBar({ counts }: { counts: Record<PipelineCategory, number> & { total: number } }) {
-  const items = PIPELINE_CATEGORIES.map((cat) => ({
-    cat,
-    count: counts[cat],
-    pct: counts.total > 0 ? Math.round((counts[cat] / counts.total) * 100) : 0,
-  }))
-
+function CompactHero({
+  greeting,
+  userName,
+  todayLabel,
+  totalExpedientes,
+  alertasCount,
+  turnosSemana,
+  tasaExito,
+}: {
+  greeting: string
+  userName: string
+  todayLabel: string
+  totalExpedientes: number
+  alertasCount: number
+  turnosSemana: number
+  tasaExito: number | null
+}) {
   return (
-    <div className="dashboard-panel rounded-[1.6rem] px-5 py-5">
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <section className="dashboard-hero px-5 py-6 sm:px-8 sm:py-8">
+      <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+
+        {/* Saludo */}
         <div>
-          <p className="dashboard-eyebrow">pipeline</p>
-          <h3 className="mt-2 text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-50">
-            Pipeline de expedientes
-          </h3>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/50">
+            {todayLabel}
+          </p>
+          <h1 className="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            {greeting}, {userName}.
+          </h1>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              to="/expedientes/nuevo"
+              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-[#07131f]"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo expediente
+            </Link>
+            <Link
+              to="/agenda"
+              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Agenda
+            </Link>
+          </div>
         </div>
-        <span className="dashboard-chip dashboard-chip-accent">{counts.total} activos</span>
-      </div>
 
-      <div className="flex h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-        {items.map(({ cat, pct }) =>
-          pct > 0 ? (
-            <div
-              key={cat}
-              className={`h-full ${FUNNEL_COLORS[cat].bar} transition-all duration-500 first:rounded-l-full last:rounded-r-full`}
-              style={{ width: `${pct}%` }}
+        {/* Stats pills */}
+        <div className="flex flex-wrap gap-2">
+          <StatPill
+            to="/expedientes"
+            value={totalExpedientes}
+            label="expedientes"
+            icon={<FolderOpen className="h-3.5 w-3.5" />}
+          />
+          {alertasCount > 0 && (
+            <StatPill
+              to="/alertas"
+              value={alertasCount}
+              label={alertasCount === 1 ? 'alerta' : 'alertas'}
+              icon={<Bell className="h-3.5 w-3.5" />}
+              tone="danger"
             />
-          ) : null
-        )}
-      </div>
+          )}
+          {turnosSemana > 0 && (
+            <StatPill
+              to="/agenda"
+              value={turnosSemana}
+              label={turnosSemana === 1 ? 'turno esta semana' : 'turnos esta semana'}
+              icon={<CalendarClock className="h-3.5 w-3.5" />}
+            />
+          )}
+          {tasaExito !== null && (
+            <StatPill
+              value={`${tasaExito}%`}
+              label="tasa de éxito"
+              icon={<CheckSquare className="h-3.5 w-3.5" />}
+              tone="success"
+            />
+          )}
+        </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {items.map(({ cat, count, pct }) => (
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// HoyStrip — línea del tiempo de lo urgente de hoy
+// ---------------------------------------------------------------------------
+
+function HoyStrip({
+  turnosHoy,
+  tareasHoy,
+}: {
+  turnosHoy: ProximoTurno[]
+  tareasHoy: { id: string; titulo: string }[]
+}) {
+  return (
+    <div className="overflow-x-auto scrollbar-none">
+      <div className="flex min-w-max items-center gap-2 pb-0.5">
+
+        <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-amber-400">
+          Hoy
+        </span>
+
+        {turnosHoy.map((t) => (
           <Link
-            key={cat}
-            to={`/expedientes?categoria=${cat}`}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 -mx-2 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors"
+            key={t.id}
+            to={`/expedientes/${t.expediente_id}`}
+            className="group flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/20 hover:bg-white/[0.09]"
           >
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: FUNNEL_COLORS[cat].hex }}
-            />
-            <span className="text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
-              {COLOR_CONFIG[cat].label}
+            <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+            {t.hora && (
+              <span className="text-xs font-bold text-amber-300">{t.hora.slice(0, 5)}</span>
+            )}
+            <span className="text-xs text-zinc-200">
+              {t.cliente_nombre} {t.cliente_apellido}
             </span>
-            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">{count}</span>
-            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">({pct}%)</span>
+            <span className="text-[10px] text-zinc-500">
+              {TIPO_TURNO_LABELS[t.tipo_turno] ?? t.tipo_turno}
+            </span>
           </Link>
         ))}
+
+        {tareasHoy.map((t) => (
+          <Link
+            key={t.id}
+            to="/tareas"
+            className="group flex shrink-0 items-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/[0.08] px-3 py-1.5 transition-colors hover:border-rose-500/35 hover:bg-rose-500/[0.14]"
+          >
+            <Zap className="h-3.5 w-3.5 shrink-0 text-rose-400" />
+            <span className="max-w-[180px] truncate text-xs text-zinc-200">{t.titulo}</span>
+          </Link>
+        ))}
+
       </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Upcoming Turnos (compact — max 5 items)
+// PipelineMiniCard
 // ---------------------------------------------------------------------------
 
-function daysUntil(dateStr: string): string {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr + 'T00:00:00')
-  const diff = Math.round((target.getTime() - today.getTime()) / 86400000)
-  if (diff === 0) return 'Hoy'
-  if (diff === 1) return 'Mañana'
-  if (diff < 0) return `Hace ${Math.abs(diff)}d`
-  return `En ${diff} días`
+const PIPELINE_BAR_COLOR: Record<PipelineCategory, string> = {
+  analisis:     'bg-slate-400',
+  iniciar:      'bg-amber-400',
+  iniciados:    'bg-sky-500',
+  favorable:    'bg-emerald-500',
+  desfavorable: 'bg-rose-500',
 }
 
-function UpcomingTurnosPanel({ turnos }: { turnos: ProximoTurno[] }) {
-  return (
-    <div className="dashboard-panel rounded-[1.5rem] overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-[rgb(87_124_142_/_14%)] px-5 py-4 dark:border-white/8">
-        <div className="min-w-0">
-          <p className="dashboard-eyebrow text-[10px]">agenda judicial</p>
-          <div className="mt-1 flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Próximos Turnos</h3>
-            {turnos.length > 0 && (
-              <span className="dashboard-chip dashboard-chip-accent">{turnos.length}</span>
-            )}
-          </div>
-        </div>
-        <Link to="/agenda" className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold">
-          Ver agenda <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      <div className="max-h-[320px] divide-y divide-[rgb(87_124_142_/_10%)] overflow-y-auto dark:divide-white/6">
-        {turnos.length === 0 ? (
-          <div className="py-10 text-center">
-            <div className="dashboard-stat-orb mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
-              <Calendar className="h-6 w-6" />
-            </div>
-            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No hay turnos programados</p>
-          </div>
-        ) : (
-          turnos.slice(0, 6).map((turno) => {
-            const countdown = daysUntil(turno.fecha)
-            const isToday = countdown === 'Hoy'
-            const isTomorrow = countdown === 'Mañana'
+function PipelineMiniCard({
+  pipelineCounts,
+  tasaExito,
+}: {
+  pipelineCounts: PipelineCounts | null
+  tasaExito: number | null
+}) {
+  const total = pipelineCounts?.total ?? 0
 
-            return (
-              <Link
-                key={turno.id}
-                to={`/expedientes/${turno.expediente_id}`}
-                className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[rgb(87_124_142_/_7%)] dark:hover:bg-white/[0.07]"
-              >
-                <div className={`flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-2xl ${isToday ? 'bg-amber-500/15' : isTomorrow ? 'bg-amber-500/10' : 'dashboard-stat-orb'}`}>
-                  <span className={`text-[10px] font-bold ${isToday ? 'text-amber-600 dark:text-amber-300' : isTomorrow ? 'text-amber-600 dark:text-amber-300' : 'text-[var(--brand-accent)] dark:text-[var(--brand-ice)]'}`}>
-                    {countdown}
-                  </span>
-                  {turno.hora && <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{turno.hora.slice(0, 5)}</span>}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{turno.cliente_nombre} {turno.cliente_apellido}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {TIPO_TURNO_LABELS[turno.tipo_turno as keyof typeof TIPO_TURNO_LABELS] ?? turno.tipo_turno}
-                    {' · '}{(turno as any).caratula || turno.numero}
-                  </p>
-                </div>
-                <div className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  turno.estado === 'CONFIRMADO'
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                    : turno.estado === 'PENDIENTE'
-                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300'
-                }`}>
-                  {turno.estado === 'CONFIRMADO' ? 'Confirmado' : turno.estado === 'PENDIENTE' ? 'Pendiente' : turno.estado}
-                </div>
-              </Link>
-            )
-          })
+  return (
+    <div className="dashboard-panel flex flex-col gap-4 rounded-[1.5rem] p-5">
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="dashboard-eyebrow text-[10px]">pipeline</p>
+          <p className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+            {total} expedientes
+          </p>
+        </div>
+        {tasaExito !== null && (
+          <div className="text-right">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">éxito</p>
+            <p className="mt-0.5 text-xl font-black text-emerald-500">{tasaExito}%</p>
+          </div>
         )}
       </div>
+
+      <div className="space-y-2.5">
+        {PIPELINE_CATEGORIES.map((cat) => {
+          const count = pipelineCounts?.[cat] ?? 0
+          const pct = total > 0 ? (count / total) * 100 : 0
+          if (count === 0) return null
+          return (
+            <Link
+              key={cat}
+              to={`/expedientes?categoria=${cat}`}
+              className="group flex items-center gap-3"
+            >
+              <p className="w-[88px] shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors truncate">
+                {COLOR_CONFIG[cat].label}
+              </p>
+              <div className="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all duration-500', PIPELINE_BAR_COLOR[cat])}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="shrink-0 w-5 text-right text-xs font-bold text-zinc-700 dark:text-zinc-200">
+                {count}
+              </span>
+            </Link>
+          )
+        })}
+      </div>
+
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Alertas (compact — max 4 items)
+// AlertasMiniPanel
 // ---------------------------------------------------------------------------
 
-const ALERTA_COLORS: Record<string, string> = {
-  VENCIMIENTO_TAREA: 'bg-red-500/10 text-red-500 dark:text-red-400',
-  TURNO_PROXIMO: 'bg-blue-500/10 text-blue-500 dark:text-blue-400',
-  SEGUIMIENTO_PENDIENTE: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  DOCUMENTO_FALTANTE: 'bg-orange-500/10 text-orange-500 dark:text-orange-400',
-  COBRO_PENDIENTE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  ESTADO_CAMBIO: 'bg-violet-500/10 text-violet-500 dark:text-violet-400',
-  SISTEMA: 'bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300',
+const ALERTA_DOT: Record<string, string> = {
+  VENCIMIENTO_TAREA:      'bg-rose-500',
+  TURNO_PROXIMO:          'bg-blue-500',
+  SEGUIMIENTO_PENDIENTE:  'bg-amber-500',
+  DOCUMENTO_FALTANTE:     'bg-orange-500',
+  COBRO_PENDIENTE:        'bg-emerald-500',
+  ESTADO_CAMBIO:          'bg-violet-500',
+  SISTEMA:                'bg-zinc-400',
 }
 
-function ActiveAlertasPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
+function AlertasMiniPanel({ alertas }: { alertas: AlertaWithExpediente[] }) {
   return (
-    <div className="dashboard-panel rounded-[1.5rem] overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-[rgb(87_124_142_/_14%)] px-5 py-4 dark:border-white/8">
-        <div className="min-w-0">
-          <p className="dashboard-eyebrow text-[10px]">alertas</p>
-          <div className="mt-1 flex items-center gap-2">
-            <Bell className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Alertas</h3>
-            {alertas.length > 0 && (
-              <span className="dashboard-chip dashboard-chip-danger">{alertas.length}</span>
-            )}
-          </div>
+    <div className="dashboard-panel overflow-hidden rounded-[1.5rem]">
+
+      <div className="flex items-center justify-between border-b border-[rgb(87_124_142_/_14%)] px-5 py-4 dark:border-white/8">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Alertas</h3>
+          {alertas.length > 0 && (
+            <span className="dashboard-chip dashboard-chip-danger">{alertas.length}</span>
+          )}
         </div>
         <Link to="/alertas" className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold">
           Ver todas <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
+
       <div className="max-h-[300px] divide-y divide-[rgb(87_124_142_/_10%)] overflow-y-auto dark:divide-white/6">
         {alertas.length === 0 ? (
-          <div className="py-10 text-center">
-            <div className="dashboard-stat-orb mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
-              <Bell className="h-6 w-6" />
+          <div className="flex flex-col items-center justify-center py-10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+              <Bell className="h-5 w-5 text-emerald-500" />
             </div>
-            <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">No hay alertas activas</p>
+            <p className="mt-2.5 text-sm text-zinc-500 dark:text-zinc-400">Sin alertas activas</p>
           </div>
         ) : (
-          alertas.slice(0, 5).map((alerta) => (
+          alertas.slice(0, 6).map((alerta) => (
             <div key={alerta.id} className="flex items-start gap-3 px-5 py-3">
-              <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ALERTA_COLORS[alerta.tipo] ?? ALERTA_COLORS.SISTEMA}`}>
-                <Bell className="h-3.5 w-3.5" />
-              </div>
+              <div className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', ALERTA_DOT[alerta.tipo] ?? 'bg-zinc-400')} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{alerta.titulo}</p>
-                {alerta.mensaje && <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{alerta.mensaje}</p>}
+                <p className="text-sm leading-snug text-zinc-800 dark:text-zinc-100">{alerta.titulo}</p>
                 {alerta.expediente && (
-                  <Link to={`/expedientes/${alerta.expediente.id}`} className="dashboard-link mt-1 inline-flex items-center gap-1 text-[11px] font-semibold">
-                    {alerta.expediente.caratula || alerta.expediente.numero}
+                  <Link
+                    to={`/expedientes/${alerta.expediente.id}`}
+                    className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+                  >
+                    {alerta.expediente.caratula || (alerta.expediente as any).numero}
                     <ChevronRight className="h-3 w-3" />
                   </Link>
                 )}
               </div>
-              <span className="shrink-0 text-[11px] text-zinc-400">{timeAgo(alerta.created_at)}</span>
+              <span className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">
+                {timeAgo(alerta.created_at)}
+              </span>
             </div>
           ))
         )}
       </div>
+
     </div>
   )
 }
