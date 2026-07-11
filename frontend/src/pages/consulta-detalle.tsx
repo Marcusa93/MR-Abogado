@@ -11,6 +11,7 @@ import {
 } from '@/hooks/use-consultas'
 import { useAuthStore } from '@/stores/auth-store'
 import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
+import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
@@ -496,6 +497,9 @@ export default function ConsultaDetallePage() {
           </button>
         </div>
       </div>
+
+      {/* Normativa y jurisprudencia de referencia */}
+      <ConsultaAnclasPanel consultaId={consulta.id} />
 
       {/* Diagnóstico IA */}
       {diag && (

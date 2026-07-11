@@ -53,11 +53,75 @@ Deno.serve(async (req) => {
   const guard = await checkLlmGuard(adminClient, user.id, FUNCTION_NAME, inputBytes)
   if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
+  // ── Chunks de normativa y jurisprudencia ancladas ─────────────────────────
+  let normativaCtx = ''
+  let jurisCtx = ''
+
+  if (consulta_id) {
+    // Normativa anclada → chunks ordenados, máx 4 por doc, 16 total
+    const { data: normDocs } = await adminClient
+      .from('consulta_normativa')
+      .select('documento_id, normativa_documentos(titulo, numero, tipo)')
+      .eq('consulta_id', consulta_id)
+
+    if (normDocs && normDocs.length > 0) {
+      const normChunkBlocks: string[] = []
+      for (const row of normDocs as any[]) {
+        if (normChunkBlocks.length >= 16) break
+        const { data: chunks } = await adminClient
+          .from('normativa_chunks')
+          .select('contenido')
+          .eq('documento_id', row.documento_id)
+          .order('orden', { ascending: true })
+          .limit(4)
+        const doc = row.normativa_documentos as any
+        const docLabel = [doc?.titulo, doc?.numero].filter(Boolean).join(' — ')
+        if (chunks && chunks.length > 0) {
+          normChunkBlocks.push(
+            `### ${docLabel}\n${chunks.map((c: any) => c.contenido).join('\n')}`
+          )
+        }
+      }
+      if (normChunkBlocks.length > 0) {
+        normativaCtx = `\n\n## Normativa de referencia (anclada por el abogado)\nUsá estos textos legales para fundamentar el diagnóstico cuando sean aplicables:\n\n${normChunkBlocks.join('\n\n')}`
+      }
+    }
+
+    // Jurisprudencia anclada → chunks ordenados, máx 3 por fallo, 12 total
+    const { data: jurisDocs } = await adminClient
+      .from('consulta_jurisprudencia')
+      .select('documento_id, jurisprudencia_documentos(caratula, tribunal, fecha)')
+      .eq('consulta_id', consulta_id)
+
+    if (jurisDocs && jurisDocs.length > 0) {
+      const jurisChunkBlocks: string[] = []
+      for (const row of jurisDocs as any[]) {
+        if (jurisChunkBlocks.length >= 12) break
+        const { data: chunks } = await adminClient
+          .from('jurisprudencia_chunks')
+          .select('contenido')
+          .eq('documento_id', row.documento_id)
+          .order('orden', { ascending: true })
+          .limit(3)
+        const doc = row.jurisprudencia_documentos as any
+        const docLabel = [doc?.caratula, doc?.tribunal, doc?.fecha].filter(Boolean).join(' · ')
+        if (chunks && chunks.length > 0) {
+          jurisChunkBlocks.push(
+            `### ${docLabel}\n${chunks.map((c: any) => c.contenido).join('\n')}`
+          )
+        }
+      }
+      if (jurisChunkBlocks.length > 0) {
+        jurisCtx = `\n\n## Jurisprudencia de referencia (anclada por el abogado)\nCitá estos fallos cuando sean análogos al caso:\n\n${jurisChunkBlocks.join('\n\n')}`
+      }
+    }
+  }
+
   const clienteLabel = [nombre, apellido].filter(Boolean).join(' ') || 'el consultante'
 
   const systemPrompt = `Sos un abogado experto del Estudio Jurídico Dr. Marco Rossi, Tucumán, Argentina.
 Analizás consultas iniciales de potenciales clientes y generás diagnósticos jurídicos precisos y accionables.
-El contexto es el fuero tucumano (Cámara Civil y Comercial, Laboral, Familia, Previsional).
+El contexto es el fuero tucumano (Cámara Civil y Comercial, Laboral, Familia, Previsional).${normativaCtx || jurisCtx ? '\nCuando el abogado ancló normativa o jurisprudencia, priorizar esos textos en el análisis.' : ''}
 
 Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta (sin markdown, sin texto extra):
 {
@@ -66,7 +130,7 @@ Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta (sin markdown, s
   "chances_estimadas": "alta | media | baja | sin_datos",
   "acciones_recomendadas": ["string", "string"],
   "riesgos": ["string"],
-  "observaciones": "string — análisis jurídico del caso: prescripción, plazos, elementos de prueba claves, particularidades del fuero local",
+  "observaciones": "string — análisis jurídico del caso: prescripción, plazos, elementos de prueba claves, particularidades del fuero local. Si hay normativa/jurisprudencia anclada, referenciarla concretamente.",
   "tipo_honorario_sugerido": "cuota_litis | arancel_verbal | arancel_escrito | honorario_fijo",
   "descripcion_honorarios": "string — justificación breve del honorario sugerido y condiciones"
 }
@@ -81,7 +145,7 @@ Para tipo_honorario_sugerido:
 Tipo de asunto: ${TIPO_LABEL[tipo_asunto] ?? tipo_asunto}
 
 Hechos del caso (notas de la consulta):
-${notas_libres.trim()}
+${notas_libres.trim()}${normativaCtx}${jurisCtx}
 
 Generá el diagnóstico jurídico.`
 
