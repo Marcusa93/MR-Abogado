@@ -4,9 +4,10 @@ import {
 } from 'recharts'
 import {
   FolderOpen, Sparkles, Brain, Gavel, BookMarked, Users, Building2,
-  AlertTriangle, Loader2, Mic2, FileText, TrendingUp, Scale,
+  AlertTriangle, Loader2, Mic2, FileText, TrendingUp, Scale, Calendar, MessageSquare,
 } from 'lucide-react'
 import { useInformesDashboard, type InformesDashboard } from '@/hooks/use-informes-dashboard'
+import { useConsultasVsTomados, useTurnosStats, type ConsultasVsTomados, type TurnosStats } from '@/hooks/use-informes'
 import { cn } from '@/lib/utils'
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -37,6 +38,8 @@ const FUERO_LABEL: Record<string, string> = {
 
 export function InformesCommandCenter() {
   const { data, isLoading, isError, error } = useInformesDashboard()
+  const { data: consultasMensuales } = useConsultasVsTomados()
+  const { data: turnosStats } = useTurnosStats()
 
   if (isLoading) {
     return (
@@ -68,13 +71,18 @@ export function InformesCommandCenter() {
         <PulsoIA data={data.pulso_ia} />
       </div>
 
+      <ConsultasAudienciasRow consultasMensuales={consultasMensuales ?? []} turnosStats={turnosStats ?? null} />
+
       <MapaTribunales data={data.por_organismo} />
 
-      <DonutCard
-        titulo="Por fuero"
-        icon={Scale}
-        data={data.por_fuero.map(f => ({ name: FUERO_LABEL[f.fuero] ?? f.fuero, value: f.count }))}
-      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <DonutCard
+          titulo="Por fuero"
+          icon={Scale}
+          data={data.por_fuero.map(f => ({ name: FUERO_LABEL[f.fuero] ?? f.fuero, value: f.count }))}
+        />
+        <PorTipoTramite data={data.por_tipo_tramite} />
+      </div>
 
       <DistribucionEstados data={data.por_estado} totalActivos={data.totales.activos + data.totales.pausados} />
 
@@ -271,13 +279,14 @@ function MapaTribunales({ data }: { data: InformesDashboard['por_organismo'] }) 
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {data.map((org) => (
-          <div
+          <Link
             key={org.organismo_id}
+            to={`/expedientes?organismo_id=${org.organismo_id}`}
             className={cn(
-              'rounded-lg border px-3 py-2.5 transition-colors',
+              'rounded-lg border px-3 py-2.5 transition-colors block hover:brightness-110',
               org.estancados_30d > 0
                 ? 'border-amber-500/30 bg-amber-500/[0.04]'
-                : 'border-white/5 bg-white/[0.02]'
+                : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
             )}
           >
             <div className="flex items-start justify-between gap-2">
@@ -299,7 +308,7 @@ function MapaTribunales({ data }: { data: InformesDashboard['por_organismo'] }) 
                 {org.estancados_30d} estancado{org.estancados_30d !== 1 ? 's' : ''} {'>'} 30 días
               </div>
             )}
-          </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -456,6 +465,143 @@ function TopList({
               <span className={cn('shrink-0 rounded-full px-1.5 py-0 text-[10px] font-bold tabular-nums', colorClass)}>
                 {item.value}
               </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Nuevas secciones ────────────────────────────────────────────────────────
+
+function ConsultasAudienciasRow({
+  consultasMensuales,
+  turnosStats,
+}: {
+  consultasMensuales: ConsultasVsTomados[]
+  turnosStats: TurnosStats | null
+}) {
+  const totalConsultas = consultasMensuales.reduce((s, m) => s + m.consultas + m.tomados, 0)
+  const totalTomados = consultasMensuales.reduce((s, m) => s + m.tomados, 0)
+  const tasaConversion = totalConsultas > 0 ? Math.round((totalTomados / totalConsultas) * 100) : 0
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Consultas — tasa de conversión */}
+      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <MessageSquare className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-sm font-semibold text-zinc-100">Consultas → Casos</h3>
+        </div>
+        {totalConsultas === 0 ? (
+          <p className="text-xs text-zinc-500 py-2">Sin datos de consultas todavía.</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-end gap-3">
+              <div>
+                <p className="text-3xl font-bold text-cyan-300 tabular-nums">{tasaConversion}%</p>
+                <p className="text-[11px] text-zinc-500">tasa de conversión</p>
+              </div>
+              <div className="flex-1 space-y-1 pb-0.5">
+                <div className="flex justify-between text-[10px] text-zinc-500">
+                  <span>Tomados</span><span>{totalTomados}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${tasaConversion}%` }} />
+                </div>
+                <div className="flex justify-between text-[10px] text-zinc-500">
+                  <span>Total consultas</span><span>{totalConsultas}</span>
+                </div>
+              </div>
+            </div>
+            {consultasMensuales.length > 0 && (
+              <div className="space-y-1 pt-1 border-t border-white/5">
+                {consultasMensuales.slice(-4).map((m) => {
+                  const total = m.consultas + m.tomados
+                  const pct = total > 0 ? (m.tomados / total) * 100 : 0
+                  return (
+                    <div key={m.mes} className="flex items-center gap-2 text-[10px]">
+                      <span className="w-16 shrink-0 text-zinc-500">{m.mesLabel}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="w-10 shrink-0 text-right text-zinc-400 tabular-nums">{m.tomados}/{total}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Audiencias — estado general */}
+      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Calendar className="h-4 w-4 text-violet-400" />
+          <h3 className="text-sm font-semibold text-zinc-100">Audiencias</h3>
+        </div>
+        {!turnosStats || turnosStats.total === 0 ? (
+          <p className="text-xs text-zinc-500 py-2">Sin audiencias registradas todavía.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Total', value: turnosStats.total, color: 'text-zinc-100' },
+              { label: 'Realizadas', value: turnosStats.realizados, color: 'text-emerald-300' },
+              { label: 'Pendientes', value: turnosStats.pendientes, color: 'text-amber-300' },
+              { label: 'Canceladas', value: turnosStats.cancelados, color: 'text-rose-300' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg bg-white/[0.03] px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">{item.label}</p>
+                <p className={`text-xl font-bold tabular-nums ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+            {turnosStats.realizados > 0 && (
+              <div className="col-span-2 mt-1">
+                <div className="flex justify-between text-[10px] text-zinc-500 mb-1">
+                  <span>Tasa de realización</span>
+                  <span>{Math.round((turnosStats.realizados / turnosStats.total) * 100)}%</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-600 to-violet-400 rounded-full"
+                    style={{ width: `${(turnosStats.realizados / turnosStats.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PorTipoTramite({ data }: { data: InformesDashboard['por_tipo_tramite'] }) {
+  const maxCount = Math.max(...data.map((d) => d.count), 1)
+  const COLORS = ['#06b6d4', '#a78bfa', '#fbbf24', '#60a5fa', '#2dd4bf', '#fb7185', '#34d399', '#818cf8']
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <FolderOpen className="h-4 w-4 text-amber-400" />
+        <h3 className="text-sm font-semibold text-zinc-100">Por tipo de trámite</h3>
+      </div>
+      {data.length === 0 ? (
+        <p className="text-xs text-zinc-500 py-4 text-center">Sin datos de tipo de trámite todavía.</p>
+      ) : (
+        <div className="space-y-2">
+          {data.slice(0, 8).map((item, i) => (
+            <div key={item.tipo_id || i} className="flex items-center gap-3">
+              <span className="w-[120px] shrink-0 truncate text-[11px] text-zinc-400">{item.nombre}</span>
+              <div className="flex-1 h-4 rounded-full bg-white/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${(item.count / maxCount) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                />
+              </div>
+              <span className="w-6 shrink-0 text-right text-xs font-bold text-zinc-300 tabular-nums">{item.count}</span>
             </div>
           ))}
         </div>

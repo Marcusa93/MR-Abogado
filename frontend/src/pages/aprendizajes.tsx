@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, Sparkles, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import { Brain, Sparkles, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag } from 'lucide-react'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
   useAprendizajes, useAprobarAprendizaje, useDescartarAprendizaje, useEditarAprendizaje,
@@ -8,8 +8,9 @@ import {
 } from '@/hooks/use-aprendizajes'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
-type Tab = 'propuestos' | 'activos' | 'archivados'
+type Tab = 'propuestos' | 'activos' | 'archivados' | 'quiz'
 
 const TARGET_KIND_LABEL: Record<TargetKind, string> = {
   juez: 'Juez',
@@ -233,6 +234,270 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Quiz Diario
+// ---------------------------------------------------------------------------
+
+interface PreguntaQuiz {
+  id: string
+  enunciado: string
+  tipo: 'opcion_multiple' | 'verdadero_falso'
+  opciones: string[]
+  respuesta_correcta: string
+  explicacion: string
+  categoria: 'patron' | 'caso' | 'derecho'
+}
+
+type QuizEstado = 'idle' | 'cargando' | 'activo' | 'fin'
+
+const CATEGORIA_LABEL: Record<PreguntaQuiz['categoria'], string> = {
+  patron: 'Patrón del estudio',
+  caso: 'Caso activo',
+  derecho: 'Derecho',
+}
+const CATEGORIA_CLS: Record<PreguntaQuiz['categoria'], string> = {
+  patron: 'bg-violet-500/15 text-violet-300',
+  caso: 'bg-cyan-500/15 text-cyan-300',
+  derecho: 'bg-amber-500/15 text-amber-300',
+}
+
+function QuizDiario() {
+  const supabase = createClient()
+  const [estado, setEstado] = useState<QuizEstado>('idle')
+  const [preguntas, setPreguntas] = useState<PreguntaQuiz[]>([])
+  const [idx, setIdx] = useState(0)
+  const [seleccionadas, setSeleccionadas] = useState<Record<number, string>>({})
+  const [confirmadas, setConfirmadas] = useState<Record<number, boolean>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  const preguntaActual = preguntas[idx] ?? null
+  const seleccion = seleccionadas[idx] ?? null
+  const confirmada = confirmadas[idx] ?? false
+  const esCorrecto = seleccion === preguntaActual?.respuesta_correcta
+  const puntaje = Object.entries(confirmadas).filter(([i, v]) => v && seleccionadas[parseInt(i)] === preguntas[parseInt(i)]?.respuesta_correcta).length
+
+  const generarQuiz = async () => {
+    setEstado('cargando')
+    setError(null)
+    setSeleccionadas({})
+    setConfirmadas({})
+    setIdx(0)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/aprendizajes-quiz`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json() as { ok?: boolean; preguntas?: PreguntaQuiz[]; error?: string; mensaje?: string }
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Error desconocido')
+      if (data.mensaje) {
+        setError(data.mensaje)
+        setEstado('idle')
+        return
+      }
+      setPreguntas(data.preguntas ?? [])
+      setEstado('activo')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al generar el quiz')
+      setEstado('idle')
+    }
+  }
+
+  if (estado === 'idle') {
+    return (
+      <div className="flex flex-col items-center gap-6 py-12">
+        <div className="rounded-full bg-amber-500/10 p-4">
+          <GraduationCap className="h-8 w-8 text-amber-400" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-base font-semibold text-zinc-100 mb-1">Repaso del día</h2>
+          <p className="text-sm text-zinc-500 max-w-sm">
+            5 preguntas generadas por IA sobre los patrones del estudio, tus casos activos y conceptos de derecho.
+          </p>
+        </div>
+        {error && (
+          <p className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 max-w-sm text-center">
+            {error}
+          </p>
+        )}
+        <button
+          onClick={generarQuiz}
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-zinc-900 hover:opacity-90 transition-opacity"
+        >
+          <Sparkles className="h-4 w-4" />
+          Generar quiz
+        </button>
+      </div>
+    )
+  }
+
+  if (estado === 'cargando') {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+        <p className="text-sm text-zinc-500">Generando preguntas…</p>
+      </div>
+    )
+  }
+
+  if (estado === 'fin' || (estado === 'activo' && idx >= preguntas.length)) {
+    return (
+      <div className="flex flex-col items-center gap-6 py-10 max-w-md mx-auto">
+        <div className={cn(
+          'rounded-full p-4',
+          puntaje >= 4 ? 'bg-emerald-500/10' : puntaje >= 3 ? 'bg-amber-500/10' : 'bg-rose-500/10'
+        )}>
+          <GraduationCap className={cn(
+            'h-8 w-8',
+            puntaje >= 4 ? 'text-emerald-400' : puntaje >= 3 ? 'text-amber-400' : 'text-rose-400'
+          )} />
+        </div>
+        <div className="text-center">
+          <p className="text-3xl font-bold text-zinc-100 tabular-nums">{puntaje}/{preguntas.length}</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            {puntaje === preguntas.length ? '¡Perfecto!' : puntaje >= 3 ? 'Muy bien.' : 'A repasar un poco más.'}
+          </p>
+        </div>
+        {/* Resumen de errores */}
+        {preguntas.filter((_, i) => seleccionadas[i] !== preguntas[i].respuesta_correcta).length > 0 && (
+          <div className="w-full space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Para repasar</p>
+            {preguntas.map((p, i) => seleccionadas[i] !== p.respuesta_correcta ? (
+              <div key={p.id} className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2.5">
+                <p className="text-xs text-zinc-300 mb-1">{p.enunciado}</p>
+                <p className="text-[11px] text-emerald-400">Correcta: {p.respuesta_correcta}</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{p.explicacion}</p>
+              </div>
+            ) : null)}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button
+            onClick={generarQuiz}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Nuevo quiz
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!preguntaActual) return null
+
+  return (
+    <div className="max-w-xl mx-auto py-4">
+      {/* Progreso */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-zinc-500">{idx + 1} / {preguntas.length}</p>
+        <div className="flex gap-1">
+          {preguntas.map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-1 w-8 rounded-full transition-colors',
+                i < idx
+                  ? seleccionadas[i] === preguntas[i].respuesta_correcta
+                    ? 'bg-emerald-500'
+                    : 'bg-rose-500'
+                  : i === idx
+                  ? 'bg-amber-400'
+                  : 'bg-white/10'
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Tarjeta de pregunta */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+        {/* Categoría */}
+        <div className="flex items-center gap-2 mb-3">
+          <Tag className="h-3 w-3 text-zinc-500" />
+          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', CATEGORIA_CLS[preguntaActual.categoria])}>
+            {CATEGORIA_LABEL[preguntaActual.categoria]}
+          </span>
+        </div>
+
+        <p className="text-sm font-medium text-zinc-100 leading-relaxed mb-4">{preguntaActual.enunciado}</p>
+
+        {/* Opciones */}
+        <div className="space-y-2">
+          {preguntaActual.opciones.map((opcion) => {
+            const estaSeleccionada = seleccion === opcion
+            const esLaCorrecta = opcion === preguntaActual.respuesta_correcta
+            let cls = 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-zinc-300'
+            if (confirmada) {
+              if (esLaCorrecta) cls = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+              else if (estaSeleccionada) cls = 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+              else cls = 'border-white/5 bg-white/[0.01] text-zinc-500'
+            } else if (estaSeleccionada) {
+              cls = 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+            }
+            return (
+              <button
+                key={opcion}
+                disabled={confirmada}
+                onClick={() => setSeleccionadas(prev => ({ ...prev, [idx]: opcion }))}
+                className={cn('w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors', cls)}
+              >
+                {opcion}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Explicación post-confirmación */}
+        {confirmada && (
+          <div className={cn(
+            'mt-4 rounded-lg border px-3 py-2.5 text-xs leading-relaxed',
+            esCorrecto
+              ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-200'
+              : 'border-rose-500/20 bg-rose-500/5 text-rose-200'
+          )}>
+            <span className="font-semibold mr-1">{esCorrecto ? '¡Correcto!' : 'Incorrecto.'}</span>
+            {preguntaActual.explicacion}
+          </div>
+        )}
+      </div>
+
+      {/* Acciones */}
+      <div className="flex justify-end gap-2 mt-4">
+        {!confirmada ? (
+          <button
+            disabled={!seleccion}
+            onClick={() => setConfirmadas(prev => ({ ...prev, [idx]: true }))}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/90 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <Check className="h-4 w-4" />
+            Confirmar
+          </button>
+        ) : idx < preguntas.length - 1 ? (
+          <button
+            onClick={() => setIdx(i => i + 1)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-white/15 transition-colors"
+          >
+            Siguiente
+            <Next className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setEstado('fin')}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium text-zinc-900 hover:opacity-90 transition-opacity"
+          >
+            Ver resultado
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AprendizajesPage() {
   const [tab, setTab] = useState<Tab>('propuestos')
 
@@ -240,9 +505,13 @@ export default function AprendizajesPage() {
     ? { proposed: true, is_active: true }
     : tab === 'activos'
     ? { proposed: false, is_active: true }
-    : { is_active: false }
+    : tab === 'archivados'
+    ? { is_active: false }
+    : {}
 
-  const { data: aprendizajes = [], isLoading } = useAprendizajes(filter)
+  const { data: aprendizajes = [], isLoading } = useAprendizajes(
+    tab !== 'quiz' ? filter : {},
+  )
 
   return (
     <div className="p-5 max-w-4xl mx-auto">
@@ -259,19 +528,22 @@ export default function AprendizajesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-white/5 mb-4">
+      <div className="flex gap-1 border-b border-white/5 mb-4 overflow-x-auto">
         {([
           { v: 'propuestos', label: 'Propuestos por IA', icon: Sparkles },
           { v: 'activos', label: 'Activos', icon: Check },
           { v: 'archivados', label: 'Archivados', icon: X },
+          { v: 'quiz', label: 'Repaso del día', icon: GraduationCap },
         ] as const).map(t => (
           <button
             key={t.v}
             onClick={() => setTab(t.v)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2 text-xs font-medium transition-colors',
               tab === t.v
-                ? 'border-violet-400 text-violet-300'
+                ? t.v === 'quiz'
+                  ? 'border-amber-400 text-amber-300'
+                  : 'border-violet-400 text-violet-300'
                 : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-200'
             )}
           >
@@ -281,8 +553,10 @@ export default function AprendizajesPage() {
         ))}
       </div>
 
-      {/* Lista */}
-      {isLoading ? (
+      {/* Cuerpo */}
+      {tab === 'quiz' ? (
+        <QuizDiario />
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
         </div>
