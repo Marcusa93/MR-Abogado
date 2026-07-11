@@ -42,16 +42,18 @@ const FUERO_CFG: Record<string, { label: string; color: string; bar: string }> =
   otro:           { label: 'Otro',          color: 'text-zinc-400',    bar: 'bg-zinc-500' },
 }
 
-// ── Etapa config ─────────────────────────────────────────────────────────────
+// ── Etapa config — solo etapas procesales reales (sin pipeline) ──────────────
+
+const ETAPA_ORDER = ['PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'PAUSADO', 'FINALIZADO'] as const
 
 const ETAPA_CFG: Record<string, { label: string; bar: string }> = {
-  PARA_INICIAR:   { label: 'Para iniciar',   bar: 'bg-zinc-500' },
-  INICIADO:       { label: 'Iniciado',       bar: 'bg-sky-500' },
-  PRUEBA:         { label: 'En prueba',      bar: 'bg-amber-500' },
-  ALEGATOS:       { label: 'Alegatos',       bar: 'bg-orange-500' },
-  RESOLUCION:     { label: 'Resolución',     bar: 'bg-violet-500' },
-  EJECUCION:      { label: 'Ejecución',      bar: 'bg-emerald-500' },
-  ARCHIVO:        { label: 'Archivo',        bar: 'bg-zinc-400' },
+  PRUEBA:     { label: 'Prueba',     bar: 'bg-amber-500' },
+  ALEGATOS:   { label: 'Alegatos',   bar: 'bg-orange-500' },
+  SENTENCIA:  { label: 'Sentencia',  bar: 'bg-violet-500' },
+  APELACION:  { label: 'Apelación',  bar: 'bg-purple-500' },
+  CORTE:      { label: 'Corte',      bar: 'bg-indigo-500' },
+  PAUSADO:    { label: 'Pausado',    bar: 'bg-zinc-400' },
+  FINALIZADO: { label: 'Finalizado', bar: 'bg-emerald-500' },
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -115,7 +117,7 @@ export default function DashboardPage() {
       const f = exp.fuero ?? 'otro'
       fuero[f] = (fuero[f] ?? 0) + 1
       const e = (exp as any).estado_interno as string | null
-      if (e && e !== 'NUEVA_CONSULTA' && e !== 'CERRADO') {
+      if (e && ETAPA_ORDER.includes(e as typeof ETAPA_ORDER[number])) {
         etapa[e] = (etapa[e] ?? 0) + 1
       }
     }
@@ -384,9 +386,8 @@ function FueroCard({ byFuero, total }: { byFuero: Record<string, number>; total:
 // ── EtapaCard ─────────────────────────────────────────────────────────────────
 
 function EtapaCard({ byEtapa, total }: { byEtapa: Record<string, number>; total: number }) {
-  const etapaOrder = ['PARA_INICIAR', 'INICIADO', 'PRUEBA', 'ALEGATOS', 'RESOLUCION', 'EJECUCION', 'ARCHIVO']
-  const entries = etapaOrder
-    .filter(k => byEtapa[k] > 0)
+  const entries = ETAPA_ORDER
+    .filter(k => (byEtapa[k] ?? 0) > 0)
     .map(k => [k, byEtapa[k]] as [string, number])
 
   const maxCount = entries.length > 0 ? Math.max(...entries.map(e => e[1])) : 1
