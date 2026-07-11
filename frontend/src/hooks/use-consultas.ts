@@ -34,6 +34,7 @@ export interface Consulta {
   canal: ConsultaCanal
   tipo_asunto: ConsultaTipoAsunto
   notas_libres: string | null
+  notas_abogado: string | null
   diagnostico_ia: DiagnosticoIA | null
   diagnostico_at: string | null
   estado: ConsultaEstado

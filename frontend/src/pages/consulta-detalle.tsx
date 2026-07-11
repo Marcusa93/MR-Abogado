@@ -15,10 +15,10 @@ import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-pane
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
-  ArrowLeft, Sparkles, Printer, FolderPlus,
-  Phone, Mail, MessageSquare, Calendar,
+  ArrowLeft, Sparkles, FolderPlus,
+  Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, ChevronDown, Save,
-  Loader2,
+  Loader2, Download, FileText, NotebookPen,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -297,15 +297,21 @@ export default function ConsultaDetallePage() {
 
   const [notas, setNotas] = useState('')
   const [notasInitialized, setNotasInitialized] = useState(false)
+  const [notasAbogado, setNotasAbogado] = useState('')
+  const [notasAbogadoInitialized, setNotasAbogadoInitialized] = useState(false)
   const [generando, setGenerando] = useState(false)
-  const [showPdf, setShowPdf] = useState(false)
-  const pdfRef = useRef<HTMLDivElement>(null)
+  const pdfDiagRef = useRef<HTMLDivElement>(null)
+  const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
 
   const isSecretaria = profile?.rol === 'SECRETARIA'
 
   if (!notasInitialized && consulta) {
     setNotas(consulta.notas_libres ?? '')
     setNotasInitialized(true)
+  }
+  if (!notasAbogadoInitialized && consulta) {
+    setNotasAbogado(consulta.notas_abogado ?? '')
+    setNotasAbogadoInitialized(true)
   }
 
   const handleSaveNotas = useCallback(async () => {
@@ -355,14 +361,24 @@ export default function ConsultaDetallePage() {
     }
   }, [consulta, notas, supabase, update])
 
-  const handlePrint = useCallback(() => {
-    const content = pdfRef.current?.innerHTML
+  const handleSaveNotasAbogado = useCallback(async () => {
+    if (!id) return
+    try {
+      await update.mutateAsync({ id, notas_abogado: notasAbogado } as any)
+      toast.success('Observaciones guardadas')
+    } catch {
+      toast.error('No se pudieron guardar las observaciones')
+    }
+  }, [id, notasAbogado, update])
+
+  const openPrint = useCallback((ref: React.RefObject<HTMLDivElement | null>, title: string) => {
+    const content = ref.current?.innerHTML
     if (!content) return
     const w = window.open('', '_blank', 'width=900,height=700')
     if (!w) return
     w.document.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8" />
-      <title>Diagnóstico — ${[consulta?.apellido, consulta?.nombre].filter(Boolean).join(', ')}</title>
+      <title>${title}</title>
       <style>
         @page { size: A4; margin: 0; }
         * { box-sizing: border-box; }
@@ -378,7 +394,16 @@ export default function ConsultaDetallePage() {
     </head><body>${content}</body></html>`)
     w.document.close()
     setTimeout(() => { w.focus(); w.print(); }, 300)
-  }, [consulta])
+  }, [])
+
+  const nombreCliente = [consulta?.apellido, consulta?.nombre].filter(Boolean).join(', ')
+  const handlePrintDiagnostico = useCallback(() => {
+    openPrint(pdfDiagRef, `Diagnóstico — ${nombreCliente}`)
+  }, [openPrint, pdfDiagRef, nombreCliente])
+
+  const handlePrintPresupuesto = useCallback(() => {
+    openPrint(pdfPresupuestoRef, `Presupuesto — ${nombreCliente}`)
+  }, [openPrint, pdfPresupuestoRef, nombreCliente])
 
   const handleConvertir = useCallback(async () => {
     if (!consulta) return
@@ -411,7 +436,6 @@ export default function ConsultaDetallePage() {
   )
 
   const diag = consulta.diagnostico_ia
-  const nombreCliente = [consulta.apellido, consulta.nombre].filter(Boolean).join(', ')
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
@@ -424,6 +448,7 @@ export default function ConsultaDetallePage() {
         <span>/</span>
         <span className="text-zinc-700 dark:text-zinc-200 font-medium">{nombreCliente || 'Consulta'}</span>
       </div>
+
 
       {/* Header */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5">
@@ -558,6 +583,35 @@ export default function ConsultaDetallePage() {
         </div>
       )}
 
+      {/* Notas del abogado sobre el diagnóstico */}
+      {diag && (
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <NotebookPen className="h-4 w-4 text-violet-500" />
+            <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Observaciones del abogado</h2>
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            Agregá todo lo que el diagnóstico IA omitió o que querés dejar asentado: daño punitivo, defensa del empleador, etc.
+          </p>
+          <textarea
+            value={notasAbogado}
+            onChange={e => setNotasAbogado(e.target.value)}
+            placeholder="Ej: agregar daño punitivo — el empleador ya fue condenado antes. Considerar art. 80 LCT por falta de entrega de documentación…"
+            rows={5}
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+          />
+          <button
+            type="button"
+            onClick={handleSaveNotasAbogado}
+            disabled={update.isPending || notasAbogado === (consulta.notas_abogado ?? '')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-400 hover:text-violet-600 rounded-lg transition-colors disabled:opacity-40"
+          >
+            <Save className="h-3.5 w-3.5" />
+            Guardar observaciones
+          </button>
+        </div>
+      )}
+
       {/* Presupuesto — solo abogados */}
       {!isSecretaria && diag && (
         <div className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
@@ -570,14 +624,26 @@ export default function ConsultaDetallePage() {
       {(diag || (!isSecretaria && consulta.estado !== 'descartada')) && (
         <div className="flex flex-wrap gap-3">
           {diag && (
-            <button
-              type="button"
-              onClick={() => { setShowPdf(true); setTimeout(handlePrint, 100) }}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-200 dark:border-white/10 hover:border-zinc-300 rounded-lg text-zinc-700 dark:text-zinc-300 transition-colors"
-            >
-              <Printer className="h-4 w-4" />
-              Generar PDF
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handlePrintDiagnostico}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg text-zinc-700 dark:text-zinc-300 transition-colors"
+              >
+                <FileText className="h-4 w-4" />
+                Diagnóstico PDF
+              </button>
+              {presupuesto && (
+                <button
+                  type="button"
+                  onClick={handlePrintPresupuesto}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-violet-300 dark:border-violet-700 hover:border-violet-500 hover:text-violet-600 dark:hover:text-violet-400 rounded-lg text-violet-700 dark:text-violet-300 transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  Presupuesto PDF
+                </button>
+              )}
+            </>
           )}
           {consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (
             <button
@@ -598,17 +664,24 @@ export default function ConsultaDetallePage() {
         <ActividadSection consultaId={consulta.id} />
       </div>
 
-      {/* PDF invisible — solo para impresión */}
-      {showPdf && (
-        <div className="sr-only">
-          <ConsultaPdfPreview
-            ref={pdfRef}
-            consulta={{ ...consulta, notas_libres: notas }}
-            presupuesto={presupuesto}
-            abogadoNombre="Dr. Marco Rossi"
-          />
-        </div>
-      )}
+      {/* PDFs invisibles — solo para impresión */}
+      <div className="sr-only">
+        <ConsultaPdfPreview
+          ref={pdfDiagRef}
+          consulta={{ ...consulta, notas_libres: notas }}
+          presupuesto={presupuesto}
+          abogadoNombre="Dr. Marco Rossi"
+          mode="diagnostico"
+          notasAbogado={notasAbogado || null}
+        />
+        <ConsultaPdfPreview
+          ref={pdfPresupuestoRef}
+          consulta={{ ...consulta, notas_libres: notas }}
+          presupuesto={presupuesto}
+          abogadoNombre="Dr. Marco Rossi"
+          mode="presupuesto"
+        />
+      </div>
     </div>
   )
 }
