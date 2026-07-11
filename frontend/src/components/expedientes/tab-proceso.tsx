@@ -179,28 +179,48 @@ function SelectInput({
 // Section 1: Proceso y tribunal
 // ---------------------------------------------------------------------------
 
+const MATERIAS = [
+  { value: 'laboral',       label: 'Laboral' },
+  { value: 'civil',         label: 'Civil y Comercial' },
+  { value: 'familia',       label: 'Familia' },
+  { value: 'administrativo', label: 'Contencioso Administrativo' },
+  { value: 'consumidor',    label: 'Consumidor' },
+  { value: 'penal',         label: 'Penal' },
+  { value: 'previsional',   label: 'Previsional / Seg. Social' },
+]
+
+const OGAS = ['OGA 1', 'OGA 2', 'OGA 3', 'OGA 4']
+const FUEROS_CON_OGA = new Set(['laboral', 'civil'])
+const FUEROS_CON_JUZGADOS = new Set(['laboral', 'civil'])
+
 interface ProcesoTribunalProps {
   expedienteId: string
+  fueroActual: string | null
   tipoProcesoidActual: string | null
   etapaActualId: string | null
+  juzgadoNumeroActual: number | null
   juezActual: string | null
-  secretariaActual: string | null
+  ogaActual: string | null
   terminoActual: string | null
 }
 
 function ProcesoTribunalCard({
   expedienteId,
+  fueroActual,
   tipoProcesoidActual,
+  juzgadoNumeroActual,
   juezActual,
-  secretariaActual,
+  ogaActual,
   terminoActual,
 }: ProcesoTribunalProps) {
   const { data: tipos = [] } = useTiposProceso()
   const updateExpediente = useUpdateExpediente()
 
+  const [fuero, setFuero] = useState(fueroActual ?? '')
   const [tipoProcesoid, setTipoProcesoid] = useState(tipoProcesoidActual ?? '')
+  const [juzgadoNumero, setJuzgadoNumero] = useState(juzgadoNumeroActual ? String(juzgadoNumeroActual) : '')
   const [juez, setJuez] = useState(juezActual ?? '')
-  const [secretaria, setSecretaria] = useState(secretariaActual ?? '')
+  const [oga, setOga] = useState(ogaActual ?? '')
   const [termino, setTermino] = useState(terminoActual ?? '')
   const [dirty, setDirty] = useState(false)
 
@@ -209,12 +229,24 @@ function ProcesoTribunalCard({
     setDirty(true)
   }
 
+  function handleFueroChange(v: string) {
+    setFuero(v)
+    setTipoProcesoid('')
+    setDirty(true)
+  }
+
+  const tiposFiltered = tipos.filter(t => !t.fuero || t.fuero === fuero)
+  const tieneJuzgados = FUEROS_CON_JUZGADOS.has(fuero)
+  const tieneOga = FUEROS_CON_OGA.has(fuero)
+
   async function save() {
     await updateExpediente.mutateAsync({
       id: expedienteId,
+      fuero: fuero || null,
       tipo_proceso_id: tipoProcesoid || null,
+      juzgado_numero: juzgadoNumero ? Number(juzgadoNumero) : null,
       juez: juez || null,
-      secretaria_juzgado: secretaria || null,
+      oga: oga || null,
       termino_probatorio_vence: termino || null,
     } as any)
     setDirty(false)
@@ -240,17 +272,47 @@ function ProcesoTribunalCard({
       }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+        {/* Materia */}
         <div className="sm:col-span-2">
-          <FieldRow label="Tipo de proceso" icon={Scale}>
+          <FieldRow label="Materia" icon={Scale}>
             <SelectInput
-              value={tipoProcesoid}
-              onChange={(v) => handleChange(setTipoProcesoid, v)}
-              placeholder="Sin tipo asignado"
-              options={tipos.map((t) => ({ value: t.id, label: t.nombre }))}
+              value={fuero}
+              onChange={handleFueroChange}
+              placeholder="Seleccioná materia"
+              options={MATERIAS}
             />
           </FieldRow>
         </div>
 
+        {/* Tipo de proceso — filtrado por materia */}
+        <div className="sm:col-span-2">
+          <FieldRow label="Tipo de proceso" icon={Gavel}>
+            <SelectInput
+              value={tipoProcesoid}
+              onChange={(v) => handleChange(setTipoProcesoid, v)}
+              placeholder="Sin tipo asignado"
+              options={tiposFiltered.map((t) => ({ value: t.id, label: t.nombre }))}
+            />
+          </FieldRow>
+        </div>
+
+        {/* Juzgado N° */}
+        {tieneJuzgados && (
+          <FieldRow label="Juzgado N.º" icon={Building2}>
+            <SelectInput
+              value={juzgadoNumero}
+              onChange={(v) => handleChange(setJuzgadoNumero, v)}
+              placeholder="—"
+              options={Array.from({ length: 12 }, (_, i) => ({
+                value: String(i + 1),
+                label: `Juzgado N.º ${i + 1}`,
+              }))}
+            />
+          </FieldRow>
+        )}
+
+        {/* Juez/a */}
         <FieldRow label="Juez / Jueza" icon={User}>
           <TextInput
             value={juez}
@@ -259,14 +321,19 @@ function ProcesoTribunalCard({
           />
         </FieldRow>
 
-        <FieldRow label="Secretaría" icon={Building2}>
-          <TextInput
-            value={secretaria}
-            onChange={(v) => handleChange(setSecretaria, v)}
-            placeholder="Ej.: Secretaría N.º 3"
-          />
-        </FieldRow>
+        {/* OGA */}
+        {tieneOga && (
+          <FieldRow label="OGA" icon={Building2}>
+            <SelectInput
+              value={oga}
+              onChange={(v) => handleChange(setOga, v)}
+              placeholder="—"
+              options={OGAS.map((o) => ({ value: o, label: o }))}
+            />
+          </FieldRow>
+        )}
 
+        {/* Término probatorio */}
         <div className="sm:col-span-2">
           <FieldRow label="Vto. término probatorio" icon={Calendar}>
             <DateInput
@@ -909,11 +976,13 @@ function SentenciasCard({ expedienteId }: { expedienteId: string }) {
 interface TabProcesoProps {
   expedienteId: string
   expediente: {
+    fuero?: string | null
     tipo_proceso_id?: string | null
     etapa_actual_id?: string | null
     etapa_actual_desde?: string | null
+    juzgado_numero?: number | null
     juez?: string | null
-    secretaria_juzgado?: string | null
+    oga?: string | null
     termino_probatorio_vence?: string | null
   }
 }
@@ -927,10 +996,12 @@ export function TabProceso({ expedienteId, expediente }: TabProcesoProps) {
     <div className="space-y-4">
       <ProcesoTribunalCard
         expedienteId={expedienteId}
+        fueroActual={(expediente as any).fuero ?? null}
         tipoProcesoidActual={tipoProcesoid}
         etapaActualId={etapaActualId}
+        juzgadoNumeroActual={(expediente as any).juzgado_numero ?? null}
         juezActual={(expediente as any).juez ?? null}
-        secretariaActual={(expediente as any).secretaria_juzgado ?? null}
+        ogaActual={(expediente as any).oga ?? null}
         terminoActual={(expediente as any).termino_probatorio_vence ?? null}
       />
 

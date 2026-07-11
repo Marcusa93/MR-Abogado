@@ -58,7 +58,8 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
   const dias = daysAgo(fechaAlta)
   const organismo = ((expediente as Record<string, unknown>).organismo as { nombre: string } | null)?.nombre ?? null
   const juez = (expediente as any).juez as string | null ?? null
-  const secretariaJuzgado = (expediente as any).secretaria_juzgado as string | null ?? null
+  const oga = (expediente as any).oga as string | null ?? null
+  const juzgadoNumero = (expediente as any).juzgado_numero as number | null ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const abogadoResp = (expediente as any).abogado_responsable as { nombre: string; apellido: string } | null
   const responsableLabel = abogadoResp ? `${abogadoResp.apellido}, ${abogadoResp.nombre}` : (responsable ? `${responsable.apellido}, ${responsable.nombre}` : null)
@@ -153,11 +154,14 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
             {expediente.fuero && (
               <InfoItem icon={Scale} label="Fuero" value={expediente.fuero} />
             )}
+            {juzgadoNumero && (
+              <InfoItem icon={Building2} label="Juzgado N.º" value={String(juzgadoNumero)} />
+            )}
             {juez && (
               <InfoItem icon={User} label="Juez/a" value={juez} />
             )}
-            {secretariaJuzgado && (
-              <InfoItem icon={Building2} label="Secretaría" value={secretariaJuzgado} />
+            {oga && (
+              <InfoItem icon={Building2} label="OGA" value={oga} />
             )}
             {expediente.numero_sae && (
               <InfoItem icon={FileText} label="Nro. SAE" value={expediente.numero_sae} copyable />
