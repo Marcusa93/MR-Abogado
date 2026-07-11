@@ -23,6 +23,7 @@ export interface ExpedientesFilters {
   tipo_tramite_id?: string | null
   abogado_id?: string | null
   prioridad?: Prioridad | null
+  fuero?: string | null
   search?: string | null
   page?: number
   pageSize?: number
@@ -86,6 +87,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
     estado_interno,
     tipo_tramite_id,
     prioridad,
+    fuero,
     search,
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
@@ -168,6 +170,10 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
       // Apply filters
       if (estado_interno) {
         query = query.eq('estado_interno', estado_interno)
+      }
+
+      if (fuero) {
+        query = (query as any).eq('fuero', fuero)
       }
 
       if (tipo_tramite_id) {

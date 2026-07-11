@@ -42,18 +42,19 @@ const FUERO_CFG: Record<string, { label: string; color: string; bar: string }> =
   otro:           { label: 'Otro',          color: 'text-zinc-400',    bar: 'bg-zinc-500' },
 }
 
-// ── Etapa config — solo etapas procesales reales (sin pipeline) ──────────────
+// ── Etapa config — etapas procesales (PARA_INICIAR/NUEVA_CONSULTA excluidos) ─
 
-const ETAPA_ORDER = ['PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'PAUSADO', 'FINALIZADO'] as const
+const ETAPA_ORDER = ['INICIADO', 'PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'PAUSADO', 'FINALIZADO'] as const
 
 const ETAPA_CFG: Record<string, { label: string; bar: string }> = {
-  PRUEBA:     { label: 'Prueba',     bar: 'bg-amber-500' },
-  ALEGATOS:   { label: 'Alegatos',   bar: 'bg-orange-500' },
-  SENTENCIA:  { label: 'Sentencia',  bar: 'bg-violet-500' },
-  APELACION:  { label: 'Apelación',  bar: 'bg-purple-500' },
-  CORTE:      { label: 'Corte',      bar: 'bg-indigo-500' },
-  PAUSADO:    { label: 'Pausado',    bar: 'bg-zinc-400' },
-  FINALIZADO: { label: 'Finalizado', bar: 'bg-emerald-500' },
+  INICIADO:   { label: 'Demanda / En trámite', bar: 'bg-sky-500' },
+  PRUEBA:     { label: 'Período de prueba',     bar: 'bg-amber-500' },
+  ALEGATOS:   { label: 'Alegatos',              bar: 'bg-orange-500' },
+  SENTENCIA:  { label: 'Sentencia',             bar: 'bg-violet-500' },
+  APELACION:  { label: 'Apelación',             bar: 'bg-purple-500' },
+  CORTE:      { label: 'Corte',                 bar: 'bg-indigo-500' },
+  PAUSADO:    { label: 'Pausado',               bar: 'bg-zinc-400' },
+  FINALIZADO: { label: 'Finalizado',            bar: 'bg-emerald-500' },
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -399,29 +400,31 @@ function EtapaCard({ byEtapa, total }: { byEtapa: Record<string, number>; total:
           <p className="dashboard-eyebrow text-[10px]">proceso</p>
           <p className="mt-0.5 text-base font-bold text-zinc-900 dark:text-zinc-50">Etapa procesal</p>
         </div>
-        <span className="text-[11px] text-zinc-500">{total} total</span>
+        <Link to="/expedientes" className="dashboard-link text-[11px] font-semibold inline-flex items-center gap-1">
+          Ver todos <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
 
       {entries.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-4 text-center">Sin datos de etapa</p>
+        <p className="text-sm text-zinc-500 py-4 text-center">Sin expedientes con etapa asignada</p>
       ) : (
         <div className="space-y-3">
           {entries.map(([etapa, count]) => {
             const cfg = ETAPA_CFG[etapa] ?? { label: etapa, bar: 'bg-zinc-400' }
             const pct = Math.round((count / maxCount) * 100)
             return (
-              <div key={etapa} className="flex items-center gap-3">
-                <span className="w-[100px] shrink-0 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate">
+              <Link key={etapa} to={`/expedientes?estado_interno=${etapa}`} className="group flex items-center gap-3">
+                <span className="w-[120px] shrink-0 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 truncate group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors">
                   {cfg.label}
                 </span>
                 <div className="relative flex-1 h-2 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden">
                   <div
-                    className={cn('h-full rounded-full transition-all duration-700', cfg.bar)}
+                    className={cn('h-full rounded-full transition-all duration-700 group-hover:opacity-80', cfg.bar)}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
                 <span className="w-7 shrink-0 text-right text-xs font-bold text-zinc-700 dark:text-zinc-200">{count}</span>
-              </div>
+              </Link>
             )
           })}
         </div>
