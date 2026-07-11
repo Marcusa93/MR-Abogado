@@ -180,13 +180,13 @@ function SelectInput({
 // ---------------------------------------------------------------------------
 
 const MATERIAS = [
-  { value: 'laboral',       label: 'Laboral' },
-  { value: 'civil',         label: 'Civil y Comercial' },
-  { value: 'familia',       label: 'Familia' },
+  { value: 'laboral',        label: 'Laboral' },
+  { value: 'civil',          label: 'Civil y Comercial' },
+  { value: 'familia',        label: 'Familia' },
   { value: 'administrativo', label: 'Contencioso Administrativo' },
-  { value: 'consumidor',    label: 'Consumidor' },
-  { value: 'penal',         label: 'Penal' },
-  { value: 'previsional',   label: 'Previsional / Seg. Social' },
+  { value: 'penal',          label: 'Penal' },
+  { value: 'previsional',    label: 'Previsional / Seg. Social' },
+  { value: 'otro',           label: 'Otro (Consumidor, Laboral Especial…)' },
 ]
 
 const OGAS = ['OGA 1', 'OGA 2', 'OGA 3', 'OGA 4']
@@ -235,7 +235,7 @@ function ProcesoTribunalCard({
     setDirty(true)
   }
 
-  const tiposFiltered = tipos.filter(t => t.fuero === 'universal' || t.fuero === fuero)
+  const tiposFiltered = tipos.filter(t => t.fuero === 'otro' || t.fuero === fuero)
   const tieneJuzgados = FUEROS_CON_JUZGADOS.has(fuero)
   const tieneOga = FUEROS_CON_OGA.has(fuero)
 
