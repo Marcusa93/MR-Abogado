@@ -180,13 +180,14 @@ function SelectInput({
 // ---------------------------------------------------------------------------
 
 const MATERIAS = [
-  { value: 'laboral',        label: 'Laboral' },
-  { value: 'civil',          label: 'Civil y Comercial' },
-  { value: 'familia',        label: 'Familia' },
-  { value: 'administrativo', label: 'Contencioso Administrativo' },
-  { value: 'penal',          label: 'Penal' },
-  { value: 'previsional',    label: 'Previsional / Seg. Social' },
-  { value: 'otro',           label: 'Otro (Consumidor, Laboral Especial…)' },
+  { value: 'laboral',               label: 'Laboral' },
+  { value: 'civil',                 label: 'Civil y Comercial' },
+  { value: 'documentos_locaciones', label: 'Documentos y Locaciones' },
+  { value: 'familia',               label: 'Familia' },
+  { value: 'administrativo',        label: 'Contencioso Administrativo' },
+  { value: 'penal',                 label: 'Penal' },
+  { value: 'previsional',           label: 'Previsional / Seg. Social' },
+  { value: 'otro',                  label: 'Otro (Consumidor, Laboral Especial…)' },
 ]
 
 const OGAS = ['OGA 1', 'OGA 2', 'OGA 3', 'OGA 4']

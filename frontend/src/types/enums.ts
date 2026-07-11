@@ -111,6 +111,7 @@ export const Fuero = {
   ADMINISTRATIVO: 'administrativo',
   COMERCIAL: 'comercial',
   PREVISIONAL: 'previsional',
+  DOCUMENTOS_LOCACIONES: 'documentos_locaciones',
   OTRO: 'otro',
 } as const
 
@@ -126,6 +127,7 @@ export const FUERO_LABELS: Record<Fuero, string> = {
   administrativo: 'Administrativo',
   comercial: 'Comercial',
   previsional: 'Previsional',
+  documentos_locaciones: 'Documentos y Locaciones',
   otro: 'Otro',
 }
 

@@ -32,14 +32,15 @@ const TIPO_TURNO_LABELS: Record<string, string> = {
 // ── Fuero config ─────────────────────────────────────────────────────────────
 
 const FUERO_CFG: Record<string, { label: string; color: string; bar: string }> = {
-  laboral:        { label: 'Laboral',       color: 'text-sky-400',     bar: 'bg-sky-500' },
-  civil:          { label: 'Civil y Com.',  color: 'text-violet-400',  bar: 'bg-violet-500' },
-  familia:        { label: 'Familia',       color: 'text-rose-400',    bar: 'bg-rose-500' },
-  administrativo: { label: 'Administrativo',color: 'text-amber-400',   bar: 'bg-amber-500' },
-  previsional:    { label: 'Previsional',   color: 'text-emerald-400', bar: 'bg-emerald-500' },
-  penal:          { label: 'Penal',         color: 'text-orange-400',  bar: 'bg-orange-500' },
-  comercial:      { label: 'Comercial',     color: 'text-blue-400',    bar: 'bg-blue-500' },
-  otro:           { label: 'Otro',          color: 'text-zinc-400',    bar: 'bg-zinc-500' },
+  laboral:               { label: 'Laboral',           color: 'text-sky-400',     bar: 'bg-sky-500' },
+  civil:                 { label: 'Civil y Com.',       color: 'text-violet-400',  bar: 'bg-violet-500' },
+  documentos_locaciones: { label: 'Doc. y Locaciones',  color: 'text-teal-400',    bar: 'bg-teal-500' },
+  familia:               { label: 'Familia',            color: 'text-rose-400',    bar: 'bg-rose-500' },
+  administrativo:        { label: 'Administrativo',     color: 'text-amber-400',   bar: 'bg-amber-500' },
+  previsional:           { label: 'Previsional',        color: 'text-emerald-400', bar: 'bg-emerald-500' },
+  penal:                 { label: 'Penal',              color: 'text-orange-400',  bar: 'bg-orange-500' },
+  comercial:             { label: 'Comercial',          color: 'text-blue-400',    bar: 'bg-blue-500' },
+  otro:                  { label: 'Otro',               color: 'text-zinc-400',    bar: 'bg-zinc-500' },
 }
 
 // ── Etapa config — etapas procesales (PARA_INICIAR/NUEVA_CONSULTA excluidos) ─

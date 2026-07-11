@@ -178,7 +178,14 @@ Generá el diagnóstico jurídico.`
 
   let diagnostico: Record<string, unknown>
   try {
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    // Eliminar code fences de markdown (en cualquier posición)
+    let cleaned = raw.replace(/```(?:json)?/gi, '').trim()
+    // Si hay texto antes del primer {, extraer solo el objeto JSON
+    const braceStart = cleaned.indexOf('{')
+    const braceEnd = cleaned.lastIndexOf('}')
+    if (braceStart !== -1 && braceEnd > braceStart) {
+      cleaned = cleaned.slice(braceStart, braceEnd + 1)
+    }
     diagnostico = JSON.parse(cleaned)
   } catch {
     return json(req, { error: 'El modelo devolvió un formato inesperado. Intentá de nuevo.', raw }, 500)
