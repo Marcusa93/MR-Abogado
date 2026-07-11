@@ -28,12 +28,10 @@ import * as cheerio from 'npm:cheerio@1.0.0'
 import { corsHeaders } from '../_shared/cors.ts'
 import { readSaePassword } from '../_shared/sae-credentials.ts'
 import { isMissingSchemaObject } from '../_shared/supabase-compat.ts'
-import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
+import { authenticateWithSae, SaeError, SAE_PORTAL_BASE as PORTAL_BASE, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
 import { classifyNotifPriority } from '../_shared/notif-priority.ts'
-
-const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
 const MAX_REDIRECT_HOPS = 20     // SSO puede encadenar 4-6 saltos; 20 da margen ante cambios

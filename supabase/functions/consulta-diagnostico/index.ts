@@ -53,6 +53,25 @@ Deno.serve(async (req) => {
   const guard = await checkLlmGuard(adminClient, user.id, FUNCTION_NAME, inputBytes)
   if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
+  // ── Contextos adicionales (grabaciones, documentos, apuntes) ─────────────
+  let contextosCtx = ''
+  if (consulta_id) {
+    const { data: contextos } = await adminClient
+      .from('consulta_contextos')
+      .select('tipo, titulo, contenido')
+      .eq('consulta_id', consulta_id)
+      .order('created_at', { ascending: true })
+    if (contextos && contextos.length > 0) {
+      const bloques = (contextos as any[]).map(c => {
+        const tipoLabel = c.tipo === 'grabacion' ? 'Transcripción de grabación'
+          : c.tipo === 'documento' ? 'Documento'
+          : 'Apunte adicional'
+        return `### ${tipoLabel}: ${c.titulo}\n${(c.contenido as string).slice(0, 2000)}`
+      })
+      contextosCtx = `\n\n## Material adicional aportado por el abogado\n${bloques.join('\n\n')}`
+    }
+  }
+
   // ── Chunks de normativa y jurisprudencia ancladas ─────────────────────────
   let normativaCtx = ''
   let jurisCtx = ''
@@ -131,9 +150,12 @@ Devolvé ÚNICAMENTE un JSON válido con esta estructura exacta (sin markdown, s
   "acciones_recomendadas": ["string", "string"],
   "riesgos": ["string"],
   "observaciones": "string — análisis jurídico del caso: prescripción, plazos, elementos de prueba claves, particularidades del fuero local. Si hay normativa/jurisprudencia anclada, referenciarla concretamente.",
+  "checklist_cliente": ["string — documento o información a solicitar al cliente", "string"],
   "tipo_honorario_sugerido": "cuota_litis | arancel_verbal | arancel_escrito | honorario_fijo",
   "descripcion_honorarios": "string — justificación breve del honorario sugerido y condiciones"
 }
+
+Para checklist_cliente: listá los documentos, datos o información concreta que hay que pedirle al cliente para avanzar (recibos de sueldo, telegrama, contrato, DNI, escritura, acta de matrimonio, etc.). Máximo 8 ítems, concretos y accionables.
 
 Para tipo_honorario_sugerido:
 - laboral_trabajador → siempre "cuota_litis" (pacto 20% sobre lo que se obtiene)
@@ -145,7 +167,7 @@ Para tipo_honorario_sugerido:
 Tipo de asunto: ${TIPO_LABEL[tipo_asunto] ?? tipo_asunto}
 
 Hechos del caso (notas de la consulta):
-${notas_libres.trim()}${normativaCtx}${jurisCtx}
+${notas_libres.trim()}${contextosCtx}${normativaCtx}${jurisCtx}
 
 Generá el diagnóstico jurídico.`
 

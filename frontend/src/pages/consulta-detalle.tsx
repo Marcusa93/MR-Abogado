@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import {
   useConsulta, useUpdateConsulta,
@@ -12,13 +13,14 @@ import {
 import { useAuthStore } from '@/stores/auth-store'
 import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
+import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
   ArrowLeft, Sparkles, FolderPlus,
   Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, ChevronDown, Save,
-  Loader2, Download, FileText, NotebookPen,
+  Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -291,15 +293,19 @@ export default function ConsultaDetallePage() {
   const profile = useAuthStore(s => s.profile)
   const supabase = createClient()
 
+  const qc = useQueryClient()
   const { data: consulta, isLoading, error } = useConsulta(id)
   const { data: presupuesto } = usePresupuesto(id)
   const update = useUpdateConsulta()
+  const addActividad = useAddConsultaActividad()
 
   const [notas, setNotas] = useState('')
   const [notasInitialized, setNotasInitialized] = useState(false)
   const [notasAbogado, setNotasAbogado] = useState('')
   const [notasAbogadoInitialized, setNotasAbogadoInitialized] = useState(false)
   const [generando, setGenerando] = useState(false)
+  const [enriqueciendo, setEnriqueciendo] = useState(false)
+  const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
   const pdfDiagRef = useRef<HTMLDivElement>(null)
   const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
 
@@ -370,6 +376,64 @@ export default function ConsultaDetallePage() {
       toast.error('No se pudieron guardar las observaciones')
     }
   }, [id, notasAbogado, update])
+
+  const handleEnriquecerConIA = useCallback(async () => {
+    if (!consulta || !notasAbogado.trim()) {
+      toast.error('Escribí las observaciones primero')
+      return
+    }
+    setEnriqueciendo(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(`${supabaseUrl}/functions/v1/consulta-enrich-notas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({
+          consulta_id: consulta.id,
+          notas_raw: notasAbogado,
+          diagnostico_observaciones: consulta.diagnostico_ia?.observaciones ?? '',
+          nombre: consulta.nombre,
+          apellido: consulta.apellido,
+          tipo_asunto: consulta.tipo_asunto,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error al enriquecer')
+      setNotasAbogado(data.texto_enriquecido)
+      // La edge function ya guardó en DB; refrescamos para sincronizar el estado local
+      qc.invalidateQueries({ queryKey: ['consulta', consulta.id] })
+      toast.success('Observaciones formalizadas con IA')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo enriquecer')
+    } finally {
+      setEnriqueciendo(false)
+    }
+  }, [consulta, notasAbogado, supabase, qc])
+
+  const handleAgregarChecklistAlSeguimiento = useCallback(async () => {
+    if (!consulta?.diagnostico_ia?.checklist_cliente?.length) return
+    const items = consulta.diagnostico_ia.checklist_cliente
+    const pendientes = items.filter((_, i) => !checklistEstado[i])
+    if (!pendientes.length) { toast.error('Todos los ítems ya están tildados'); return }
+    try {
+      for (const item of pendientes) {
+        await addActividad.mutateAsync({
+          consulta_id: consulta.id,
+          tipo: 'nota',
+          descripcion: `Pendiente: ${item}`,
+        })
+      }
+      toast.success(`${pendientes.length} ítems agregados al seguimiento`)
+    } catch {
+      toast.error('No se pudo agregar al seguimiento')
+    }
+  }, [consulta, checklistEstado, addActividad])
 
   const openPrint = useCallback((ref: React.RefObject<HTMLDivElement | null>, title: string) => {
     const content = ref.current?.innerHTML
@@ -498,7 +562,14 @@ export default function ConsultaDetallePage() {
           rows={8}
           className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         />
-        <div className="flex items-center gap-3">
+
+        {/* Grabaciones, documentos y apuntes adicionales */}
+        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Contexto adicional (grabaciones, documentos, apuntes)</h3>
+          <ConsultaContextos consultaId={consulta.id} />
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
           <button
             type="button"
             onClick={handleSaveNotas}
@@ -580,6 +651,43 @@ export default function ConsultaDetallePage() {
               <span className="font-medium">Honorarios sugeridos:</span> {diag.descripcion_honorarios}
             </div>
           )}
+
+          {/* Checklist para seguimiento administrativo */}
+          {diag.checklist_cliente && diag.checklist_cliente.length > 0 && (
+            <div className="border-t border-zinc-100 dark:border-white/5 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                  <ListChecks className="h-3.5 w-3.5 text-blue-500" />
+                  Documentación / información a solicitar al cliente
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAgregarChecklistAlSeguimiento}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  Agregar al seguimiento
+                </button>
+              </div>
+              <ul className="space-y-1.5">
+                {diag.checklist_cliente.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!checklistEstado[i]}
+                      onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={cn(
+                      'text-zinc-700 dark:text-zinc-300 leading-snug',
+                      checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500'
+                    )}>
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -600,15 +708,29 @@ export default function ConsultaDetallePage() {
             rows={5}
             className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
           />
-          <button
-            type="button"
-            onClick={handleSaveNotasAbogado}
-            disabled={update.isPending || notasAbogado === (consulta.notas_abogado ?? '')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-400 hover:text-violet-600 rounded-lg transition-colors disabled:opacity-40"
-          >
-            <Save className="h-3.5 w-3.5" />
-            Guardar observaciones
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleSaveNotasAbogado}
+              disabled={update.isPending || notasAbogado === (consulta.notas_abogado ?? '')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-400 hover:text-violet-600 rounded-lg transition-colors disabled:opacity-40"
+            >
+              <Save className="h-3.5 w-3.5" />
+              Guardar observaciones
+            </button>
+            <button
+              type="button"
+              onClick={handleEnriquecerConIA}
+              disabled={enriqueciendo || !notasAbogado.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {enriqueciendo ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" />Formalizando…</>
+              ) : (
+                <><Wand2 className="h-3.5 w-3.5" />Formalizar con IA</>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   useConsultas, useCreateConsulta,
   TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL,
@@ -217,9 +217,10 @@ function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => voi
 
 export default function ConsultasPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [search, setSearch] = useState('')
   const [estado, setEstado] = useState<ConsultaEstado | ''>('')
-  const [showNueva, setShowNueva] = useState(false)
+  const [showNueva, setShowNueva] = useState(params.get('nueva') === '1')
 
   const { data: consultas, isLoading, error } = useConsultas({ estado, search })
 

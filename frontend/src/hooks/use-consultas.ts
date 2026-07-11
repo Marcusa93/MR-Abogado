@@ -21,6 +21,7 @@ export interface DiagnosticoIA {
   acciones_recomendadas: string[]
   riesgos: string[]
   observaciones: string
+  checklist_cliente?: string[]
   tipo_honorario_sugerido: TipoHonorario
   descripcion_honorarios: string
 }

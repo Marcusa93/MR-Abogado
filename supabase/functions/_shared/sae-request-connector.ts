@@ -1,8 +1,9 @@
 // Ported from SAErpado — HTTP-only SAE connector (no Playwright needed)
 
-const SAE_LOGIN_URL = 'https://login.justucuman.gov.ar/login'
-const SAE_CONSULTA_URL = 'https://consultaexpedientes.justucuman.gov.ar/'
-const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
+export const SAE_LOGIN_URL = 'https://login.justucuman.gov.ar/login'
+export const SAE_CONSULTA_URL = 'https://consultaexpedientes.justucuman.gov.ar/'
+export const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
+export const SAE_PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
 const HTML_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
 const JSON_ACCEPT = 'application/json, text/plain, */*'
 

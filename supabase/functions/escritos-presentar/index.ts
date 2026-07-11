@@ -31,10 +31,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { readSaePassword } from '../_shared/sae-credentials.ts'
-import { authenticateWithSae, SaeError, type SaeSession } from '../_shared/sae-request-connector.ts'
-
-const SAE_API_URL = 'https://conexpbe.justucuman.gov.ar/api'
-const PORTAL_BASE = 'https://portaldelsae.justucuman.gov.ar'
+import { authenticateWithSae, SaeError, SAE_API_URL, SAE_PORTAL_BASE as PORTAL_BASE, type SaeSession } from '../_shared/sae-request-connector.ts'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
 function json(req: Request, body: unknown, status = 200) {
