@@ -164,23 +164,46 @@ Generá el diagnóstico jurídico.`
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.25,
-      max_tokens: 1500,
+      max_tokens: 3000,
     }),
   })
 
   if (!llmRes.ok) {
     const txt = await llmRes.text().catch(() => '')
-    return json(req, { error: `LLM error ${llmRes.status}: ${txt.slice(0, 200)}` }, 500)
+    return json(req, { error: `LLM error ${llmRes.status}: ${txt.slice(0, 300)}` }, 500)
   }
 
-  const llmData = await llmRes.json() as { choices?: Array<{ message: { content: string } }> }
-  const raw = llmData.choices?.[0]?.message?.content ?? ''
+  const llmData = await llmRes.json() as {
+    choices?: Array<{ message: { content: string }; finish_reason?: string }>
+    error?: { message?: string }
+  }
+
+  // Detectar error embebido en respuesta 200 (ej. modelo no disponible en OpenRouter)
+  if (llmData.error) {
+    return json(req, { error: `Error del proveedor IA: ${llmData.error.message ?? JSON.stringify(llmData.error)}` }, 500)
+  }
+
+  if (!llmData.choices?.length) {
+    return json(req, { error: 'El modelo no devolvió contenido. Intentá de nuevo.' }, 500)
+  }
+
+  const choice = llmData.choices[0]
+  const raw = choice.message?.content ?? ''
+
+  // Si la respuesta se cortó por límite de tokens, el JSON estará incompleto
+  if (choice.finish_reason === 'length') {
+    return json(req, { error: 'La respuesta fue demasiado larga. Resumí los hechos del caso e intentá de nuevo.' }, 500)
+  }
+
+  if (!raw.trim()) {
+    return json(req, { error: 'El modelo devolvió contenido vacío. Intentá de nuevo.' }, 500)
+  }
 
   let diagnostico: Record<string, unknown>
   try {
-    // Eliminar code fences de markdown (en cualquier posición)
+    // Eliminar code fences de markdown en cualquier posición
     let cleaned = raw.replace(/```(?:json)?/gi, '').trim()
-    // Si hay texto antes del primer {, extraer solo el objeto JSON
+    // Extraer el primer objeto JSON completo { ... }
     const braceStart = cleaned.indexOf('{')
     const braceEnd = cleaned.lastIndexOf('}')
     if (braceStart !== -1 && braceEnd > braceStart) {
@@ -188,7 +211,7 @@ Generá el diagnóstico jurídico.`
     }
     diagnostico = JSON.parse(cleaned)
   } catch {
-    return json(req, { error: 'El modelo devolvió un formato inesperado. Intentá de nuevo.', raw }, 500)
+    return json(req, { error: 'El modelo devolvió un formato inesperado. Intentá de nuevo.', raw: raw.slice(0, 500) }, 500)
   }
 
   // Si hay consulta_id, persistimos en la DB
