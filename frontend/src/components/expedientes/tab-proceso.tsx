@@ -235,7 +235,7 @@ function ProcesoTribunalCard({
     setDirty(true)
   }
 
-  const tiposFiltered = tipos.filter(t => !t.fuero || t.fuero === fuero)
+  const tiposFiltered = tipos.filter(t => t.fuero === 'universal' || t.fuero === fuero)
   const tieneJuzgados = FUEROS_CON_JUZGADOS.has(fuero)
   const tieneOga = FUEROS_CON_OGA.has(fuero)
 
