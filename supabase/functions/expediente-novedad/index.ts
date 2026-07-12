@@ -1,6 +1,6 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall, estimateBytes } from '../_shared/llm-guard.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const FUNCTION_NAME = 'expediente-novedad'
 
