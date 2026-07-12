@@ -159,7 +159,6 @@ Generá exactamente 5 preguntas, variadas en tipo y categoría.`
       ],
       temperature: 0.7,
       max_tokens: 2500,
-      response_format: { type: 'json_object' },
     }),
   })
 
@@ -169,18 +168,27 @@ Generá exactamente 5 preguntas, variadas en tipo y categoría.`
   }
 
   const llmData = await llmRes.json() as {
-    choices?: Array<{ message: { content: string } }>
+    choices?: Array<{ message: { content: string }; finish_reason?: string }>
     error?: { message?: string }
   }
 
   if (llmData.error) return json(req, { error: `Error IA: ${llmData.error.message}` }, 500)
   if (!llmData.choices?.length) return json(req, { error: 'Sin respuesta del modelo.' }, 500)
 
+  const raw = llmData.choices[0].message?.content ?? ''
+  if (llmData.choices[0].finish_reason === 'length') {
+    return json(req, { error: 'La respuesta fue demasiado larga.' }, 500)
+  }
+
   let resultado: { preguntas: PreguntaQuiz[] }
   try {
-    resultado = JSON.parse(llmData.choices[0].message.content ?? '{}')
+    let cleaned = raw.replace(/```(?:json)?/gi, '').trim()
+    const s = cleaned.indexOf('{')
+    const e = cleaned.lastIndexOf('}')
+    if (s !== -1 && e > s) cleaned = cleaned.slice(s, e + 1)
+    resultado = JSON.parse(cleaned)
   } catch {
-    return json(req, { error: 'El modelo devolvió JSON inválido.' }, 500)
+    return json(req, { error: 'El modelo devolvió un formato inesperado. Intentá de nuevo.' }, 500)
   }
 
   if (!Array.isArray(resultado?.preguntas)) {
