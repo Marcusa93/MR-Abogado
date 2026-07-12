@@ -89,6 +89,15 @@ Deno.serve(async (req) => {
       return json(req, { error: 'No tenés permiso sobre alguna de las actuaciones.' }, 403)
     }
 
+    // Leer períodos de feria judicial para el cálculo correcto de plazos
+    const { data: feriaRows } = await serviceClient
+      .from('feria_judicial')
+      .select('inicio, fin')
+    const feriaPeriods = (feriaRows ?? []).map((r: { inicio: string; fin: string }) => ({
+      inicio: r.inicio,
+      fin: r.fin,
+    }))
+
     const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean }[] = []
 
     await Promise.all(allowedMovements.map(async (m) => {
@@ -107,6 +116,7 @@ Deno.serve(async (req) => {
           apiKey,
           documentText,
           documentFileNames,
+          feriaPeriods,
         })
         await serviceClient
           .from('sae_movements')

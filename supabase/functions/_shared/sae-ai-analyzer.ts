@@ -2,7 +2,7 @@
 // Conservative extraction: only emits fields when they are explicitly stated in
 // the source text. Returns null fields rather than guessing.
 
-import { calcularVencimiento } from './judicial-calendar.ts'
+import { calcularVencimiento, type FeriaPeriod } from './judicial-calendar.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5'
@@ -108,6 +108,8 @@ interface AnalyzeInput {
   documentText?: string
   /** Nombre de los archivos analizados, para contexto. */
   documentFileNames?: string[]
+  /** Períodos de feria judicial provenientes de la BD (tabla feria_judicial). */
+  feriaPeriods?: FeriaPeriod[]
 }
 
 // Tope de caracteres del texto fuente que mandamos al LLM. Las actuaciones
@@ -182,7 +184,7 @@ ${cuerpo}${docSection}`
   // Regla: firma (fecha de la actuación) → notificación (+1 día) → corre el plazo (+1 más).
   const plazosConVencimiento = rawPlazos.map(p => ({
     ...p,
-    vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles),
+    vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles, input.feriaPeriods ?? []),
   }))
 
   const extracted: AiExtracted = {

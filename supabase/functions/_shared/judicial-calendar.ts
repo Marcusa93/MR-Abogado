@@ -8,10 +8,30 @@
 // Días inhábiles descontados:
 //   • Sábados y domingos
 //   • Feriados nacionales (inamovibles + movibles + Semana Santa + Carnaval)
-//   • Feria judicial de verano: todo enero
-//   • Feria judicial de invierno: 1–15 de julio
+//   • Períodos de feria judicial informados por la tabla feria_judicial de la BD
 
-// ── Semana Santa (algoritmo Meeus/Jones/Butcher) ─────────────────────────────
+// ── Tipos públicos ────────────────────────────────────────────────────────────
+
+export interface FeriaPeriod {
+  inicio: string // YYYY-MM-DD
+  fin:    string // YYYY-MM-DD
+}
+
+// ── Helpers de fecha UTC ──────────────────────────────────────────────────────
+
+function shiftUTC(date: Date, days: number): Date {
+  return new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() + days,
+  ))
+}
+
+function isoUTC(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+// ── Semana Santa (algoritmo Meeus/Jones/Butcher) ──────────────────────────────
 
 function easterUTC(year: number): Date {
   const a = year % 19
@@ -27,36 +47,23 @@ function easterUTC(year: number): Date {
   const l = (32 + 2 * e + 2 * i - h - k) % 7
   const m = Math.floor((a + 11 * h + 22 * l) / 451)
   const month = Math.floor((h + l - 7 * m + 114) / 31)
-  const day = ((h + l - 7 * m + 114) % 31) + 1
+  const day   = ((h + l - 7 * m + 114) % 31) + 1
   return new Date(Date.UTC(year, month - 1, day))
 }
 
-function shiftUTC(date: Date, days: number): Date {
-  return new Date(Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate() + days,
-  ))
-}
+// ── Traslado de feriados al lunes más cercano ─────────────────────────────────
+// mar/mié → lunes anterior; jue/vie → lunes siguiente; sáb → lunes +2; dom → lunes +1
 
-function isoUTC(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-// Traslado de feriados "móviles" argentinos al lunes más cercano.
-// Si el feriado cae martes-miércoles → lunes anterior.
-// Si cae jueves-domingo → lunes siguiente.
-// Si cae lunes → se mantiene.
 function nearestMonday(date: Date): Date {
-  const dow = date.getUTCDay() // 0=Dom … 6=Sáb
-  if (dow === 1) return date              // ya es lunes
-  if (dow === 0) return shiftUTC(date, 1) // domingo → lunes
-  if (dow === 6) return shiftUTC(date, 2) // sábado  → lunes
-  if (dow <= 3)  return shiftUTC(date, 1 - dow) // mar/mié → lunes anterior
-  return shiftUTC(date, 8 - dow)                // jue/vie  → lunes siguiente
+  const dow = date.getUTCDay()
+  if (dow === 1) return date
+  if (dow === 0) return shiftUTC(date, 1)
+  if (dow === 6) return shiftUTC(date, 2)
+  if (dow <= 3)  return shiftUTC(date, 1 - dow)
+  return shiftUTC(date, 8 - dow)
 }
 
-// ── Construcción del set de feriados para un año ─────────────────────────────
+// ── Feriados nacionales argentinos ────────────────────────────────────────────
 
 function buildHolidaySet(year: number): Set<string> {
   const h = new Set<string>()
@@ -76,15 +83,15 @@ function buildHolidaySet(year: number): Set<string> {
     h.add(`${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
   })
 
-  // Trasladables (se mueven al lunes más próximo)
+  // Trasladables — se agrega tanto la fecha fija como el lunes trasladado
   ;[
-    [8, 17],  // Paso a la Inmortalidad del General San Martín
-    [10, 12], // Día del Respeto a la Diversidad Cultural
-    [11, 20], // Día de la Soberanía Nacional
+    [8, 17],  // Paso a la Inmortalidad del Gral. San Martín
+    [10, 12], // Diversidad Cultural
+    [11, 20], // Soberanía Nacional
   ].forEach(([m, d]) => {
     const fixed = new Date(Date.UTC(year, m - 1, d))
     h.add(isoUTC(fixed))
-    h.add(isoUTC(nearestMonday(fixed))) // por si se traslada
+    h.add(isoUTC(nearestMonday(fixed)))
   })
 
   // Semana Santa
@@ -92,44 +99,42 @@ function buildHolidaySet(year: number): Set<string> {
   h.add(isoUTC(shiftUTC(easter, -3))) // Jueves Santo
   h.add(isoUTC(shiftUTC(easter, -2))) // Viernes Santo
 
-  // Carnaval (lunes y martes previos al Miércoles de Ceniza)
+  // Carnaval
   h.add(isoUTC(shiftUTC(easter, -48))) // Lunes de Carnaval
   h.add(isoUTC(shiftUTC(easter, -47))) // Martes de Carnaval
 
   return h
 }
 
-const cache = new Map<number, Set<string>>()
-function holidays(year: number): Set<string> {
-  if (!cache.has(year)) cache.set(year, buildHolidaySet(year))
-  return cache.get(year)!
+const holidayCache = new Map<number, Set<string>>()
+function getHolidays(year: number): Set<string> {
+  if (!holidayCache.has(year)) holidayCache.set(year, buildHolidaySet(year))
+  return holidayCache.get(year)!
 }
 
-// ── Feria judicial de Tucumán ─────────────────────────────────────────────────
+// ── Verificación de feria para una fecha ─────────────────────────────────────
 
-function isJudicialFeria(date: Date): boolean {
-  const m = date.getUTCMonth() + 1
-  const d = date.getUTCDate()
-  if (m === 1) return true           // feria de verano: enero completo
-  if (m === 7 && d <= 15) return true // feria de invierno: 1–15 julio
-  return false
+function isInFeria(date: Date, periods: FeriaPeriod[]): boolean {
+  const iso = isoUTC(date)
+  return periods.some(p => iso >= p.inicio && iso <= p.fin)
 }
 
-// ── Verificación de habilidad de un día ──────────────────────────────────────
+// ── API pública ───────────────────────────────────────────────────────────────
 
-export function isHabilDay(date: Date): boolean {
+export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[]): boolean {
   const dow = date.getUTCDay()
-  if (dow === 0 || dow === 6) return false          // fin de semana
-  if (isJudicialFeria(date)) return false           // feria judicial
-  if (holidays(date.getUTCFullYear()).has(isoUTC(date))) return false
+  if (dow === 0 || dow === 6) return false
+  if (isInFeria(date, feriaPeriods)) return false
+  if (getHolidays(date.getUTCFullYear()).has(isoUTC(date))) return false
   return true
 }
 
-// ── Cálculo de vencimiento ────────────────────────────────────────────────────
+// Calcula el vencimiento de un plazo procesal.
 //
-// fechaActuacion : YYYY-MM-DD  (fecha en que se firmó la actuación)
+// fechaActuacion : YYYY-MM-DD — fecha en que se firmó la actuación
 // dias           : número de días del plazo (entero positivo)
 // habiles        : true = días hábiles judiciales | false = días corridos
+// feriaPeriods   : períodos de feria provenientes de la BD (tabla feria_judicial)
 //
 // Retorna YYYY-MM-DD o null si los parámetros son inválidos.
 
@@ -137,6 +142,7 @@ export function calcularVencimiento(
   fechaActuacion: string,
   dias: number,
   habiles: boolean,
+  feriaPeriods: FeriaPeriod[],
 ): string | null {
   if (!fechaActuacion || !Number.isInteger(dias) || dias <= 0) return null
 
@@ -146,8 +152,7 @@ export function calcularVencimiento(
   const base = new Date(Date.UTC(y, m - 1, d, 12))
   if (isNaN(base.getTime())) return null
 
-  // Primer día desde el que corre el plazo = firma + 2
-  // (firma → notificación +1 → primer día del plazo +1 más)
+  // Firma (día 0) → notificación (día +1) → corre el plazo (día +2)
   const primerDia = shiftUTC(base, 2)
 
   if (!habiles) {
@@ -155,20 +160,18 @@ export function calcularVencimiento(
     return isoUTC(shiftUTC(primerDia, dias - 1))
   }
 
-  // Días hábiles: avanzar de a un día contando solo los hábiles.
-  // Si primerDia es inhábil, el plazo empieza el siguiente día hábil (día 1).
+  // Días hábiles: contar solo días hábiles desde primerDia (inclusive si es hábil)
   let current = new Date(primerDia)
   let counted = 0
-  const maxIter = dias * 5 + 400 // margen amplio para ferias largas
-  let iter = 0
+  const maxIter = dias * 5 + 400
 
-  while (iter++ < maxIter) {
-    if (isHabilDay(current)) {
+  for (let i = 0; i < maxIter; i++) {
+    if (isHabilDay(current, feriaPeriods)) {
       counted++
       if (counted === dias) return isoUTC(current)
     }
     current = shiftUTC(current, 1)
   }
 
-  return null // no debería llegar aquí
+  return null
 }
