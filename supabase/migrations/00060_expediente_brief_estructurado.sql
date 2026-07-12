@@ -218,7 +218,7 @@ CREATE POLICY brief_contradicciones_delete ON public.expediente_brief_contradicc
 -- ============================================================
 CREATE OR REPLACE VIEW public.expediente_brief_actual AS
 SELECT
-  e.id            AS expediente_id,
+  e.expediente_id AS expediente_id,
   e.seccion,
   e.tipo,
   e.id            AS entry_id,
