@@ -177,6 +177,13 @@ async function loadContext(admin: any, expedienteId: string) {
     .select('*')
     .eq('expediente_id', expedienteId)
 
+  const { data: novedades } = await admin
+    .from('expediente_novedades')
+    .select('nota, created_at')
+    .eq('expediente_id', expedienteId)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
   return {
     expediente,
     actuaciones: actuaciones || [],
@@ -187,6 +194,7 @@ async function loadContext(admin: any, expedienteId: string) {
     etapa_actual,
     aprendizajes: aprendizajes || [],
     brief_actual: brief_actual || [],
+    novedades: novedades || [],
   }
 }
 
@@ -271,6 +279,16 @@ function buildUserPrompt(ctx: any): string {
     for (const n of ctx.normativaFijada) {
       const d = n.documento
       partes.push(`- [${d.tipo}${d.numero ? ' ' + d.numero : ''}] ${d.titulo}${n.nota ? ` (nota: ${n.nota})` : ''}`)
+    }
+  }
+
+  partes.push('\n### NOVEDADES DEL ABOGADO (actualizaciones manuales, más recientes primero)')
+  if (ctx.novedades.length === 0) {
+    partes.push('(sin novedades registradas)')
+  } else {
+    for (const n of ctx.novedades) {
+      const fecha = new Date(n.created_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Tucuman' })
+      partes.push(`- [${fecha}] ${n.nota}`)
     }
   }
 

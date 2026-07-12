@@ -65,8 +65,10 @@ import {
   Sparkles,
   Wallet,
   MoreHorizontal,
+  ScrollText,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
+import { NovedadesPanel } from '@/components/expedientes/novedades-panel'
 
 // ---------------------------------------------------------------------------
 // Tabs
@@ -83,6 +85,7 @@ const TABS = [
   { id: 'documentos', label: 'Documentos jurídicos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
   { id: 'vision-ia', label: 'Visión IA', icon: Sparkles, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
   { id: 'caja', label: 'Caja', icon: Wallet, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'novedades', label: 'Novedades', icon: ScrollText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -97,7 +100,12 @@ export default function ExpedienteDetailPage() {
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
-  const visibleTabs = TABS.filter((t) => t.id !== 'caja' || tieneAccesoCaja)
+  const esDirector = profile?.rol === 'DIRECTOR'
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === 'caja') return tieneAccesoCaja
+    if (t.id === 'novedades') return esDirector
+    return true
+  })
 
   const { data: expediente, isLoading, isError } = useExpediente(id!)
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
@@ -472,6 +480,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'documentos' && <DocumentosJuridicosTab expedienteId={id!} />}
         {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
         {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
+        {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} />}
       </div>
 
       {/* Change Estado Dialog */}
