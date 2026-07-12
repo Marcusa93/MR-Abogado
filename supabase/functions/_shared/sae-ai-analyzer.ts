@@ -2,6 +2,8 @@
 // Conservative extraction: only emits fields when they are explicitly stated in
 // the source text. Returns null fields rather than guessing.
 
+import { calcularVencimiento } from './judicial-calendar.ts'
+
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5'
 
@@ -50,7 +52,7 @@ Devolvé SIEMPRE un JSON válido con esta estructura exacta:
       {
         "dias": 5,
         "habiles": true,
-        "vence_aprox": "YYYY-MM-DD o null si no se puede calcular",
+        "vence_aprox": null,
         "descripcion": "para qué corre ese plazo"
       }
     ],
@@ -92,7 +94,7 @@ REGLAS:
 - jurisprudencia_citada: solo fallos con autos y tribunal explícitos. Ej: "CSJN 'Aquino'" no "fallo de la Corte". Arrays [] si no hay citas.
 - Las fechas se expresan en formato DD/MM/YYYY en el texto. Convertilas a YYYY-MM-DD.
 - "días hábiles" = habiles: true. "días" sin aclarar en juzgados = habiles: true por defecto.
-- vence_aprox: si hay plazo en días hábiles desde la fecha de la actuación, calculá la fecha aproximada (sumando días hábiles, sin contar sábados ni domingos; ignorá feriados).
+- vence_aprox: siempre null. El sistema lo calcula por código con el calendario judicial correcto.
 - NO incluyas markdown ni \`\`\`json. Devolvé el JSON pelado.`
 
 interface AnalyzeInput {
@@ -174,10 +176,19 @@ ${cuerpo}${docSection}`
   const parsed = parseJsonLoose(content) as Partial<AiAnalysis> & { extracted?: Partial<AiExtracted> }
 
   // Normalize / validate
+  const rawPlazos = Array.isArray(parsed.extracted?.plazos) ? parsed.extracted.plazos.filter(isValidPlazoEntry) : []
+
+  // Calcular vence_aprox por código usando el calendario judicial correcto.
+  // Regla: firma (fecha de la actuación) → notificación (+1 día) → corre el plazo (+1 más).
+  const plazosConVencimiento = rawPlazos.map(p => ({
+    ...p,
+    vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles),
+  }))
+
   const extracted: AiExtracted = {
     partes: Array.isArray(parsed.extracted?.partes) ? parsed.extracted.partes.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : [],
     fechas: Array.isArray(parsed.extracted?.fechas) ? parsed.extracted.fechas.filter(isValidFechaEntry) : [],
-    plazos: Array.isArray(parsed.extracted?.plazos) ? parsed.extracted.plazos.filter(isValidPlazoEntry) : [],
+    plazos: plazosConVencimiento,
     juez: isValidJuezEntry(parsed.extracted?.juez) ? (parsed.extracted.juez as AiExtracted['juez']) : null,
     normativa_citada: Array.isArray(parsed.extracted?.normativa_citada) ? parsed.extracted.normativa_citada.filter(isValidNormaCita) : [],
     jurisprudencia_citada: Array.isArray(parsed.extracted?.jurisprudencia_citada) ? parsed.extracted.jurisprudencia_citada.filter(isValidJurisCita) : [],
