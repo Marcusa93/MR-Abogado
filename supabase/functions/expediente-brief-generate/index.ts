@@ -378,7 +378,6 @@ async function handle(req: Request): Promise<Response> {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      response_format: { type: 'json_object' },
       temperature: 0.2,
       max_tokens: 6144,
     }),
@@ -397,12 +396,22 @@ async function handle(req: Request): Promise<Response> {
     return json(req, { ok: false, error: 'Respuesta vacía del modelo' }, 200)
   }
 
+  const finishReason = data?.choices?.[0]?.finish_reason
+  if (finishReason === 'length') {
+    return json(req, { ok: false, error: 'La respuesta fue demasiado larga. El expediente tiene demasiado contexto.' }, 200)
+  }
+
   let parsed: any
   try {
-    parsed = typeof content === 'string' ? JSON.parse(content) : content
+    let cleaned = typeof content === 'string' ? content : JSON.stringify(content)
+    cleaned = cleaned.replace(/```(?:json)?/gi, '').trim()
+    const s = cleaned.indexOf('{')
+    const e = cleaned.lastIndexOf('}')
+    if (s !== -1 && e > s) cleaned = cleaned.slice(s, e + 1)
+    parsed = JSON.parse(cleaned)
   } catch (e) {
     console.error('[expediente-brief-generate] JSON inválido', e)
-    return json(req, { ok: false, error: 'Respuesta del modelo no es JSON válido', raw: String(content).slice(0, 500) }, 200)
+    return json(req, { ok: false, error: 'Respuesta del modelo no es JSON válido. Intentá de nuevo.' }, 200)
   }
 
   const result = {
