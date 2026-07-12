@@ -181,7 +181,7 @@ ${cuerpo}${docSection}`
   const rawPlazos = Array.isArray(parsed.extracted?.plazos) ? parsed.extracted.plazos.filter(isValidPlazoEntry) : []
 
   // Calcular vence_aprox por código usando el calendario judicial correcto.
-  // Regla: firma (fecha de la actuación) → notificación (+1 día) → corre el plazo (+1 más).
+  // Regla: firma → notificación (primer hábil posterior) → primer día procesal (siguiente hábil) → N días.
   const plazosConVencimiento = rawPlazos.map(p => ({
     ...p,
     vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles, input.feriaPeriods ?? []),

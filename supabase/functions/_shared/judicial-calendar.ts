@@ -1,9 +1,11 @@
 // ─── Calculadora de plazos procesales — Tucumán, Argentina ───────────────────
 //
 // Regla general (CPCC Tucumán):
-//   Día 0 : la actuación se firma (fecha indicada en el documento)
-//   Día +1: se notifica (día siguiente, hábil o no)
-//   Día +2: comienza a correr el plazo (primer día hábil desde aquí)
+//   Firma  : fecha indicada en el documento.
+//   Notificación: PRIMER DÍA HÁBIL posterior a la firma (las cédulas se
+//                 diligencian solo en días hábiles).
+//   Primer día procesal: PRIMER DÍA HÁBIL posterior a la notificación.
+//   Los N días del plazo se cuentan a partir de ahí.
 //
 // Días inhábiles descontados:
 //   • Sábados y domingos
@@ -129,14 +131,33 @@ export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[]): boolean {
   return true
 }
 
+function primerHabilDesde(from: Date, feriaPeriods: FeriaPeriod[]): Date {
+  let d = new Date(from)
+  for (let i = 0; i < 400; i++) {
+    if (isHabilDay(d, feriaPeriods)) return d
+    d = shiftUTC(d, 1)
+  }
+  return d
+}
+
 // Calcula el vencimiento de un plazo procesal.
 //
-// fechaActuacion : YYYY-MM-DD — fecha en que se firmó la actuación
-// dias           : número de días del plazo (entero positivo)
-// habiles        : true = días hábiles judiciales | false = días corridos
-// feriaPeriods   : períodos de feria provenientes de la BD (tabla feria_judicial)
+// Regla procesal (CPCC Tucumán):
+//   1. Firma: día indicado en la actuación.
+//   2. Notificación: PRIMER DÍA HÁBIL posterior a la firma.
+//      (Las cédulas solo se diligencian en días hábiles.)
+//   3. Primer día a efectos procesales: PRIMER DÍA HÁBIL posterior a la notificación.
+//   4. Desde ese día se cuentan los N días del plazo.
 //
-// Retorna YYYY-MM-DD o null si los parámetros son inválidos.
+// Ejemplo — firma 08/07/2026, feria 09–24/07:
+//   Notificación  → 27/07 (lunes, primer hábil tras la feria + fin de semana)
+//   Primer día    → 28/07 (martes)
+//   5 días hábiles → vence 03/08
+//
+// fechaActuacion : YYYY-MM-DD
+// dias           : entero positivo
+// habiles        : true = días hábiles | false = días corridos
+// feriaPeriods   : períodos de feria de la tabla feria_judicial
 
 export function calcularVencimiento(
   fechaActuacion: string,
@@ -152,15 +173,18 @@ export function calcularVencimiento(
   const base = new Date(Date.UTC(y, m - 1, d, 12))
   if (isNaN(base.getTime())) return null
 
-  // Firma (día 0) → notificación (día +1) → corre el plazo (día +2)
-  const primerDia = shiftUTC(base, 2)
+  // Notificación = primer hábil posterior a la firma
+  const notificacion = primerHabilDesde(shiftUTC(base, 1), feriaPeriods)
+
+  // Primer día procesal = primer hábil posterior a la notificación
+  const primerDia = primerHabilDesde(shiftUTC(notificacion, 1), feriaPeriods)
 
   if (!habiles) {
-    // Días corridos: el día 1 es primerDia, el día N es primerDia + (N-1)
+    // Días corridos: día 1 = primerDia, día N = primerDia + (N-1) calendarios
     return isoUTC(shiftUTC(primerDia, dias - 1))
   }
 
-  // Días hábiles: contar solo días hábiles desde primerDia (inclusive si es hábil)
+  // Días hábiles: primerDia es el día 1; contar N hábiles sucesivos
   let current = new Date(primerDia)
   let counted = 0
   const maxIter = dias * 5 + 400
