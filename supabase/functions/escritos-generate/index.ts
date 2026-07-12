@@ -779,12 +779,28 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
       claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
     ].filter(Boolean).join(' — ')
 
-    // En paralelo: normativa + jurisprudencia + aprendizajes
-    const [rag, jurisRag, aprendizajes] = await Promise.all([
+    // En paralelo: normativa + jurisprudencia + aprendizajes + novedades
+    const [rag, jurisRag, aprendizajes, novedadesRows] = await Promise.all([
       getRelevantNormativa(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
       getRelevantJurisprudencia(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
       getAprendizajesAplicables(serviceClient, userId, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
+      (serviceClient as any)
+        .from('expediente_novedades')
+        .select('nota, created_at')
+        .eq('expediente_id', body.expediente_id)
+        .order('created_at', { ascending: false })
+        .limit(8)
+        .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? []),
     ])
+
+    const novedadesCtx = novedadesRows.length > 0
+      ? `\n## Novedades del abogado (actualizaciones manuales del estado real del caso)\n${
+          novedadesRows.map((n: { nota: string; created_at: string }) => {
+            const f = new Date(n.created_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Tucuman' })
+            return `- [${f}] ${n.nota}`
+          }).join('\n')
+        }`
+      : ''
     const validChunkIds = new Set<number>([
       ...rag.pinned, ...rag.retrieved,
       ...jurisRag.pinned, ...jurisRag.retrieved,
@@ -872,7 +888,7 @@ ${body.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en
 ${providenciaCtx}
 
 ${expedienteCtx}
-
+${novedadesCtx}
 ${clavesCtx}
 
 ${normativaCtx}
@@ -895,7 +911,7 @@ ${body.titulo ? `Título sugerido: "${body.titulo}"` : `Determiná el título en
 ${providenciaCtx}
 
 ${expedienteCtx}
-
+${novedadesCtx}
 ${clavesCtx}
 
 ${normativaCtx}
