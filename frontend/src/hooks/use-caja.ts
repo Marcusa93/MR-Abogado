@@ -194,20 +194,33 @@ export function usePagosPendientes(year?: number, month?: number) {
 // Listados
 // ---------------------------------------------------------------------------
 
-export function useGastos(month?: { year: number; month: number }) {
+export type GastoFilter =
+  | { year: number; month: number }
+  | { year: number; month?: undefined }
+  | undefined
+
+export function useGastos(filter?: GastoFilter) {
   const supabase = createClient()
   return useQuery<Gasto[]>({
-    queryKey: ['gastos', month ?? 'all'],
+    queryKey: filter == null
+      ? ['gastos', 'todo']
+      : filter.month != null
+        ? ['gastos', 'mes', filter.year, filter.month]
+        : ['gastos', 'anio', filter.year],
     staleTime: 30_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q = (supabase.from as any)('gastos').select('*').is('deleted_at', null).order('fecha', { ascending: false })
-      if (month) {
-        const start = `${month.year}-${String(month.month).padStart(2, '0')}-01`
-        const nextM = month.month === 12 ? 1 : month.month + 1
-        const nextY = month.month === 12 ? month.year + 1 : month.year
-        const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`
-        q = q.gte('fecha', start).lt('fecha', end)
+      if (filter != null) {
+        if (filter.month != null) {
+          const start = `${filter.year}-${String(filter.month).padStart(2, '0')}-01`
+          const nextM = filter.month === 12 ? 1 : filter.month + 1
+          const nextY = filter.month === 12 ? filter.year + 1 : filter.year
+          const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`
+          q = q.gte('fecha', start).lt('fecha', end)
+        } else {
+          q = q.gte('fecha', `${filter.year}-01-01`).lt('fecha', `${filter.year + 1}-01-01`)
+        }
       }
       const { data, error } = await q
       if (error) throw error

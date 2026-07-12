@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
@@ -11,7 +11,7 @@ import {
   useToggleAbono, useDeleteGasto, useDeleteIngreso,
   useGastosFijosPendientes,
   GASTO_CATEGORIAS, INGRESO_TIPOS,
-  type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
+  type GastoFilter, type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
   type GastoFijo,
 } from '@/hooks/use-caja'
 import {
@@ -531,7 +531,29 @@ function MonthNav({ mes, setMes, count, noun }: { mes: Mes; setMes: (m: Mes) => 
   )
 }
 
-function TotalesMes({ items, tipo }: { items: { monto: number | string; moneda: MonedaCaja }[]; tipo: 'ingreso' | 'gasto' }) {
+function YearNav({ anio, setAnio, count, noun }: { anio: number; setAnio: (y: number) => void; count: number; noun: string }) {
+  const now = new Date()
+  const esActual = anio === now.getFullYear()
+  return (
+    <div className="flex items-center gap-1">
+      <button onClick={() => setAnio(anio - 1)} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10" title="Año anterior">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-[80px] text-center text-sm font-medium text-zinc-200">{anio}</span>
+      <button onClick={() => setAnio(anio + 1)} disabled={esActual} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10 disabled:opacity-30" title="Año siguiente">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+      {!esActual && (
+        <button onClick={() => setAnio(now.getFullYear())} className="ml-1 rounded-md px-2 py-1 text-[11px] text-cyan-400 hover:bg-white/5">
+          Año actual
+        </button>
+      )}
+      <span className="ml-2 text-xs text-zinc-500">{count} {noun}</span>
+    </div>
+  )
+}
+
+function TotalesMes({ items, tipo, label }: { items: { monto: number | string; moneda: MonedaCaja }[]; tipo: 'ingreso' | 'gasto'; label?: string }) {
   const { data: cotizacion } = useUsdRate()
   const ars = items.filter(i => i.moneda === 'ARS').reduce((s, i) => s + Number(i.monto), 0)
   const usd = items.filter(i => i.moneda === 'USD').reduce((s, i) => s + Number(i.monto), 0)
@@ -540,7 +562,7 @@ function TotalesMes({ items, tipo }: { items: { monto: number | string; moneda: 
   const fmtRate = (n: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-500">Total del mes</span>
+      <span className="text-[10px] uppercase tracking-wider text-zinc-500">{label ?? 'Total del mes'}</span>
       <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(ars)}</span>
       {usd > 0 && (
         <div className="flex items-center gap-1.5">
@@ -686,22 +708,106 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
 // ─── Gastos ─────────────────────────────────────────────────────────────────
 
+type ModoPeriodo = 'mes' | 'anio' | 'todo'
+
 function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
+  const [modo, setModo] = useState<ModoPeriodo>('mes')
   const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
-  const { data: gastos = [], isLoading } = useGastos(mes)
+  const [anioNav, setAnioNav] = useState(now.getFullYear())
   const deleteGasto = useDeleteGasto()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const filter: GastoFilter = modo === 'mes' ? mes : modo === 'anio' ? { year: anioNav } : undefined
+  const { data: gastos = [], isLoading } = useGastos(filter)
+
+  const countNoun = gastos.length === 1 ? 'gasto' : 'gastos'
+
+  const categoriaTotalesARS = useMemo(() => {
+    if (modo === 'mes') return []
+    const map = new Map<string, number>()
+    for (const g of gastos) {
+      if (g.moneda === 'ARS') map.set(g.categoria, (map.get(g.categoria) ?? 0) + Number(g.monto))
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, val]) => ({ label: CATEGORIA_GASTO_LABEL[cat] ?? cat, valor: val }))
+  }, [gastos, modo])
+
+  const evolucionMensual = useMemo(() => {
+    if (modo !== 'anio') return []
+    const meses = Array.from<number>({ length: 12 }).fill(0)
+    for (const g of gastos) {
+      if (g.moneda === 'ARS') {
+        const m = parseInt(g.fecha.slice(5, 7), 10) - 1
+        meses[m] += Number(g.monto)
+      }
+    }
+    return meses.map((val, i) => ({ label: MES_LABELS[i].slice(0, 3), valor: val }))
+  }, [gastos, modo])
+
+  const evolucionAnual = useMemo(() => {
+    if (modo !== 'todo') return []
+    const map = new Map<number, number>()
+    for (const g of gastos) {
+      if (g.moneda === 'ARS') {
+        const y = parseInt(g.fecha.slice(0, 4), 10)
+        map.set(y, (map.get(y) ?? 0) + Number(g.monto))
+      }
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, val]) => ({ label: String(year), valor: val }))
+  }, [gastos, modo])
+
+  const totalLabel = modo === 'mes' ? 'Total del mes' : modo === 'anio' ? `Total ${anioNav}` : 'Total histórico'
+  const emptyTitle = modo === 'mes' ? 'Sin gastos este mes' : modo === 'anio' ? `Sin gastos en ${anioNav}` : 'Sin gastos registrados'
 
   if (isLoading) return <Loader />
 
   return (
     <div className="space-y-3">
-      <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={gastos.length === 1 ? 'gasto' : 'gastos'} />
-      <TotalesMes items={gastos} tipo="gasto" />
+      {/* Selector de período */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+          {(['mes', 'anio', 'todo'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setModo(m)}
+              className={cn(
+                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                modo === m ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+              )}
+            >
+              {m === 'mes' ? 'Mes' : m === 'anio' ? 'Año' : 'Todo'}
+            </button>
+          ))}
+        </div>
+
+        {modo === 'mes' && <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={countNoun} />}
+        {modo === 'anio' && <YearNav anio={anioNav} setAnio={setAnioNav} count={gastos.length} noun={countNoun} />}
+        {modo === 'todo' && <span className="text-xs text-zinc-500">{gastos.length} {countNoun}</span>}
+      </div>
+
+      <TotalesMes items={gastos} tipo="gasto" label={totalLabel} />
+
+      {/* Desglose por categoría para año/todo */}
+      {modo !== 'mes' && categoriaTotalesARS.length > 0 && (
+        <DesglosePorBucket titulo="Por categoría (ARS)" data={categoriaTotalesARS} accent="rose" />
+      )}
+
+      {/* Evolución mensual para año */}
+      {modo === 'anio' && evolucionMensual.some(m => m.valor > 0) && (
+        <DesglosePorBucket titulo={`Evolución mensual ${anioNav} (ARS)`} data={evolucionMensual} accent="rose" />
+      )}
+
+      {/* Evolución anual para todo */}
+      {modo === 'todo' && evolucionAnual.length > 0 && (
+        <DesglosePorBucket titulo="Por año (ARS)" data={evolucionAnual} accent="rose" />
+      )}
 
       {gastos.length === 0 ? (
-        <EmptyState icon={TrendingDown} title="Sin gastos este mes" description="Registrá un gasto con el botón de arriba." />
+        <EmptyState icon={TrendingDown} title={emptyTitle} description="Registrá un gasto con el botón de arriba." />
       ) : (
         <>
           {/* Mobile: cards */}
