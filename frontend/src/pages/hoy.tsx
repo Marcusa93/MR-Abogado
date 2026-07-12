@@ -132,7 +132,7 @@ export default function HoyPage() {
       </div>
 
       {/* Stat strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatChip label="Audiencias hoy" value={data.audiencias_hoy.length} icon={Calendar} color="cyan" to="/agenda" />
         <StatChip label="Tareas para hoy" value={data.tareas_hoy_count} icon={CheckSquare} color="emerald" to="/tareas" />
         <StatChip label="Tareas vencidas" value={data.tareas_vencidas_count} icon={AlertTriangle} color={data.tareas_vencidas_count > 0 ? 'rose' : 'muted'} to="/tareas?vencidas=1" />
@@ -182,7 +182,7 @@ function StatChip({ label, value, icon: Icon, color, to }: {
         <p className="text-[10px] uppercase tracking-wider opacity-80">{label}</p>
         <Icon className="h-4 w-4 opacity-80" />
       </div>
-      <p className="mt-1 text-2xl font-bold text-zinc-50 tabular-nums">{value.toLocaleString('es-AR')}</p>
+      <p className="mt-1 text-2xl font-extrabold text-zinc-50 tabular-nums">{value.toLocaleString('es-AR')}</p>
     </>
   )
   if (to) {

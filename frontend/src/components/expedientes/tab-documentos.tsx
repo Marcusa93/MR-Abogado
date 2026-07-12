@@ -3,6 +3,8 @@ import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useAdjuntos, useUploadAdjunto, useDeleteAdjunto, useAnalyzeAdjunto } from '@/hooks/use-adjuntos'
+import { useSearchNormativaByText, useFijarNormativa } from '@/hooks/use-normativa'
+import { useSearchJurisprudenciaByText, useFijarJurisprudencia } from '@/hooks/use-jurisprudencia'
 import { createClient } from '@/lib/supabase/client'
 import { AdjuntoChatPanel } from './adjunto-chat-panel'
 import { DrivePickerButton } from './drive-picker-button'
@@ -25,6 +27,10 @@ import {
   Sparkles,
   AlertCircle,
   MessageSquare,
+  Bookmark,
+  ChevronDown,
+  ChevronUp,
+  Check,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -287,6 +293,125 @@ function formatMonto(monto: number | null, moneda: string): string {
   return `${moneda === 'USD' ? 'US$ ' : '$'}${fmt.format(monto)}`
 }
 
+// ── CitasFixables: propone fijar normativa/jurisprudencia al corpus del expediente ──
+function CitasFixables({
+  normas,
+  juris,
+  expedienteId,
+}: {
+  normas: NormaExtracted[]
+  juris: JurisExtracted[]
+  expedienteId: string
+}) {
+  const [collapsed, setCollapsed] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [matches, setMatches] = useState<Map<string, { docId: string; titulo: string } | null> | null>(null)
+  const [fijadas, setFijadas] = useState(new Set<string>())
+
+  const searchNorma = useSearchNormativaByText()
+  const searchJuris = useSearchJurisprudenciaByText()
+  const fijarNorma = useFijarNormativa()
+  const fijarJuris = useFijarJurisprudencia()
+
+  if (normas.length === 0 && juris.length === 0) return null
+
+  const handleExpand = async () => {
+    if (!collapsed) { setCollapsed(true); return }
+    setCollapsed(false)
+    if (matches !== null) return  // ya buscó antes
+
+    setLoading(true)
+    const result = new Map<string, { docId: string; titulo: string } | null>()
+    await Promise.all([
+      ...normas.map(async (n) => {
+        const res = await searchNorma.mutateAsync(n.norma).catch(() => [])
+        result.set(`n:${n.norma}`, res[0] ? { docId: res[0].id, titulo: res[0].titulo } : null)
+      }),
+      ...juris.map(async (j) => {
+        const res = await searchJuris.mutateAsync(j.cita).catch(() => [])
+        result.set(`j:${j.cita}`, res[0] ? { docId: res[0].id, titulo: res[0].caratula } : null)
+      }),
+    ])
+    setMatches(result)
+    setLoading(false)
+  }
+
+  const handleFijar = async (tipo: 'norma' | 'juris', key: string, docId: string, titulo: string) => {
+    try {
+      if (tipo === 'norma') await fijarNorma.mutateAsync({ expedienteId, documentoId: docId })
+      else await fijarJuris.mutateAsync({ expedienteId, documentoId: docId })
+      setFijadas(prev => { const s = new Set(prev); s.add(key); return s })
+      toast.success(`Fijado: ${titulo}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo fijar')
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={handleExpand}
+        className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+      >
+        {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+        <Bookmark className="h-3 w-3" />
+        Fijar citas al corpus del expediente ({normas.length + juris.length})
+        {loading && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+      </button>
+
+      {!collapsed && (
+        <div className="mt-1.5 space-y-1 pl-4 border-l border-white/10">
+          {normas.map((n) => {
+            const key = `n:${n.norma}`
+            const match = matches?.get(key)
+            const fijada = fijadas.has(key)
+            return (
+              <div key={key} className="flex items-center gap-2 text-[11px] flex-wrap">
+                <span className="text-amber-300 shrink-0">{n.norma}</span>
+                {loading && <Loader2 className="h-2.5 w-2.5 animate-spin text-zinc-600 shrink-0" />}
+                {!loading && matches && match === null && <span className="text-zinc-600 text-[10px]">No en corpus</span>}
+                {!loading && matches && match && !fijada && (
+                  <button
+                    onClick={() => handleFijar('norma', key, match.docId, match.titulo)}
+                    className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0 text-[10px] text-amber-200 hover:bg-amber-500/20 transition-colors"
+                  >
+                    <Bookmark className="h-2.5 w-2.5" />
+                    {match.titulo.length > 36 ? match.titulo.slice(0, 36) + '…' : match.titulo}
+                  </button>
+                )}
+                {fijada && <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400"><Check className="h-2.5 w-2.5" />Fijado</span>}
+              </div>
+            )
+          })}
+          {juris.map((j) => {
+            const key = `j:${j.cita}`
+            const match = matches?.get(key)
+            const fijada = fijadas.has(key)
+            return (
+              <div key={key} className="flex items-center gap-2 text-[11px] flex-wrap">
+                <span className="text-rose-300 line-clamp-1 shrink">{j.cita}</span>
+                {loading && <Loader2 className="h-2.5 w-2.5 animate-spin text-zinc-600 shrink-0" />}
+                {!loading && matches && match === null && <span className="text-zinc-600 text-[10px]">No en corpus</span>}
+                {!loading && matches && match && !fijada && (
+                  <button
+                    onClick={() => handleFijar('juris', key, match.docId, match.titulo)}
+                    className="inline-flex items-center gap-1 rounded bg-rose-500/10 px-1.5 py-0 text-[10px] text-rose-200 hover:bg-rose-500/20 transition-colors"
+                  >
+                    <Bookmark className="h-2.5 w-2.5" />
+                    {match.titulo.length > 36 ? match.titulo.slice(0, 36) + '…' : match.titulo}
+                  </button>
+                )}
+                {fijada && <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400"><Check className="h-2.5 w-2.5" />Fijado</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AdjuntoAiBlock({
   summary,
   extracted,
@@ -294,6 +419,7 @@ function AdjuntoAiBlock({
   pending,
   onRetry,
   isRetrying,
+  expedienteId,
 }: {
   summary: string | null
   extracted: AdjuntoExtractedShape | null
@@ -301,6 +427,7 @@ function AdjuntoAiBlock({
   pending: boolean
   onRetry: () => void
   isRetrying: boolean
+  expedienteId?: string
 }) {
   if (pending) {
     return (
@@ -382,6 +509,10 @@ function AdjuntoAiBlock({
             </span>
           ))}
         </div>
+      )}
+
+      {expedienteId && (normas.length > 0 || juris.length > 0) && (
+        <CitasFixables normas={normas} juris={juris} expedienteId={expedienteId} />
       )}
 
       {extracted?.resultado && (
@@ -623,6 +754,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
                         pending={isPending || isAnalyzing}
                         onRetry={() => handleAnalyze(adj)}
                         isRetrying={isAnalyzing}
+                        expedienteId={expedienteId}
                       />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

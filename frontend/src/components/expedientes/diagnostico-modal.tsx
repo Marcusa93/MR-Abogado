@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useModalHistory } from '@/hooks/use-modal-history'
 import { createPortal } from 'react-dom'
 import {
   X, Loader2, AlertCircle, FileSearch, ClipboardCheck,
@@ -39,6 +40,8 @@ export function DiagnosticoModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasFired])
+
+  useModalHistory(onClose)
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }

@@ -457,6 +457,7 @@ export default function ConsultaDetallePage() {
       </style>
     </head><body>${content}</body></html>`)
     w.document.close()
+    w.onafterprint = () => w.close()
     setTimeout(() => { w.focus(); w.print(); }, 300)
   }, [])
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EstadoBadge } from '@/components/shared/estado-badge'
@@ -75,17 +75,17 @@ import { NovedadesPanel } from '@/components/expedientes/novedades-panel'
 // ---------------------------------------------------------------------------
 
 const TABS = [
-  { id: 'datos', label: 'Datos', icon: FileText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
-  { id: 'proceso', label: 'Proceso', icon: Gavel, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'actuaciones', label: 'SAE', icon: Database, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'claves', label: 'Actuaciones claves', icon: Star, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'audiencias-grabadas', label: 'Audiencias grabadas', icon: Video, activeClasses: 'border-cyan-400 text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'agenda', label: 'Agenda', icon: CalendarClock, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'escritos', label: 'Escritos y notas', icon: PenLine, activeClasses: 'border-rose-400 text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-400' },
-  { id: 'documentos', label: 'Documentos jurídicos', icon: Paperclip, activeClasses: 'border-sky-400 text-sky-400', badgeClasses: 'bg-sky-500/15 text-sky-400' },
-  { id: 'vision-ia', label: 'Visión IA', icon: Sparkles, activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'caja', label: 'Caja', icon: Wallet, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'novedades', label: 'Novedades', icon: ScrollText, activeClasses: 'border-amber-400 text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-400' },
+  { id: 'datos',             label: 'Datos',                shortLabel: 'Datos',      icon: FileText,      activeClasses: 'border-amber-400 text-amber-400',   badgeClasses: 'bg-amber-500/15 text-amber-400' },
+  { id: 'proceso',           label: 'Proceso',              shortLabel: 'Proceso',    icon: Gavel,         activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
+  { id: 'actuaciones',       label: 'SAE',                  shortLabel: 'SAE',        icon: Database,      activeClasses: 'border-cyan-400 text-cyan-400',     badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'claves',            label: 'Actuaciones claves',   shortLabel: 'Claves',     icon: Star,          activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
+  { id: 'audiencias-grabadas', label: 'Audiencias grabadas', shortLabel: 'Audiencias', icon: Video,        activeClasses: 'border-cyan-400 text-cyan-400',     badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
+  { id: 'agenda',            label: 'Agenda',               shortLabel: 'Agenda',     icon: CalendarClock, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'escritos',          label: 'Escritos y notas',     shortLabel: 'Escritos',   icon: PenLine,       activeClasses: 'border-rose-400 text-rose-400',     badgeClasses: 'bg-rose-500/15 text-rose-400' },
+  { id: 'documentos',        label: 'Documentos jurídicos', shortLabel: 'Docs.',      icon: Paperclip,     activeClasses: 'border-sky-400 text-sky-400',       badgeClasses: 'bg-sky-500/15 text-sky-400' },
+  { id: 'vision-ia',         label: 'Visión IA',            shortLabel: 'IA',         icon: Sparkles,      activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
+  { id: 'caja',              label: 'Caja',                 shortLabel: 'Caja',       icon: Wallet,        activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
+  { id: 'novedades',         label: 'Novedades',            shortLabel: 'Novedades',  icon: ScrollText,    activeClasses: 'border-amber-400 text-amber-400',   badgeClasses: 'bg-amber-500/15 text-amber-400' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -112,6 +112,10 @@ export default function ExpedienteDetailPage() {
   const deleteExpediente = useDeleteExpediente()
 
   const [activeTab, setActiveTab] = useState<TabId>('datos')
+  const activeTabRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [activeTab])
 
   // Salto entre tabs pedido por "Redactar respuesta" (desde una actuación).
   const pendingTab = useEscritoIntent((s) => s.pendingTab)
@@ -325,28 +329,28 @@ export default function ExpedienteDetailPage() {
 
           return (
             <>
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 app-card px-3 py-2">
                 <Timer className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">En estado actual</p>
+                  <p className="dashboard-eyebrow">En estado actual</p>
                   <p className={cn("text-sm font-semibold", diasEnEstado > 60 ? "text-rose-400" : diasEnEstado > 30 ? "text-amber-400" : "text-zinc-800 dark:text-zinc-200")}>
                     {diasEnEstado} días
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 app-card px-3 py-2">
                 <ListTodo className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Tareas pend.</p>
+                  <p className="dashboard-eyebrow">Tareas pend.</p>
                   <p className={cn("text-sm font-semibold", tareasPendientes > 0 ? "text-emerald-400" : "text-zinc-600 dark:text-zinc-300")}>
                     {tareasPendientes} de {tareas.length}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 app-card px-3 py-2">
                 <CalendarClock className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Próx. audiencia</p>
+                  <p className="dashboard-eyebrow">Próx. audiencia</p>
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
                     {proximaAudiencia
                       ? new Date(proximaAudiencia.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
@@ -354,10 +358,10 @@ export default function ExpedienteDetailPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2">
+              <div className="flex items-center gap-2 app-card px-3 py-2">
                 <User className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300">Responsable</p>
+                  <p className="dashboard-eyebrow">Responsable</p>
                   <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
                     {responsable ? `${responsable.apellido}` : <span className="text-amber-400">Sin asignar</span>}
                   </p>
@@ -384,8 +388,8 @@ export default function ExpedienteDetailPage() {
       <ExpedienteSimilaresPanel expedienteId={id!} />
 
       {/* Tabs */}
-      <div className="border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
-        <nav className="flex gap-1 overflow-x-auto -mb-px no-scrollbar">
+      <div className="relative border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <nav className="flex gap-0.5 overflow-x-auto -mb-px no-scrollbar scroll-smooth">
           {visibleTabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -396,20 +400,22 @@ export default function ExpedienteDetailPage() {
             return (
               <button
                 key={tab.id}
+                ref={isActive ? activeTabRef : undefined}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors',
                   isActive
                     ? tab.activeClasses
                     : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:border-slate-600 hover:text-zinc-800 dark:hover:text-zinc-200'
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
                 {count != null && count > 0 && (
                   <span
                     className={cn(
-                      'ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
+                      'flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
                       isActive
                         ? tab.badgeClasses
                         : 'bg-white/5 text-zinc-600 dark:text-zinc-300'
@@ -422,6 +428,8 @@ export default function ExpedienteDetailPage() {
             )
           })}
         </nav>
+        {/* Fade hint — only visible on mobile where tabs overflow */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[var(--layout-bg)]/95 to-transparent sm:hidden" />
       </div>
 
       {/* Tab Content */}
@@ -480,7 +488,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'documentos' && <DocumentosJuridicosTab expedienteId={id!} />}
         {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
         {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
-        {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} />}
+        {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} onBriefNeeded={() => setActiveTab('vision-ia')} />}
       </div>
 
       {/* Change Estado Dialog */}

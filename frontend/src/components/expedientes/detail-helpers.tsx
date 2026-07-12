@@ -86,7 +86,7 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 shadow-sm',
+        'app-card',
         className
       )}
     >

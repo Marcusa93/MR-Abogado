@@ -263,24 +263,24 @@ function CompactHero({
           <h1 className="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight text-white">
             {greeting}, {userName}.
           </h1>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-col sm:flex-row sm:flex-wrap gap-2">
             <Link
               to="/consultas?nueva=1"
-              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-[#07131f]"
+              className="btn-interactive inline-flex items-center justify-center sm:justify-start gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-[#07131f]"
             >
               <MessageSquare className="h-4 w-4" />
               Nueva consulta
             </Link>
             <Link
               to="/expedientes/nuevo"
-              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
+              className="btn-interactive inline-flex items-center justify-center sm:justify-start gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
             >
               <Plus className="h-4 w-4" />
               Nuevo expediente
             </Link>
             <Link
               to="/agenda"
-              className="btn-interactive inline-flex items-center gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
+              className="btn-interactive inline-flex items-center justify-center sm:justify-start gap-1.5 rounded-lg border border-white/14 bg-white/[0.06] px-3.5 py-2 text-sm font-medium text-white/88"
             >
               <CalendarClock className="h-4 w-4" />
               Agenda
@@ -312,7 +312,7 @@ function CompactHero({
 
 function HoyStrip({ turnosHoy, tareasHoy }: { turnosHoy: ProximoTurno[]; tareasHoy: { id: string; titulo: string }[] }) {
   return (
-    <div className="overflow-x-auto scrollbar-none">
+    <div className="relative overflow-x-auto scrollbar-none">
       <div className="flex min-w-max items-center gap-2 pb-0.5">
         <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-amber-400">
           Hoy
@@ -334,6 +334,8 @@ function HoyStrip({ turnosHoy, tareasHoy }: { turnosHoy: ProximoTurno[]; tareasH
           </Link>
         ))}
       </div>
+      {/* Fade-right hint for horizontal scroll on mobile */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[var(--layout-bg)] to-transparent sm:hidden" />
     </div>
   )
 }

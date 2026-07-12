@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useModalHistory } from '@/hooks/use-modal-history'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
@@ -526,6 +527,8 @@ function ActuacionRow({
 // Panel de lectura a pantalla casi completa para actuaciones largas (sentencias,
 // resoluciones). Tipografía cómoda, ancho de lectura acotado, scrollable.
 function ActuacionReader({ movement, onClose }: { movement: SaeMovement; onClose: () => void }) {
+  useModalHistory(onClose)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
@@ -538,15 +541,21 @@ function ActuacionReader({ movement, onClose }: { movement: SaeMovement; onClose
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="mx-auto flex h-full w-full max-w-3xl flex-col bg-zinc-950 shadow-2xl border-x border-white/5"
+        className="flex w-full max-h-[92dvh] flex-col rounded-t-2xl bg-zinc-950 shadow-2xl border border-white/8 sm:max-w-2xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3 border-b border-white/10 px-5 py-4">
-          <span className={cn('shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
+        {/* Drag handle — mobile hint */}
+        <div className="flex shrink-0 justify-center pt-2.5 pb-1 sm:hidden" aria-hidden>
+          <div className="h-1 w-9 rounded-full bg-white/20" />
+        </div>
+
+        {/* Header */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3">
+          <span className={cn('shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', TIPO_COLORS[movement.tipo_movimiento])}>
             <MovementIcon tipo={movement.tipo_movimiento} />
             {TIPO_LABELS[movement.tipo_movimiento]}
           </span>
@@ -557,16 +566,29 @@ function ActuacionReader({ movement, onClose }: { movement: SaeMovement; onClose
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-white/10 hover:text-zinc-100 transition-colors"
+            className="shrink-0 -mr-1 flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/10 hover:text-zinc-100 transition-colors"
             title="Cerrar (Esc)"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-10">
+
+        {/* Cuerpo scrollable */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
           <p className="whitespace-pre-wrap font-serif text-[15px] leading-7 text-zinc-200 [text-align:justify]">
             {movement.cuerpo}
           </p>
+        </div>
+
+        {/* Pie con botón Cerrar */}
+        <div className="shrink-0 border-t border-white/10 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-xl bg-white/8 py-3 text-sm font-medium text-zinc-300 hover:bg-white/12 hover:text-zinc-100 active:scale-[0.98] transition-all"
+          >
+            Cerrar
+          </button>
         </div>
       </div>
     </div>

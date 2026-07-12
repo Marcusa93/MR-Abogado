@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
+import { useModalHistory } from '@/hooks/use-modal-history'
 import { Link } from 'react-router-dom'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -808,6 +809,8 @@ function EscritoEditorModal({
   abogado: EscritoEncabezadoAbogado
   onRequestDelete: () => void
 }) {
+  useModalHistory(onClose)
+
   const update = useUpdateEscrito()
   const [contenido, setContenido] = useState<EscritoContenido>(escrito.contenido)
   const [titulo, setTitulo] = useState(escrito.titulo)
@@ -818,6 +821,16 @@ function EscritoEditorModal({
   // último párrafo no vacío.
   const [activeParrafo, setActiveParrafo] = useState<{ si: number; pi: number } | null>(null)
   const [sugerirOpen, setSugerirOpen] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !sugerirOpen) onClose() }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose, sugerirOpen])
 
   // Texto que pre-llena la búsqueda de jurisprudencia: párrafo activo o último
   const defaultQuery = (() => {
@@ -913,6 +926,7 @@ function EscritoEditorModal({
 <script>window.addEventListener('load', () => { setTimeout(() => { window.print() }, 200) })</script>
 </body></html>`)
     printWindow.document.close()
+    printWindow.onafterprint = () => printWindow.close()
   }
 
   const updateSeccion = (i: number, patch: Partial<EscritoContenido['secciones'][0]>) => {

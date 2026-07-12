@@ -332,6 +332,23 @@ export function useFijarNormativa() {
   })
 }
 
+export function useSearchNormativaByText() {
+  return useMutation<Pick<NormativaDocumento, 'id' | 'titulo' | 'tipo' | 'numero'>[], Error, string>({
+    mutationFn: async (query) => {
+      const q = query.trim()
+      if (!q) return []
+      const { data, error } = await (supabase as any)
+        .from('normativa_documentos')
+        .select('id, titulo, tipo, numero')
+        .or(`titulo.ilike.%${q}%,numero.ilike.%${q}%`)
+        .eq('estado', 'indexado')
+        .limit(5)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
 export function useDesfijarNormativa() {
   const qc = useQueryClient()
   return useMutation<void, Error, { expedienteId: string; documentoId: string }>({

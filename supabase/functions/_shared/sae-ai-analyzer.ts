@@ -9,6 +9,9 @@ export interface AiExtracted {
   partes: string[]
   fechas: { tipo: string; fecha_iso: string; descripcion: string }[]
   plazos: { dias: number; habiles: boolean; vence_aprox: string | null; descripcion: string }[]
+  juez: { nombre: string; cargo: 'juez' | 'secretario' | 'vocal' | 'otro' } | null
+  normativa_citada: { norma: string; uso: string | null }[]
+  jurisprudencia_citada: { cita: string; uso: string | null }[]
 }
 
 export interface AiSuggestedAction {
@@ -50,6 +53,22 @@ Devolvé SIEMPRE un JSON válido con esta estructura exacta:
         "vence_aprox": "YYYY-MM-DD o null si no se puede calcular",
         "descripcion": "para qué corre ese plazo"
       }
+    ],
+    "juez": {
+      "nombre": "Nombre completo del magistrado o secretario firmante, si está EXPLÍCITAMENTE mencionado",
+      "cargo": "juez|secretario|vocal|otro"
+    },
+    "normativa_citada": [
+      {
+        "norma": "Art. 1741 CCyC | Ley 24.557 art. 6 | CPCC Tucumán art. 56 — con número y artículo cuando estén en el texto",
+        "uso": "para qué se cita. null si no se aclara."
+      }
+    ],
+    "jurisprudencia_citada": [
+      {
+        "cita": "CSJN 'Aquino, Isacio c/ Cargo' (2004) | CSJTuc Sala Civil autos N° 123/20 — con autos y tribunal cuando estén en el texto",
+        "uso": "para qué se invoca. null si no se aclara."
+      }
     ]
   },
   "suggested_action": {
@@ -68,6 +87,9 @@ REGLAS:
 - tipo "turno" SOLO si hay una audiencia agendada explícita.
 - tipo "tarea" cuando hay una acción a ejecutar (ej: contestar, presentar, apelar, asistir).
 - prioridad URGENTE si el plazo es ≤ 3 días, ALTA si ≤ 7 días, MEDIA si ≤ 15 días, BAJA en otro caso.
+- juez: null si el texto no menciona explícitamente un magistrado o secretario como firmante o titular. Solo incluir si hay nombre explícito (no inferir). cargo "secretario" si figura como "Secretario/a", "juez" si figura como "Juez/a" o "Titular", "vocal" si es tribunal colegiado.
+- normativa_citada: solo normas con número/artículo explícitos. Ej: "Art. 1741 CCyC" no "el código civil". Arrays [] si no hay citas.
+- jurisprudencia_citada: solo fallos con autos y tribunal explícitos. Ej: "CSJN 'Aquino'" no "fallo de la Corte". Arrays [] si no hay citas.
 - Las fechas se expresan en formato DD/MM/YYYY en el texto. Convertilas a YYYY-MM-DD.
 - "días hábiles" = habiles: true. "días" sin aclarar en juzgados = habiles: true por defecto.
 - vence_aprox: si hay plazo en días hábiles desde la fecha de la actuación, calculá la fecha aproximada (sumando días hábiles, sin contar sábados ni domingos; ignorá feriados).
@@ -130,9 +152,8 @@ ${cuerpo}${docSection}`
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userMessage },
       ],
-      response_format: { type: 'json_object' },
       temperature: 0.1,
-      max_tokens: 2000,
+      max_tokens: 4000,
     }),
   })
 
@@ -157,6 +178,9 @@ ${cuerpo}${docSection}`
     partes: Array.isArray(parsed.extracted?.partes) ? parsed.extracted.partes.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : [],
     fechas: Array.isArray(parsed.extracted?.fechas) ? parsed.extracted.fechas.filter(isValidFechaEntry) : [],
     plazos: Array.isArray(parsed.extracted?.plazos) ? parsed.extracted.plazos.filter(isValidPlazoEntry) : [],
+    juez: isValidJuezEntry(parsed.extracted?.juez) ? (parsed.extracted.juez as AiExtracted['juez']) : null,
+    normativa_citada: Array.isArray(parsed.extracted?.normativa_citada) ? parsed.extracted.normativa_citada.filter(isValidNormaCita) : [],
+    jurisprudencia_citada: Array.isArray(parsed.extracted?.jurisprudencia_citada) ? parsed.extracted.jurisprudencia_citada.filter(isValidJurisCita) : [],
   }
 
   const suggested_action = isValidSuggestedAction(parsed.suggested_action) ? parsed.suggested_action : null
@@ -206,6 +230,27 @@ function isValidPlazoEntry(e: unknown): e is { dias: number; habiles: boolean; v
   if (o.vence_aprox !== null && !(typeof o.vence_aprox === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.vence_aprox))) return false
   if (typeof o.descripcion !== 'string') return false
   return true
+}
+
+function isValidNormaCita(e: unknown): e is { norma: string; uso: string | null } {
+  if (!e || typeof e !== 'object') return false
+  const o = e as Record<string, unknown>
+  return typeof o.norma === 'string' && o.norma.trim().length > 2
+    && (o.uso === null || typeof o.uso === 'string')
+}
+
+function isValidJurisCita(e: unknown): e is { cita: string; uso: string | null } {
+  if (!e || typeof e !== 'object') return false
+  const o = e as Record<string, unknown>
+  return typeof o.cita === 'string' && o.cita.trim().length > 2
+    && (o.uso === null || typeof o.uso === 'string')
+}
+
+function isValidJuezEntry(e: unknown): e is { nombre: string; cargo: string } {
+  if (!e || typeof e !== 'object') return false
+  const o = e as Record<string, unknown>
+  return typeof o.nombre === 'string' && o.nombre.trim().length > 0
+    && ['juez', 'secretario', 'vocal', 'otro'].includes(o.cargo as string)
 }
 
 function isValidSuggestedAction(e: unknown): e is AiSuggestedAction {

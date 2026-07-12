@@ -257,6 +257,22 @@ export function useBuscarJurisprudenciaAfin() {
   })
 }
 
+export function useSearchJurisprudenciaByText() {
+  return useMutation<Pick<JurisprudenciaDocumento, 'id' | 'caratula' | 'tribunal' | 'tipo'>[], Error, string>({
+    mutationFn: async (query) => {
+      const q = query.trim()
+      if (!q) return []
+      const { data, error } = await (supabase as any)
+        .from('jurisprudencia_documentos')
+        .select('id, caratula, tribunal, tipo')
+        .ilike('caratula', `%${q}%`)
+        .limit(5)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
 export function useDesfijarJurisprudencia() {
   const qc = useQueryClient()
   return useMutation<void, Error, { expedienteId: string; documentoId: string }>({

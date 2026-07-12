@@ -81,7 +81,7 @@ export function DashboardLayout() {
         )}
 
         <main className="dashboard-shell mesh-gradient-bg flex-1 overflow-y-auto p-4 pb-20 sm:p-6 sm:pb-6">
-          <div className="mx-auto max-w-[1440px] animate-fade-in">
+          <div className="mx-auto min-h-full max-w-[1440px] animate-fade-in">
             <Outlet />
           </div>
         </main>

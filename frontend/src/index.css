@@ -297,8 +297,9 @@ html {
 /* Radiales más presentes en dark (matching la profundidad del sitio público) */
 .dark .mesh-gradient-bg {
   background-image:
-    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 8%) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 6%) 0%, transparent 55%);
+    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 14%) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 10%) 0%, transparent 55%),
+    radial-gradient(ellipse at 60% 50%, oklch(0.30 0.04 250 / 6%) 0%, transparent 60%);
 }
 
 /* ─── Login Background ─── */
@@ -406,10 +407,10 @@ html {
 
 .dark .dashboard-shell {
   background-image:
-    linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px),
-    radial-gradient(circle at 0% 0%, rgb(117 168 195 / 14%) 0%, transparent 34%),
-    radial-gradient(circle at 100% 100%, rgb(87 124 142 / 12%) 0%, transparent 38%);
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 0% 0%, rgb(117 168 195 / 18%) 0%, transparent 34%),
+    radial-gradient(circle at 100% 100%, rgb(87 124 142 / 15%) 0%, transparent 38%);
   background-size: 40px 40px, 40px 40px, auto, auto;
 }
 
@@ -625,6 +626,44 @@ html {
 .dashboard-divider {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgb(87 124 142 / 22%), transparent);
+}
+
+/* ─── App Card — superficie elevada para contenido de páginas interiores ─── */
+/*
+   Pensada para reemplazar el patrón "bg-white/3 border border-white/10"
+   que era plano. Lleva gradiente, gleam superior y sombra leve —
+   el mismo ADN que .dashboard-panel pero más liviana (no usa blur).
+*/
+
+.app-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid rgb(1 16 30 / 10%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 96%) 0%, rgb(245 249 251 / 99%) 100%);
+  box-shadow:
+    0 2px 8px oklch(0.12 0.045 250 / 5%),
+    0 1px 2px oklch(0.12 0.045 250 / 4%),
+    inset 0 1px 0 oklch(1 0 0 / 80%);
+}
+
+.dark .app-card {
+  border-color: rgb(255 255 255 / 10%);
+  background: linear-gradient(180deg, rgb(44 56 74 / 80%) 0%, rgb(28 38 51 / 90%) 100%);
+  box-shadow:
+    0 4px 16px rgb(0 0 0 / 22%),
+    0 1px 3px rgb(0 0 0 / 18%),
+    inset 0 1px 0 oklch(1 0 0 / 5%);
+}
+
+/* Gleam horizontal sutil en el borde superior — igual que .dashboard-panel */
+.app-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(87 124 142 / 16%), transparent);
+  pointer-events: none;
 }
 
 /* ─── Interaction Utilities ─── */

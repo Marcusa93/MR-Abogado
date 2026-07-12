@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Sparkles, Clock, Calendar, Users, Plus, RefreshCw, Loader2,
-  Gavel, ChevronDown, ChevronUp, AlertCircle,
+  Gavel, ChevronDown, ChevronUp, AlertCircle, Scale,
 } from 'lucide-react'
 import { useSaeMovements, useGenerateBrief, useExpedienteBrief, type SaeMovement } from '@/hooks/use-sae'
+import { useAdjuntos } from '@/hooks/use-adjuntos'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,7 @@ interface Props {
 
 export function SaeIntelligencePanel({ expedienteId }: Props) {
   const { data: movements = [] } = useSaeMovements(expedienteId)
+  const { data: adjuntos = [] } = useAdjuntos(expedienteId)
   const { data: brief } = useExpedienteBrief(expedienteId)
   const generateBrief = useGenerateBrief()
   const [briefExpanded, setBriefExpanded] = useState(false)
@@ -57,10 +59,15 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
   }>({ open: false })
 
   // ── Aggregate AI data across all movements ─────────────────────────────────
-  const { plazos, partes, ultimaSentencia, fechasClave, analyzedCount } = useMemo(() => {
+  const { plazos, partes, ultimaSentencia, fechasClave, analyzedCount, jueces, normas, juris } = useMemo(() => {
     const plazosArr: PlazoVigente[] = []
     const partesSet = new Set<string>()
     const fechasArr: { tipo: string; fecha_iso: string; descripcion: string; movement: SaeMovement }[] = []
+    // jueces: map by lowercase nombre → { nombre, cargo, count, lastFecha }
+    const juecesMap = new Map<string, { nombre: string; cargo: string; count: number; lastFecha: string }>()
+    // normas y jurisprudencia: map by lowercase texto → { texto, uso, count, fuentes }
+    const normasMap = new Map<string, { texto: string; uso: string | null; count: number; fuente: string }>()
+    const jurisMap = new Map<string, { texto: string; uso: string | null; count: number; fuente: string }>()
     let ultimaSentencia: SaeMovement | null = null
     let analyzed = 0
     const today = new Date().toISOString().slice(0, 10)
@@ -75,7 +82,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
         ultimaSentencia = m
       }
 
-      const ext = m.ai_extracted
+      const ext = m.ai_extracted as (typeof m.ai_extracted & { juez?: { nombre: string; cargo: string } | null }) | null
       if (!ext) continue
       ext.partes?.forEach(p => partesSet.add(p.trim()))
       ext.plazos?.forEach(p => {
@@ -98,10 +105,60 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
         if (f.fecha_iso < today) return
         fechasArr.push({ ...f, movement: m })
       })
+      if (ext.juez?.nombre) {
+        const key = ext.juez.nombre.toLowerCase().trim()
+        const existing = juecesMap.get(key)
+        if (!existing) {
+          juecesMap.set(key, { nombre: ext.juez.nombre, cargo: ext.juez.cargo, count: 1, lastFecha: m.fecha })
+        } else {
+          existing.count++
+          if (m.fecha > existing.lastFecha) existing.lastFecha = m.fecha
+        }
+      }
+      // Normativa y jurisprudencia de actuaciones SAE
+      const extFull = ext as typeof ext & {
+        normativa_citada?: { norma: string; uso: string | null }[]
+        jurisprudencia_citada?: { cita: string; uso: string | null }[]
+      }
+      extFull.normativa_citada?.forEach(n => {
+        const key = n.norma.toLowerCase().trim()
+        const e = normasMap.get(key)
+        if (!e) normasMap.set(key, { texto: n.norma, uso: n.uso, count: 1, fuente: 'actuación' })
+        else e.count++
+      })
+      extFull.jurisprudencia_citada?.forEach(j => {
+        const key = j.cita.toLowerCase().trim()
+        const e = jurisMap.get(key)
+        if (!e) jurisMap.set(key, { texto: j.cita, uso: j.uso, count: 1, fuente: 'actuación' })
+        else e.count++
+      })
+    }
+
+    // Normativa y jurisprudencia de adjuntos analizados
+    for (const adj of adjuntos) {
+      const adjRaw = adj as unknown as { ai_extracted?: unknown }
+      const adjExt = adjRaw.ai_extracted as {
+        normativa_citada?: { norma: string; uso: string | null }[]
+        jurisprudencia_citada?: { cita: string; uso: string | null }[]
+      } | null | undefined
+      if (!adjExt) continue
+      adjExt.normativa_citada?.forEach(n => {
+        const key = n.norma.toLowerCase().trim()
+        const e = normasMap.get(key)
+        if (!e) normasMap.set(key, { texto: n.norma, uso: n.uso, count: 1, fuente: 'documento' })
+        else e.count++
+      })
+      adjExt.jurisprudencia_citada?.forEach(j => {
+        const key = j.cita.toLowerCase().trim()
+        const e = jurisMap.get(key)
+        if (!e) jurisMap.set(key, { texto: j.cita, uso: j.uso, count: 1, fuente: 'documento' })
+        else e.count++
+      })
     }
 
     plazosArr.sort((a, b) => a.vence_aprox.localeCompare(b.vence_aprox))
     fechasArr.sort((a, b) => a.fecha_iso.localeCompare(b.fecha_iso))
+    const juecesArr = [...juecesMap.values()].sort((a, b) => b.count - a.count)
 
     return {
       plazos: plazosArr,
@@ -109,8 +166,11 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
       ultimaSentencia,
       fechasClave: fechasArr,
       analyzedCount: analyzed,
+      jueces: juecesArr,
+      normas: [...normasMap.values()].sort((a, b) => b.count - a.count),
+      juris: [...jurisMap.values()].sort((a, b) => b.count - a.count),
     }
-  }, [movements])
+  }, [movements, adjuntos])
 
   const handleCreateTareaFromPlazo = (p: PlazoVigente) => {
     setTareaPrefill({
@@ -132,7 +192,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
   }
 
   // Si no hay nada de IA acumulado, no mostramos el panel
-  const hasAnyContent = brief || plazos.length > 0 || partes.length > 0 || ultimaSentencia || fechasClave.length > 0
+  const hasAnyContent = brief || plazos.length > 0 || partes.length > 0 || ultimaSentencia || fechasClave.length > 0 || jueces.length > 0 || normas.length > 0 || juris.length > 0
   const hasMovements = movements.length > 0
 
   // Colapsable, recordado por expediente. Si no hay contenido, default colapsado.
@@ -292,7 +352,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
           </div>
         )}
 
-        {/* ── Fechas clave + Partes (lado a lado en sm+) ── */}
+        {/* ── Fechas clave + Partes + Jueces ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {fechasClave.length > 0 && (
             <div>
@@ -330,7 +390,86 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
               </div>
             </div>
           )}
+
+          {jueces.length > 0 && (
+            <div className="sm:col-span-2">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Scale className="h-3 w-3 text-sky-400" />
+                <p className="text-[11px] uppercase tracking-wider text-sky-300 font-medium">Jueces / Secretarios detectados</p>
+                <span className="text-[10px] text-zinc-600 dark:text-zinc-300">por frecuencia en actuaciones analizadas</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {jueces.map(j => (
+                  <span
+                    key={j.nombre}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/15 bg-sky-500/[0.05] px-2 py-0.5 text-[11px] text-sky-200"
+                    title={`Mencionado/a en ${j.count} actuación${j.count !== 1 ? 'es' : ''}`}
+                  >
+                    <Scale className="h-2.5 w-2.5 text-sky-400/70 shrink-0" />
+                    {j.nombre}
+                    <span className="text-sky-400/50 text-[10px] capitalize">{j.cargo}</span>
+                    {j.count > 1 && (
+                      <span className="text-[10px] text-sky-400/40">×{j.count}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* ── Normativa y Jurisprudencia citadas (agregadas de actuaciones + documentos) ── */}
+        {(normas.length > 0 || juris.length > 0) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {normas.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Scale className="h-3 w-3 text-amber-400" />
+                  <p className="text-[11px] uppercase tracking-wider text-amber-300 font-medium">Normativa citada</p>
+                  <span className="text-[10px] text-zinc-600 dark:text-zinc-300">actuaciones + docs</span>
+                </div>
+                <div className="space-y-1">
+                  {normas.slice(0, 10).map((n, i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[11px]">
+                      <span className="shrink-0 mt-0.5 rounded bg-amber-500/15 px-1.5 py-0 text-amber-300 font-mono leading-5">
+                        {n.count > 1 && <span className="mr-1 text-amber-400/60">×{n.count}</span>}
+                        {n.texto}
+                      </span>
+                      {n.uso && <span className="text-zinc-500 dark:text-zinc-400 line-clamp-1 leading-5">{n.uso}</span>}
+                    </div>
+                  ))}
+                  {normas.length > 10 && (
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">+{normas.length - 10} más</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {juris.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Gavel className="h-3 w-3 text-rose-400" />
+                  <p className="text-[11px] uppercase tracking-wider text-rose-300 font-medium">Jurisprudencia invocada</p>
+                  <span className="text-[10px] text-zinc-600 dark:text-zinc-300">actuaciones + docs</span>
+                </div>
+                <div className="space-y-1">
+                  {juris.slice(0, 8).map((j, i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[11px]">
+                      <span className="shrink-0 mt-0.5 rounded bg-rose-500/10 px-1.5 py-0 text-rose-300 leading-5">
+                        {j.count > 1 && <span className="mr-1 text-rose-400/60">×{j.count}</span>}
+                        {j.texto}
+                      </span>
+                      {j.uso && <span className="text-zinc-500 dark:text-zinc-400 line-clamp-1 leading-5">{j.uso}</span>}
+                    </div>
+                  ))}
+                  {juris.length > 8 && (
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400">+{juris.length - 8} más</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {!hasAnyContent && analyzedCount === 0 && (
           <div className="text-center py-2">
