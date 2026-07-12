@@ -301,9 +301,13 @@ export function NovedadesPanel({ expedienteId }: { expedienteId: string }) {
   if (estado === 'confirmando' && propuesta) {
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
           <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Nota generada</p>
-          <p className="text-sm text-zinc-200 leading-relaxed">{propuesta.nota}</p>
+          <textarea
+            className="w-full resize-none rounded bg-white/5 px-2 py-1.5 text-sm text-zinc-200 leading-relaxed outline-none focus:ring-1 focus:ring-white/20 min-h-[72px]"
+            value={propuesta.nota}
+            onChange={e => setPropuesta({ ...propuesta, nota: e.target.value })}
+          />
         </div>
 
         <div className="space-y-2">
