@@ -8,7 +8,7 @@
 // Si falla, devuelve null y el caller deja la notif sin clasificar.
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-3.5-haiku'
+const MODEL = 'anthropic/claude-haiku-4.5'
 
 export interface PriorityClassification {
   prioridad: 'urgente' | 'normal' | 'info'
