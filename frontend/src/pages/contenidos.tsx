@@ -7,11 +7,12 @@ import {
   Sparkles, Plus, Edit2, Trash2, Loader2, X, FileText,
   Instagram, Linkedin, Facebook, Twitter, Mail, Send, MessageSquare,
   BookOpen, Video, Hash, LayoutGrid, List as ListIcon, ChevronLeft, ChevronRight,
-  CalendarDays, FolderOpen, Clapperboard, ImagePlus, Clock,
+  CalendarDays, CalendarRange, FolderOpen, Clapperboard, ImagePlus, Clock,
 } from 'lucide-react'
 import {
   useContenidos, useCreateContenido, useUpdateContenido, useDeleteContenido,
-  useGenerarContenidoDesdeVideo, useUploadContenidoImagen, parseGuionReel, parseIdea,
+  useGenerarContenidoDesdeVideo, useUploadContenidoImagen, useGenerarCalendarioEditorial,
+  parseGuionReel, parseIdea,
   CATEGORIAS_CONTENIDO, ESTADOS_CONTENIDO,
   type Contenido, type CategoriaContenido, type EstadoContenido,
 } from '@/hooks/use-contenidos'
@@ -217,6 +218,7 @@ export default function ContenidosPage() {
   const [plataformas, setPlataformas] = useState<Set<string>>(
     () => new Set(PLATAFORMAS_GENERABLES.map((p) => p.key)),
   )
+  const [calendarioOpen, setCalendarioOpen] = useState(false)
   const generar = useGenerarContenidoDesdeVideo()
 
   const togglePlataforma = (key: string) => {
@@ -348,6 +350,14 @@ export default function ContenidosPage() {
           >
             <Clapperboard className="h-4 w-4" />
             Guion de Reel
+          </button>
+          <button
+            onClick={() => setCalendarioOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+            title="Generar el plan editorial de un mes completo"
+          >
+            <CalendarRange className="h-4 w-4" />
+            Generar mes
           </button>
           <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
@@ -591,6 +601,12 @@ export default function ContenidosPage() {
       {dialogOpen && <ContenidoDialog editing={editing} onClose={() => { setDialogOpen(false); setEditing(null) }} />}
       {guionDialogOpen && <GuionReelDialog onClose={() => setGuionDialogOpen(false)} />}
       {viewingGuion && <GuionReelViewer contenido={viewingGuion} onClose={() => setViewingGuion(null)} />}
+      {calendarioOpen && (
+        <CalendarioGenerarDialog
+          onClose={() => setCalendarioOpen(false)}
+          onSuccess={() => { setCalendarioOpen(false); setView('calendario') }}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -606,6 +622,167 @@ export default function ContenidosPage() {
         confirmLabel="Eliminar"
         variant="danger"
       />
+    </div>
+  )
+}
+
+// ── Generador de calendario editorial ────────────────────────────────────────
+
+const PLATAFORMAS_CALENDARIO = [
+  { key: 'linkedin',    label: 'LinkedIn',        icon: Linkedin,  desc: '4 posts/sem — análisis y criterio' },
+  { key: 'instagram',  label: 'Instagram',        icon: Instagram, desc: '3 posts/sem — educativo y cercano' },
+  { key: 'twitter',    label: 'X / Twitter',      icon: Twitter,   desc: '3 posts/sem — opinión breve' },
+  { key: 'video_guion',label: 'TikTok / Reels',   icon: Video,     desc: '1 guion/sem — gancho + desarrollo' },
+]
+
+function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const now = new Date()
+  const defaultMonth = now.getMonth() === 11
+    ? { year: now.getFullYear() + 1, month: 1 }
+    : { year: now.getFullYear(), month: now.getMonth() + 2 }
+
+  const [year, setYear] = useState(defaultMonth.year)
+  const [month, setMonth] = useState(defaultMonth.month)
+  const [plats, setPlats] = useState<Set<string>>(
+    () => new Set(['linkedin', 'instagram', 'twitter', 'video_guion'])
+  )
+  const generar = useGenerarCalendarioEditorial()
+
+  const togglePlat = (key: string) =>
+    setPlats(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+
+  const mesLabel = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][month - 1]
+
+  const estimado = (() => {
+    const freq: Record<string, number> = { linkedin: 16, instagram: 12, twitter: 12, video_guion: 4 }
+    return [...plats].reduce((s, p) => s + (freq[p] ?? 8), 0)
+  })()
+
+  const handleGenerar = () => {
+    if (plats.size === 0) { toast.error('Seleccioná al menos una plataforma'); return }
+    generar.mutate(
+      { year, month, plataformas: [...plats] },
+      {
+        onSuccess: (r) => {
+          toast.success(`${r.created} borradores creados para ${mesLabel} ${year}`)
+          onSuccess()
+        },
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo generar el calendario'),
+      }
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <CalendarRange className="h-5 w-5 text-emerald-400" />
+            <h2 className="text-sm font-semibold text-zinc-100">Generar calendario editorial</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          {/* Selector de mes */}
+          <div>
+            <p className="text-xs font-medium text-zinc-400 mb-2">Mes a planificar</p>
+            <div className="flex items-center gap-2">
+              <select
+                value={month}
+                onChange={e => setMonth(Number(e.target.value))}
+                className="flex-1 rounded-lg border border-white/10 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500/50"
+              >
+                {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) => (
+                  <option key={m} value={i + 1}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={year}
+                onChange={e => setYear(Number(e.target.value))}
+                className="w-24 rounded-lg border border-white/10 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500/50"
+              >
+                {[now.getFullYear(), now.getFullYear() + 1].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Selector de plataformas */}
+          <div>
+            <p className="text-xs font-medium text-zinc-400 mb-2">Plataformas a cubrir</p>
+            <div className="space-y-2">
+              {PLATAFORMAS_CALENDARIO.map(p => {
+                const Icon = p.icon
+                const active = plats.has(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => togglePlat(p.key)}
+                    className={cn(
+                      'w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      active
+                        ? 'border-emerald-500/30 bg-emerald-500/[0.07]'
+                        : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
+                    )}
+                  >
+                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+                      active ? 'bg-emerald-500/15' : 'bg-white/5'
+                    )}>
+                      <Icon className={cn('h-3.5 w-3.5', active ? 'text-emerald-300' : 'text-zinc-500')} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('text-xs font-medium', active ? 'text-zinc-100' : 'text-zinc-400')}>{p.label}</p>
+                      <p className="text-[10px] text-zinc-600">{p.desc}</p>
+                    </div>
+                    <div className={cn('h-4 w-4 shrink-0 rounded border flex items-center justify-center',
+                      active ? 'border-emerald-500/50 bg-emerald-500/20' : 'border-white/10'
+                    )}>
+                      {active && <div className="h-2 w-2 rounded-sm bg-emerald-400" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Estimado */}
+          {plats.size > 0 && (
+            <div className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2.5">
+              <p className="text-xs text-zinc-400">
+                Se crearán aproximadamente <span className="font-semibold text-emerald-300">~{estimado} borradores</span> distribuidos en los días hábiles de {mesLabel} {year}.
+                Cada uno incluye el tema y el gancho sugerido — después los completás con texto completo o guion.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/10 px-5 py-4 flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerar}
+            disabled={generar.isPending || plats.size === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors"
+          >
+            {generar.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Generando con IA…</>
+            ) : (
+              <><CalendarRange className="h-4 w-4" /> Generar {mesLabel}</>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

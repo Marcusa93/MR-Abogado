@@ -106,6 +106,29 @@ async function fnErr(error: unknown): Promise<Error> {
   return error instanceof Error ? error : new Error('Error desconocido')
 }
 
+// Genera el calendario editorial mensual: llama la edge function y crea borradores.
+export function useGenerarCalendarioEditorial() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      year: number
+      month: number
+      plataformas: string[]
+    }): Promise<{ created: number }> => {
+      const { data, error } = await supabase.functions.invoke('calendario-editorial-generar', {
+        body: input,
+      })
+      if (error) throw await fnErr(error)
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      return data as { created: number }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contenidos'] })
+    },
+  })
+}
+
 // Sube un video, le extrae audio, transcribe y genera tarjetas por plataforma.
 export function useGenerarContenidoDesdeVideo() {
   const supabase = createClient()
