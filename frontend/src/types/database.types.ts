@@ -2148,6 +2148,7 @@ export type Database = {
         Row: {
           activo: boolean
           domicilio: string | null
+          email: string | null
           id: string
           jurisdiccion: string | null
           localidad: string | null
@@ -2159,6 +2160,7 @@ export type Database = {
         Insert: {
           activo?: boolean
           domicilio?: string | null
+          email?: string | null
           id?: string
           jurisdiccion?: string | null
           localidad?: string | null
@@ -2170,6 +2172,7 @@ export type Database = {
         Update: {
           activo?: boolean
           domicilio?: string | null
+          email?: string | null
           id?: string
           jurisdiccion?: string | null
           localidad?: string | null
