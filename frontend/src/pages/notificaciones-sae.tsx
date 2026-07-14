@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
 import {
   Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
-  Building2, CalendarDays, Search, FileCheck2,
+  Building2, CalendarDays, Search, FileCheck2, Clock, X,
 } from 'lucide-react'
 import { ConstanciaModal } from '@/components/sae/constancia-modal'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,6 +13,10 @@ import {
   useSaeNotifPreferences, useTriggerSaePoll,
   type SaeNotificacion, type PollResult,
 } from '@/hooks/use-sae-notificaciones'
+import {
+  usePlazoPropuestos, useConfirmarPlazo, useDescartarPlazo,
+  type PlazoPropuesto,
+} from '@/hooks/use-plazos-propuestos'
 import { getFueroLabel } from '@/lib/sae-fueros'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -36,6 +40,116 @@ function formatFechaRelativa(iso: string | null): string {
   const diffD = Math.round(diffH / 24)
   if (diffD < 7) return `hace ${diffD} d`
   return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+}
+
+function formatFechaCorta(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function PlazoPropuestoCard({ p }: { p: PlazoPropuesto }) {
+  const confirmar = useConfirmarPlazo()
+  const descartar = useDescartarPlazo()
+  const plazo = p.plazo_sugerido
+  const tipoLabel = plazo.tipo_acto.replace(/_/g, ' ')
+  const diasLabel = `${plazo.dias} ${plazo.es_habiles ? 'hábiles' : 'corridos'}`
+  const caratula = p.expediente?.caratula ?? p.caratula ?? p.numero_expediente
+  const tituloTarea = `${tipoLabel.charAt(0).toUpperCase() + tipoLabel.slice(1)} — ${caratula ?? 'Exp. sin carátula'}`
+
+  return (
+    <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.07] p-3 sm:p-4">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Clock className="h-4 w-4 shrink-0 text-amber-400" />
+          <span className="text-sm font-semibold text-amber-100 capitalize">{tipoLabel}</span>
+          {plazo.confianza === 'alta' ? (
+            <span className="text-[10px] rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300">confianza alta</span>
+          ) : (
+            <span className="text-[10px] rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-300">revisar</span>
+          )}
+        </div>
+        <button
+          onClick={() => descartar.mutate({ notifId: p.id, plazo })}
+          disabled={descartar.isPending}
+          className="shrink-0 rounded p-1 text-zinc-500 hover:text-zinc-300 disabled:opacity-30"
+          title="Descartar propuesta"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-3">
+        <div>
+          <span className="text-zinc-500">Plazo</span>
+          <span className="ml-1 text-zinc-200">{diasLabel}</span>
+        </div>
+        {plazo.base_legal && (
+          <div>
+            <span className="text-zinc-500">Base legal</span>
+            <span className="ml-1 text-zinc-200">{plazo.base_legal}</span>
+          </div>
+        )}
+        <div>
+          <span className="text-zinc-500">Actuación</span>
+          <span className="ml-1 text-zinc-200">{formatFechaCorta(plazo.fecha_actuacion)}</span>
+        </div>
+        <div>
+          <span className="text-zinc-500">Vence</span>
+          <span className="ml-1 font-semibold text-amber-200">{formatFechaCorta(plazo.fecha_vencimiento)}</span>
+        </div>
+      </div>
+
+      {caratula && (
+        <p className="text-[11px] text-zinc-400 italic truncate mb-3">{caratula}</p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            confirmar.mutate(
+              { notifId: p.id, plazo, expedienteId: p.expediente_id, tituloTarea },
+              {
+                onSuccess: () => toast.success('Plazo confirmado — tarea creada'),
+                onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al confirmar'),
+              },
+            )
+          }}
+          disabled={confirmar.isPending}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/80 hover:bg-amber-500 disabled:opacity-50 px-3 py-1.5 text-xs font-medium text-zinc-900"
+        >
+          {confirmar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          Confirmar y crear tarea
+        </button>
+        {p.expediente_id && (
+          <Link
+            to={`/expedientes/${p.expediente_id}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+          >
+            <FileText className="h-3 w-3" />
+            Ver expediente
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PlazoPropuestosPanel() {
+  const { data: plazos = [], isLoading } = usePlazoPropuestos()
+  if (isLoading || plazos.length === 0) return null
+  return (
+    <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 sm:p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Clock className="h-4 w-4 text-amber-400" />
+        <span className="text-sm font-semibold text-amber-200">
+          Plazos procesales propuestos por IA ({plazos.length})
+        </span>
+        <span className="text-[11px] text-zinc-400">— confirmá para crear la tarea</span>
+      </div>
+      <div className="space-y-3">
+        {plazos.map(p => <PlazoPropuestoCard key={p.id} p={p} />)}
+      </div>
+    </div>
+  )
 }
 
 function NotifCard({ notif }: { notif: SaeNotificacion }) {
@@ -349,6 +463,8 @@ export default function NotificacionesSaePage() {
           </div>
         </div>
       )}
+
+      <PlazoPropuestosPanel />
 
       {/* Búsqueda */}
       <div className="mb-3 relative">

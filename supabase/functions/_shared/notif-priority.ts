@@ -14,24 +14,49 @@ export interface PriorityClassification {
   prioridad: 'urgente' | 'normal' | 'info'
   plazo_estimado_dias: number | null
   resumen: string
+  tipo_acto: string | null
+  dias: number | null
+  es_habiles: boolean | null
+  base_legal: string | null
+  confianza: 'alta' | 'media' | 'baja'
 }
 
-const SYSTEM_PROMPT = `Sos un asistente jurídico de Tucumán, Argentina. Clasificás notificaciones del portal SAE por urgencia.
+const SYSTEM_PROMPT = `Sos un asistente jurídico de Tucumán, Argentina. Clasificás notificaciones del portal SAE por urgencia y calculás plazos procesales.
 
-Reglas:
+Reglas de prioridad:
 - "urgente": plazos perentorios <= 5 días hábiles (traslados de demanda, intimaciones de pago, audiencias dentro de 7 días, recursos a interponer, oposiciones).
 - "normal": acción esperable pero sin urgencia inmediata (proveídos, decretos de trámite, ofrecimientos de prueba con plazo > 5 días).
 - "info": puro registro, sin acción requerida (constancias, comprobantes, simples notificaciones de pase a despacho).
+
+Plazos procesales comunes (CPCC Tucumán y legislación aplicable):
+- Traslado de demanda: 15 días hábiles (art. 338 CPCC)
+- Traslado de excepción: 5 días hábiles (art. 347 CPCC)
+- Intimación de pago: 5 días hábiles
+- Reposición/oposición: 3 días hábiles (art. 240 CPCC)
+- Apelación: 5 días hábiles (art. 254 CPCC)
+- Ofrecimiento de prueba: 10 días hábiles (variable por fuero)
+- Respuesta a cautelar: 5 días hábiles
 
 Devolvé EXACTAMENTE este JSON, sin texto adicional:
 
 {
   "prioridad": "urgente" | "normal" | "info",
-  "plazo_estimado_dias": número entero de días hábiles | null si no es estimable,
-  "resumen": "frase corta de hasta 90 caracteres describiendo qué requiere el abogado"
+  "plazo_estimado_dias": número entero de días hábiles | null,
+  "resumen": "frase de hasta 90 caracteres describiendo qué requiere el abogado",
+  "tipo_acto": "traslado_demanda" | "traslado_excepcion" | "intimacion_pago" | "citacion_audiencia" | "ofrecimiento_prueba" | "recurso_reposicion" | "apelacion" | "oposicion" | "cautelar" | "otro" | null,
+  "dias": número entero del plazo | null,
+  "es_habiles": true | false | null,
+  "base_legal": "artículo y norma" | null,
+  "confianza": "alta" | "media" | "baja"
 }
 
-Sé conservador con "urgente": solo cuando el texto sugiere plazo perentorio o claramente <= 5 días hábiles. Cuando dudes, marcá "normal".`
+Reglas para tipo_acto y confianza:
+- "alta": el tipo de acto y plazo son inequívocos en el texto.
+- "media": razonablemente inferible pero el texto no lo confirma explícitamente.
+- "baja": no identificable con certeza. En este caso tipo_acto = null, dias = null.
+- Si no hay plazo procesal (casos "info"), tipo_acto = null, dias = null, es_habiles = null, confianza = "baja".
+
+Sé conservador con "urgente": solo cuando el texto sugiere plazo perentorio claramente <= 5 días hábiles. Cuando dudes, marcá "normal".`
 
 interface NotifInput {
   tipo: string | null
@@ -81,7 +106,7 @@ export async function classifyNotifPriority(
         ],
         response_format: { type: 'json_object' },
         temperature: 0.1,
-        max_tokens: 200,
+        max_tokens: 350,
       }),
       signal: controller.signal,
     })
@@ -103,6 +128,11 @@ export async function classifyNotifPriority(
         ? parsed.plazo_estimado_dias
         : null,
       resumen: typeof parsed.resumen === 'string' ? parsed.resumen.slice(0, 200) : '',
+      tipo_acto: typeof parsed.tipo_acto === 'string' ? parsed.tipo_acto : null,
+      dias: typeof parsed.dias === 'number' && parsed.dias > 0 ? Math.round(parsed.dias) : null,
+      es_habiles: typeof parsed.es_habiles === 'boolean' ? parsed.es_habiles : null,
+      base_legal: typeof parsed.base_legal === 'string' ? parsed.base_legal.slice(0, 100) : null,
+      confianza: parsed.confianza === 'alta' || parsed.confianza === 'media' ? parsed.confianza : 'baja',
     }
   } catch (e) {
     console.warn('classifyNotifPriority failed:', e instanceof Error ? e.message : 'unknown')

@@ -56,7 +56,7 @@ function json(req: Request, body: unknown, status = 200) {
 
 interface Reminder {
   user_id: string
-  kind: 'tarea' | 'turno' | 'plazo' | 'contenido' | 'caja'
+  kind: 'tarea' | 'turno' | 'plazo' | 'plazo_judicial' | 'contenido' | 'caja' | 'escalada'
   title: string
   url: string
   itemId: string
@@ -138,6 +138,27 @@ Deno.serve(async (req) => {
         url: `/expedientes/${a.expediente_id}`,
         itemId: a.id,
         itemTable: 'audiencias',
+      })
+    }
+
+    // ── Plazos judiciales confirmados con vencimiento en 3 días ───────
+    const { data: plazosJudiciales } = await admin
+      .from('tareas')
+      .select('id, titulo, expediente_id, asignado_a, last_reminder_at')
+      .eq('es_plazo_judicial', true)
+      .eq('fecha_vencimiento', in3days)
+      .neq('estado', 'COMPLETADA')
+      .or(`last_reminder_at.is.null,last_reminder_at.lt.${last24h}`)
+
+    for (const t of (plazosJudiciales ?? []) as { id: string; titulo: string; expediente_id: string; asignado_a: string | null }[]) {
+      if (!t.asignado_a) continue
+      reminders.push({
+        user_id: t.asignado_a,
+        kind: 'plazo_judicial',
+        title: `Plazo judicial en 3 días: ${t.titulo}`,
+        url: `/expedientes/${t.expediente_id}`,
+        itemId: t.id,
+        itemTable: 'tareas',
       })
     }
 
@@ -277,6 +298,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Escalada: alertas PLAZO_PROPUESTO urgentes no atendidas >4h ───
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    const { data: alertasPlazo } = await admin
+      .from('alertas')
+      .select('id, titulo, destinatario_id, expediente_id')
+      .eq('tipo', 'PLAZO_PROPUESTO')
+      .eq('estado', 'ACTIVA')
+      .eq('prioridad', 'ALTA')
+      .is('escalada_at', null)
+      .lt('created_at', fourHoursAgo)
+
+    for (const a of (alertasPlazo ?? []) as { id: string; titulo: string; destinatario_id: string; expediente_id: string | null }[]) {
+      if (!dryRun) {
+        await admin.from('alertas').update({ escalada_at: new Date().toISOString() } as never).eq('id', a.id)
+      }
+      reminders.push({
+        user_id: a.destinatario_id,
+        kind: 'escalada',
+        title: `Sin confirmar (4h): ${a.titulo}`,
+        url: a.expediente_id ? `/expedientes/${a.expediente_id}` : '/notificaciones-sae',
+        itemId: a.id,
+      })
+    }
+
     if (reminders.length === 0) {
       return json(req, { ok: true, reminders: 0, sent: 0, dryRun })
     }
@@ -314,10 +359,14 @@ Deno.serve(async (req) => {
       const tareas = userReminders.filter(r => r.kind === 'tarea').length
       const turnos = userReminders.filter(r => r.kind === 'turno').length
       const plazos = userReminders.filter(r => r.kind === 'plazo').length
+      const plazosJudN = userReminders.filter(r => r.kind === 'plazo_judicial').length
       const contenidosN = userReminders.filter(r => r.kind === 'contenido').length
       const cajaN = userReminders.filter(r => r.kind === 'caja').length
+      const escaladasN = userReminders.filter(r => r.kind === 'escalada').length
 
       const parts: string[] = []
+      if (escaladasN > 0) parts.push(`${escaladasN} plazo${escaladasN !== 1 ? 's' : ''} sin confirmar`)
+      if (plazosJudN > 0) parts.push(`${plazosJudN} plazo${plazosJudN !== 1 ? 's judiciales' : ' judicial'}`)
       if (tareas > 0) parts.push(`${tareas} tarea${tareas !== 1 ? 's' : ''}`)
       if (turnos > 0) parts.push(`${turnos} audiencia${turnos !== 1 ? 's' : ''}`)
       if (plazos > 0) parts.push(`${plazos} plazo${plazos !== 1 ? 's' : ''}`)

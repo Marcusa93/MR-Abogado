@@ -322,6 +322,8 @@ export interface UpdateTareaInput {
   fecha_vencimiento?: string | null
   asignado_a?: string | null
   tipo_tarea_id?: string | null
+  /** Valor anterior de asignado_a, para detectar reasignación y notificar. */
+  prevAsignadoA?: string | null
 }
 
 export function useUpdateTarea() {
@@ -330,7 +332,7 @@ export function useUpdateTarea() {
 
   return useMutation({
     mutationFn: async (input: UpdateTareaInput) => {
-      const { id, asignado_a, ...rest } = input
+      const { id, asignado_a, prevAsignadoA: _prev, ...rest } = input
       const payload: Record<string, unknown> = {
         ...rest,
         updated_at: new Date().toISOString(),
@@ -342,13 +344,16 @@ export function useUpdateTarea() {
         .from('tareas')
         .update(payload)
         .eq('id', id)
-        .select()
+        .select(`
+          *,
+          expediente:expedientes!tareas_expediente_id_fkey (id, numero, caratula)
+        `)
         .single()
 
       if (error) throw error
       return data
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, input) => {
       queryClient.invalidateQueries({ queryKey: tareasKeys.all })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       if (data.expediente_id) {
@@ -357,6 +362,33 @@ export function useUpdateTarea() {
         })
       }
       toast.success('Tarea actualizada')
+
+      // Notificar al nuevo responsable si cambió
+      const nuevoAsignadoA = input.asignado_a
+      if (
+        nuevoAsignadoA
+        && nuevoAsignadoA !== input.prevAsignadoA
+      ) {
+        const exp = (data as unknown as { expediente?: { numero?: string | null; caratula?: string | null } | null }).expediente
+        const expLabel = exp?.caratula ?? exp?.numero ?? null
+        const titulo = expLabel
+          ? `Tarea reasignada en ${expLabel}: ${data.titulo}`
+          : `Tarea reasignada: ${data.titulo}`
+        try {
+          await supabase.from('alertas').insert({
+            tipo: 'TAREA_ASIGNADA',
+            titulo,
+            mensaje: expLabel
+              ? `Se te reasignó una tarea en el expediente ${expLabel}.`
+              : 'Se te reasignó una tarea.',
+            expediente_id: data.expediente_id ?? null,
+            destinatario_id: nuevoAsignadoA,
+            payload: { tarea_id: data.id, link: data.expediente_id ? `/expedientes/${data.expediente_id}` : null },
+          } as never)
+        } catch (e) {
+          console.error('[useUpdateTarea] insert alerta TAREA_ASIGNADA falló', e)
+        }
+      }
     },
     onError: (err) => {
       toast.error('Error al actualizar', err instanceof Error ? err.message : 'Error desconocido')

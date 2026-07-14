@@ -31,7 +31,8 @@ import { isMissingSchemaObject } from '../_shared/supabase-compat.ts'
 import { authenticateWithSae, SaeError, SAE_PORTAL_BASE as PORTAL_BASE, type SaeSession } from '../_shared/sae-request-connector.ts'
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
-import { classifyNotifPriority } from '../_shared/notif-priority.ts'
+import { classifyNotifPriority, type PriorityClassification } from '../_shared/notif-priority.ts'
+import { calcularVencimiento, type FeriaPeriod } from '../_shared/judicial-calendar.ts'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
 const MAX_REDIRECT_HOPS = 20     // SSO puede encadenar 4-6 saltos; 20 da margen ante cambios
@@ -763,9 +764,18 @@ Deno.serve(async (req) => {
 
     if (dryRun) continue
 
-    // 7.5) Clasificación IA de prioridad. Corre en paralelo para todas las
-    //      nuevas, con timeout por notif. Si falla, la notif queda sin clasificar.
-    const priorities = new Map<string, 'urgente' | 'normal' | 'info'>()
+    // 7.5) Clasificación IA de prioridad + cálculo de plazo procesal.
+    //      Corre en paralelo para todas las nuevas, con timeout por notif.
+    //      Si falla, la notif queda sin clasificar.
+    const priorities = new Map<string, PriorityClassification>()
+    let feriaPeriodsCache: FeriaPeriod[] | null = null
+    const getFeriasCached = async (): Promise<FeriaPeriod[]> => {
+      if (feriaPeriodsCache !== null) return feriaPeriodsCache
+      const { data } = await admin.from('feria_judicial' as never).select('inicio, fin').order('inicio', { ascending: true })
+      feriaPeriodsCache = (data ?? []) as FeriaPeriod[]
+      return feriaPeriodsCache
+    }
+
     await Promise.all(nuevas.map(async (n) => {
       const cls = await classifyNotifPriority({
         tipo: n.tipo,
@@ -775,14 +785,53 @@ Deno.serve(async (req) => {
         oficina: n.oficina,
       })
       if (!cls) return
-      priorities.set(n.sae_notif_id, cls.prioridad)
-      await admin.from('sae_notificaciones')
+      priorities.set(n.sae_notif_id, cls)
+
+      // Calcular plazo procesal si el LLM identificó el acto con confianza suficiente
+      let plazoSugerido: Record<string, unknown> | null = null
+      if (cls.tipo_acto && cls.dias && cls.confianza !== 'baja') {
+        const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) ?? null : null
+        const fechaActuacion = (n as { fecha_emision?: string | null }).fecha_emision?.slice(0, 10)
+          ?? new Date().toISOString().slice(0, 10)
+        try {
+          const ferias = await getFeriasCached()
+          const fechaVencimiento = calcularVencimiento(fechaActuacion, cls.dias, cls.es_habiles ?? true, ferias)
+          if (fechaVencimiento) {
+            plazoSugerido = {
+              tipo_acto: cls.tipo_acto,
+              dias: cls.dias,
+              es_habiles: cls.es_habiles ?? true,
+              base_legal: cls.base_legal ?? null,
+              fecha_actuacion: fechaActuacion,
+              fecha_vencimiento: fechaVencimiento,
+              confianza: cls.confianza,
+              estado: 'pendiente',
+            }
+            // Crear alerta PLAZO_PROPUESTO para el dueño del perfil
+            await admin.from('alertas' as never).insert({
+              tipo: 'PLAZO_PROPUESTO',
+              titulo: `Plazo propuesto: ${cls.tipo_acto.replace(/_/g, ' ')}`,
+              mensaje: `${cls.base_legal ?? 'Plazo procesal'} · Vence ${fechaVencimiento}${n.caratula ? ` · ${n.caratula}` : n.numero_expediente ? ` · Exp. ${n.numero_expediente}` : ''}`,
+              destinatario_id: p.id,
+              prioridad: cls.confianza === 'alta' ? 'ALTA' : 'MEDIA',
+              origen: 'AUTOMATICA',
+              fecha_vencimiento: fechaVencimiento,
+              expediente_id: expedienteId ?? null,
+            })
+          }
+        } catch (e) {
+          console.warn('[sae-poll] plazo calc failed:', e instanceof Error ? e.message : 'unknown')
+        }
+      }
+
+      await admin.from('sae_notificaciones' as never)
         .update({
           prioridad: cls.prioridad,
           plazo_estimado_dias: cls.plazo_estimado_dias,
           ia_resumen: cls.resumen,
           ia_analyzed_at: new Date().toISOString(),
-        } as never)
+          ...(plazoSugerido ? { plazo_sugerido: plazoSugerido } : {}),
+        })
         .eq('profile_id', p.id)
         .eq('sae_notif_id', n.sae_notif_id)
     }))
@@ -794,7 +843,8 @@ Deno.serve(async (req) => {
 
       const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) : null
       const expedienteUrl = expedienteId ? `https://app.marcorossi.com.ar/expedientes/${expedienteId}` : null
-      const prioridad = priorities.get(n.sae_notif_id)
+      const clasif = priorities.get(n.sae_notif_id)
+      const prioridad = clasif?.prioridad
       const esUrgente = prioridad === 'urgente'
 
       // Push: si urgente, override del quiet hours y del pref off.

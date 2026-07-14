@@ -193,6 +193,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
       prioridad: prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE',
       fecha_vencimiento: fechaVencimiento || null,
       asignado_a: asignadoA || null,
+      prevAsignadoA: tarea.asignado_a ?? null,
     })
     setEditing(false)
   }
