@@ -265,6 +265,21 @@ export function useUpdateConsulta() {
   })
 }
 
+export function useDeleteConsulta() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('consultas').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['consultas'] })
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Presupuesto
 // ---------------------------------------------------------------------------

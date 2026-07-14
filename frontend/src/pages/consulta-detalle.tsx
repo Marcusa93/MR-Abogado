@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import {
-  useConsulta, useUpdateConsulta,
+  useConsulta, useUpdateConsulta, useDeleteConsulta,
   usePresupuestos, useUpsertPresupuesto, useDeletePresupuesto,
   useConsultaActividad, useAddConsultaActividad,
   calcularHonorarios, ARANCEL_VERBAL, ARANCEL_ESCRITO,
@@ -1047,7 +1047,18 @@ export default function ConsultaDetallePage() {
   const { data: consulta, isLoading, error } = useConsulta(id)
   const { data: presupuestos = [] } = usePresupuestos(id)
   const update = useUpdateConsulta()
+  const deleteConsulta = useDeleteConsulta()
   const addActividad = useAddConsultaActividad()
+
+  const [editandoDatos, setEditandoDatos] = useState(false)
+  const [datosEdit, setDatosEdit] = useState({
+    nombre: '',
+    apellido: '',
+    telefono: '',
+    email: '',
+    canal: 'presencial' as ConsultaCanal,
+    tipo_asunto: 'civil' as ConsultaTipoAsunto,
+  })
 
   const [notas, setNotas] = useState('')
   const [notasInitialized, setNotasInitialized] = useState(false)
@@ -1082,6 +1093,39 @@ export default function ConsultaDetallePage() {
     setAreasActivas(areas)
     setAreasInitialized(true)
   }
+
+  const handleSaveDatos = useCallback(async () => {
+    if (!id) return
+    if (!datosEdit.nombre.trim()) { toast.error('El nombre es obligatorio'); return }
+    try {
+      await update.mutateAsync({
+        id,
+        nombre: datosEdit.nombre.trim(),
+        apellido: datosEdit.apellido.trim() || null,
+        telefono: datosEdit.telefono.trim() || null,
+        email: datosEdit.email.trim() || null,
+        canal: datosEdit.canal,
+        tipo_asunto: datosEdit.tipo_asunto,
+      } as any)
+      setEditandoDatos(false)
+      toast.success('Datos actualizados')
+    } catch {
+      toast.error('No se pudo guardar')
+    }
+  }, [id, datosEdit, update])
+
+  const handleDelete = useCallback(async () => {
+    if (!id) return
+    const nombre = consulta ? [consulta.apellido, consulta.nombre].filter(Boolean).join(', ') : 'este consultante'
+    if (!window.confirm(`¿Eliminar la consulta de ${nombre}? Esta acción no se puede deshacer.`)) return
+    try {
+      await deleteConsulta.mutateAsync(id)
+      toast.success('Consulta eliminada')
+      navigate('/consultas')
+    } catch {
+      toast.error('No se pudo eliminar la consulta')
+    }
+  }, [id, consulta, deleteConsulta, navigate])
 
   const handleSaveNotas = useCallback(async () => {
     if (!id) return
@@ -1290,40 +1334,157 @@ export default function ConsultaDetallePage() {
 
       {/* Header */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{nombreCliente || consulta.nombre}</h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              <span>{TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}</span>
-              <span>·</span>
-              <span>{CANAL_LABEL[consulta.canal]}</span>
-              {consulta.telefono && <><span>·</span><span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{consulta.telefono}</span></>}
-              {consulta.email && <><span>·</span><span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{consulta.email}</span></>}
+        {editandoDatos ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nombre *</label>
+                <input
+                  type="text"
+                  value={datosEdit.nombre}
+                  onChange={e => setDatosEdit(f => ({ ...f, nombre: e.target.value }))}
+                  autoFocus
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Apellido</label>
+                <input
+                  type="text"
+                  value={datosEdit.apellido}
+                  onChange={e => setDatosEdit(f => ({ ...f, apellido: e.target.value }))}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
-          </div>
-          {/* Estado selector */}
-          <div className="relative group shrink-0">
-            <button
-              type="button"
-              className={cn('flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all', ESTADO_STYLE[consulta.estado])}
-            >
-              {ESTADO_LABEL[consulta.estado]}
-              <ChevronDown className="h-3 w-3" />
-            </button>
-            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg z-10 hidden group-hover:block">
-              {(['pendiente', 'en_proceso', 'presupuestada', 'convertida', 'descartada'] as ConsultaEstado[]).map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleEstado(s)}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-300 first:rounded-t-xl last:rounded-b-xl"
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Teléfono</label>
+                <input
+                  type="tel"
+                  value={datosEdit.telefono}
+                  onChange={e => setDatosEdit(f => ({ ...f, telefono: e.target.value }))}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={datosEdit.email}
+                  onChange={e => setDatosEdit(f => ({ ...f, email: e.target.value }))}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Cómo llegó</label>
+                <select
+                  value={datosEdit.canal}
+                  onChange={e => setDatosEdit(f => ({ ...f, canal: e.target.value as ConsultaCanal }))}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {ESTADO_LABEL[s]}
-                </button>
-              ))}
+                  {Object.entries(CANAL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Tipo de asunto</label>
+                <select
+                  value={datosEdit.tipo_asunto}
+                  onChange={e => setDatosEdit(f => ({ ...f, tipo_asunto: e.target.value as ConsultaTipoAsunto }))}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(TIPO_ASUNTO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setEditandoDatos(false)}
+                className="px-4 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDatos}
+                disabled={update.isPending}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Guardar
+              </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{nombreCliente || consulta.nombre}</h1>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                <span>{TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}</span>
+                <span>·</span>
+                <span>{CANAL_LABEL[consulta.canal]}</span>
+                {consulta.telefono && <><span>·</span><span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{consulta.telefono}</span></>}
+                {consulta.email && <><span>·</span><span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{consulta.email}</span></>}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Estado selector */}
+              <div className="relative group">
+                <button
+                  type="button"
+                  className={cn('flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all', ESTADO_STYLE[consulta.estado])}
+                >
+                  {ESTADO_LABEL[consulta.estado]}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg z-10 hidden group-hover:block">
+                  {(['pendiente', 'en_proceso', 'presupuestada', 'convertida', 'descartada'] as ConsultaEstado[]).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleEstado(s)}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-300 first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {ESTADO_LABEL[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Editar datos */}
+              <button
+                type="button"
+                title="Editar datos de la consulta"
+                onClick={() => {
+                  setDatosEdit({
+                    nombre: consulta.nombre,
+                    apellido: consulta.apellido ?? '',
+                    telefono: consulta.telefono ?? '',
+                    email: consulta.email ?? '',
+                    canal: consulta.canal,
+                    tipo_asunto: consulta.tipo_asunto,
+                  })
+                  setEditandoDatos(true)
+                }}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              {/* Eliminar consulta */}
+              <button
+                type="button"
+                title="Eliminar consulta"
+                onClick={handleDelete}
+                disabled={deleteConsulta.isPending}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors disabled:opacity-50"
+              >
+                {deleteConsulta.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hechos del caso */}
