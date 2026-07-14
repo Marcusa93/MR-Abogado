@@ -63,6 +63,7 @@ const NotificacionesSaePage = lazyWithRetry(() => import('@/pages/notificaciones
 const NotificacionesPage = lazyWithRetry(() => import('@/pages/notificaciones'))
 const ConsultasPage = lazyWithRetry(() => import('@/pages/consultas'))
 const ConsultaDetallePage = lazyWithRetry(() => import('@/pages/consulta-detalle'))
+const TableroPage = lazyWithRetry(() => import('@/pages/tablero'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -146,6 +147,7 @@ export const router = createBrowserRouter([
       { path: 'notificaciones', element: <SuspenseWrapper><NotificacionesPage /></SuspenseWrapper> },
       { path: 'consultas', element: <SuspenseWrapper><ConsultasPage /></SuspenseWrapper> },
       { path: 'consultas/:id', element: <SuspenseWrapper><ConsultaDetallePage /></SuspenseWrapper> },
+      { path: 'tablero', element: <SuspenseWrapper><TableroPage /></SuspenseWrapper> },
       // Catch-all 404 para rutas no encontradas dentro del layout
       { path: '*', element: <SuspenseWrapper><NotFoundPage /></SuspenseWrapper> },
     ],

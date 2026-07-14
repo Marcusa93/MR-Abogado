@@ -433,8 +433,8 @@ export function useCreateTarea() {
         })
       }
 
-      // Create notification for the assigned user
-      if (data.asignado_a && data.expediente_id) {
+      // Create notification for the assigned user (tareas libres y con expediente)
+      if (data.asignado_a) {
         const exp = (data as any).expediente as
           | { numero?: string | null; numero_expediente?: string | null; caratula?: string | null }
           | null
@@ -460,9 +460,12 @@ export function useCreateTarea() {
             tipo: 'TAREA_ASIGNADA',
             titulo,
             mensaje,
-            expediente_id: data.expediente_id,
+            expediente_id: data.expediente_id ?? null,
             destinatario_id: data.asignado_a,
-            payload: { tarea_id: data.id, link: `/expedientes/${data.expediente_id}` },
+            payload: {
+              tarea_id: data.id,
+              link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tablero',
+            },
           } as never)
         } catch (e) {
           // Best effort: la notificación falló pero la tarea sí quedó.
