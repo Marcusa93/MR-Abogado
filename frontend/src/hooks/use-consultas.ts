@@ -14,7 +14,8 @@ export type ConsultaTipoAsunto =
 
 export type TipoHonorario = 'cuota_litis' | 'arancel_verbal' | 'arancel_escrito' | 'honorario_fijo'
 
-export interface DiagnosticoIA {
+export interface DiagnosticoModulo {
+  area: string
   fuero: string
   pretension: string
   chances_estimadas: 'alta' | 'media' | 'baja' | 'sin_datos'
@@ -24,6 +25,21 @@ export interface DiagnosticoIA {
   checklist_cliente?: string[]
   tipo_honorario_sugerido: TipoHonorario
   descripcion_honorarios: string
+}
+
+export interface DiagnosticoIA {
+  // Nueva estructura multi-fuero (nuevos diagnósticos)
+  modulos?: DiagnosticoModulo[]
+  // Campos legacy (diagnósticos anteriores al refactor)
+  fuero?: string
+  pretension?: string
+  chances_estimadas?: 'alta' | 'media' | 'baja' | 'sin_datos'
+  acciones_recomendadas?: string[]
+  riesgos?: string[]
+  observaciones?: string
+  checklist_cliente?: string[]
+  tipo_honorario_sugerido?: TipoHonorario
+  descripcion_honorarios?: string
 }
 
 export interface IntimacionDoc {
@@ -50,6 +66,7 @@ export interface Consulta {
   diagnostico_ia: DiagnosticoIA | null
   diagnostico_at: string | null
   intimacion: IntimacionDoc | null
+  areas_derecho: string[]
   estado: ConsultaEstado
   convertida_expediente_id: string | null
   assigned_to: string | null

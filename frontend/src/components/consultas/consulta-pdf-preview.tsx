@@ -26,7 +26,7 @@ function ChancesBadge({ v }: { v: DiagnosticoIA['chances_estimadas'] }) {
     baja: { label: 'Probabilidad baja', color: '#dc2626' },
     sin_datos: { label: 'Sin datos suficientes', color: '#6b7280' },
   }
-  const { label, color } = map[v] ?? map.sin_datos
+  const { label, color } = (v ? map[v] : undefined) ?? map.sin_datos
   return (
     <span style={{
       display: 'inline-block',
@@ -190,9 +190,9 @@ function DiagnosticoContent({
       {diag ? (
         <>
           <Section title="I. Síntesis del caso">
-            <Row label="Fuero" value={diag.fuero} />
-            <Row label="Pretensión" value={diag.pretension} />
-            <div style={{ marginTop: '10px' }}><ChancesBadge v={diag.chances_estimadas} /></div>
+            <Row label="Fuero" value={diag.fuero ?? '—'} />
+            <Row label="Pretensión" value={diag.pretension ?? '—'} />
+            <div style={{ marginTop: '10px' }}><ChancesBadge v={diag.chances_estimadas ?? 'sin_datos'} /></div>
           </Section>
 
           <Section title="II. Análisis jurídico">
@@ -201,14 +201,14 @@ function DiagnosticoContent({
 
           <Section title="III. Acciones recomendadas">
             <ol style={{ margin: '0', paddingLeft: '1.8cm' }}>
-              {diag.acciones_recomendadas.map((a, i) => <li key={i} style={{ marginBottom: '6px' }}>{a}</li>)}
+              {(diag.acciones_recomendadas ?? []).map((a, i) => <li key={i} style={{ marginBottom: '6px' }}>{a}</li>)}
             </ol>
           </Section>
 
-          {diag.riesgos?.length > 0 && (
+          {(diag.riesgos?.length ?? 0) > 0 && (
             <Section title="IV. Advertencias y riesgos">
               <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
-                {diag.riesgos.map((r, i) => <li key={i} style={{ marginBottom: '6px' }}>{r}</li>)}
+                {(diag.riesgos ?? []).map((r, i) => <li key={i} style={{ marginBottom: '6px' }}>{r}</li>)}
               </ul>
             </Section>
           )}

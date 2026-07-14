@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -9,7 +9,7 @@ import {
   calcularHonorarios, ARANCEL_VERBAL, ARANCEL_ESCRITO,
   TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL, HONORARIO_LABEL,
   type ConsultaEstado, type ConsultaTipoAsunto, type ConsultaCanal, type TipoHonorario,
-  type Presupuesto, type DiagnosticoIA, type IntimacionDoc,
+  type Presupuesto, type DiagnosticoIA, type DiagnosticoModulo, type IntimacionDoc,
 } from '@/hooks/use-consultas'
 import { useAuthStore } from '@/stores/auth-store'
 import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
@@ -74,18 +74,22 @@ function PresupuestoItemForm({
   deletable,
   onSaved,
   onCancel,
+  prefillTipo,
+  prefillConcepto,
 }: {
   presupuesto: Presupuesto | null
   consultaId: string
   deletable?: boolean
   onSaved?: () => void
   onCancel?: () => void
+  prefillTipo?: TipoHonorario
+  prefillConcepto?: string
 }) {
   const upsert = useUpsertPresupuesto()
   const del = useDeletePresupuesto()
   const isNew = !presupuesto
 
-  const [tipo, setTipo] = useState<TipoHonorario>(presupuesto?.tipo_honorario ?? 'arancel_verbal')
+  const [tipo, setTipo] = useState<TipoHonorario>(prefillTipo ?? presupuesto?.tipo_honorario ?? 'arancel_verbal')
   const [montoBase, setMontoBase] = useState(presupuesto?.monto_base?.toString() ?? '')
   const [porcentaje, setPorcentaje] = useState(
     presupuesto?.tipo_honorario === 'cuota_litis'
@@ -97,7 +101,7 @@ function PresupuestoItemForm({
       ? presupuesto.multiplicador?.toString() ?? '1'
       : '1'
   )
-  const [concepto, setConcepto] = useState(presupuesto?.notas ?? '')
+  const [concepto, setConcepto] = useState(prefillConcepto ?? presupuesto?.notas ?? '')
 
   function handleTipoChange(v: TipoHonorario) {
     setTipo(v)
@@ -281,9 +285,28 @@ function PresupuestoItemForm({
   )
 }
 
-function PresupuestoSection({ consultaId }: { consultaId: string }) {
+function PresupuestoSection({
+  consultaId,
+  prefill,
+  onPrefillConsumed,
+}: {
+  consultaId: string
+  prefill?: { tipo: TipoHonorario; concepto: string } | null
+  onPrefillConsumed?: () => void
+}) {
   const { data: presupuestos = [], isLoading } = usePresupuestos(consultaId)
   const [addingNew, setAddingNew] = useState(false)
+  const [newTipoPrefill, setNewTipoPrefill] = useState<TipoHonorario | undefined>()
+  const [newConceptoPrefill, setNewConceptoPrefill] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (!prefill) return
+    setNewTipoPrefill(prefill.tipo)
+    setNewConceptoPrefill(prefill.concepto)
+    setAddingNew(true)
+    onPrefillConsumed?.()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill])
 
   if (isLoading) return <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />
 
@@ -322,8 +345,10 @@ function PresupuestoSection({ consultaId }: { consultaId: string }) {
           <PresupuestoItemForm
             presupuesto={null}
             consultaId={consultaId}
-            onSaved={() => setAddingNew(false)}
-            onCancel={() => setAddingNew(false)}
+            prefillTipo={newTipoPrefill}
+            prefillConcepto={newConceptoPrefill}
+            onSaved={() => { setAddingNew(false); setNewTipoPrefill(undefined); setNewConceptoPrefill(undefined) }}
+            onCancel={() => { setAddingNew(false); setNewTipoPrefill(undefined); setNewConceptoPrefill(undefined) }}
           />
         </div>
       ) : (
@@ -713,6 +738,303 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
   )
 }
 
+// ── Módulo de diagnóstico por área ─────────────────────────────────────────
+
+function ModuloDiagnostico({
+  modulo,
+  idx,
+  total,
+  consultaId,
+  diagModulos,
+  onCrearHonorario,
+}: {
+  modulo: DiagnosticoModulo
+  idx: number
+  total: number
+  consultaId: string
+  diagModulos: DiagnosticoModulo[]
+  onCrearHonorario: (tipo: TipoHonorario, concepto: string) => void
+}) {
+  const update = useUpdateConsulta()
+  const addActividad = useAddConsultaActividad()
+  const [editando, setEditando] = useState(false)
+  const [editLocal, setEditLocal] = useState<DiagnosticoModulo>({ ...modulo })
+  const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
+
+  const areaLabel = TIPO_ASUNTO_LABEL[modulo.area as ConsultaTipoAsunto] ?? modulo.area
+
+  async function handleSaveModulo() {
+    const newModulos = diagModulos.map((m, i) => (i === idx ? editLocal : m))
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await update.mutateAsync({ id: consultaId, diagnostico_ia: { modulos: newModulos } } as any)
+      setEditando(false)
+      toast.success('Módulo actualizado')
+    } catch {
+      toast.error('No se pudo guardar el módulo')
+    }
+  }
+
+  async function handleAgregarChecklistAlSeguimiento() {
+    const items = modulo.checklist_cliente ?? []
+    const pendientes = items.filter((_, i) => !checklistEstado[i])
+    if (!pendientes.length) { toast.error('Todos los ítems ya están tildados'); return }
+    try {
+      for (const item of pendientes) {
+        await addActividad.mutateAsync({ consulta_id: consultaId, tipo: 'nota', descripcion: `Pendiente: ${item}` })
+      }
+      toast.success(`${pendientes.length} ítem${pendientes.length > 1 ? 's' : ''} agregado${pendientes.length > 1 ? 's' : ''} al seguimiento`)
+    } catch {
+      toast.error('No se pudo agregar al seguimiento')
+    }
+  }
+
+  return (
+    <div className="border border-zinc-100 dark:border-white/5 rounded-xl p-4 space-y-3">
+      {/* Header del módulo */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {total > 1 && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 rounded-full px-2.5 py-0.5">
+              {areaLabel}
+            </span>
+          )}
+          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[modulo.chances_estimadas])}>
+            {CHANCES_LABEL[modulo.chances_estimadas]}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onCrearHonorario(modulo.tipo_honorario_sugerido, areaLabel)}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Crear honorario
+          </button>
+          {!editando ? (
+            <button
+              type="button"
+              onClick={() => { setEditLocal({ ...modulo }); setEditando(true) }}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <Pencil className="h-3 w-3" /> Editar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <X className="h-3 w-3" /> Cancelar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {editando ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
+              <input
+                type="text"
+                value={editLocal.fuero}
+                onChange={e => setEditLocal(prev => ({ ...prev, fuero: e.target.value }))}
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Pretensión</label>
+              <input
+                type="text"
+                value={editLocal.pretension}
+                onChange={e => setEditLocal(prev => ({ ...prev, pretension: e.target.value }))}
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Probabilidad</label>
+            <select
+              value={editLocal.chances_estimadas}
+              onChange={e => setEditLocal(prev => ({ ...prev, chances_estimadas: e.target.value as DiagnosticoModulo['chances_estimadas'] }))}
+              className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+              <option value="sin_datos">Sin datos</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Análisis</label>
+            <textarea
+              rows={4}
+              value={editLocal.observaciones}
+              onChange={e => setEditLocal(prev => ({ ...prev, observaciones: e.target.value }))}
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
+            </label>
+            <div className="space-y-1.5">
+              {editLocal.acciones_recomendadas.map((a, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={a}
+                    onChange={e => setEditLocal(prev => {
+                      const arr = [...prev.acciones_recomendadas]; arr[i] = e.target.value
+                      return { ...prev, acciones_recomendadas: arr }
+                    })}
+                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: [...prev.acciones_recomendadas, ''] }))} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Agregar acción
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
+            </label>
+            <div className="space-y-1.5">
+              {(editLocal.riesgos ?? []).map((r, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={r}
+                    onChange={e => setEditLocal(prev => {
+                      const arr = [...(prev.riesgos ?? [])]; arr[i] = e.target.value
+                      return { ...prev, riesgos: arr }
+                    })}
+                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: [...(prev.riesgos ?? []), ''] }))} className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
+                <Plus className="h-3 w-3" /> Agregar riesgo
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Nota sobre honorarios</label>
+            <textarea
+              rows={2}
+              value={editLocal.descripcion_honorarios ?? ''}
+              onChange={e => setEditLocal(prev => ({ ...prev, descripcion_honorarios: e.target.value }))}
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveModulo}
+            disabled={update.isPending}
+            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar módulo
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
+              <div className="text-zinc-800 dark:text-zinc-200">{modulo.fuero}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
+              <div className="text-zinc-800 dark:text-zinc-200">{modulo.pretension}</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{modulo.observaciones}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
+              </div>
+              <ol className="text-sm space-y-1.5 list-decimal list-inside text-zinc-700 dark:text-zinc-300">
+                {modulo.acciones_recomendadas.map((a, i) => <li key={i}>{a}</li>)}
+              </ol>
+            </div>
+            {modulo.riesgos && modulo.riesgos.length > 0 && (
+              <div>
+                <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
+                </div>
+                <ul className="text-sm space-y-1.5 list-disc list-inside text-zinc-700 dark:text-zinc-300">
+                  {modulo.riesgos.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {modulo.descripcion_honorarios && (
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2">
+              <span className="font-medium">Honorarios sugeridos:</span> {modulo.descripcion_honorarios}
+            </div>
+          )}
+
+          {modulo.checklist_cliente && modulo.checklist_cliente.length > 0 && (
+            <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                  <ListChecks className="h-3.5 w-3.5 text-blue-500" />
+                  Documentación a solicitar
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAgregarChecklistAlSeguimiento}
+                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  Agregar al seguimiento
+                </button>
+              </div>
+              <ul className="space-y-1.5">
+                {modulo.checklist_cliente.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!checklistEstado[i]}
+                      onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={cn('text-zinc-700 dark:text-zinc-300 leading-snug', checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500')}>
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Página principal ────────────────────────────────────────────────────────
 
 export default function ConsultaDetallePage() {
@@ -736,8 +1058,12 @@ export default function ConsultaDetallePage() {
   const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
   const [editandoDiag, setEditandoDiag] = useState(false)
   const [diagEdit, setDiagEdit] = useState<DiagnosticoIA | null>(null)
+  const [areasActivas, setAreasActivas] = useState<string[]>([])
+  const [areasInitialized, setAreasInitialized] = useState(false)
+  const [prefilledPresupuesto, setPrefilledPresupuesto] = useState<{ tipo: TipoHonorario; concepto: string } | null>(null)
   const pdfDiagRef = useRef<HTMLDivElement>(null)
   const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
+  const presupuestoSectionRef = useRef<HTMLDivElement>(null)
 
   const isSecretaria = profile?.rol === 'SECRETARIA'
 
@@ -749,16 +1075,24 @@ export default function ConsultaDetallePage() {
     setNotasAbogado(consulta.notas_abogado ?? '')
     setNotasAbogadoInitialized(true)
   }
+  if (!areasInitialized && consulta) {
+    const areas = consulta.areas_derecho?.length
+      ? consulta.areas_derecho
+      : [consulta.tipo_asunto as string]
+    setAreasActivas(areas)
+    setAreasInitialized(true)
+  }
 
   const handleSaveNotas = useCallback(async () => {
     if (!id) return
     try {
-      await update.mutateAsync({ id, notas_libres: notas })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await update.mutateAsync({ id, notas_libres: notas, areas_derecho: areasActivas } as any)
       toast.success('Notas guardadas')
     } catch {
       toast.error('No se pudieron guardar las notas')
     }
-  }, [id, notas, update])
+  }, [id, notas, areasActivas, update])
 
   const handleGenerarDiagnostico = useCallback(async () => {
     if (!consulta || !notas.trim()) {
@@ -782,6 +1116,7 @@ export default function ConsultaDetallePage() {
           nombre: consulta.nombre,
           apellido: consulta.apellido,
           tipo_asunto: consulta.tipo_asunto,
+          areas_derecho: areasActivas.length ? areasActivas : [consulta.tipo_asunto],
           notas_libres: notas,
         }),
       })
@@ -907,6 +1242,13 @@ export default function ConsultaDetallePage() {
     navigate(`/expedientes/nuevo?consulta_id=${consulta.id}&nombre=${encodeURIComponent(nombre)}&apellido=${encodeURIComponent(apellido)}&tipo_asunto=${consulta.tipo_asunto}`)
   }, [consulta, navigate])
 
+  const handleCrearHonorario = useCallback((tipo: TipoHonorario, concepto: string) => {
+    setPrefilledPresupuesto({ tipo, concepto })
+    setTimeout(() => presupuestoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+  }, [])
+
+  const handlePrefillConsumed = useCallback(() => setPrefilledPresupuesto(null), [])
+
   const handleEstado = useCallback(async (nuevoEstado: ConsultaEstado) => {
     if (!id) return
     try {
@@ -931,6 +1273,7 @@ export default function ConsultaDetallePage() {
   )
 
   const diag = consulta.diagnostico_ia
+  const hasModulos = !!(diag?.modulos && diag.modulos.length > 0)
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
@@ -1000,11 +1343,38 @@ export default function ConsultaDetallePage() {
           <ConsultaContextos consultaId={consulta.id} />
         </div>
 
+        {/* Selector de áreas del derecho */}
+        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Áreas del derecho involucradas</div>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.entries(TIPO_ASUNTO_LABEL) as [ConsultaTipoAsunto, string][]).map(([value, label]) => {
+              const activa = areasActivas.includes(value)
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setAreasActivas(prev =>
+                    prev.includes(value) ? prev.filter(a => a !== value) : [...prev, value]
+                  )}
+                  className={cn(
+                    'px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
+                    activa
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                      : 'border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20',
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3 pt-1">
           <button
             type="button"
             onClick={handleSaveNotas}
-            disabled={update.isPending || notas === consulta.notas_libres}
+            disabled={update.isPending || (notas === consulta.notas_libres && JSON.stringify(areasActivas) === JSON.stringify(consulta.areas_derecho ?? []))}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-zinc-300 rounded-lg transition-colors disabled:opacity-40"
           >
             <Save className="h-3.5 w-3.5" />
@@ -1033,40 +1403,58 @@ export default function ConsultaDetallePage() {
         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico jurídico</h2>
-            <div className="flex items-center gap-2">
-              {!editandoDiag ? (
-                <>
-                  <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[diag.chances_estimadas])}>
-                    {CHANCES_LABEL[diag.chances_estimadas]}
-                  </span>
+            {/* Botón editar solo para diagnósticos legacy (sin módulos) */}
+            {!hasModulos && (
+              <div className="flex items-center gap-2">
+                {!editandoDiag ? (
+                  <>
+                    <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[diag.chances_estimadas ?? 'sin_datos'])}>
+                      {CHANCES_LABEL[diag.chances_estimadas ?? 'sin_datos']}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setDiagEdit({ ...diag }); setEditandoDiag(true) }}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    >
+                      <Pencil className="h-3 w-3" /> Editar
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => { setDiagEdit({ ...diag }); setEditandoDiag(true) }}
+                    onClick={() => { setEditandoDiag(false); setDiagEdit(null) }}
                     className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                   >
-                    <Pencil className="h-3 w-3" /> Editar
+                    <X className="h-3 w-3" /> Cancelar
                   </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => { setEditandoDiag(false); setDiagEdit(null) }}
-                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-                >
-                  <X className="h-3 w-3" /> Cancelar
-                </button>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {editandoDiag && diagEdit ? (
+          {/* Vista multi-módulo (nuevos diagnósticos) */}
+          {hasModulos ? (
+            <div className="space-y-3">
+              {diag.modulos!.map((modulo, idx) => (
+                <ModuloDiagnostico
+                  key={`${modulo.area}-${idx}`}
+                  modulo={modulo}
+                  idx={idx}
+                  total={diag.modulos!.length}
+                  consultaId={consulta.id}
+                  diagModulos={diag.modulos!}
+                  onCrearHonorario={handleCrearHonorario}
+                />
+              ))}
+            </div>
+          ) : editandoDiag && diagEdit ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
                   <input
                     type="text"
-                    value={diagEdit.fuero}
+                    value={diagEdit.fuero ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, fuero: e.target.value } : prev)}
                     className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -1075,7 +1463,7 @@ export default function ConsultaDetallePage() {
                   <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Pretensión</label>
                   <input
                     type="text"
-                    value={diagEdit.pretension}
+                    value={diagEdit.pretension ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, pretension: e.target.value } : prev)}
                     className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -1100,7 +1488,7 @@ export default function ConsultaDetallePage() {
                 <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Análisis</label>
                 <textarea
                   rows={5}
-                  value={diagEdit.observaciones}
+                  value={diagEdit.observaciones ?? ''}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, observaciones: e.target.value } : prev)}
                   className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                 />
@@ -1111,14 +1499,14 @@ export default function ConsultaDetallePage() {
                   <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
                 </label>
                 <div className="space-y-1.5">
-                  {diagEdit.acciones_recomendadas.map((a, i) => (
+                  {(diagEdit.acciones_recomendadas ?? []).map((a, i) => (
                     <div key={i} className="flex gap-2">
                       <input
                         type="text"
                         value={a}
                         onChange={e => setDiagEdit(prev => {
                           if (!prev) return prev
-                          const arr = [...prev.acciones_recomendadas]
+                          const arr = [...(prev.acciones_recomendadas ?? [])]
                           arr[i] = e.target.value
                           return { ...prev, acciones_recomendadas: arr }
                         })}
@@ -1126,7 +1514,7 @@ export default function ConsultaDetallePage() {
                       />
                       <button
                         type="button"
-                        onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) } : prev)}
+                        onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: (prev.acciones_recomendadas ?? []).filter((_, j) => j !== i) } : prev)}
                         className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -1135,7 +1523,7 @@ export default function ConsultaDetallePage() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: [...prev.acciones_recomendadas, ''] } : prev)}
+                    onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: [...(prev.acciones_recomendadas ?? []), ''] } : prev)}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                   >
                     <Plus className="h-3 w-3" /> Agregar acción
@@ -1216,17 +1604,17 @@ export default function ConsultaDetallePage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
-                  <div className="text-zinc-800 dark:text-zinc-200">{diag.fuero}</div>
+                  <div className="text-zinc-800 dark:text-zinc-200">{diag.fuero ?? '—'}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
-                  <div className="text-zinc-800 dark:text-zinc-200">{diag.pretension}</div>
+                  <div className="text-zinc-800 dark:text-zinc-200">{diag.pretension ?? '—'}</div>
                 </div>
               </div>
 
               <div>
                 <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{diag.observaciones}</p>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{diag.observaciones ?? ''}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1236,17 +1624,17 @@ export default function ConsultaDetallePage() {
                     Acciones recomendadas
                   </div>
                   <ol className="text-sm space-y-1.5 list-decimal list-inside text-zinc-700 dark:text-zinc-300">
-                    {diag.acciones_recomendadas.map((a, i) => <li key={i}>{a}</li>)}
+                    {(diag.acciones_recomendadas ?? []).map((a, i) => <li key={i}>{a}</li>)}
                   </ol>
                 </div>
-                {diag.riesgos?.length > 0 && (
+                {(diag.riesgos?.length ?? 0) > 0 && (
                   <div>
                     <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3 text-amber-500" />
                       Riesgos
                     </div>
                     <ul className="text-sm space-y-1.5 list-disc list-inside text-zinc-700 dark:text-zinc-300">
-                      {diag.riesgos.map((r, i) => <li key={i}>{r}</li>)}
+                      {(diag.riesgos ?? []).map((r, i) => <li key={i}>{r}</li>)}
                     </ul>
                   </div>
                 )}
@@ -1348,9 +1736,13 @@ export default function ConsultaDetallePage() {
 
       {/* Presupuesto — solo abogados */}
       {!isSecretaria && diag && (
-        <div className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+        <div ref={presupuestoSectionRef} className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Presupuesto de honorarios</h2>
-          <PresupuestoSection consultaId={consulta.id} />
+          <PresupuestoSection
+            consultaId={consulta.id}
+            prefill={prefilledPresupuesto}
+            onPrefillConsumed={handlePrefillConsumed}
+          />
         </div>
       )}
 
