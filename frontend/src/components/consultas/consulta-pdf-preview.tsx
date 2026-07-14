@@ -5,6 +5,7 @@ import { forwardRef } from 'react'
 interface Props {
   consulta: Consulta
   presupuesto?: Presupuesto | null
+  presupuestos?: Presupuesto[]
   abogadoNombre?: string
   mode?: 'diagnostico' | 'presupuesto'
   notasAbogado?: string | null
@@ -42,7 +43,7 @@ function ChancesBadge({ v }: { v: DiagnosticoIA['chances_estimadas'] }) {
 }
 
 export const ConsultaPdfPreview = forwardRef<HTMLDivElement, Props>(
-  ({ consulta, presupuesto, abogadoNombre, mode = 'diagnostico', notasAbogado }, ref) => {
+  ({ consulta, presupuesto, presupuestos, abogadoNombre, mode = 'diagnostico', notasAbogado }, ref) => {
     const diag = consulta.diagnostico_ia
     const fechaConsulta = new Date(consulta.created_at).toLocaleDateString('es-AR', {
       day: '2-digit', month: 'long', year: 'numeric',
@@ -51,6 +52,7 @@ export const ConsultaPdfPreview = forwardRef<HTMLDivElement, Props>(
     const honorariosCalc = presupuesto
       ? calcularHonorarios(presupuesto.tipo_honorario, presupuesto.monto_base ?? 0, presupuesto.multiplicador)
       : null
+    const presupuestosEff = presupuestos && presupuestos.length > 0 ? presupuestos : (presupuesto ? [presupuesto] : [])
 
     const firmaTitulo = mode === 'presupuesto' ? 'Presupuesto de Honorarios' : 'Diagnóstico\nJurídico Preliminar'
 
@@ -139,7 +141,7 @@ export const ConsultaPdfPreview = forwardRef<HTMLDivElement, Props>(
             />
           ) : (
             <PresupuestoContent
-              presupuesto={presupuesto}
+              presupuestos={presupuestosEff}
               honorariosCalc={honorariosCalc}
               diag={diag}
               nombreCliente={nombreCliente || consulta.nombre}
@@ -227,15 +229,18 @@ function DiagnosticoContent({
 // ── Sección presupuesto ───────────────────────────────────────────────────────
 
 function PresupuestoContent({
-  presupuesto, honorariosCalc, diag, nombreCliente, tipoAsunto, fechaConsulta,
+  presupuestos, honorariosCalc, diag, nombreCliente, tipoAsunto, fechaConsulta,
 }: {
-  presupuesto?: Presupuesto | null
+  presupuestos: Presupuesto[]
   honorariosCalc: number | null
   diag: DiagnosticoIA | null
   nombreCliente: string
   tipoAsunto: string
   fechaConsulta: string
 }) {
+  const total = presupuestos.reduce((acc, p) => acc + calcularHonorarios(p.tipo_honorario, p.monto_base ?? 0, p.multiplicador), 0)
+  const tieneCuotaLitis = presupuestos.some(p => p.tipo_honorario === 'cuota_litis')
+
   return (
     <>
       <h1 style={{ textAlign: 'center', fontSize: '14pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3cm' }}>
@@ -245,55 +250,71 @@ function PresupuestoContent({
         {nombreCliente} · {tipoAsunto} · {fechaConsulta}
       </div>
 
-      {presupuesto && honorariosCalc !== null ? (
+      {presupuestos.length > 0 ? (
         <>
-          {(presupuesto.descripcion_ia || diag?.descripcion_honorarios) && (
+          {diag?.descripcion_honorarios && (
             <Section title="I. Fundamento">
-              <p style={{ margin: 0, textIndent: '1.2cm' }}>
-                {presupuesto.descripcion_ia || diag?.descripcion_honorarios}
-              </p>
+              <p style={{ margin: 0, textIndent: '1.2cm' }}>{diag.descripcion_honorarios}</p>
             </Section>
           )}
 
-          <Section title="II. Honorarios">
+          <Section title={diag?.descripcion_honorarios ? 'II. Honorarios' : 'I. Honorarios'}>
             <div style={{ border: '1.5px solid #1e3a5f', borderRadius: '8px', padding: '20px 28px', marginTop: '12px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11pt' }}>
                 <tbody>
-                  <tr>
-                    <td style={{ color: '#374151', paddingBottom: '8px' }}>Modalidad</td>
-                    <td style={{ textAlign: 'right', paddingBottom: '8px' }}>{HONORARIO_LABEL[presupuesto.tipo_honorario]}</td>
-                  </tr>
-                  {presupuesto.tipo_honorario === 'cuota_litis' && presupuesto.monto_base && (
-                    <tr>
-                      <td style={{ color: '#374151', paddingBottom: '8px' }}>Monto reclamado estimado</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '8px' }}>{formatPesos(presupuesto.monto_base)}</td>
+                  {presupuestos.map((p, idx) => {
+                    const hc = calcularHonorarios(p.tipo_honorario, p.monto_base ?? 0, p.multiplicador)
+                    const label = p.notas
+                      ? `${HONORARIO_LABEL[p.tipo_honorario]} — ${p.notas}`
+                      : HONORARIO_LABEL[p.tipo_honorario]
+                    const pct = p.tipo_honorario === 'cuota_litis' ? ` (${p.multiplicador}%)` : ''
+                    return (
+                      <tr key={p.id} style={{ borderBottom: idx < presupuestos.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                        <td style={{ color: '#374151', paddingBottom: '8px', paddingTop: idx > 0 ? '8px' : '0' }}>
+                          {label}{pct}
+                          {p.tipo_honorario === 'cuota_litis' && p.monto_base && (
+                            <span style={{ display: 'block', fontSize: '9.5pt', color: '#6b7280' }}>
+                              Monto reclamado: {formatPesos(p.monto_base)}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right', paddingBottom: '8px', paddingTop: idx > 0 ? '8px' : '0', fontWeight: presupuestos.length === 1 ? 700 : 400 }}>
+                          {formatPesos(hc)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {presupuestos.length > 1 && (
+                    <tr style={{ borderTop: '2px solid #1e3a5f' }}>
+                      <td style={{ fontWeight: 700, paddingTop: '10px', fontSize: '13pt' }}>Total</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '13pt', color: '#1e3a5f' }}>
+                        {formatPesos(total)}
+                      </td>
                     </tr>
                   )}
-                  {presupuesto.monto_base && presupuesto.tipo_honorario !== 'honorario_fijo' && presupuesto.tipo_honorario !== 'cuota_litis' && (
-                    <tr>
-                      <td style={{ color: '#374151', paddingBottom: '8px' }}>Multiplicador</td>
-                      <td style={{ textAlign: 'right', paddingBottom: '8px' }}>{presupuesto.multiplicador}×</td>
+                  {presupuestos.length === 1 && (
+                    <tr style={{ borderTop: '1px solid #d1d5db' }}>
+                      <td style={{ fontWeight: 700, paddingTop: '10px', fontSize: '13pt' }}>Honorarios estimados</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '13pt', color: '#1e3a5f' }}>
+                        {honorariosCalc !== null ? formatPesos(honorariosCalc) : formatPesos(total)}
+                      </td>
                     </tr>
                   )}
-                  <tr style={{ borderTop: '1px solid #d1d5db' }}>
-                    <td style={{ fontWeight: 700, paddingTop: '10px', fontSize: '13pt' }}>Honorarios estimados</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '13pt', color: '#1e3a5f' }}>
-                      {formatPesos(honorariosCalc)}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
             </div>
-            {presupuesto.tipo_honorario === 'cuota_litis' && (
+            {tieneCuotaLitis && (
               <p style={{ fontSize: '9.5pt', color: '#6b7280', marginTop: '10px', textAlign: 'center', fontStyle: 'italic' }}>
-                El honorario es sobre lo efectivamente obtenido. Sin resultado, sin cobro.
+                El honorario de cuota litis es sobre lo efectivamente obtenido. Sin resultado, sin cobro.
               </p>
             )}
           </Section>
 
-          {presupuesto.notas && (
-            <Section title="III. Condiciones y observaciones">
-              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{presupuesto.notas}</p>
+          {presupuestos.some(p => p.notas && p.tipo_honorario !== 'cuota_litis') && (
+            <Section title={diag?.descripcion_honorarios ? 'III. Condiciones y observaciones' : 'II. Condiciones y observaciones'}>
+              {presupuestos.filter(p => p.notas).map(p => (
+                <p key={p.id} style={{ margin: '0 0 6px', textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{p.notas}</p>
+              ))}
             </Section>
           )}
         </>

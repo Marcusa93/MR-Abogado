@@ -246,14 +246,14 @@ export function ideaACuerpo(texto: string): string {
   return JSON.stringify({ _tipo: 'idea_contenido', texto })
 }
 
-/** Si el contenido es una idea de la cola, devuelve su texto. */
-export function parseIdea(c: Pick<Contenido, 'cuerpo'>): { texto: string } | null {
+/** Si el contenido es una idea de la cola, devuelve su texto y gancho. */
+export function parseIdea(c: Pick<Contenido, 'cuerpo'>): { texto: string; gancho?: string } | null {
   const raw = c.cuerpo?.trim()
   if (!raw || raw[0] !== '{') return null
   try {
-    const j = JSON.parse(raw) as { _tipo?: string; texto?: string }
+    const j = JSON.parse(raw) as { _tipo?: string; texto?: string; gancho?: string }
     if (j._tipo !== 'idea_contenido') return null
-    return { texto: j.texto ?? '' }
+    return { texto: j.texto ?? '', gancho: j.gancho }
   } catch { return null }
 }
 
@@ -335,6 +335,29 @@ export function useDeleteContenido() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contenidos'] })
       qc.invalidateQueries({ queryKey: ['hoy-en-el-estudio'] })
+    },
+  })
+}
+
+// Desarrolla una idea de calendario en post completo usando el prompt de voz
+// de Marco para esa plataforma. Actualiza el contenido en la BD.
+export function useDesarrollarContenido() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ contenido_id, imagen_url }: {
+      contenido_id: string
+      imagen_url?: string
+    }): Promise<{ id: string; titulo: string }> => {
+      const { data, error } = await supabase.functions.invoke('contenido-desarrollar', {
+        body: { contenido_id, imagen_url },
+      })
+      if (error) throw await fnErr(error)
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      return data as { id: string; titulo: string }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contenidos'] })
     },
   })
 }

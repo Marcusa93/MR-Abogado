@@ -1190,7 +1190,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   const handlePublicarLinkedIn = async () => {
     if (!editing) return
     try {
-      await liPublish.mutateAsync({ cuerpo: cuerpo.trim(), hashtags: hashtags.trim() || undefined, contenido_id: editing.id })
+      await liPublish.mutateAsync({ cuerpo: cuerpo.trim(), hashtags: hashtags.trim() || undefined, imagen_url: imagenUrl ?? undefined, contenido_id: editing.id })
       toast.success('¡Publicado en LinkedIn!')
       onClose()
     } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo publicar en LinkedIn') }

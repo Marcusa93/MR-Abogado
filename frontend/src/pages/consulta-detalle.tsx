@@ -4,14 +4,17 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import {
   useConsulta, useUpdateConsulta,
-  usePresupuesto, useUpsertPresupuesto,
+  usePresupuestos, useUpsertPresupuesto, useDeletePresupuesto,
   useConsultaActividad, useAddConsultaActividad,
   calcularHonorarios, ARANCEL_VERBAL, ARANCEL_ESCRITO,
   TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL, HONORARIO_LABEL,
   type ConsultaEstado, type ConsultaTipoAsunto, type ConsultaCanal, type TipoHonorario,
+  type Presupuesto, type DiagnosticoIA, type IntimacionDoc,
 } from '@/hooks/use-consultas'
 import { useAuthStore } from '@/stores/auth-store'
 import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
+import { IntimacionPdfPreview } from '@/components/consultas/intimacion-pdf-preview'
+import type { TipoIntimacion } from '@/components/consultas/intimacion-pdf-preview'
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { cn } from '@/lib/utils'
@@ -21,6 +24,7 @@ import {
   Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, ChevronDown, Save,
   Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
+  Pencil, Trash2, Plus, X,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -64,28 +68,48 @@ const TIPO_ACTIVIDAD_ICON: Record<string, React.ReactNode> = {
 
 // ── Presupuesto section (solo abogados) ────────────────────────────────────
 
-function PresupuestoSection({ consultaId }: { consultaId: string }) {
-  const { data: presupuesto, isLoading } = usePresupuesto(consultaId)
+function PresupuestoItemForm({
+  presupuesto,
+  consultaId,
+  deletable,
+  onSaved,
+  onCancel,
+}: {
+  presupuesto: Presupuesto | null
+  consultaId: string
+  deletable?: boolean
+  onSaved?: () => void
+  onCancel?: () => void
+}) {
   const upsert = useUpsertPresupuesto()
+  const del = useDeletePresupuesto()
+  const isNew = !presupuesto
 
-  const [tipo, setTipo] = useState<TipoHonorario>(() => presupuesto?.tipo_honorario ?? 'arancel_verbal')
-  const [montoBase, setMontoBase] = useState(() => presupuesto?.monto_base?.toString() ?? '')
-  const [multiplicador, setMultiplicador] = useState(() => presupuesto?.multiplicador?.toString() ?? '1')
-  const [notas, setNotas] = useState(() => presupuesto?.notas ?? '')
-  const [initialized, setInitialized] = useState(false)
+  const [tipo, setTipo] = useState<TipoHonorario>(presupuesto?.tipo_honorario ?? 'arancel_verbal')
+  const [montoBase, setMontoBase] = useState(presupuesto?.monto_base?.toString() ?? '')
+  const [porcentaje, setPorcentaje] = useState(
+    presupuesto?.tipo_honorario === 'cuota_litis'
+      ? presupuesto.multiplicador?.toString() ?? '20'
+      : '20'
+  )
+  const [multiplicador, setMultiplicador] = useState(
+    presupuesto && presupuesto.tipo_honorario !== 'cuota_litis'
+      ? presupuesto.multiplicador?.toString() ?? '1'
+      : '1'
+  )
+  const [concepto, setConcepto] = useState(presupuesto?.notas ?? '')
 
-  // Sincronizar cuando llega el presupuesto existente
-  if (!initialized && presupuesto && !isLoading) {
-    setTipo(presupuesto.tipo_honorario)
-    setMontoBase(presupuesto.monto_base?.toString() ?? '')
-    setMultiplicador(presupuesto.multiplicador?.toString() ?? '1')
-    setNotas(presupuesto.notas ?? '')
-    setInitialized(true)
+  function handleTipoChange(v: TipoHonorario) {
+    setTipo(v)
+    if (v === 'cuota_litis') setPorcentaje('20')
+    else setMultiplicador('1')
   }
 
   const montoN = parseFloat(montoBase.replace(/\./g, '').replace(',', '.')) || 0
+  const pctN = parseFloat(porcentaje.replace(',', '.')) || 20
   const multN = parseFloat(multiplicador.replace(',', '.')) || 1
-  const calculado = calcularHonorarios(tipo, montoN, multN)
+  const actMultiplicador = tipo === 'cuota_litis' ? pctN : multN
+  const calculado = calcularHonorarios(tipo, montoN, actMultiplicador)
 
   async function handleSave() {
     try {
@@ -95,23 +119,43 @@ function PresupuestoSection({ consultaId }: { consultaId: string }) {
         expediente_id: null,
         tipo_honorario: tipo,
         monto_base: montoN || null,
-        multiplicador: multN,
+        multiplicador: actMultiplicador,
         honorarios_calculados: calculado,
         descripcion_ia: presupuesto?.descripcion_ia ?? null,
         estado: presupuesto?.estado ?? 'borrador',
-        notas: notas || null,
+        notas: concepto.trim() || null,
       })
-      toast.success('Presupuesto guardado')
+      toast.success(isNew ? 'Honorario agregado' : 'Honorario guardado')
+      if (isNew && onSaved) onSaved()
     } catch {
-      toast.error('No se pudo guardar el presupuesto')
+      toast.error('No se pudo guardar')
     }
   }
 
-  if (isLoading) return <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />
+  async function handleDelete() {
+    if (!presupuesto) return
+    if (!window.confirm('¿Eliminar este honorario?')) return
+    try {
+      await del.mutateAsync({ id: presupuesto.id, consulta_id: consultaId })
+      toast.success('Honorario eliminado')
+    } catch {
+      toast.error('No se pudo eliminar')
+    }
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Tipo de honorario */}
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Concepto</label>
+        <input
+          type="text"
+          value={concepto}
+          onChange={e => setConcepto(e.target.value)}
+          placeholder="Ej: Parte laboral, consulta penal…"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
       <div>
         <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">Tipo de honorario</label>
         <div className="grid grid-cols-2 gap-2">
@@ -119,7 +163,7 @@ function PresupuestoSection({ consultaId }: { consultaId: string }) {
             <button
               key={v}
               type="button"
-              onClick={() => setTipo(v)}
+              onClick={() => handleTipoChange(v)}
               className={cn(
                 'rounded-lg px-3 py-2 text-xs font-medium text-left transition-all border',
                 tipo === v
@@ -130,29 +174,52 @@ function PresupuestoSection({ consultaId }: { consultaId: string }) {
               {l}
               {v === 'arancel_verbal' && <span className="block text-[10px] opacity-70">{formatPesos(ARANCEL_VERBAL)} base</span>}
               {v === 'arancel_escrito' && <span className="block text-[10px] opacity-70">{formatPesos(ARANCEL_ESCRITO)} base</span>}
-              {v === 'cuota_litis' && <span className="block text-[10px] opacity-70">20% del monto reclamado</span>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Inputs según tipo */}
       <div className="grid grid-cols-2 gap-3">
-        {tipo === 'cuota_litis' || tipo === 'honorario_fijo' ? (
+        {tipo === 'cuota_litis' && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Monto reclamado ($)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={montoBase}
+                onChange={e => setMontoBase(e.target.value)}
+                placeholder="Ej: 5000000"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Porcentaje (%)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={porcentaje}
+                onChange={e => setPorcentaje(e.target.value)}
+                placeholder="20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </>
+        )}
+        {tipo === 'honorario_fijo' && (
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-              {tipo === 'cuota_litis' ? 'Monto reclamado estimado ($)' : 'Honorario fijo ($)'}
-            </label>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Honorario fijo ($)</label>
             <input
               type="text"
               inputMode="numeric"
               value={montoBase}
               onChange={e => setMontoBase(e.target.value)}
-              placeholder="Ej: 5000000"
+              placeholder="Ej: 500000"
               className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-        ) : (
+        )}
+        {(tipo === 'arancel_verbal' || tipo === 'arancel_escrito') && (
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Multiplicador</label>
             <select
@@ -166,43 +233,404 @@ function PresupuestoSection({ consultaId }: { consultaId: string }) {
             </select>
           </div>
         )}
-        <div className={tipo === 'cuota_litis' || tipo === 'honorario_fijo' ? 'col-span-2' : ''}>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Notas</label>
-          <input
-            type="text"
-            value={notas}
-            onChange={e => setNotas(e.target.value)}
-            placeholder="Aclaraciones, condiciones de pago…"
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
       </div>
 
-      {/* Resultado */}
       <div className={cn(
-        'rounded-xl p-4 flex items-center justify-between',
+        'rounded-xl p-3 flex items-center justify-between',
         calculado > 0
           ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
           : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-white/10',
       )}>
         <span className="text-sm text-zinc-600 dark:text-zinc-400">Honorarios estimados</span>
-        <span className={cn(
-          'text-xl font-bold',
-          calculado > 0 ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-400',
-        )}>
+        <span className={cn('text-lg font-bold', calculado > 0 ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-400')}>
           {calculado > 0 ? formatPesos(calculado) : '—'}
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={upsert.isPending || calculado <= 0}
-        className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-      >
-        {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        Guardar presupuesto
-      </button>
+      <div className="flex gap-2">
+        {isNew && onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-2 text-sm font-medium border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+          >
+            Cancelar
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={upsert.isPending || calculado <= 0}
+          className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+        >
+          {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isNew ? 'Agregar' : 'Guardar'}
+        </button>
+        {!isNew && deletable && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={del.isPending}
+            className="px-3 py-2 text-sm border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PresupuestoSection({ consultaId }: { consultaId: string }) {
+  const { data: presupuestos = [], isLoading } = usePresupuestos(consultaId)
+  const [addingNew, setAddingNew] = useState(false)
+
+  if (isLoading) return <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />
+
+  const total = presupuestos.reduce((acc, p) => acc + p.honorarios_calculados, 0)
+
+  return (
+    <div className="space-y-4">
+      {presupuestos.map((p, idx) => (
+        <div key={p.id}>
+          {idx > 0 && <div className="border-t border-zinc-100 dark:border-white/5 my-4" />}
+          {presupuestos.length > 1 && (
+            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2">
+              Honorario {idx + 1}{p.notas ? ` — ${p.notas}` : ''}
+            </div>
+          )}
+          <PresupuestoItemForm
+            presupuesto={p}
+            consultaId={consultaId}
+            deletable={presupuestos.length > 1}
+          />
+        </div>
+      ))}
+
+      {presupuestos.length > 1 && (
+        <div className="flex items-center justify-between border-t border-zinc-200 dark:border-white/10 pt-3">
+          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Total honorarios</span>
+          <span className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatPesos(total)}</span>
+        </div>
+      )}
+
+      {addingNew ? (
+        <div className="border border-dashed border-blue-300 dark:border-blue-900/60 rounded-xl p-4">
+          <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-3">
+            Nuevo honorario
+          </div>
+          <PresupuestoItemForm
+            presupuesto={null}
+            consultaId={consultaId}
+            onSaved={() => setAddingNew(false)}
+            onCancel={() => setAddingNew(false)}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAddingNew(true)}
+          className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/25 rounded-lg transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Agregar otro honorario
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Intimación fehaciente section ───────────────────────────────────────────
+
+function IntimacionSection({ consulta }: { consulta: { id: string; nombre: string; apellido: string | null; intimacion: IntimacionDoc | null } }) {
+  const update = useUpdateConsulta()
+  const supabase = createClient()
+  const pdfRef = useRef<HTMLDivElement>(null)
+
+  const existing = consulta.intimacion
+  const [activa, setActiva] = useState(!!existing)
+  const [tipo, setTipo] = useState<TipoIntimacion>(existing?.tipo ?? 'carta_documento')
+  const [destNombre, setDestNombre] = useState(existing?.destinatario_nombre ?? '')
+  const [destDomicilio, setDestDomicilio] = useState(existing?.destinatario_domicilio ?? '')
+  const [remNombre, setRemNombre] = useState(
+    existing?.remitente_nombre ??
+    [consulta.nombre, consulta.apellido].filter(Boolean).join(' ')
+  )
+  const [remDomicilio, setRemDomicilio] = useState(existing?.remitente_domicilio ?? '')
+  const [remDni, setRemDni] = useState(existing?.remitente_dni ?? '')
+  const [cuerpo, setCuerpo] = useState(existing?.cuerpo ?? '')
+  const [generando, setGenerando] = useState(false)
+
+  async function handleGenerar() {
+    if (!destNombre.trim()) {
+      toast.error('Indicá el nombre del destinatario primero')
+      return
+    }
+    setGenerando(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(`${supabaseUrl}/functions/v1/consulta-intimacion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({
+          consulta_id: consulta.id,
+          tipo,
+          destinatario_nombre: destNombre,
+          destinatario_domicilio: destDomicilio,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error al generar')
+      setCuerpo(data.cuerpo)
+      toast.success('Texto redactado')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo redactar')
+    } finally {
+      setGenerando(false)
+    }
+  }
+
+  async function handleGuardar() {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await update.mutateAsync({ id: consulta.id, intimacion: activa ? {
+        tipo,
+        destinatario_nombre: destNombre.trim(),
+        destinatario_domicilio: destDomicilio.trim(),
+        remitente_nombre: remNombre.trim(),
+        remitente_domicilio: remDomicilio.trim(),
+        remitente_dni: remDni.trim() || undefined,
+        cuerpo,
+        generado_at: new Date().toISOString(),
+      } : null } as any)
+      toast.success(activa ? 'Intimación guardada' : 'Intimación eliminada')
+    } catch {
+      toast.error('No se pudo guardar')
+    }
+  }
+
+  function handleImprimir() {
+    const content = pdfRef.current?.innerHTML
+    if (!content) return
+    const title = tipo === 'carta_documento'
+      ? `Carta Documento — ${destNombre}`
+      : `Telegrama Ley — ${destNombre}`
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (!w) return
+    w.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8" />
+      <title>${title}</title>
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: white; }
+        @media print { html, body { width: 21cm; } }
+      </style>
+    </head><body>${content}</body></html>`)
+    w.document.close()
+    w.onafterprint = () => w.close()
+    setTimeout(() => { w.focus(); w.print(); }, 300)
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-zinc-400" />
+          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Intimación fehaciente</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">¿Requiere intimación?</span>
+          <button
+            type="button"
+            onClick={() => setActiva(v => !v)}
+            className={cn(
+              'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none',
+              activa ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600',
+            )}
+          >
+            <span className={cn(
+              'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
+              activa ? 'translate-x-4' : 'translate-x-1',
+            )} />
+          </button>
+        </div>
+      </div>
+
+      {activa && (
+        <>
+          {/* Tipo de documento */}
+          <div className="grid grid-cols-2 gap-2">
+            {(['carta_documento', 'telegrama_ley'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTipo(t)}
+                className={cn(
+                  'rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all border',
+                  tipo === t
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300',
+                )}
+              >
+                {t === 'carta_documento' ? (
+                  <>
+                    <div className="font-semibold">Carta Documento</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">Correo Argentino · Formato extendido</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-semibold">Telegrama Ley</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">Art. 243 LCT · Texto breve · Uso laboral</div>
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Destinatario */}
+          <div className="space-y-2">
+            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">Destinatario</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Nombre / Razón social</label>
+                <input
+                  type="text"
+                  value={destNombre}
+                  onChange={e => setDestNombre(e.target.value)}
+                  placeholder="Ej: Juan García / Empresa S.A."
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Domicilio</label>
+                <input
+                  type="text"
+                  value={destDomicilio}
+                  onChange={e => setDestDomicilio(e.target.value)}
+                  placeholder="Calle y número, ciudad"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Remitente */}
+          <div className="space-y-2">
+            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">Remitente (quién envía)</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Nombre completo</label>
+                <input
+                  type="text"
+                  value={remNombre}
+                  onChange={e => setRemNombre(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">D.N.I.</label>
+                <input
+                  type="text"
+                  value={remDni}
+                  onChange={e => setRemDni(e.target.value)}
+                  placeholder="12.345.678"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Domicilio del remitente</label>
+              <input
+                type="text"
+                value={remDomicilio}
+                onChange={e => setRemDomicilio(e.target.value)}
+                placeholder="Calle y número, ciudad"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Texto */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                {tipo === 'carta_documento' ? 'Cuerpo de la carta documento' : 'Texto del telegrama'}
+              </label>
+              <button
+                type="button"
+                onClick={handleGenerar}
+                disabled={generando || !destNombre.trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-lg disabled:opacity-50 transition-all"
+              >
+                {generando
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Redactando…</>
+                  : <><Sparkles className="h-3.5 w-3.5" />Redactar con IA</>
+                }
+              </button>
+            </div>
+            <textarea
+              value={cuerpo}
+              onChange={e => setCuerpo(e.target.value)}
+              rows={tipo === 'telegrama_ley' ? 6 : 10}
+              placeholder={tipo === 'carta_documento'
+                ? 'Por la presente me dirijo a Ud. a fin de INTIMARLE a que…'
+                : 'Usá el botón para redactar con IA o escribí directamente…'
+              }
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+            />
+            {tipo === 'telegrama_ley' && cuerpo.trim() && (
+              <div className="text-right text-[10px] text-zinc-400 mt-1">
+                {cuerpo.trim().split(/\s+/).filter(Boolean).length} palabras
+              </div>
+            )}
+          </div>
+
+          {/* Acciones */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleGuardar}
+              disabled={update.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 rounded-lg transition-colors disabled:opacity-40"
+            >
+              {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Guardar
+            </button>
+            <button
+              type="button"
+              onClick={handleImprimir}
+              disabled={!cuerpo.trim() || !destNombre.trim() || !remNombre.trim()}
+              className="flex items-center gap-2 px-4 py-1.5 text-xs font-medium border border-zinc-300 dark:border-white/15 text-zinc-700 dark:text-zinc-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors disabled:opacity-40"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {tipo === 'carta_documento' ? 'Imprimir CD' : 'Imprimir Telegrama'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* PDF oculto para impresión */}
+      <div className="sr-only">
+        <IntimacionPdfPreview
+          ref={pdfRef}
+          tipo={tipo}
+          destNombre={destNombre || '—'}
+          destDomicilio={destDomicilio || '—'}
+          remNombre={remNombre || '—'}
+          remDomicilio={remDomicilio || '—'}
+          remDni={remDni || undefined}
+          cuerpo={cuerpo}
+          abogadoNombre="Dr. Marco Rossi"
+        />
+      </div>
     </div>
   )
 }
@@ -295,7 +723,7 @@ export default function ConsultaDetallePage() {
 
   const qc = useQueryClient()
   const { data: consulta, isLoading, error } = useConsulta(id)
-  const { data: presupuesto } = usePresupuesto(id)
+  const { data: presupuestos = [] } = usePresupuestos(id)
   const update = useUpdateConsulta()
   const addActividad = useAddConsultaActividad()
 
@@ -306,6 +734,8 @@ export default function ConsultaDetallePage() {
   const [generando, setGenerando] = useState(false)
   const [enriqueciendo, setEnriqueciendo] = useState(false)
   const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
+  const [editandoDiag, setEditandoDiag] = useState(false)
+  const [diagEdit, setDiagEdit] = useState<DiagnosticoIA | null>(null)
   const pdfDiagRef = useRef<HTMLDivElement>(null)
   const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
 
@@ -603,91 +1033,267 @@ export default function ConsultaDetallePage() {
         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico jurídico</h2>
-            <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[diag.chances_estimadas])}>
-              {CHANCES_LABEL[diag.chances_estimadas]}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
-              <div className="text-zinc-800 dark:text-zinc-200">{diag.fuero}</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
-              <div className="text-zinc-800 dark:text-zinc-200">{diag.pretension}</div>
-            </div>
-          </div>
-
-          <div>
-            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
-            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{diag.observaciones}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                Acciones recomendadas
-              </div>
-              <ol className="text-sm space-y-1.5 list-decimal list-inside text-zinc-700 dark:text-zinc-300">
-                {diag.acciones_recomendadas.map((a, i) => <li key={i}>{a}</li>)}
-              </ol>
-            </div>
-            {diag.riesgos?.length > 0 && (
-              <div>
-                <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3 text-amber-500" />
-                  Riesgos
-                </div>
-                <ul className="text-sm space-y-1.5 list-disc list-inside text-zinc-700 dark:text-zinc-300">
-                  {diag.riesgos.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {diag.descripcion_honorarios && (
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2">
-              <span className="font-medium">Honorarios sugeridos:</span> {diag.descripcion_honorarios}
-            </div>
-          )}
-
-          {/* Checklist para seguimiento administrativo */}
-          {diag.checklist_cliente && diag.checklist_cliente.length > 0 && (
-            <div className="border-t border-zinc-100 dark:border-white/5 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                  <ListChecks className="h-3.5 w-3.5 text-blue-500" />
-                  Documentación / información a solicitar al cliente
-                </div>
+            <div className="flex items-center gap-2">
+              {!editandoDiag ? (
+                <>
+                  <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[diag.chances_estimadas])}>
+                    {CHANCES_LABEL[diag.chances_estimadas]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setDiagEdit({ ...diag }); setEditandoDiag(true) }}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" /> Editar
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
-                  onClick={handleAgregarChecklistAlSeguimiento}
+                  onClick={() => { setEditandoDiag(false); setDiagEdit(null) }}
                   className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
                 >
-                  Agregar al seguimiento
+                  <X className="h-3 w-3" /> Cancelar
                 </button>
-              </div>
-              <ul className="space-y-1.5">
-                {diag.checklist_cliente.map((item, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!checklistEstado[i]}
-                      onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className={cn(
-                      'text-zinc-700 dark:text-zinc-300 leading-snug',
-                      checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500'
-                    )}>
-                      {item}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              )}
             </div>
+          </div>
+
+          {editandoDiag && diagEdit ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
+                  <input
+                    type="text"
+                    value={diagEdit.fuero}
+                    onChange={e => setDiagEdit(prev => prev ? { ...prev, fuero: e.target.value } : prev)}
+                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Pretensión</label>
+                  <input
+                    type="text"
+                    value={diagEdit.pretension}
+                    onChange={e => setDiagEdit(prev => prev ? { ...prev, pretension: e.target.value } : prev)}
+                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Probabilidad</label>
+                <select
+                  value={diagEdit.chances_estimadas}
+                  onChange={e => setDiagEdit(prev => prev ? { ...prev, chances_estimadas: e.target.value as DiagnosticoIA['chances_estimadas'] } : prev)}
+                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="alta">Alta</option>
+                  <option value="media">Media</option>
+                  <option value="baja">Baja</option>
+                  <option value="sin_datos">Sin datos</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Análisis</label>
+                <textarea
+                  rows={5}
+                  value={diagEdit.observaciones}
+                  onChange={e => setDiagEdit(prev => prev ? { ...prev, observaciones: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
+                </label>
+                <div className="space-y-1.5">
+                  {diagEdit.acciones_recomendadas.map((a, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={a}
+                        onChange={e => setDiagEdit(prev => {
+                          if (!prev) return prev
+                          const arr = [...prev.acciones_recomendadas]
+                          arr[i] = e.target.value
+                          return { ...prev, acciones_recomendadas: arr }
+                        })}
+                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) } : prev)}
+                        className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: [...prev.acciones_recomendadas, ''] } : prev)}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Agregar acción
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
+                </label>
+                <div className="space-y-1.5">
+                  {(diagEdit.riesgos ?? []).map((r, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={r}
+                        onChange={e => setDiagEdit(prev => {
+                          if (!prev) return prev
+                          const arr = [...(prev.riesgos ?? [])]
+                          arr[i] = e.target.value
+                          return { ...prev, riesgos: arr }
+                        })}
+                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setDiagEdit(prev => prev ? { ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) } : prev)}
+                        className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setDiagEdit(prev => prev ? { ...prev, riesgos: [...(prev.riesgos ?? []), ''] } : prev)}
+                    className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" /> Agregar riesgo
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Nota sobre honorarios</label>
+                <textarea
+                  rows={2}
+                  value={diagEdit.descripcion_honorarios ?? ''}
+                  onChange={e => setDiagEdit(prev => prev ? { ...prev, descripcion_honorarios: e.target.value } : prev)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!id || !diagEdit) return
+                  try {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await update.mutateAsync({ id, diagnostico_ia: diagEdit } as any)
+                    setEditandoDiag(false)
+                    setDiagEdit(null)
+                    toast.success('Diagnóstico actualizado')
+                  } catch {
+                    toast.error('No se pudo guardar el diagnóstico')
+                  }
+                }}
+                disabled={update.isPending}
+                className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Guardar diagnóstico
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
+                  <div className="text-zinc-800 dark:text-zinc-200">{diag.fuero}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
+                  <div className="text-zinc-800 dark:text-zinc-200">{diag.pretension}</div>
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{diag.observaciones}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Acciones recomendadas
+                  </div>
+                  <ol className="text-sm space-y-1.5 list-decimal list-inside text-zinc-700 dark:text-zinc-300">
+                    {diag.acciones_recomendadas.map((a, i) => <li key={i}>{a}</li>)}
+                  </ol>
+                </div>
+                {diag.riesgos?.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-amber-500" />
+                      Riesgos
+                    </div>
+                    <ul className="text-sm space-y-1.5 list-disc list-inside text-zinc-700 dark:text-zinc-300">
+                      {diag.riesgos.map((r, i) => <li key={i}>{r}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {diag.descripcion_honorarios && (
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <span className="font-medium">Honorarios sugeridos:</span> {diag.descripcion_honorarios}
+                </div>
+              )}
+
+              {diag.checklist_cliente && diag.checklist_cliente.length > 0 && (
+                <div className="border-t border-zinc-100 dark:border-white/5 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                      <ListChecks className="h-3.5 w-3.5 text-blue-500" />
+                      Documentación / información a solicitar al cliente
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAgregarChecklistAlSeguimiento}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    >
+                      Agregar al seguimiento
+                    </button>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {diag.checklist_cliente.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={!!checklistEstado[i]}
+                          onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
+                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className={cn(
+                          'text-zinc-700 dark:text-zinc-300 leading-snug',
+                          checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500'
+                        )}>
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -735,6 +1341,11 @@ export default function ConsultaDetallePage() {
         </div>
       )}
 
+      {/* Intimación fehaciente — solo abogados */}
+      {!isSecretaria && (
+        <IntimacionSection consulta={consulta} />
+      )}
+
       {/* Presupuesto — solo abogados */}
       {!isSecretaria && diag && (
         <div className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
@@ -756,7 +1367,7 @@ export default function ConsultaDetallePage() {
                 <FileText className="h-4 w-4" />
                 Diagnóstico PDF
               </button>
-              {presupuesto && (
+              {presupuestos.length > 0 && (
                 <button
                   type="button"
                   onClick={handlePrintPresupuesto}
@@ -792,7 +1403,7 @@ export default function ConsultaDetallePage() {
         <ConsultaPdfPreview
           ref={pdfDiagRef}
           consulta={{ ...consulta, notas_libres: notas }}
-          presupuesto={presupuesto}
+          presupuestos={presupuestos}
           abogadoNombre="Dr. Marco Rossi"
           mode="diagnostico"
           notasAbogado={notasAbogado || null}
@@ -800,7 +1411,7 @@ export default function ConsultaDetallePage() {
         <ConsultaPdfPreview
           ref={pdfPresupuestoRef}
           consulta={{ ...consulta, notas_libres: notas }}
-          presupuesto={presupuesto}
+          presupuestos={presupuestos}
           abogadoNombre="Dr. Marco Rossi"
           mode="presupuesto"
         />

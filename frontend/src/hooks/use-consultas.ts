@@ -26,6 +26,17 @@ export interface DiagnosticoIA {
   descripcion_honorarios: string
 }
 
+export interface IntimacionDoc {
+  tipo: 'carta_documento' | 'telegrama_ley'
+  destinatario_nombre: string
+  destinatario_domicilio: string
+  remitente_nombre: string
+  remitente_domicilio: string
+  remitente_dni?: string
+  cuerpo: string
+  generado_at?: string
+}
+
 export interface Consulta {
   id: string
   nombre: string
@@ -38,6 +49,7 @@ export interface Consulta {
   notas_abogado: string | null
   diagnostico_ia: DiagnosticoIA | null
   diagnostico_at: string | null
+  intimacion: IntimacionDoc | null
   estado: ConsultaEstado
   convertida_expediente_id: string | null
   assigned_to: string | null
@@ -105,7 +117,7 @@ export const ESTADO_LABEL: Record<ConsultaEstado, string> = {
 }
 
 export const HONORARIO_LABEL: Record<TipoHonorario, string> = {
-  cuota_litis: 'Cuota litis (20%)',
+  cuota_litis: 'Cuota litis',
   arancel_verbal: 'Consulta verbal Colegio',
   arancel_escrito: 'Consulta escrita Colegio',
   honorario_fijo: 'Honorario fijo',
@@ -120,7 +132,7 @@ export function calcularHonorarios(
   multiplicador: number,
 ): number {
   switch (tipo) {
-    case 'cuota_litis': return montoBase * 0.20
+    case 'cuota_litis': return montoBase * (multiplicador / 100)
     case 'arancel_verbal': return ARANCEL_VERBAL * multiplicador
     case 'arancel_escrito': return ARANCEL_ESCRITO * multiplicador
     case 'honorario_fijo': return montoBase
@@ -261,6 +273,41 @@ export function usePresupuesto(consultaId: string | undefined) {
   })
 }
 
+export function usePresupuestos(consultaId: string | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['presupuestos', consultaId],
+    queryFn: async () => {
+      if (!consultaId) return []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('presupuestos')
+        .select('*')
+        .eq('consulta_id', consultaId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Presupuesto[]
+    },
+    enabled: !!consultaId,
+  })
+}
+
+export function useDeletePresupuesto() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, consulta_id }: { id: string; consulta_id: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('presupuestos').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['presupuesto', vars.consulta_id] })
+      qc.invalidateQueries({ queryKey: ['presupuestos', vars.consulta_id] })
+    },
+  })
+}
+
 export function useUpsertPresupuesto() {
   const supabase = createClient()
   const qc = useQueryClient()
@@ -280,6 +327,7 @@ export function useUpsertPresupuesto() {
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['presupuesto', vars.consulta_id] })
+      qc.invalidateQueries({ queryKey: ['presupuestos', vars.consulta_id] })
       qc.invalidateQueries({ queryKey: ['consulta', vars.consulta_id] })
       qc.invalidateQueries({ queryKey: ['consultas'] })
     },

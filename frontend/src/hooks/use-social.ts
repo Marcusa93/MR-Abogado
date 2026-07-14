@@ -36,7 +36,7 @@ export function useLinkedInPublish() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { cuerpo: string; hashtags?: string; contenido_id?: string }) => {
+    mutationFn: async (input: { cuerpo: string; hashtags?: string; imagen_url?: string; contenido_id?: string }) => {
       const { data, error } = await supabase.functions.invoke('linkedin-publish', { body: input })
       if (error) {
         const ctx = (error as { context?: Response }).context

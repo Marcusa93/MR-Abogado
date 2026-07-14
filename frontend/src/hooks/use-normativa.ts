@@ -196,6 +196,15 @@ export interface IngestaUrlInput {
   fecha?: string
 }
 
+async function extractFnError(error: unknown): Promise<Error> {
+  const ctx = (error as { context?: unknown })?.context
+  if (ctx instanceof Response) {
+    const b = await ctx.json().catch(() => null)
+    if (b?.error) return new Error(b.error)
+  }
+  return error instanceof Error ? error : new Error('Error desconocido')
+}
+
 export function useIngestaNormativaUrl() {
   const qc = useQueryClient()
   return useMutation<{ documento_id: string }, Error, IngestaUrlInput>({
@@ -204,7 +213,7 @@ export function useIngestaNormativaUrl() {
         'normativa-ingest',
         { body: { mode: 'url', ...input } }
       )
-      if (error) throw error
+      if (error) throw await extractFnError(error)
       if (!data || !data.accepted) throw new Error(data?.error ?? 'ingesta falló')
       return { documento_id: data.documento_id }
     },
@@ -231,7 +240,7 @@ export function useIngestaNormativaPaste() {
         'normativa-ingest',
         { body: { mode: 'paste', ...input } }
       )
-      if (error) throw error
+      if (error) throw await extractFnError(error)
       if (!data || !data.accepted) throw new Error(data?.error ?? 'ingesta falló')
       return { documento_id: data.documento_id }
     },

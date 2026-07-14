@@ -1,17 +1,64 @@
-// Publica un texto en LinkedIn como el usuario autenticado.
-// Body: { cuerpo, hashtags?, contenido_id? }
+// Publica texto (y opcionalmente imagen) en LinkedIn como el usuario autenticado.
+// Body: { cuerpo, hashtags?, imagen_url?, contenido_id? }
 // Usa el token guardado en social_connections (provider=linkedin).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-const UGC_URL = 'https://api.linkedin.com/v2/ugcPosts'
+const LI_VERSION = '202412'
+const POSTS_URL = 'https://api.linkedin.com/rest/posts'
+const IMAGES_INIT_URL = 'https://api.linkedin.com/rest/images?action=initializeUpload'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
+}
+
+function liHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'LinkedIn-Version': LI_VERSION,
+    'X-Restli-Protocol-Version': '2.0.0',
+  }
+}
+
+async function subirImagen(token: string, accountId: string, imagenUrl: string): Promise<string> {
+  // 1. Inicializar upload: LinkedIn devuelve la URL de subida y el URN de la imagen
+  const initRes = await fetch(IMAGES_INIT_URL, {
+    method: 'POST',
+    headers: liHeaders(token),
+    body: JSON.stringify({ initializeUploadRequest: { owner: `urn:li:person:${accountId}` } }),
+  })
+  if (!initRes.ok) {
+    const t = await initRes.text()
+    throw new Error(`LinkedIn rechazó el inicio de subida de imagen (${initRes.status}): ${t.slice(0, 200)}`)
+  }
+  const initData = await initRes.json() as { value?: { uploadUrl?: string; image?: string } }
+  const uploadUrl = initData.value?.uploadUrl
+  const imageUrn = initData.value?.image
+  if (!uploadUrl || !imageUrn) throw new Error('LinkedIn no devolvió uploadUrl o image URN')
+
+  // 2. Descargar los bytes de imagen desde Supabase Storage
+  const imgRes = await fetch(imagenUrl)
+  if (!imgRes.ok) throw new Error(`No se pudo descargar la imagen (${imgRes.status})`)
+  const imageBytes = await imgRes.arrayBuffer()
+  const contentType = imgRes.headers.get('Content-Type') ?? 'image/jpeg'
+
+  // 3. Subir los bytes a LinkedIn
+  const upRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: imageBytes,
+  })
+  if (!upRes.ok) {
+    const t = await upRes.text()
+    throw new Error(`Fallo al subir imagen a LinkedIn (${upRes.status}): ${t.slice(0, 200)}`)
+  }
+
+  return imageUrn
 }
 
 Deno.serve(async (req) => {
@@ -25,8 +72,12 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await anon.auth.getUser()
     if (authErr || !user) return json(req, { error: 'No autorizado' }, 401)
 
-    const { cuerpo, hashtags, contenido_id } = await req.json().catch(() => ({})) as
-      { cuerpo?: string; hashtags?: string; contenido_id?: string }
+    const { cuerpo, hashtags, imagen_url, contenido_id } = await req.json().catch(() => ({})) as {
+      cuerpo?: string
+      hashtags?: string
+      imagen_url?: string
+      contenido_id?: string
+    }
     const texto = [cuerpo, hashtags].map(s => (s ?? '').trim()).filter(Boolean).join('\n\n')
     if (!texto) return json(req, { error: 'No hay texto para publicar' }, 400)
 
@@ -44,29 +95,39 @@ Deno.serve(async (req) => {
       return json(req, { error: 'Tu conexión con LinkedIn venció. Reconectá tu cuenta.' }, 401)
     }
 
-    const res = await fetch(UGC_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${c.access_token}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
+    // Si hay imagen: subirla primero y obtener el URN
+    let imageUrn: string | null = null
+    if (imagen_url) {
+      imageUrn = await subirImagen(c.access_token, c.account_id, imagen_url)
+    }
+
+    // Armar el body del post
+    const postBody: Record<string, unknown> = {
+      author: `urn:li:person:${c.account_id}`,
+      commentary: texto,
+      visibility: 'PUBLIC',
+      distribution: {
+        feedDistribution: 'MAIN_FEED',
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
       },
-      body: JSON.stringify({
-        author: `urn:li:person:${c.account_id}`,
-        lifecycleState: 'PUBLISHED',
-        specificContent: {
-          'com.linkedin.ugc.ShareContent': {
-            shareCommentary: { text: texto },
-            shareMediaCategory: 'NONE',
-          },
-        },
-        visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-      }),
+      lifecycleState: 'PUBLISHED',
+      isReshareDisabledByAuthor: false,
+    }
+    if (imageUrn) {
+      postBody.content = { media: { id: imageUrn } }
+    }
+
+    const res = await fetch(POSTS_URL, {
+      method: 'POST',
+      headers: liHeaders(c.access_token),
+      body: JSON.stringify(postBody),
     })
     if (!res.ok) {
       const t = await res.text()
       return json(req, { error: `LinkedIn rechazó la publicación (${res.status}): ${t.slice(0, 200)}` }, 502)
     }
+
     const postId = res.headers.get('x-restli-id') ?? res.headers.get('x-linkedin-id')
     const postUrl = postId ? `https://www.linkedin.com/feed/update/${postId}` : null
 

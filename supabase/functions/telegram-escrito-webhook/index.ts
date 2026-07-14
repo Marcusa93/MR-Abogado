@@ -165,10 +165,14 @@ async function loadSession(admin: ReturnType<typeof createClient>, chatId: numbe
 }
 
 async function saveSession(admin: ReturnType<typeof createClient>, s: Partial<TelegramSession> & { chat_id: number }) {
-  await admin.from('telegram_escrito_sessions').upsert({
-    ...s,
-    updated_at: new Date().toISOString(),
-  }).catch(e => console.warn('[telegram-escrito] session save error', e))
+  try {
+    await admin.from('telegram_escrito_sessions').upsert({
+      ...s,
+      updated_at: new Date().toISOString(),
+    })
+  } catch (e) {
+    console.warn('[telegram-escrito] session save error', e)
+  }
 }
 
 // La sesión pending expira a los 30 minutos para no confundir mensajes viejos
