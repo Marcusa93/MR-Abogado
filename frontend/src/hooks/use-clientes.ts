@@ -90,7 +90,7 @@ export function useClientes(filters: ClientesFilters = {}) {
         if (sanitized.length > 0) {
           const term = `%${sanitized}%`
           query = query.or(
-            `nombre.ilike.${term},apellido.ilike.${term},dni.ilike.${term},cuil.ilike.${term},email.ilike.${term},telefono.ilike.${term}`
+            `nombre.ilike.${term},apellido.ilike.${term},razon_social.ilike.${term},dni.ilike.${term},cuil.ilike.${term},email.ilike.${term},telefono.ilike.${term}`
           )
         }
       }
@@ -288,12 +288,20 @@ export function useClientesPlaceholderPendientes() {
 
 export interface ClienteAutocompleteRow {
   id: string
-  apellido: string
-  nombre: string
-  dni: string
+  apellido: string | null
+  nombre: string | null
+  dni: string | null
   cuil: string | null
+  razon_social: string | null
+  tipo_persona: string | null
   expedientes_count: number
   es_placeholder: boolean
+}
+
+/** Nombre para mostrar en cualquier contexto: jurídica → razon_social, física → "Apellido, Nombre". */
+export function clienteNombreDisplay(c: Pick<ClienteAutocompleteRow, 'tipo_persona' | 'razon_social' | 'nombre' | 'apellido'>): string {
+  if (c.tipo_persona === 'juridica') return c.razon_social ?? '—'
+  return [c.apellido, c.nombre].filter(Boolean).join(', ') || '—'
 }
 
 export function useBuscarClientesAutocomplete(termino: string, limit = 20) {

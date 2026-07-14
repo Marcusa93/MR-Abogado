@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
 import { Link } from 'react-router-dom'
-import { useClientes, useClientesPlaceholderPendientes, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
+import { useClientes, useClientesPlaceholderPendientes, clienteNombreDisplay, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
 import { exportClientePDF } from '@/lib/utils/export-client-pdf'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { timeAgo } from '@/lib/utils/date-helpers'
@@ -60,6 +60,10 @@ function ClienteCard({
   const hasUltimoContacto = !!cliente.ultimo_contacto
 
   const isPlaceholder = cliente.apellido === 'Importado SAE'
+  const esJuridica = (cliente as any).tipo_persona === 'juridica'
+  const nombreMostrar = esJuridica
+    ? ((cliente as any).razon_social ?? '—')
+    : `${cliente.apellido ?? ''}, ${cliente.nombre ?? ''}`.replace(/^,\s*/, '') || '—'
 
   return (
     <button
@@ -72,18 +76,29 @@ function ClienteCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        {/* Name + DNI */}
+        {/* Name + identificador */}
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-            {cliente.apellido}, {cliente.nombre}
-          </h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+              {nombreMostrar}
+            </h3>
+            {esJuridica && (
+              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 uppercase tracking-wider">Jurídica</span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
             <CreditCard className="h-3 w-3 shrink-0" />
-            <span className="font-mono">DNI {cliente.dni}</span>
-            {cliente.cuil && (
+            {esJuridica ? (
+              cliente.cuil && <span className="font-mono">CUIT {cliente.cuil}</span>
+            ) : (
               <>
-                <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                <span className="font-mono">{cliente.cuil}</span>
+                {cliente.dni && <span className="font-mono">DNI {cliente.dni}</span>}
+                {cliente.cuil && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                    <span className="font-mono">{cliente.cuil}</span>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -119,7 +134,7 @@ function ClienteCard({
                 <WhatsAppButton
                   phone={cliente.telefono}
                   variant="icon"
-                  clienteNombre={`${cliente.nombre} ${cliente.apellido}`}
+                  clienteNombre={esJuridica ? ((cliente as any).razon_social ?? '') : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim()}
                 />
               </span>
             </div>

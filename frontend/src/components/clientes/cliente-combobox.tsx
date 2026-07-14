@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { useBuscarClientesAutocomplete } from '@/hooks/use-clientes'
+import { useBuscarClientesAutocomplete, clienteNombreDisplay } from '@/hooks/use-clientes'
 import { cn } from '@/lib/utils'
 
 // Fallback puntual para resolver el label cuando solo tenemos el id seleccionado
@@ -12,9 +12,10 @@ function useClienteById(id: string | null) {
     queryKey: ['clientes', 'by-id', id],
     queryFn: async () => {
       if (!id) return null
-      const { data } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
         .from('clientes')
-        .select('id, dni, nombre, apellido')
+        .select('id, dni, nombre, apellido, razon_social, tipo_persona')
         .eq('id', id)
         .single()
       return data
@@ -42,7 +43,7 @@ export function ClienteCombobox({
   value,
   onChange,
   className,
-  placeholder = 'Buscar por apellido, nombre, DNI o CUIL...',
+  placeholder = 'Buscar por apellido, razón social, DNI o CUIL...',
   currentId,
   disabled = false,
 }: ClienteComboboxProps) {
@@ -59,7 +60,11 @@ export function ClienteCombobox({
     if (selected) {
       const expCount = (selected as any).expedientes_count
       const suffix = typeof expCount === 'number' ? ` · ${expCount} exp.` : ''
-      setSelectedLabel(`${selected.apellido} ${selected.nombre} (DNI: ${selected.dni}${suffix})`)
+      const nombre = clienteNombreDisplay(selected as any)
+      const id = (selected as any).tipo_persona === 'juridica'
+        ? ((selected as any).cuil ? `CUIT: ${(selected as any).cuil}` : '')
+        : (selected.dni ? `DNI: ${selected.dni}` : '')
+      setSelectedLabel(`${nombre}${id ? ` (${id})` : ''}${suffix}`)
     }
   }, [selected])
 
@@ -82,7 +87,7 @@ export function ClienteCombobox({
   }, [])
 
   const displayValue = value && !open
-    ? (selected ? `${selected.apellido} ${selected.nombre} (DNI: ${selected.dni})` : selectedLabel)
+    ? (selected ? clienteNombreDisplay(selected as any) : selectedLabel)
     : inputValue
 
   return (
@@ -117,7 +122,11 @@ export function ClienteCombobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   onChange(c.id)
-                  setSelectedLabel(`${c.apellido} ${c.nombre} (DNI: ${c.dni} · ${expCount} exp.)`)
+                  const nombre = clienteNombreDisplay(c as any)
+                  const idStr = (c as any).tipo_persona === 'juridica'
+                    ? (c.cuil ? `CUIT: ${c.cuil}` : '')
+                    : (c.dni ? `DNI: ${c.dni}` : '')
+                  setSelectedLabel(`${nombre}${idStr ? ` (${idStr})` : ''} · ${expCount} exp.`)
                   setOpen(false)
                 }}
                 className={cn(
@@ -128,7 +137,7 @@ export function ClienteCombobox({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                      {c.apellido} {c.nombre}
+                      {clienteNombreDisplay(c as any)}
                     </span>
                     {isCurrent && (
                       <span className="px-1 py-0.5 rounded text-[9px] uppercase tracking-wider bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex-shrink-0">
@@ -141,7 +150,11 @@ export function ClienteCombobox({
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">DNI: {c.dni}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
+                    {(c as any).tipo_persona === 'juridica'
+                      ? (c.cuil ? `CUIT: ${c.cuil}` : 'Persona jurídica')
+                      : (c.dni ? `DNI: ${c.dni}` : '')}
+                  </span>
                 </div>
                 <span className={cn(
                   'flex-shrink-0 text-xs px-1.5 py-0.5 rounded',
