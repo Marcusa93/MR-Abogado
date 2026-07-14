@@ -187,6 +187,7 @@ const MATERIAS = [
   { value: 'administrativo',        label: 'Contencioso Administrativo' },
   { value: 'penal',                 label: 'Penal' },
   { value: 'previsional',           label: 'Previsional / Seg. Social' },
+  { value: 'mediacion',             label: 'Mediación' },
   { value: 'otro',                  label: 'Otro (Consumidor, Laboral Especial…)' },
 ]
 
