@@ -97,12 +97,6 @@ export default function ConfiguracionPage() {
               icon={MapPin}
             />
             <CatalogoEditor
-              tableName="catalogo_tipos_tarea"
-              title="Tipos de Tarea"
-              icon={List}
-              formatNames
-            />
-            <CatalogoEditor
               tableName="catalogo_tipos_audiencia"
               title="Tipos de Audiencia"
               icon={List}

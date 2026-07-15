@@ -51,7 +51,7 @@ export function CrearTareaDialog({
   if (!open) return null
 
   const effectiveExpId = expedienteId ?? expId
-  const isValid = titulo.trim().length > 0 && effectiveExpId.length > 0
+  const isValid = titulo.trim().length > 0
 
   const handleConfirm = async () => {
     setTouched(true)
@@ -59,7 +59,7 @@ export function CrearTareaDialog({
 
     try {
       await createTarea.mutateAsync({
-        expediente_id: effectiveExpId,
+        expediente_id: effectiveExpId || null,
         titulo: titulo.trim(),
         descripcion: descripcion.trim() || null,
         prioridad: prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE',
@@ -119,18 +119,16 @@ export function CrearTareaDialog({
 
         {/* Body */}
         <div className="space-y-4 px-5 py-4">
-          {/* Expediente (solo si no viene como prop) */}
+          {/* Expediente (opcional si no viene como prop) */}
           {!expedienteId && (
             <div>
-              <label className={labelClass}>Expediente *</label>
+              <label className={labelClass}>
+                Expediente <span className="text-zinc-400 font-normal">(opcional)</span>
+              </label>
               <ExpedienteCombobox
                 value={expId}
                 onChange={setExpId}
-                error={touched && !expId}
               />
-              {touched && !expId && (
-                <p className="mt-1 text-xs text-rose-400">Selecciona un expediente</p>
-              )}
             </div>
           )}
 
