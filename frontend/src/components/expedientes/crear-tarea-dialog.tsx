@@ -1,31 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 import { useCreateTarea } from '@/hooks/use-tareas'
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuth } from '@/hooks/use-auth'
 import { ExpedienteCombobox } from '@/components/shared/expediente-combobox'
+import { EtiquetasInput } from '@/components/shared/etiquetas-input'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
 import { toast } from '@/stores/toast-store'
 import MentionTextarea from '@/components/shared/mention-textarea'
 import { X, Loader2 } from 'lucide-react'
-
-function useTiposTarea() {
-  const supabase = createClient()
-  return useQuery({
-    queryKey: ['catalogo', 'catalogo_tipos_tarea'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('catalogo_tipos_tarea')
-        .select('id, nombre')
-        .eq('activo', true)
-        .order('nombre')
-      if (error) throw error
-      return data ?? []
-    },
-    staleTime: 5 * 60_000,
-  })
-}
 
 interface CrearTareaDialogProps {
   open: boolean
@@ -47,10 +29,9 @@ export function CrearTareaDialog({
 }: CrearTareaDialogProps) {
   const createTarea = useCreateTarea()
   const { data: members } = useTeamMembers()
-  const { data: tiposTarea } = useTiposTarea()
   const { profile } = useAuth()
 
-  const [tipoTareaId, setTipoTareaId] = useState('')
+  const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [prioridad, setPrioridad] = useState('MEDIA')
@@ -59,7 +40,6 @@ export function CrearTareaDialog({
   const [expId, setExpId] = useState(expedienteId ?? '')
   const [touched, setTouched] = useState(false)
 
-  // Apply initialValues whenever the dialog opens (or values change)
   useEffect(() => {
     if (!open || !initialValues) return
     if (initialValues.titulo) setTitulo(initialValues.titulo)
@@ -80,7 +60,6 @@ export function CrearTareaDialog({
     try {
       await createTarea.mutateAsync({
         expediente_id: effectiveExpId,
-        tipo_tarea_id: tipoTareaId || null,
         titulo: titulo.trim(),
         descripcion: descripcion.trim() || null,
         prioridad: prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE',
@@ -88,6 +67,8 @@ export function CrearTareaDialog({
         fecha_vencimiento: fechaVencimiento || null,
         asignado_a: asignadoA || '',
         created_by: profile?.id ?? '',
+        // etiquetas no está en TablesInsert<'tareas'> todavía — cast necesario
+        ...({ etiquetas } as any),
       })
       toast.success('Tarea creada')
       resetAndClose()
@@ -97,7 +78,7 @@ export function CrearTareaDialog({
   }
 
   const resetAndClose = () => {
-    setTipoTareaId('')
+    setEtiquetas([])
     setTitulo('')
     setDescripcion('')
     setPrioridad('MEDIA')
@@ -150,30 +131,6 @@ export function CrearTareaDialog({
               {touched && !expId && (
                 <p className="mt-1 text-xs text-rose-400">Selecciona un expediente</p>
               )}
-            </div>
-          )}
-
-          {/* Tipo de tarea (from catalog) */}
-          {tiposTarea && tiposTarea.length > 0 && (
-            <div>
-              <label className={labelClass}>Tipo de tarea</label>
-              <select
-                value={tipoTareaId}
-                onChange={(e) => {
-                  const id = e.target.value
-                  setTipoTareaId(id)
-                  if (id) {
-                    const tipo = tiposTarea.find((t) => t.id === id)
-                    if (tipo && !titulo.trim()) setTitulo(tipo.nombre)
-                  }
-                }}
-                className={inputClass}
-              >
-                <option value="">Seleccionar tipo...</option>
-                {tiposTarea.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nombre}</option>
-                ))}
-              </select>
             </div>
           )}
 
@@ -254,6 +211,18 @@ export function CrearTareaDialog({
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Etiquetas */}
+          <div>
+            <label className={labelClass}>
+              Etiquetas <span className="text-zinc-400 font-normal">(Enter o coma para agregar)</span>
+            </label>
+            <EtiquetasInput
+              value={etiquetas}
+              onChange={setEtiquetas}
+              className="border-white/10 bg-white/5"
+            />
           </div>
         </div>
 

@@ -14,6 +14,7 @@ import {
 } from '@/hooks/use-tareas'
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuthStore } from '@/stores/auth-store'
+import { EtiquetasInput } from '@/components/shared/etiquetas-input'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils/date-helpers'
@@ -229,17 +230,20 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
   const [asignadoA, setAsignadoA] = useState(tarea.asignado_a)
   const [prioridad, setPrioridad] = useState(tarea.prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE')
   const [fechaVenc, setFechaVenc] = useState(tarea.fecha_vencimiento ?? '')
+  const [etiquetas, setEtiquetas] = useState<string[]>(tarea.etiquetas ?? [])
   const [expediente, setExpediente] = useState<ExpRef | null>(
     tarea.expediente ? { id: tarea.expediente.id, label: tarea.expediente.caratula || tarea.expediente.numero || '' } : null
   )
 
+  const etiquetasOrig = tarea.etiquetas ?? []
   const dirty =
     titulo !== tarea.titulo ||
     descripcion !== (tarea.descripcion ?? '') ||
     asignadoA !== tarea.asignado_a ||
     prioridad !== tarea.prioridad ||
     fechaVenc !== (tarea.fecha_vencimiento ?? '') ||
-    (expediente?.id ?? null) !== (tarea.expediente?.id ?? null)
+    (expediente?.id ?? null) !== (tarea.expediente?.id ?? null) ||
+    etiquetas.join(',') !== etiquetasOrig.join(',')
 
   const completada = tarea.estado === 'COMPLETADA'
 
@@ -254,6 +258,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
         prioridad,
         fecha_vencimiento: fechaVenc || null,
         prevAsignadoA: tarea.asignado_a,
+        etiquetas,
       })
       onClose()
     } catch {
@@ -370,6 +375,14 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
             <ExpedienteCombobox value={expediente} onChange={setExpediente} />
           </div>
 
+          {/* Etiquetas */}
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Etiquetas <span className="text-zinc-400 font-normal">(Enter o coma para agregar)</span>
+            </label>
+            <EtiquetasInput value={etiquetas} onChange={setEtiquetas} />
+          </div>
+
           {/* Acciones */}
           <div className="flex items-center gap-2 pt-1">
             <button
@@ -430,6 +443,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
     fecha_vencimiento: '',
   })
   const [expediente, setExpediente] = useState<ExpRef | null>(null)
+  const [etiquetas, setEtiquetas] = useState<string[]>([])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -445,6 +459,8 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
         expediente_id: expediente?.id ?? null,
         created_by: profile?.id ?? '',
         estado: 'PENDIENTE',
+        // etiquetas no está en TablesInsert<'tareas'> todavía — cast necesario
+        ...({ etiquetas } as any),
       })
       toast.success('Tarea creada')
       onClose()
@@ -524,6 +540,12 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               Expediente <span className="text-zinc-400 font-normal">(opcional)</span>
             </label>
             <ExpedienteCombobox value={expediente} onChange={setExpediente} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Etiquetas <span className="text-zinc-400 font-normal">(Enter o coma para agregar)</span>
+            </label>
+            <EtiquetasInput value={etiquetas} onChange={setEtiquetas} />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -642,6 +664,11 @@ function TareaCard({
             {vencida ? 'Vencida ' : ''}{formatDate(venc)}
           </span>
         )}
+        {tarea.etiquetas && tarea.etiquetas.length > 0 && tarea.etiquetas.map(tag => (
+          <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10">
+            {tag}
+          </span>
+        ))}
       </div>
 
       {/* Footer */}

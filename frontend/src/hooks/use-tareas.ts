@@ -53,6 +53,8 @@ export type TareaWithRelations = Tables<'tareas'> & {
       })
     | null
   asignado: Tables<'profiles'> | null
+  /** Columna agregada en migración 20260715000000 — no figura aún en database.types.ts */
+  etiquetas?: string[] | null
 }
 
 /**
@@ -345,7 +347,7 @@ export interface UpdateTareaInput {
   estado?: EstadoTarea
   fecha_vencimiento?: string | null
   asignado_a?: string | null
-  tipo_tarea_id?: string | null
+  etiquetas?: string[]
   /** Valor anterior de asignado_a, para detectar reasignación y notificar. */
   prevAsignadoA?: string | null
 }
