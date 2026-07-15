@@ -28,7 +28,6 @@ import {
   ChevronRight,
   UserCog,
   ClipboardList,
-  LayoutGrid,
 } from 'lucide-react'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
@@ -71,7 +70,6 @@ const navItems: readonly NavItem[] = [
   { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
-  { href: '/tablero', label: 'Tablero', icon: LayoutGrid, group: 'operacion' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
 

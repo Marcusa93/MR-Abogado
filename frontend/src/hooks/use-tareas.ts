@@ -251,7 +251,7 @@ export function useCompletarTarea() {
           destinatario_id: data.created_by,
           payload: {
             tarea_id: data.id,
-            link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tablero',
+            link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas',
           },
         } as never).then(() => {}, () => {})
       }
@@ -490,7 +490,7 @@ export function useCreateTarea() {
             destinatario_id: data.asignado_a,
             payload: {
               tarea_id: data.id,
-              link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tablero',
+              link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas',
             },
           } as never)
         } catch (e) {
