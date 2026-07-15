@@ -34,6 +34,8 @@ export interface TareasFilters {
   dateFrom?: string | null
   /** ISO date string (YYYY-MM-DD). Filter tasks with fecha_vencimiento <= dateTo */
   dateTo?: string | null
+  /** 'libre' = sin expediente, 'expediente' = con expediente */
+  tipoFiltro?: 'libre' | 'expediente' | null
 }
 
 export type TareaClienteInfo = Pick<
@@ -109,6 +111,7 @@ export function useTareas(filters: TareasFilters = {}) {
     pageSize = DEFAULT_PAGE_SIZE,
     dateFrom,
     dateTo,
+    tipoFiltro,
   } = filters
 
   return useQuery<PaginatedResult<TareaWithRelations>>({
@@ -172,6 +175,12 @@ export function useTareas(filters: TareasFilters = {}) {
         query = query.lte('fecha_vencimiento', dateTo)
       }
 
+      if (tipoFiltro === 'libre') {
+        query = query.is('expediente_id', null)
+      } else if (tipoFiltro === 'expediente') {
+        query = query.not('expediente_id', 'is', null)
+      }
+
       if (search && search.trim().length > 0) {
         const term = `%${search.trim().replace(/[%_\\]/g, '')}%`
         query = query.or(
@@ -209,6 +218,7 @@ export function useTareas(filters: TareasFilters = {}) {
 export function useCompletarTarea() {
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const profile = useAuthStore(s => s.profile)
 
   return useMutation({
     mutationFn: async (tareaId: string) => {
@@ -229,6 +239,20 @@ export function useCompletarTarea() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: tareasKeys.all })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
+      // Notificar al creador si es distinto de quien completó
+      if (data.created_by && data.created_by !== profile?.id) {
+        supabase.from('alertas').insert({
+          tipo: 'ESTADO_CAMBIO',
+          titulo: `Tarea completada: ${data.titulo}`,
+          mensaje: `${profile?.nombre ?? 'Alguien'} marcó como completada: "${data.titulo}".`,
+          expediente_id: data.expediente_id ?? null,
+          destinatario_id: data.created_by,
+          payload: {
+            tarea_id: data.id,
+            link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tablero',
+          },
+        } as never).then(() => {}, () => {})
+      }
       // Also invalidate the parent expediente detail
       if (data.expediente_id) {
         queryClient.invalidateQueries({
@@ -500,6 +524,88 @@ export function useCreateTarea() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['alertas'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useReopenTarea - Reabrir tarea completada
+// ---------------------------------------------------------------------------
+
+export function useReopenTarea() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (tareaId: string) => {
+      const { data, error } = await supabase
+        .from('tareas')
+        .update({
+          estado: 'PENDIENTE',
+          completada_at: null,
+          completada_por: null,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('id', tareaId)
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: tareasKeys.all })
+      if (data.expediente_id) {
+        queryClient.invalidateQueries({ queryKey: ['expedientes', 'detail', data.expediente_id] })
+      }
+      toast.success('Tarea reabierta')
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Comentarios de tarea
+// ---------------------------------------------------------------------------
+
+export interface TareaComentario {
+  id: string
+  tarea_id: string
+  contenido: string
+  created_by: string
+  created_at: string
+  autor?: { nombre: string | null; apellido: string | null } | null
+}
+
+export function useTareaComentarios(tareaId: string | undefined) {
+  const supabase = createClient()
+  return useQuery<TareaComentario[]>({
+    queryKey: ['tarea-comentarios', tareaId],
+    queryFn: async () => {
+      if (!tareaId) return []
+      const { data, error } = await (supabase as any)
+        .from('tarea_comentarios')
+        .select('*, autor:profiles!tarea_comentarios_created_by_fkey(nombre, apellido)')
+        .eq('tarea_id', tareaId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as TareaComentario[]
+    },
+    enabled: !!tareaId,
+  })
+}
+
+export function useAddTareaComentario() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  const profile = useAuthStore(s => s.profile)
+  return useMutation({
+    mutationFn: async ({ tareaId, contenido }: { tareaId: string; contenido: string }) => {
+      const { error } = await (supabase as any)
+        .from('tarea_comentarios')
+        .insert({ tarea_id: tareaId, contenido, created_by: profile?.id ?? '' })
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['tarea-comentarios', vars.tareaId] })
     },
   })
 }
