@@ -22,34 +22,56 @@ necesita abrir puertos entrantes en la VPN) y **no tiene dependencias npm**.
 
 ## Deploy
 
+**Cada bot corre bajo su propio usuario Linux sin privilegios** (no root) —
+si tenés más de un bot en la misma VPN, esto evita que uno comprometido pueda
+leer el `.env`/repo de los otros. Un usuario, un `home`, una deploy key.
+
 ```bash
-# 1) Copiar la carpeta a la VPN
-scp -r vps/telegram-claude-bot root@TU_VPS:/root/telegram-claude-bot
+# 1) Crear el usuario dedicado (una sola vez, por bot)
+useradd -m -s /bin/bash -d /home/<usuario-bot> <usuario-bot>
 
-# 2) En la VPN: configurar entorno
-cd /root/telegram-claude-bot
-cp .env.example .env
-nano .env          # completar token, chat id, WORKDIR
+# 2) Copiar la carpeta a su home
+scp -r vps/telegram-claude-bot root@TU_VPS:/home/<usuario-bot>/telegram-claude-bot
+# clonar el repo también dentro de /home/<usuario-bot>/
+chown -R <usuario-bot>:<usuario-bot> /home/<usuario-bot>
 
-# 3) Prueba manual
-node bot.mjs       # mandale /start al bot desde el celular
+# 3) Deploy key de ese repo (solo esa, no la de otros bots) en su .ssh:
+#    /home/<usuario-bot>/.ssh/{key,key.pub,config,known_hosts}, permisos 600/700,
+#    dueño <usuario-bot>. El config apunta IdentityFile a esa key para github.com.
 
-# 4) Dejarlo siempre abierto con systemd
-cp claude-telegram-bot.service /etc/systemd/system/
+# 4) En la VPN: configurar entorno
+sudo -u <usuario-bot> -H bash -c "cd ~/telegram-claude-bot && cp .env.example .env"
+nano /home/<usuario-bot>/telegram-claude-bot/.env   # token, chat id, WORKDIR=/home/<usuario-bot>/<repo>
+
+# 5) Prueba manual como ese usuario
+sudo -u <usuario-bot> -H node /home/<usuario-bot>/telegram-claude-bot/bot.mjs
+
+# 6) Dejarlo siempre abierto con systemd (User=/Group=/rutas del unit ya
+#    apuntan al usuario dedicado, ver claude-telegram-bot.service)
+cp claude-telegram-bot.service /etc/systemd/system/claude-telegram-bot-<usuario-bot>.service
+# editar User/Group/WorkingDirectory/EnvironmentFile/ExecStart si el nombre difiere
 systemctl daemon-reload
-systemctl enable --now claude-telegram-bot
-systemctl status claude-telegram-bot
-journalctl -u claude-telegram-bot -f   # ver logs en vivo
+systemctl enable --now claude-telegram-bot-<usuario-bot>
+journalctl -u claude-telegram-bot-<usuario-bot> -f
 ```
 
 ## Seguridad
 
 - Solo responde a los chat ids de `ALLOWED_CHAT_IDS`. Cualquier otro recibe "No autorizado".
+- **Usuario dedicado sin privilegios, no root.** `--dangerously-skip-permissions`
+  no necesita ningún flag extra (`IS_SANDBOX`) corriendo como usuario normal —
+  ese hack solo hacía falta cuando el bot corría como root. Con usuario propio,
+  aunque el bot ejecute cualquier comando en la VPN, queda contenido a lo que
+  ese usuario puede tocar: su propio `$HOME`, nada de `/root` ni de otros bots.
 - `CLAUDE_FLAGS=--permission-mode acceptEdits` deja editar archivos sin preguntar
   pero **no** corre comandos arbitrarios sin confirmación. Para autonomía total
   (correr tests, git, etc. sin preguntar) usá `--dangerously-skip-permissions`,
-  entendiendo que el bot podrá ejecutar cualquier cosa en la VPN.
+  entendiendo que el bot podrá ejecutar cualquier cosa dentro del alcance de su usuario.
 - El `.env` tiene el token: no lo commitees (ya está en `.gitignore`).
+- Secretos con privilegios altos (tokens de Supabase Management API, etc.) que
+  vivan en el `.env` de un bot quedan expuestos si *ese* bot se compromete —
+  no asumas que "está en un `.env`" alcanza; el aislamiento por usuario es la
+  segunda capa, no la única.
 
 ## Uso
 

@@ -5,18 +5,22 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Ajustá User y rutas según tu VPN.
-User=root
-WorkingDirectory=/root/telegram-claude-bot
-EnvironmentFile=/root/telegram-claude-bot/.env
-ExecStart=/usr/bin/node /root/telegram-claude-bot/bot.mjs
+# Corre como usuario dedicado sin privilegios (NO root) — un usuario por bot,
+# así un bot comprometido no puede leer el .env/repo de los otros bots del VPN.
+# Ajustá User/Group y rutas según tu setup.
+User=botmrabogado
+Group=botmrabogado
+WorkingDirectory=/home/botmrabogado/telegram-claude-bot
+EnvironmentFile=/home/botmrabogado/telegram-claude-bot/.env
+ExecStart=/usr/bin/node /home/botmrabogado/telegram-claude-bot/bot.mjs
 Restart=always
 RestartSec=5
+NoNewPrivileges=true
 # Si el OOM killer mata al proceso claude hijo, el bot sigue vivo y lo reporta
 # en vez de morir todo el servicio (paso el 2026-07-15).
 OOMPolicy=continue
 # El bot necesita el PATH donde está claude/node; ajustá si usás nvm.
-Environment=PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target
