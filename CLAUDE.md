@@ -89,6 +89,28 @@ supabase functions serve <fn> --env-file ...
 supabase functions deploy <fn>
 ```
 
+## Corriendo en el VPS (bot de Telegram)
+
+Si `SUPABASE_ACCESS_TOKEN` y `SUPABASE_PROJECT_ID` están en el entorno (es el caso
+del bot de Telegram en el VPS), tenés autonomía total: **nunca le pidas a Marco que
+corra comandos en su terminal** — hacelo vos y terminá la tarea completa (código +
+deploy + verificación) antes de reportar.
+
+- **Edge functions**: `supabase functions deploy <fn> --project-ref $SUPABASE_PROJECT_ID`
+  (el CLI está instalado en el VPS; sin Docker bundlea vía API, funciona igual).
+- **SQL / migraciones en prod**: aplicá por Management API:
+  ```bash
+  curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_ID/database/query" \
+    -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+    -d '{"query":"<sql>"}'
+  ```
+  y registrá la versión en `supabase_migrations.schema_migrations` (`INSERT ... ON CONFLICT DO NOTHING`).
+  **No uses `supabase db push` a ciegas**: hay drift histórico entre migrations locales y prod.
+- **Secretos de functions**: `supabase secrets list|set --project-ref $SUPABASE_PROJECT_ID`.
+- **git push** ya funciona (deploy key); Vercel deploya el frontend solo al pushear main.
+- Después de deployar una function, verificá con `supabase functions list --project-ref $SUPABASE_PROJECT_ID`
+  que la versión subió, o pegale un request de prueba.
+
 ## Endurecimiento TS pendiente
 
 Activar `noUncheckedIndexedAccess: true` en `frontend/tsconfig.json` destapa
