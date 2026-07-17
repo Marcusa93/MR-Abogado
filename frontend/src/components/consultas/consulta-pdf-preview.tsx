@@ -1,4 +1,4 @@
-import type { Consulta, Presupuesto, DiagnosticoIA } from '@/hooks/use-consultas'
+import type { Consulta, Presupuesto, DiagnosticoIA, DiagnosticoModulo, ConsultaTipoAsunto } from '@/hooks/use-consultas'
 import { TIPO_ASUNTO_LABEL, HONORARIO_LABEL, calcularHonorarios } from '@/hooks/use-consultas'
 import { forwardRef } from 'react'
 
@@ -169,6 +169,8 @@ ConsultaPdfPreview.displayName = 'ConsultaPdfPreview'
 
 // ── Sección diagnóstico ───────────────────────────────────────────────────────
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+
 function DiagnosticoContent({
   diag, notasAbogado, nombreCliente, tipoAsunto, fechaConsulta,
 }: {
@@ -178,6 +180,8 @@ function DiagnosticoContent({
   tipoAsunto: string
   fechaConsulta: string
 }) {
+  const modulos = diag?.modulos && diag.modulos.length > 0 ? diag.modulos : null
+
   return (
     <>
       <h1 style={{ textAlign: 'center', fontSize: '14pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3cm' }}>
@@ -187,7 +191,18 @@ function DiagnosticoContent({
         {nombreCliente} · {tipoAsunto} · {fechaConsulta}
       </div>
 
-      {diag ? (
+      {modulos ? (
+        <>
+          {modulos.map((m, i) => (
+            <ModuloSection key={i} modulo={m} numeral={ROMAN[i] ?? String(i + 1)} multiple={modulos.length > 1} />
+          ))}
+          {notasAbogado && (
+            <Section title={`${ROMAN[modulos.length] ?? String(modulos.length + 1)}. Observaciones del abogado`}>
+              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{notasAbogado}</p>
+            </Section>
+          )}
+        </>
+      ) : diag ? (
         <>
           <Section title="I. Síntesis del caso">
             <Row label="Fuero" value={diag.fuero ?? '—'} />
@@ -226,6 +241,47 @@ function DiagnosticoContent({
   )
 }
 
+function ModuloSection({ modulo, numeral, multiple }: { modulo: DiagnosticoModulo; numeral: string; multiple: boolean }) {
+  const areaLabel = TIPO_ASUNTO_LABEL[modulo.area as ConsultaTipoAsunto] ?? modulo.area
+  const title = multiple ? `${numeral}. ${areaLabel}` : `${numeral}. Síntesis y análisis del caso`
+
+  return (
+    <Section title={title}>
+      <Row label="Fuero" value={modulo.fuero || '—'} />
+      <Row label="Pretensión" value={modulo.pretension || '—'} />
+      <div style={{ marginTop: '10px' }}><ChancesBadge v={modulo.chances_estimadas ?? 'sin_datos'} /></div>
+      <p style={{ margin: '10px 0 0', textIndent: '1.2cm' }}>{modulo.observaciones}</p>
+
+      {(modulo.acciones_recomendadas?.length ?? 0) > 0 && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Acciones recomendadas</div>
+          <ol style={{ margin: 0, paddingLeft: '1.8cm' }}>
+            {modulo.acciones_recomendadas.map((a, i) => <li key={i} style={{ marginBottom: '4px' }}>{a}</li>)}
+          </ol>
+        </div>
+      )}
+
+      {(modulo.riesgos?.length ?? 0) > 0 && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Advertencias y riesgos</div>
+          <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
+            {(modulo.riesgos ?? []).map((r, i) => <li key={i} style={{ marginBottom: '4px' }}>{r}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {(modulo.checklist_cliente?.length ?? 0) > 0 && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Documentación a solicitar</div>
+          <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
+            {(modulo.checklist_cliente ?? []).map((c, i) => <li key={i} style={{ marginBottom: '4px' }}>{c}</li>)}
+          </ul>
+        </div>
+      )}
+    </Section>
+  )
+}
+
 // ── Sección presupuesto ───────────────────────────────────────────────────────
 
 function PresupuestoContent({
@@ -240,6 +296,8 @@ function PresupuestoContent({
 }) {
   const total = presupuestos.reduce((acc, p) => acc + calcularHonorarios(p.tipo_honorario, p.monto_base ?? 0, p.multiplicador), 0)
   const tieneCuotaLitis = presupuestos.some(p => p.tipo_honorario === 'cuota_litis')
+  const fundamento = diag?.descripcion_honorarios
+    || diag?.modulos?.map(m => m.descripcion_honorarios).filter(Boolean).join('\n\n')
 
   return (
     <>
@@ -252,13 +310,13 @@ function PresupuestoContent({
 
       {presupuestos.length > 0 ? (
         <>
-          {diag?.descripcion_honorarios && (
+          {fundamento && (
             <Section title="I. Fundamento">
-              <p style={{ margin: 0, textIndent: '1.2cm' }}>{diag.descripcion_honorarios}</p>
+              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{fundamento}</p>
             </Section>
           )}
 
-          <Section title={diag?.descripcion_honorarios ? 'II. Honorarios' : 'I. Honorarios'}>
+          <Section title={fundamento ? 'II. Honorarios' : 'I. Honorarios'}>
             <div style={{ border: '1.5px solid #1e3a5f', borderRadius: '8px', padding: '20px 28px', marginTop: '12px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11pt' }}>
                 <tbody>
@@ -311,7 +369,7 @@ function PresupuestoContent({
           </Section>
 
           {presupuestos.some(p => p.notas && p.tipo_honorario !== 'cuota_litis') && (
-            <Section title={diag?.descripcion_honorarios ? 'III. Condiciones y observaciones' : 'II. Condiciones y observaciones'}>
+            <Section title={fundamento ? 'III. Condiciones y observaciones' : 'II. Condiciones y observaciones'}>
               {presupuestos.filter(p => p.notas).map(p => (
                 <p key={p.id} style={{ margin: '0 0 6px', textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{p.notas}</p>
               ))}
