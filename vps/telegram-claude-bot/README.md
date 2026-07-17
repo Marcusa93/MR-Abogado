@@ -54,4 +54,28 @@ journalctl -u claude-telegram-bot -f   # ver logs en vivo
 ## Uso
 
 Mandale texto al bot: _"corré el typecheck del frontend y arreglá lo que falle"_.
-Procesa una tarea por vez. Comandos: `/start`, `/help`, `/pwd`.
+
+- **Memoria por chat**: cada mensaje continúa la misma conversación de Claude
+  (`sessions.json` + `--resume`). `/nuevo` arranca contexto limpio — conviene
+  al cambiar de tema, porque la sesión crece sin límite y resumir una sesión
+  gigante es lento y come memoria.
+- **Progreso en vivo**: mientras trabaja, el bot edita un mensaje con la
+  actividad actual (comando/archivo/herramienta) cada ~4s.
+- **Cola**: si mandás otra instrucción mientras trabaja, se encola (hasta
+  `MAX_QUEUE`). `/cola` la muestra.
+- **Adjuntos**: fotos y documentos (hasta 20 MB, límite del Bot API) se
+  descargan a `MEDIA_DIR` y Claude los lee con `Read`. Audio no soportado.
+
+Comandos: `/estado` (repo + cola + sesión), `/diff`, `/log`, `/cola`,
+`/cancelar`, `/nuevo`, `/pwd`, `/help`.
+
+## Operación
+
+- El unit tiene `OOMPolicy=continue`: si el kernel mata al proceso `claude`
+  por memoria, el bot sigue vivo y reporta el error en vez de morir todo el
+  servicio (pasó el 2026-07-15; también se agregó swap de 4 GB al VPS).
+- Timeout por tarea: `TASK_TIMEOUT_MS` (30 min). Al vencer, el bot reporta la
+  última actividad y el `git status` para que sepas en qué quedó.
+- Si el bot "queda trabado": `journalctl -u claude-telegram-bot -n 50`,
+  revisar oom-kill, estado del WORKDIR, y como último recurso resetear
+  `sessions.json` + `systemctl restart claude-telegram-bot`.

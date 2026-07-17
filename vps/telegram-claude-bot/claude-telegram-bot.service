@@ -12,6 +12,9 @@ EnvironmentFile=/root/telegram-claude-bot/.env
 ExecStart=/usr/bin/node /root/telegram-claude-bot/bot.mjs
 Restart=always
 RestartSec=5
+# Si el OOM killer mata al proceso claude hijo, el bot sigue vivo y lo reporta
+# en vez de morir todo el servicio (paso el 2026-07-15).
+OOMPolicy=continue
 # El bot necesita el PATH donde está claude/node; ajustá si usás nvm.
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:/root/.local/bin
 
