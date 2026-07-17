@@ -6,6 +6,7 @@ import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuthStore } from '@/stores/auth-store'
 import { isDirector } from '@/lib/utils/display-rol'
+import { useTiposProceso } from '@/hooks/use-proceso'
 import type { ExpedientesFilters } from '@/hooks/use-expedientes'
 
 interface ExpedienteFiltersProps {
@@ -14,6 +15,21 @@ interface ExpedienteFiltersProps {
   className?: string
 }
 
+export const FUERO_LABELS: Record<string, string> = {
+  civil:                 'Civil',
+  laboral:               'Laboral',
+  penal:                 'Penal',
+  familia:               'Familia',
+  administrativo:        'Administrativo',
+  comercial:             'Comercial',
+  previsional:           'Previsional',
+  documentos_locaciones: 'Documentos y Locaciones',
+  mediacion:             'Mediación',
+  otro:                  'Otro',
+}
+
+const FUERO_OPTIONS = Object.entries(FUERO_LABELS)
+
 export function ExpedienteFilters({
   filters,
   onChange,
@@ -21,9 +37,15 @@ export function ExpedienteFilters({
 }: ExpedienteFiltersProps) {
   const [searchValue, setSearchValue] = useState(filters.search ?? '')
   const { data: teamMembers } = useTeamMembers()
+  const { data: tiposProceso = [] } = useTiposProceso()
   const profile = useAuthStore((s) => s.profile)
   const canFilterByAbogado = isDirector(profile)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  // Materias filtradas por el fuero seleccionado
+  const materiasFiltradas = filters.fuero
+    ? tiposProceso.filter((t) => t.fuero === filters.fuero)
+    : []
 
   // Debounced search — fires 400ms after user stops typing
   useEffect(() => {
@@ -40,6 +62,8 @@ export function ExpedienteFilters({
     filters.estado_interno,
     filters.abogado_id,
     filters.prioridad,
+    filters.fuero,
+    filters.tipo_proceso_id,
     filters.search,
   ].filter(Boolean).length
 
@@ -92,6 +116,45 @@ export function ExpedienteFilters({
         'flex flex-wrap items-center gap-2',
         expanded ? 'flex' : 'hidden sm:flex',
       )}>
+        {/* Fuero */}
+        <select
+          value={filters.fuero ?? ''}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              fuero: e.target.value || null,
+              tipo_proceso_id: null,
+              page: 1,
+            })
+          }
+          className={selectClass}
+        >
+          <option value="">Fuero</option>
+          {FUERO_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+
+        {/* Materia — solo visible si hay fuero seleccionado y tiene materias */}
+        {filters.fuero && materiasFiltradas.length > 0 && (
+          <select
+            value={filters.tipo_proceso_id ?? ''}
+            onChange={(e) =>
+              onChange({
+                ...filters,
+                tipo_proceso_id: e.target.value || null,
+                page: 1,
+              })
+            }
+            className={selectClass}
+          >
+            <option value="">Materia</option>
+            {materiasFiltradas.map((t) => (
+              <option key={t.id} value={t.id}>{t.nombre}</option>
+            ))}
+          </select>
+        )}
+
         {/* Estado */}
         <select
           value={filters.estado_interno ?? ''}
@@ -173,6 +236,24 @@ export function ExpedienteFilters({
         <div className="flex flex-wrap items-center gap-1.5">
           <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
           <span className="mr-1 text-xs text-zinc-600 dark:text-zinc-300">Filtros activos:</span>
+          {filters.fuero && (
+            <FilterBadge
+              label={FUERO_LABELS[filters.fuero] ?? filters.fuero}
+              color="violet"
+              onRemove={() =>
+                onChange({ ...filters, fuero: null, tipo_proceso_id: null, page: 1 })
+              }
+            />
+          )}
+          {filters.tipo_proceso_id && (
+            <FilterBadge
+              label={tiposProceso.find((t) => t.id === filters.tipo_proceso_id)?.nombre ?? 'Materia'}
+              color="cyan"
+              onRemove={() =>
+                onChange({ ...filters, tipo_proceso_id: null, page: 1 })
+              }
+            />
+          )}
           {filters.estado_interno && (
             <FilterBadge
               label={ESTADO_INTERNO_LABELS[filters.estado_interno]}
@@ -222,11 +303,11 @@ export function ExpedienteFilters({
 }
 
 const BADGE_COLORS: Record<string, string> = {
-  cyan: 'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
+  cyan:   'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
   violet: 'bg-violet-950/40 text-violet-400 hover:bg-violet-950/60',
-  amber: 'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
+  amber:  'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
   indigo: 'bg-indigo-950/40 text-indigo-400 hover:bg-indigo-950/60',
-  gray: 'bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10',
+  gray:   'bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10',
 }
 
 function FilterBadge({

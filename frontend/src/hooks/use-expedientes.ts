@@ -24,6 +24,7 @@ export interface ExpedientesFilters {
   abogado_id?: string | null
   prioridad?: Prioridad | null
   fuero?: string | null
+  tipo_proceso_id?: string | null
   search?: string | null
   page?: number
   pageSize?: number
@@ -34,6 +35,7 @@ export interface ExpedientesFilters {
 export type ExpedienteWithRelations = Tables<'expedientes'> & {
   clientes: Tables<'clientes'> | null
   tipos_tramite: Tables<'tipos_tramite'> | null
+  tipos_proceso_judicial: { id: string; nombre: string } | null
   abogado_responsable?: Pick<Tables<'profiles'>, 'id' | 'nombre' | 'apellido' | 'rol'> | null
   miembros: { rol: string; perfil: { nombre: string; apellido: string } | null }[]
   // Minimal data for semáforo computation
@@ -88,6 +90,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
     tipo_tramite_id,
     prioridad,
     fuero,
+    tipo_proceso_id,
     search,
     page = 1,
     pageSize = DEFAULT_PAGE_SIZE,
@@ -155,6 +158,7 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           *,
           clientes (id, nombre, apellido, telefono),
           tipos_tramite (id, nombre),
+          tipos_proceso_judicial (id, nombre),
           organismo:organismos(id, nombre, tipo),
           abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
@@ -174,6 +178,10 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
 
       if (fuero) {
         query = (query as any).eq('fuero', fuero)
+      }
+
+      if (tipo_proceso_id) {
+        query = (query as any).eq('tipo_proceso_id', tipo_proceso_id)
       }
 
       if (tipo_tramite_id) {
@@ -294,6 +302,8 @@ interface CreateExpedienteInput {
   observaciones?: string | null
   pacto_honorarios?: string | null
   pacto_honorarios_valor?: number | null
+  fuero?: string | null
+  tipo_proceso_id?: string | null
 }
 
 export function useCreateExpediente() {
@@ -326,6 +336,8 @@ export function useCreateExpediente() {
         if (input.estado_interno && input.estado_interno !== 'NUEVA_CONSULTA') {
           updates.estado_interno = input.estado_interno
         }
+        if (input.fuero) updates.fuero = input.fuero
+        if (input.tipo_proceso_id) updates.tipo_proceso_id = input.tipo_proceso_id
         if (Object.keys(updates).length > 0) {
           await supabase
             .from('expedientes')

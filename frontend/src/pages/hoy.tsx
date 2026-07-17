@@ -96,7 +96,7 @@ export default function HoyPage() {
     )
   }
 
-  if (isError || !data) {
+  if (isError || !data || !data.usuario) {
     return (
       <div className="space-y-4">
         <Breadcrumb items={[{ label: 'Hoy' }]} />

@@ -2,17 +2,34 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useCreateExpediente } from '@/hooks/use-expedientes'
+import { useTiposProceso } from '@/hooks/use-proceso'
 import { toast } from '@/stores/toast-store'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS, ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS, type EstadoInterno } from '@/types/enums'
 import type { Prioridad } from '@/types/enums'
 
-/** States available when creating a new expediente */
 const ESTADOS_CREACION: { value: string; label: string }[] = ESTADO_INTERNO_VALUES.map(
   (v) => ({ value: v, label: ESTADO_INTERNO_LABELS[v] })
 )
 import { ArrowLeft, Loader2, Save, UserPlus } from 'lucide-react'
 
 import { ClienteCombobox } from '@/components/clientes/cliente-combobox'
+
+// ---------------------------------------------------------------------------
+// Fueros
+// ---------------------------------------------------------------------------
+
+const FUERO_OPTIONS: { value: string; label: string }[] = [
+  { value: 'civil',                 label: 'Civil' },
+  { value: 'laboral',               label: 'Laboral' },
+  { value: 'penal',                 label: 'Penal' },
+  { value: 'familia',               label: 'Familia' },
+  { value: 'administrativo',        label: 'Administrativo' },
+  { value: 'comercial',             label: 'Comercial' },
+  { value: 'previsional',           label: 'Previsional' },
+  { value: 'documentos_locaciones', label: 'Documentos y Locaciones' },
+  { value: 'mediacion',             label: 'Mediación' },
+  { value: 'otro',                  label: 'Otro' },
+]
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -30,21 +47,30 @@ const errorClass = 'mt-1 text-xs text-rose-500'
 export default function NuevoExpedientePage() {
   const navigate = useNavigate()
   const createExpediente = useCreateExpediente()
+  const { data: tiposProceso = [] } = useTiposProceso()
 
   const [clienteId, setClienteId] = useState('')
   const [prioridad, setPrioridad] = useState<Prioridad>('MEDIA')
   const [estadoInicial, setEstadoInicial] = useState('NUEVA_CONSULTA')
+  const [fuero, setFuero] = useState('')
+  const [tipoProcesoid, setTipoProcesoid] = useState('')
   const [observaciones, setObservaciones] = useState('')
   const [touched, setTouched] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  // Materias del fuero seleccionado
+  const materias = fuero ? tiposProceso.filter((t) => t.fuero === fuero) : []
+
+  // Reset materia al cambiar fuero
+  useEffect(() => {
+    setTipoProcesoid('')
+  }, [fuero])
+
   const isDirty = !submitted && (clienteId.length > 0 || observaciones.trim().length > 0)
 
-  // Block in-app navigation when form has data
   const blocker = useBlocker(isDirty)
   const proceedingRef = useRef(false)
 
-  // Block browser-level navigation (refresh, close, external links)
   useEffect(() => {
     if (!isDirty) return
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
@@ -53,17 +79,6 @@ export default function NuevoExpedientePage() {
   }, [isDirty])
 
   const isValid = clienteId.length > 0
-
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (clienteId || observaciones) {
-        e.preventDefault()
-        e.returnValue = ''
-      }
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [clienteId, observaciones])
 
   const handleSubmit = async () => {
     setTouched(true)
@@ -76,12 +91,13 @@ export default function NuevoExpedientePage() {
         prioridad,
         estado_interno: estadoInicial as EstadoInterno,
         observaciones: observaciones.trim() || null,
+        fuero: fuero || null,
+        tipo_proceso_id: tipoProcesoid || null,
       })
       toast.success('Expediente creado correctamente')
       navigate('/expedientes')
     } catch {
       setSubmitted(false)
-      // Error handled by mutation + global toast
     }
   }
 
@@ -100,7 +116,7 @@ export default function NuevoExpedientePage() {
           Nuevo Expediente
         </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          El numero de expediente se genera automaticamente (EXP-{new Date().getFullYear()}-XXXX).
+          El número de expediente se genera automáticamente (EXP-{new Date().getFullYear()}-XXXX).
         </p>
       </div>
 
@@ -124,12 +140,42 @@ export default function NuevoExpedientePage() {
               </button>
             </div>
             {touched && !clienteId && (
-              <p className={errorClass}>Selecciona un cliente</p>
+              <p className={errorClass}>Seleccioná un cliente</p>
             )}
           </div>
 
+          {/* Fuero + Materia */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Fuero</label>
+              <select
+                value={fuero}
+                onChange={(e) => setFuero(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Sin especificar</option>
+                {FUERO_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Materia</label>
+              <select
+                value={tipoProcesoid}
+                onChange={(e) => setTipoProcesoid(e.target.value)}
+                disabled={!fuero || materias.length === 0}
+                className={inputClass}
+              >
+                <option value="">{fuero && materias.length > 0 ? 'Sin especificar' : '— Seleccioná un fuero —'}</option>
+                {materias.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Prioridad + Estado */}
-          {/* Responsable (rol "responsable") se asigna luego desde Equipo del expediente */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Prioridad</label>
@@ -145,7 +191,7 @@ export default function NuevoExpedientePage() {
             </div>
             <div>
               <label className={labelClass}>Estado inicial</label>
-              <p className="mb-1 text-[10px] text-zinc-500 dark:text-zinc-400">Si el trámite ya fue iniciado en otro lado, seleccioná el estado actual</p>
+              <p className="mb-1 text-[10px] text-zinc-500 dark:text-zinc-400">Si el trámite ya fue iniciado, seleccioná el estado actual</p>
               <select
                 value={estadoInicial}
                 onChange={(e) => setEstadoInicial(e.target.value)}

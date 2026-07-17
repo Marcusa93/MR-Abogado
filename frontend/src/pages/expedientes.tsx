@@ -215,7 +215,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 // URL ↔ Filter sync helpers
 // ---------------------------------------------------------------------------
 
-const FILTER_PARAMS = ['tipo_tramite_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'sortBy', 'sortOrder', 'page'] as const
+const FILTER_PARAMS = ['tipo_tramite_id', 'tipo_proceso_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'sortBy', 'sortOrder', 'page'] as const
 
 function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   const f: ExpedientesFilters = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
@@ -229,6 +229,8 @@ function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   if (prioridad) f.prioridad = prioridad as any
   const fuero = params.get('fuero')
   if (fuero) f.fuero = fuero
+  const tipoProceso = params.get('tipo_proceso_id')
+  if (tipoProceso) f.tipo_proceso_id = tipoProceso
   const search = params.get('search')
   if (search) f.search = search
   const sortBy = params.get('sortBy')
