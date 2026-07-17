@@ -55,6 +55,8 @@ export type TareaWithRelations = Tables<'tareas'> & {
   asignado: Tables<'profiles'> | null
   /** Columna agregada en migración 20260715000000 — no figura aún en database.types.ts */
   etiquetas?: string[] | null
+  /** Columna agregada en migración 20260715010000 — no figura aún en database.types.ts */
+  asignados?: string[] | null
 }
 
 /**
@@ -149,7 +151,7 @@ export function useTareas(filters: TareasFilters = {}) {
       }
 
       if (asignado_a) {
-        query = query.eq('asignado_a', asignado_a)
+        query = query.contains('asignados', [asignado_a])
       }
 
       if (estado) {
@@ -346,10 +348,14 @@ export interface UpdateTareaInput {
   prioridad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'
   estado?: EstadoTarea
   fecha_vencimiento?: string | null
+  /** @deprecated Usar asignados[] para multi-asignación. Si solo se pasa este campo se sincroniza con asignados. */
   asignado_a?: string | null
+  asignados?: string[]
   etiquetas?: string[]
   /** Valor anterior de asignado_a, para detectar reasignación y notificar. */
   prevAsignadoA?: string | null
+  /** Valor anterior de asignados[], para detectar reasignaciones y notificar. */
+  prevAsignados?: string[]
 }
 
 export function useUpdateTarea() {
@@ -358,13 +364,17 @@ export function useUpdateTarea() {
 
   return useMutation({
     mutationFn: async (input: UpdateTareaInput) => {
-      const { id, asignado_a, prevAsignadoA: _prev, ...rest } = input
+      const { id, asignado_a, asignados, prevAsignadoA: _prev, prevAsignados: _prev2, ...rest } = input
       const payload: Record<string, unknown> = {
         ...rest,
         updated_at: new Date().toISOString(),
       }
-      if (asignado_a !== undefined) {
+      if (asignados !== undefined) {
+        payload.asignados = asignados
+        payload.asignado_a = asignados[0] ?? ''
+      } else if (asignado_a !== undefined) {
         payload.asignado_a = asignado_a ?? ''
+        payload.asignados = asignado_a ? [asignado_a] : []
       }
       const { data, error } = await supabase
         .from('tareas')
@@ -389,30 +399,32 @@ export function useUpdateTarea() {
       }
       toast.success('Tarea actualizada')
 
-      // Notificar al nuevo responsable si cambió
-      const nuevoAsignadoA = input.asignado_a
-      if (
-        nuevoAsignadoA
-        && nuevoAsignadoA !== input.prevAsignadoA
-      ) {
+      // Notificar a todos los asignados recién agregados
+      const nuevosAsignados = input.asignados ?? (input.asignado_a ? [input.asignado_a] : [])
+      const prevAsignados = input.prevAsignados ?? (input.prevAsignadoA ? [input.prevAsignadoA] : [])
+      const recienAgregados = nuevosAsignados.filter(id => !prevAsignados.includes(id))
+
+      if (recienAgregados.length > 0) {
         const exp = (data as unknown as { expediente?: { numero?: string | null; caratula?: string | null } | null }).expediente
         const expLabel = exp?.caratula ?? exp?.numero ?? null
         const titulo = expLabel
           ? `Tarea reasignada en ${expLabel}: ${data.titulo}`
           : `Tarea reasignada: ${data.titulo}`
         try {
-          await supabase.from('alertas').insert({
-            tipo: 'TAREA_ASIGNADA',
-            titulo,
-            mensaje: expLabel
-              ? `Se te reasignó una tarea en el expediente ${expLabel}.`
-              : 'Se te reasignó una tarea.',
-            expediente_id: data.expediente_id ?? null,
-            destinatario_id: nuevoAsignadoA,
-            payload: { tarea_id: data.id, link: data.expediente_id ? `/expedientes/${data.expediente_id}` : null },
-          } as never)
+          await supabase.from('alertas').insert(
+            recienAgregados.map(userId => ({
+              tipo: 'TAREA_ASIGNADA',
+              titulo,
+              mensaje: expLabel
+                ? `Se te asignó una tarea en el expediente ${expLabel}.`
+                : 'Se te asignó una tarea.',
+              expediente_id: data.expediente_id ?? null,
+              destinatario_id: userId,
+              payload: { tarea_id: data.id, link: data.expediente_id ? `/expedientes/${data.expediente_id}` : null },
+            })) as never
+          )
         } catch (e) {
-          console.error('[useUpdateTarea] insert alerta TAREA_ASIGNADA falló', e)
+          console.error('[useUpdateTarea] insert alertas TAREA_ASIGNADA falló', e)
         }
       }
     },
@@ -432,7 +444,7 @@ export function useCreateTarea() {
   const profile = useAuthStore((s) => s.profile)
 
   return useMutation({
-    mutationFn: async (input: TablesInsert<'tareas'>) => {
+    mutationFn: async (input: TablesInsert<'tareas'> & { asignados?: string[] }) => {
       const { data, error } = await supabase
         .from('tareas')
         .insert(input)
@@ -459,15 +471,17 @@ export function useCreateTarea() {
         })
       }
 
-      // Create notification for the assigned user (tareas libres y con expediente)
-      if (data.asignado_a) {
+      // Notificar a todos los asignados
+      const asignadosIds: string[] = ((data as any).asignados as string[] | undefined)
+        ?? (data.asignado_a ? [data.asignado_a] : [])
+      const currentUserId = profile?.id
+      const toNotifyAssigned = asignadosIds.filter(id => id && id !== currentUserId)
+
+      if (toNotifyAssigned.length > 0) {
         const exp = (data as any).expediente as
           | { numero?: string | null; numero_expediente?: string | null; caratula?: string | null }
           | null
-        const expLabel = exp?.caratula
-          || exp?.numero_expediente
-          || exp?.numero
-          || null
+        const expLabel = exp?.caratula || exp?.numero_expediente || exp?.numero || null
         const titulo = expLabel
           ? `Nueva tarea en ${expLabel}: ${data.titulo}`
           : `Nueva tarea asignada: ${data.titulo}`
@@ -477,35 +491,31 @@ export function useCreateTarea() {
             ? `Se te asignó una tarea en el expediente ${expLabel}.`
             : 'Se te asignó una nueva tarea.'
 
-        // El dispatch (push/email) lo dispara automáticamente el trigger
-        // alertas_dispatch_notification (migración 00045) tras el INSERT.
-        // (Se ejecuta dentro de try/catch porque si falla acá, la tarea
-        // ya está creada y no queremos romper la mutation entera.)
         try {
-          await supabase.from('alertas').insert({
-            tipo: 'TAREA_ASIGNADA',
-            titulo,
-            mensaje,
-            expediente_id: data.expediente_id ?? null,
-            destinatario_id: data.asignado_a,
-            payload: {
-              tarea_id: data.id,
-              link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas',
-            },
-          } as never)
+          await supabase.from('alertas').insert(
+            toNotifyAssigned.map(userId => ({
+              tipo: 'TAREA_ASIGNADA',
+              titulo,
+              mensaje,
+              expediente_id: data.expediente_id ?? null,
+              destinatario_id: userId,
+              payload: {
+                tarea_id: data.id,
+                link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas',
+              },
+            })) as never
+          )
         } catch (e) {
-          // Best effort: la notificación falló pero la tarea sí quedó.
-          console.error('[useCreateTarea] insert alerta TAREA_ASIGNADA falló', e)
+          console.error('[useCreateTarea] insert alertas TAREA_ASIGNADA falló', e)
         }
       }
 
       // Create MENCION alerts for @mentioned users in description
       if (data.descripcion && data.expediente_id) {
         const mentions = parseMentions(data.descripcion)
-        const currentUserId = profile?.id
         const authorName = profile ? `${profile.nombre} ${profile.apellido}` : 'Alguien'
         const toNotify = mentions.filter(
-          (m) => m.userId !== currentUserId && m.userId !== data.asignado_a,
+          (m) => m.userId !== currentUserId && !asignadosIds.includes(m.userId),
         )
         if (toNotify.length > 0) {
           try {

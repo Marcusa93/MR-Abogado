@@ -15,6 +15,7 @@ import {
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuthStore } from '@/stores/auth-store'
 import { EtiquetasInput } from '@/components/shared/etiquetas-input'
+import { AsignadosSelect } from '@/components/shared/asignados-select'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { formatDate, timeAgo } from '@/lib/utils/date-helpers'
@@ -198,9 +199,10 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
   const reopenTarea = useReopenTarea()
   const { data: members = [] } = useTeamMembers()
 
+  const asignadosOrig = tarea.asignados ?? (tarea.asignado_a ? [tarea.asignado_a] : [])
   const [titulo, setTitulo] = useState(tarea.titulo)
   const [descripcion, setDescripcion] = useState(tarea.descripcion ?? '')
-  const [asignadoA, setAsignadoA] = useState(tarea.asignado_a)
+  const [asignados, setAsignados] = useState<string[]>(asignadosOrig)
   const [prioridad, setPrioridad] = useState(tarea.prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE')
   const [fechaVenc, setFechaVenc] = useState(tarea.fecha_vencimiento ?? '')
   const [etiquetas, setEtiquetas] = useState<string[]>(tarea.etiquetas ?? [])
@@ -212,7 +214,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
   const dirty =
     titulo !== tarea.titulo ||
     descripcion !== (tarea.descripcion ?? '') ||
-    asignadoA !== tarea.asignado_a ||
+    asignados.join(',') !== asignadosOrig.join(',') ||
     prioridad !== tarea.prioridad ||
     fechaVenc !== (tarea.fecha_vencimiento ?? '') ||
     (expediente?.id ?? null) !== (tarea.expediente?.id ?? null) ||
@@ -226,9 +228,9 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
       await updateTarea.mutateAsync({
         id: tarea.id, titulo: titulo.trim(),
         descripcion: descripcion.trim() || null,
-        asignado_a: asignadoA, prioridad,
+        asignados, prioridad,
         fecha_vencimiento: fechaVenc || null,
-        prevAsignadoA: tarea.asignado_a, etiquetas,
+        prevAsignados: asignadosOrig, etiquetas,
       })
       onClose()
     } catch { toast.error('No se pudo guardar') }
@@ -266,14 +268,11 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               placeholder="Detalles de la tarea…"
               className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignados</label>
+            <AsignadosSelect value={asignados} onChange={setAsignados} members={members} />
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignar a</label>
-              <select value={asignadoA} onChange={e => setAsignadoA(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {members.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}
-              </select>
-            </div>
             <div>
               <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Prioridad</label>
               <select value={prioridad} onChange={e => setPrioridad(e.target.value as typeof prioridad)}
@@ -339,28 +338,27 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
   const { data: members = [] } = useTeamMembers()
   const [form, setForm] = useState({
     titulo: '', descripcion: '',
-    asignado_a: profile?.id ?? '',
     prioridad: 'MEDIA' as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE',
     fecha_vencimiento: '',
   })
+  const [asignados, setAsignados] = useState<string[]>(profile?.id ? [profile.id] : [])
   const [expediente, setExpediente] = useState<ExpRef | null>(null)
   const [etiquetas, setEtiquetas] = useState<string[]>([])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.titulo.trim()) { toast.error('El título es obligatorio'); return }
-    if (!form.asignado_a) { toast.error('Asigná la tarea a alguien'); return }
     try {
       await create.mutateAsync({
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim() || null,
-        asignado_a: form.asignado_a,
+        asignado_a: asignados[0] ?? '',
         prioridad: form.prioridad,
         fecha_vencimiento: form.fecha_vencimiento || null,
         expediente_id: expediente?.id ?? null,
         created_by: profile?.id ?? '',
         estado: 'PENDIENTE',
-        ...({ etiquetas } as any),
+        ...({ etiquetas, asignados } as any),
       })
       toast.success('Tarea creada')
       onClose()
@@ -387,25 +385,19 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               rows={2} placeholder="Detalles opcionales…"
               className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignar a *</label>
-              <select value={form.asignado_a} onChange={e => setForm(f => ({ ...f, asignado_a: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">— Elegir —</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Prioridad</label>
-              <select value={form.prioridad} onChange={e => setForm(f => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="BAJA">Baja</option>
-                <option value="MEDIA">Media</option>
-                <option value="ALTA">Alta</option>
-                <option value="URGENTE">Urgente</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignados</label>
+            <AsignadosSelect value={asignados} onChange={setAsignados} members={members} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Prioridad</label>
+            <select value={form.prioridad} onChange={e => setForm(f => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="BAJA">Baja</option>
+              <option value="MEDIA">Media</option>
+              <option value="ALTA">Alta</option>
+              <option value="URGENTE">Urgente</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Fecha límite</label>
@@ -508,7 +500,13 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
       <div className="flex items-center justify-between pl-6">
         <div className="flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
           <User className="h-2.5 w-2.5" />
-          {tarea.asignado ? `${tarea.asignado.nombre ?? ''} ${tarea.asignado.apellido ?? ''}`.trim() : '—'}
+          {(() => {
+            const primary = tarea.asignado
+              ? `${tarea.asignado.nombre ?? ''} ${tarea.asignado.apellido ?? ''}`.trim()
+              : '—'
+            const total = tarea.asignados?.length ?? 0
+            return total > 1 ? `${primary} +${total - 1}` : primary
+          })()}
         </div>
         {onMoveToProgress && tarea.estado !== 'COMPLETADA' && (
           <div role="button" tabIndex={-1} onClick={onMoveToProgress} onKeyDown={e => e.key === 'Enter' && onMoveToProgress(e as any)}
@@ -581,7 +579,13 @@ function TareaRow({ tarea, onComplete, onClick }: {
           </span>
         )}
         <span className="text-[10px] text-zinc-400 min-w-[60px]">
-          {tarea.asignado ? `${tarea.asignado.nombre ?? ''} ${tarea.asignado.apellido ?? ''}`.trim() : '—'}
+          {(() => {
+            const primary = tarea.asignado
+              ? `${tarea.asignado.nombre ?? ''} ${tarea.asignado.apellido ?? ''}`.trim()
+              : '—'
+            const total = tarea.asignados?.length ?? 0
+            return total > 1 ? `${primary} +${total - 1}` : primary
+          })()}
         </span>
       </div>
     </button>

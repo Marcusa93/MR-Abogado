@@ -4,6 +4,7 @@ import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuth } from '@/hooks/use-auth'
 import { ExpedienteCombobox } from '@/components/shared/expediente-combobox'
 import { EtiquetasInput } from '@/components/shared/etiquetas-input'
+import { AsignadosSelect } from '@/components/shared/asignados-select'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
 import { toast } from '@/stores/toast-store'
 import MentionTextarea from '@/components/shared/mention-textarea'
@@ -36,7 +37,7 @@ export function CrearTareaDialog({
   const [descripcion, setDescripcion] = useState('')
   const [prioridad, setPrioridad] = useState('MEDIA')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  const [asignadoA, setAsignadoA] = useState('')
+  const [asignados, setAsignados] = useState<string[]>(profile?.id ? [profile.id] : [])
   const [expId, setExpId] = useState(expedienteId ?? '')
   const [touched, setTouched] = useState(false)
 
@@ -65,10 +66,9 @@ export function CrearTareaDialog({
         prioridad: prioridad as 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE',
         estado: 'PENDIENTE',
         fecha_vencimiento: fechaVencimiento || null,
-        asignado_a: asignadoA || '',
+        asignado_a: asignados[0] ?? '',
         created_by: profile?.id ?? '',
-        // etiquetas no está en TablesInsert<'tareas'> todavía — cast necesario
-        ...({ etiquetas } as any),
+        ...({ etiquetas, asignados } as any),
       })
       toast.success('Tarea creada')
       resetAndClose()
@@ -83,7 +83,7 @@ export function CrearTareaDialog({
     setDescripcion('')
     setPrioridad('MEDIA')
     setFechaVencimiento('')
-    setAsignadoA('')
+    setAsignados(profile?.id ? [profile.id] : [])
     setExpId(expedienteId ?? '')
     setTouched(false)
     createTarea.reset()
@@ -194,21 +194,14 @@ export function CrearTareaDialog({
             </div>
           </div>
 
-          {/* Asignado */}
+          {/* Asignados */}
           <div>
-            <label className={labelClass}>Asignar a</label>
-            <select
-              value={asignadoA}
-              onChange={(e) => setAsignadoA(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Sin asignar</option>
-              {(members ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.apellido} {m.nombre}
-                </option>
-              ))}
-            </select>
+            <label className={labelClass}>Asignados</label>
+            <AsignadosSelect
+              value={asignados}
+              onChange={setAsignados}
+              members={(members ?? []).map(m => ({ id: m.id, nombre: m.nombre ?? null, apellido: m.apellido ?? null }))}
+            />
           </div>
 
           {/* Etiquetas */}

@@ -10,6 +10,8 @@ interface MentionTextareaProps {
   rows?: number
   className?: string
   disabled?: boolean
+  /** Llamado cuando el popover NO está activo — permite que el padre maneje Enter, etc. */
+  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
 }
 
 interface TeamMember {
