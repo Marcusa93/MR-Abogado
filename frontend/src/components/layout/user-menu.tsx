@@ -5,12 +5,14 @@ import { LogOut, Settings } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { displayRol } from '@/lib/utils/display-rol'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function UserMenu() {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const profile = useAuthStore((s) => s.profile)
 
   const initials = profile
@@ -40,7 +42,11 @@ export function UserMenu() {
 
   async function handleSignOut() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    // scope:'local' limpia el token localmente sin depender de red
+    // (evita que iOS Safari falle silenciosamente con timeouts)
+    await supabase.auth.signOut({ scope: 'local' })
+    queryClient.clear()
+    useAuthStore.getState().reset()
     navigate('/login', { replace: true })
   }
 
