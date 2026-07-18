@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+    const publicKey = Deno.env.get('VAPID_PUBLIC_KEY') ?? Deno.env.get('VITE_VAPID_PUBLIC_KEY')
     const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
     const subject = Deno.env.get('VAPID_SUBJECT')
 
@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
     // Aceptamos service_role (invocación inter-function desde dispatch-alert-notification)
     // o JWT de usuario autenticado.
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-    const isServiceRole = token === serviceRoleKey
+    const dispatchSecret = Deno.env.get('DISPATCH_SECRET')
+    const isServiceRole = token === serviceRoleKey || (!!dispatchSecret && token === dispatchSecret)
     if (!isServiceRole) {
       const supabaseCaller = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
         global: { headers: { Authorization: authHeader } },

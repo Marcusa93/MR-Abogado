@@ -45,8 +45,7 @@ interface AlertaRow {
   tipo: string
   titulo: string
   mensaje: string | null
-  usuario_id: string
-  link: string | null
+  destinatario_id: string
   expediente_id: string | null
 }
 
@@ -72,16 +71,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   // Auth: aceptamos dos modos
-  //   1. JWT de usuario autenticado (legacy: invocado desde el cliente)
-  //   2. Service role key (trigger DB vía pg_net — el camino preferido)
+  //   1. DISPATCH_SECRET (trigger DB vía pg_net — camino principal)
+  //   2. Service role key (invocación inter-function)
+  //   3. JWT de usuario autenticado (legacy: invocado desde el cliente)
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json(req, { error: 'No autorizado' }, 401)
 
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const dispatchSecret = Deno.env.get('DISPATCH_SECRET')
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const isServiceRole = token === serviceKey
+  const isTrusted = (dispatchSecret && token === dispatchSecret) || token === serviceKey
 
-  if (!isServiceRole) {
+  if (!isTrusted) {
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -106,17 +107,17 @@ Deno.serve(async (req) => {
   if (body.alerta_id) {
     const { data: alerta, error } = await admin
       .from('alertas')
-      .select('id, tipo, titulo, mensaje, usuario_id, link, expediente_id')
+      .select('id, tipo, titulo, mensaje, destinatario_id, expediente_id')
       .eq('id', body.alerta_id)
       .single()
     if (error || !alerta) return json(req, { error: 'Alerta no encontrada' }, 404)
     const a = alerta as AlertaRow
     alertaId = a.id
     tipo = a.tipo
-    usuario_id = a.usuario_id
+    usuario_id = a.destinatario_id
     titulo = a.titulo
     mensaje = a.mensaje ?? ''
-    url = a.link
+    url = a.expediente_id ? `/expedientes/${a.expediente_id}` : null
   } else {
     if (!body.tipo || !body.usuario_id || !body.titulo) {
       return json(req, { error: 'Faltan campos (tipo, usuario_id, titulo)' }, 400)
