@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUIStore } from '@/stores/ui-store'
 
 /**
  * Global keyboard shortcuts for power users.
+ *
+ * Cmd+K / Ctrl+K → Command palette
  *
  * Navigation (with Alt key):
  *   Alt+D → Dashboard
@@ -18,10 +21,18 @@ import { useNavigate } from 'react-router-dom'
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
+  const openCommandPalette = useUIStore(s => s.openCommandPalette)
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Don't trigger when typing in inputs
+      // Cmd+K / Ctrl+K → command palette (funciona desde cualquier contexto)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        openCommandPalette()
+        return
+      }
+
+      // Don't trigger navigation shortcuts when typing in inputs
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if ((e.target as HTMLElement)?.isContentEditable) return
@@ -57,5 +68,5 @@ export function useKeyboardShortcuts() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [navigate])
+  }, [navigate, openCommandPalette])
 }

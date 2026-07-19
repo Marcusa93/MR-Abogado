@@ -28,7 +28,10 @@ import {
   ChevronRight,
   UserCog,
   ClipboardList,
+  Calculator,
+  Search,
 } from 'lucide-react'
+import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 
 interface SidebarProps {
@@ -71,6 +74,7 @@ const navItems: readonly NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
+  { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
 
   // CASOS — todo lo del expediente
@@ -116,6 +120,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const badges = useSidebarBadges()
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupKey>>(loadCollapsedGroups)
+  const openCommandPalette = useUIStore(s => s.openCommandPalette)
 
   const toggleGroup = (g: GroupKey) => {
     setCollapsedGroups((prev) => {
@@ -301,7 +306,28 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-between">
+          {/* Cmd+K trigger */}
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            title="Buscar o ir a… (Cmd+K)"
+            className={cn(
+              'flex items-center gap-2 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors',
+              isCollapsed ? 'p-1.5' : 'px-2 py-1.5 flex-1'
+            )}
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            {!isCollapsed && (
+              <span className="flex-1 text-xs truncate">Buscar…</span>
+            )}
+            {!isCollapsed && (
+              <kbd className="rounded border border-zinc-200 dark:border-white/10 px-1 text-[10px] font-medium opacity-60">
+                ⌘K
+              </kbd>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={onToggle}

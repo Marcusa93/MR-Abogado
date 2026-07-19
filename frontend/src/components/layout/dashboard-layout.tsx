@@ -7,6 +7,7 @@ import { useAlertasRealtime, requestNotificationPermission } from '@/hooks/use-a
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
 import { InstallPwaPrompt } from '@/components/shared/install-pwa-prompt'
+import { CommandPalette } from '@/components/shared/command-palette'
 import { useOnboardingStore } from '@/stores/onboarding-store'
 import { WifiOff } from 'lucide-react'
 
@@ -90,6 +91,7 @@ export function DashboardLayout() {
       <NicoIAChat />
       <OnboardingTour />
       <InstallPwaPrompt />
+      <CommandPalette />
     </div>
   )
 }

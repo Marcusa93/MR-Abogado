@@ -66,9 +66,11 @@ import {
   Wallet,
   MoreHorizontal,
   ScrollText,
+  Send,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 import { NovedadesPanel } from '@/components/expedientes/novedades-panel'
+import { NotificarClienteModal } from '@/components/expedientes/notificar-cliente-modal'
 
 // ---------------------------------------------------------------------------
 // Tabs
@@ -137,6 +139,7 @@ export default function ExpedienteDetailPage() {
   const [tareaDialogOpen, setTareaDialogOpen] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [descargarExpedienteOpen, setDescargarExpedienteOpen] = useState(false)
+  const [notificarClienteOpen, setNotificarClienteOpen] = useState(false)
 
   // ---- Loading state ----
   if (isLoading) {
@@ -241,6 +244,17 @@ export default function ExpedienteDetailPage() {
                   } as WhatsAppContext}
                   variant="badge"
                 />
+              )}
+              {/* Notificar cliente */}
+              {(expediente.clientes as any)?.telefono && (
+                <button
+                  onClick={() => setNotificarClienteOpen(true)}
+                  className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                  title="Enviar mensaje al cliente"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Notificar</span>
+                </button>
               )}
               {/* CTAs principales — siempre visibles */}
               <button
@@ -437,7 +451,7 @@ export default function ExpedienteDetailPage() {
         {activeTab === 'datos' && (
           <div className="space-y-4">
             <EtapaProcesalPanel expedienteId={id!} etapaActual={(expediente as any).etapa_procesal ?? null} />
-            <TabGeneral expediente={expediente} />
+            <TabGeneral expediente={expediente as any} />
             <Card title="Línea de tiempo">
               {timelineLoading ? (
                 <div className="flex items-center justify-center py-8">
@@ -528,6 +542,18 @@ export default function ExpedienteDetailPage() {
         open={tareaDialogOpen}
         onClose={() => setTareaDialogOpen(false)}
         expedienteId={id!}
+      />
+
+      {/* Notificar cliente */}
+      <NotificarClienteModal
+        open={notificarClienteOpen}
+        onClose={() => setNotificarClienteOpen(false)}
+        caratula={expediente.caratula ?? (expediente as any).numero ?? ''}
+        estadoInterno={expediente.estado_interno}
+        tipoTramite={(expediente as any).tipos_tramite?.nombre}
+        clienteNombre={`${(expediente.clientes as any)?.nombre ?? ''} ${(expediente.clientes as any)?.apellido ?? ''}`.trim()}
+        clienteTelefono={(expediente.clientes as any)?.telefono ?? ''}
+        clienteTelefonoAlt={(expediente.clientes as any)?.telefono_alternativo}
       />
 
       {/* Quick Actions FAB — positioned left of BogaBot button */}

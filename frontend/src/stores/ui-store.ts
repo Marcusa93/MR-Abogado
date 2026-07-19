@@ -8,12 +8,15 @@ interface UIState {
   sidebarOpen: boolean
   theme: Theme
   expedientesViewMode: ExpedientesViewMode
+  commandPaletteOpen: boolean
 
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
   setExpedientesViewMode: (mode: ExpedientesViewMode) => void
+  openCommandPalette: () => void
+  closeCommandPalette: () => void
 }
 
 export const useUIStore = create<UIState>()(
@@ -22,6 +25,7 @@ export const useUIStore = create<UIState>()(
       sidebarOpen: true,
       theme: 'system',
       expedientesViewMode: 'table',
+      commandPaletteOpen: false,
 
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
@@ -35,6 +39,8 @@ export const useUIStore = create<UIState>()(
       },
 
       setExpedientesViewMode: (mode) => set({ expedientesViewMode: mode }),
+      openCommandPalette: () => set({ commandPaletteOpen: true }),
+      closeCommandPalette: () => set({ commandPaletteOpen: false }),
     }),
     {
       name: 'mr-ui-store',
@@ -42,6 +48,7 @@ export const useUIStore = create<UIState>()(
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
         expedientesViewMode: state.expedientesViewMode,
+        // commandPaletteOpen no se persiste — siempre arranca cerrado
       }),
     }
   )

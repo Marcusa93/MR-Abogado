@@ -42,6 +42,7 @@ const ResolverClientesPage = lazyWithRetry(() => import('@/pages/resolver-client
 const NuevoClientePage = lazyWithRetry(() => import('@/pages/nuevo-cliente'))
 const KanbanPage = lazyWithRetry(() => import('@/pages/kanban'))
 const TareasPage = lazyWithRetry(() => import('@/pages/tareas'))
+const AgendaPage = lazyWithRetry(() => import('@/pages/agenda'))
 const AgendaSecretariaPage = lazyWithRetry(() => import('@/pages/agenda-secretaria'))
 const AlertasPage = lazyWithRetry(() => import('@/pages/alertas'))
 const InformesPage = lazyWithRetry(() => import('@/pages/informes'))
@@ -65,6 +66,7 @@ const ConsultasPage = lazyWithRetry(() => import('@/pages/consultas'))
 const ConsultaDetallePage = lazyWithRetry(() => import('@/pages/consulta-detalle'))
 // tablero redirige a tareas (misma página unificada)
 const TableroPage = lazyWithRetry(() => import('@/pages/tareas'))
+const CalculadoraPlazosPage = lazyWithRetry(() => import('@/pages/calculadora-plazos'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -127,7 +129,8 @@ export const router = createBrowserRouter([
       { path: 'clientes/:id', element: <SuspenseWrapper><ClienteDetailPage /></SuspenseWrapper> },
       { path: 'kanban', element: <SuspenseWrapper><KanbanPage /></SuspenseWrapper> },
       { path: 'tareas', element: <SuspenseWrapper><TareasPage /></SuspenseWrapper> },
-      { path: 'agenda', element: <SuspenseWrapper><AgendaSecretariaPage /></SuspenseWrapper> },
+      { path: 'agenda', element: <SuspenseWrapper><AgendaPage /></SuspenseWrapper> },
+      { path: 'calculadora-plazos', element: <SuspenseWrapper><CalculadoraPlazosPage /></SuspenseWrapper> },
       { path: 'alertas', element: <SuspenseWrapper><AlertasPage /></SuspenseWrapper> },
       { path: 'informes', element: <SuspenseWrapper><InformesPage /></SuspenseWrapper> },
       { path: 'actividad', element: <SuspenseWrapper><ActividadPage /></SuspenseWrapper> },
