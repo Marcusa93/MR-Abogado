@@ -5,6 +5,9 @@ import {
 } from 'lucide-react'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
 import { useCreateDano } from '@/hooks/use-danos'
+import { useDanoPrecedentes } from '@/hooks/use-dano-precedentes'
+import { baseComparableDe } from '@/lib/danos/precedentes'
+import { PrecedentesEditor } from '@/components/danos/precedentes-editor'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { calcularDanos } from '@/lib/danos/escenarios'
@@ -63,6 +66,7 @@ interface FormState {
   npAfectacionSalud: boolean
   npReiteracion: boolean
   npBase: number
+  npBaseDesdeReales: boolean
   // punitivo
   procTratoIndigno: boolean
   procRiesgoSalud: boolean
@@ -87,7 +91,7 @@ function initialState(cbt: number): FormState {
     edad: 40, porcentaje: 30, ingresoMensual: 0, fuenteIngreso: 'no_acreditado', preset: 'vuoto_mendez',
     lucroCesantePasado: 0, medicosPasados: 0, medicosFuturos: 0,
     npAuto: true, npNivel: 'medio', npDuracion: 6, npVulnerabilidad: 'ninguna',
-    npAfectacionSalud: false, npReiteracion: false, npBase: cbt || 1_000_000,
+    npAfectacionSalud: false, npReiteracion: false, npBase: cbt || 1_000_000, npBaseDesdeReales: false,
     procTratoIndigno: false, procRiesgoSalud: false, procReiteracion: false,
     procGrave: false, procVulnerabilidad: false, procObstructiva: false,
     punMetodo: 'canastas', punNivel: 'media', punCanastasManual: null,
@@ -219,6 +223,13 @@ export default function CalculadoraDanos() {
   const { data: valores, isLoading: valoresLoading } = useValoresReferencia()
   const cbt = valores?.cbtHogar3 ?? 0
   const createDano = useCreateDano()
+  const { data: precedentes = [] } = useDanoPrecedentes()
+  const rol = useAuthStore(s => s.profile?.rol)
+  const [showPrecedentes, setShowPrecedentes] = useState(false)
+  const baseComp = useMemo(
+    () => (valores ? baseComparableDe(precedentes, valores, 'no_patrimonial') : null),
+    [precedentes, valores],
+  )
 
   const [f, setF] = useState<FormState>(() => initialState(0))
   const [titulo, setTitulo] = useState('')
@@ -252,7 +263,7 @@ export default function CalculadoraDanos() {
     lucroCesantePasado: f.rubros.has('lucro_cesante') ? f.lucroCesantePasado : undefined,
     gastos: f.rubros.has('gastos_medicos') ? { medicosPasados: f.medicosPasados, medicosFuturos: f.medicosFuturos } : undefined,
     noPatrimonial: f.rubros.has('no_patrimonial') ? {
-      baseComparable: f.npBase, baseEstimada: true,
+      baseComparable: f.npBase, baseEstimada: !f.npBaseDesdeReales,
       nivelManual: f.npAuto ? undefined : f.npNivel,
       duracionMeses: f.npDuracion, vulnerabilidad: f.npVulnerabilidad,
       afectacionSalud: f.npAfectacionSalud, reiteracion: f.npReiteracion,
@@ -573,9 +584,48 @@ export default function CalculadoraDanos() {
               <Toggle on={f.npReiteracion} onChange={v => set('npReiteracion', v)} label="Reiteración" />
             </div>
           )}
-          <Field label="Base comparable" hint="Monto por 1× de la matriz (estimado). Ajustar con precedentes.">
-            <input type="number" min={0} value={f.npBase} onChange={e => set('npBase', Number(e.target.value))} className={inputCls} />
+          <Field label="Base comparable" hint="Monto por 1× de la matriz. Ideal: mediana de precedentes normalizados.">
+            <input type="number" min={0} value={f.npBase}
+              onChange={e => setF(prev => ({ ...prev, npBase: Number(e.target.value), npBaseDesdeReales: false }))}
+              className={inputCls} />
           </Field>
+
+          {baseComp?.desdeReales ? (
+            <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/[0.02] p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-zinc-600 dark:text-zinc-300">
+                  <span className="font-medium">{baseComp.usados.length}</span> precedente{baseComp.usados.length !== 1 ? 's' : ''} comparable{baseComp.usados.length !== 1 ? 's' : ''} — mediana {formatPesos(baseComp.base)}
+                </p>
+                <button type="button"
+                  onClick={() => setF(prev => ({ ...prev, npBase: baseComp.base, npBaseDesdeReales: true }))}
+                  className="rounded-lg bg-amber-500 hover:bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors shrink-0">
+                  Usar mediana
+                </button>
+              </div>
+              <ul className="space-y-1">
+                {baseComp.usados.slice(0, 5).map(n => (
+                  <li key={n.precedente.id} className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span className="truncate">{n.precedente.caratula}</span>
+                    <span className="shrink-0">{formatPesos(n.montoHoy ?? 0)}{!n.normalizado && ' *'}</span>
+                  </li>
+                ))}
+              </ul>
+              {baseComp.usados.some(n => !n.normalizado) && (
+                <p className="text-[10px] text-zinc-400">* monto nominal sin normalizar (falta unidad CBT/SMVM).</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              Sin precedentes de daño no patrimonial con monto cargado. Agregá fallos para basar el cálculo en jurisprudencia real.
+            </p>
+          )}
+
+          {(rol === 'ADMIN' || rol === 'ABOGADO' || rol === 'DIRECTOR') && (
+            <button type="button" onClick={() => setShowPrecedentes(true)}
+              className="text-xs text-amber-600 dark:text-amber-400 hover:underline">
+              Gestionar precedentes →
+            </button>
+          )}
         </Card>
       )}
 
@@ -761,6 +811,8 @@ export default function CalculadoraDanos() {
         <Info className="h-3.5 w-3.5 text-zinc-400 mt-0.5 shrink-0" />
         <p className="text-[11px] text-zinc-400">Los valores de referencia (CBT/SMVM) se actualizan desde la tabla valores_referencia.</p>
       </div>
+
+      {showPrecedentes && <PrecedentesEditor onClose={() => setShowPrecedentes(false)} valores={valores} />}
     </div>
   )
 }
