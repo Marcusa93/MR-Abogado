@@ -67,6 +67,7 @@ const ConsultaDetallePage = lazyWithRetry(() => import('@/pages/consulta-detalle
 // tablero redirige a tareas (misma página unificada)
 const TableroPage = lazyWithRetry(() => import('@/pages/tareas'))
 const CalculadoraPlazosPage = lazyWithRetry(() => import('@/pages/calculadora-plazos'))
+const CalculadoraDanosPage = lazyWithRetry(() => import('@/pages/calculadora-danos'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -131,6 +132,7 @@ export const router = createBrowserRouter([
       { path: 'tareas', element: <SuspenseWrapper><TareasPage /></SuspenseWrapper> },
       { path: 'agenda', element: <SuspenseWrapper><AgendaPage /></SuspenseWrapper> },
       { path: 'calculadora-plazos', element: <SuspenseWrapper><CalculadoraPlazosPage /></SuspenseWrapper> },
+      { path: 'calculadora-danos', element: <SuspenseWrapper><CalculadoraDanosPage /></SuspenseWrapper> },
       { path: 'alertas', element: <SuspenseWrapper><AlertasPage /></SuspenseWrapper> },
       { path: 'informes', element: <SuspenseWrapper><InformesPage /></SuspenseWrapper> },
       { path: 'actividad', element: <SuspenseWrapper><ActividadPage /></SuspenseWrapper> },

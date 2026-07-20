@@ -29,6 +29,7 @@ import {
   UserCog,
   ClipboardList,
   Calculator,
+  Scale,
   Search,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
@@ -75,6 +76,7 @@ const navItems: readonly NavItem[] = [
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
+  { href: '/calculadora-danos', label: 'Estimador de daños', icon: Scale, group: 'operacion', hideForSecretaria: true },
   { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
 
   // CASOS — todo lo del expediente
