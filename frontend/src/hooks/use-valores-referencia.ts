@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { ValoresReferencia } from '@/lib/danos/types'
+
+export type IndicadorReferencia = 'CBT_HOGAR3' | 'SMVM' | 'IPC' | 'UVA'
 
 interface ValorRow {
   indicador: string
@@ -40,5 +42,39 @@ export function useValoresReferencia() {
       }
     },
     staleTime: 1000 * 60 * 60 * 6,
+  })
+}
+
+export interface UpsertValorInput {
+  indicador: IndicadorReferencia
+  vigenciaDesde: string
+  valor: number
+  fuente?: string
+}
+
+/**
+ * Registra un nuevo valor de referencia (nueva fila por fecha de vigencia, así
+ * los cálculos previos conservan el valor que usaron). Solo ADMIN/ABOGADO/DIRECTOR
+ * por RLS.
+ */
+export function useUpsertValorReferencia() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (i: UpsertValorInput) => {
+      const supabase = createClient()
+      const { error } = await (supabase as any)
+        .from('valores_referencia')
+        .upsert({
+          indicador: i.indicador,
+          vigencia_desde: i.vigenciaDesde,
+          valor: i.valor,
+          unidad: 'pesos',
+          fuente: i.fuente ?? null,
+        }, { onConflict: 'indicador,vigencia_desde' })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['valores-referencia'] })
+    },
   })
 }

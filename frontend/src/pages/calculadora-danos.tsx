@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
-  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck,
+  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X,
 } from 'lucide-react'
-import { useValoresReferencia } from '@/hooks/use-valores-referencia'
+import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
 import { useCreateDano } from '@/hooks/use-danos'
+import { useAuthStore } from '@/stores/auth-store'
 import { calcularDanos } from '@/lib/danos/escenarios'
 import { RUBROS, PRESETS_FORMULA, ESCALA_PUNITIVO, METODO_PUNITIVO_LABEL, MATRIZ_GRAVEDAD } from '@/lib/danos/constantes'
 import type {
@@ -132,6 +133,82 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+// ── Editor de valores de referencia (CBT / SMVM) ─────────────────────────────
+function ValoresEditor({ cbt, smvm, vigencia }: { cbt: number; smvm?: number; vigencia?: string }) {
+  const rol = useAuthStore(s => s.profile?.rol)
+  const puedeEditar = rol === 'ADMIN' || rol === 'ABOGADO' || rol === 'DIRECTOR'
+  const upsert = useUpsertValorReferencia()
+  const [editando, setEditando] = useState<IndicadorReferencia | null>(null)
+  const [valor, setValor] = useState(0)
+  const [vigDesde, setVigDesde] = useState(todayISO())
+
+  function abrir(ind: IndicadorReferencia, actual: number) {
+    setEditando(ind); setValor(actual); setVigDesde(todayISO())
+  }
+  async function guardar() {
+    if (!editando || valor <= 0) { toast.error('Ingresá un valor válido'); return }
+    try {
+      await upsert.mutateAsync({ indicador: editando, valor, vigenciaDesde: vigDesde, fuente: 'Actualización manual' })
+      toast.success('Valor de referencia actualizado')
+      setEditando(null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
+    }
+  }
+
+  const filas: Array<{ ind: IndicadorReferencia; label: string; val: number }> = [
+    { ind: 'CBT_HOGAR3', label: 'CBT Hogar 3', val: cbt },
+    { ind: 'SMVM', label: 'SMVM (mensual)', val: smvm ?? 0 },
+  ]
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5">
+      <div className="px-5 py-3 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Valores de referencia</h2>
+        {vigencia && <span className="text-xs text-zinc-400">CBT vigente {vigencia}</span>}
+      </div>
+      <div className="divide-y divide-zinc-100 dark:divide-white/5">
+        {filas.map(f => (
+          <div key={f.ind} className="px-5 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-600 dark:text-zinc-300">{f.label}</span>
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">{f.val > 0 ? formatPesos(f.val) : '— sin cargar'}</span>
+                {puedeEditar && editando !== f.ind && (
+                  <button type="button" onClick={() => abrir(f.ind, f.val)}
+                    className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 px-2 py-1 text-[11px] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5">
+                    <Pencil className="h-3 w-3" /> Editar
+                  </button>
+                )}
+              </div>
+            </div>
+            {editando === f.ind && (
+              <div className="mt-3 flex items-end gap-3 flex-wrap">
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Nuevo valor</label>
+                  <input type="number" min={0} value={valor} onChange={e => setValor(Number(e.target.value))} className={cn(inputCls, 'w-40')} />
+                </div>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Vigente desde</label>
+                  <input type="date" value={vigDesde} onChange={e => setVigDesde(e.target.value)} className={cn(inputCls, 'w-44')} />
+                </div>
+                <button type="button" onClick={guardar} disabled={upsert.isPending}
+                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
+                </button>
+                <button type="button" onClick={() => setEditando(null)}
+                  className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 px-2 py-2 text-sm text-zinc-500">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Página ────────────────────────────────────────────────────────────────────
 export default function CalculadoraDanos() {
   const { data: valores, isLoading: valoresLoading } = useValoresReferencia()
@@ -219,6 +296,9 @@ export default function CalculadoraDanos() {
           </p>
         </div>
       </div>
+
+      {/* Valores de referencia (editables) */}
+      <ValoresEditor cbt={cbt} smvm={valores?.smvm} vigencia={valores?.vigenciaDesde} />
 
       {/* Datos del caso */}
       <Card title="Datos del caso">
