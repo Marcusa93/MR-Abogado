@@ -225,6 +225,10 @@ export default function CalculadoraDanos() {
   const [narrativa, setNarrativa] = useState('')
   const [generandoNarrativa, setGenerandoNarrativa] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [relato, setRelato] = useState('')
+  const [analizando, setAnalizando] = useState(false)
+  const [faltantes, setFaltantes] = useState<string[]>([])
+  const [resumenIA, setResumenIA] = useState('')
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(prev => ({ ...prev, [k]: v }))
   const toggleRubro = (k: string) => setF(prev => {
     const r = new Set(prev.rubros)
@@ -288,6 +292,78 @@ export default function CalculadoraDanos() {
     }
   }
 
+  function aplicarCampos(c: any) {
+    setF(prev => {
+      const next = { ...prev }
+      if (typeof c.relacion_consumo === 'boolean') next.relacionConsumo = c.relacion_consumo
+      if (Array.isArray(c.rubros) && c.rubros.length) next.rubros = new Set(c.rubros)
+      const inc = c.incapacidad ?? {}
+      if (inc.edad != null) next.edad = inc.edad
+      if (inc.porcentaje != null) next.porcentaje = inc.porcentaje
+      if (inc.ingreso_mensual != null) { next.ingresoMensual = inc.ingreso_mensual; next.fuenteIngreso = 'acreditado' }
+      else if (inc.ingreso_acreditado === false) next.fuenteIngreso = 'no_acreditado'
+      const g = c.gastos ?? {}
+      if (g.medicos_pasados != null) next.medicosPasados = g.medicos_pasados
+      if (g.medicos_futuros != null) next.medicosFuturos = g.medicos_futuros
+      if (c.lucro_cesante_pasado != null) next.lucroCesantePasado = c.lucro_cesante_pasado
+      const np = c.no_patrimonial ?? {}
+      if (np.duracion_meses != null || np.vulnerabilidad || np.afectacion_salud || np.reiteracion) next.npAuto = true
+      if (np.duracion_meses != null) next.npDuracion = np.duracion_meses
+      if (np.vulnerabilidad) next.npVulnerabilidad = np.vulnerabilidad
+      if (typeof np.afectacion_salud === 'boolean') next.npAfectacionSalud = np.afectacion_salud
+      if (typeof np.reiteracion === 'boolean') next.npReiteracion = np.reiteracion
+      const p = c.punitivo ?? {}
+      if (typeof p.trato_indigno === 'boolean') next.procTratoIndigno = p.trato_indigno
+      if (typeof p.riesgo_salud === 'boolean') next.procRiesgoSalud = p.riesgo_salud
+      if (typeof p.reiteracion === 'boolean') next.procReiteracion = p.reiteracion
+      if (typeof p.grave === 'boolean') next.procGrave = p.grave
+      if (typeof p.vulnerabilidad === 'boolean') next.procVulnerabilidad = p.vulnerabilidad
+      if (typeof p.obstructiva === 'boolean') next.procObstructiva = p.obstructiva
+      if (p.metodo_sugerido) next.punMetodo = p.metodo_sugerido
+      return next
+    })
+  }
+
+  async function handleAnalizar() {
+    if (!relato.trim()) { toast.error('Pegá el relato del caso'); return }
+    setAnalizando(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const url = import.meta.env.VITE_SUPABASE_URL
+      const anon = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(`${url}/functions/v1/dano-extraer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}`, apikey: anon },
+        body: JSON.stringify({ relato }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error al analizar')
+      aplicarCampos(data.campos)
+      setFaltantes(Array.isArray(data.campos?.faltantes) ? data.campos.faltantes : [])
+      setResumenIA(data.campos?.resumen ?? '')
+      toast.success('Caso analizado — revisá los campos y lo que falta')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo analizar el caso')
+    } finally {
+      setAnalizando(false)
+    }
+  }
+
+  async function handleTraerConsulta() {
+    if (!consultaId) return
+    try {
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('consultas').select('notas_libres').eq('id', consultaId).single()
+      if (error) throw error
+      if (data?.notas_libres) { setRelato(data.notas_libres); toast.success('Hechos traídos de la consulta') }
+      else toast.error('La consulta no tiene hechos cargados')
+    } catch {
+      toast.error('No se pudieron traer los hechos')
+    }
+  }
+
   async function handleGenerarNarrativa() {
     if (!resultado) return
     setGenerandoNarrativa(true)
@@ -339,6 +415,52 @@ export default function CalculadoraDanos() {
           Al guardar, este cálculo queda vinculado {consultaId ? 'a la consulta' : 'al expediente'}.
         </div>
       )}
+
+      {/* Análisis del caso en lenguaje natural */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] dark:bg-amber-500/[0.04]">
+        <div className="px-5 py-3 border-b border-amber-500/15 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-amber-500" />
+          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Analizar caso (lenguaje natural)</h2>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Pegá el relato del caso. La IA completa los campos que puede y marca lo que falta. No calcula montos.
+          </p>
+          <textarea
+            rows={4} value={relato} onChange={e => setRelato(e.target.value)}
+            placeholder="Ej: Cliente de 45 años, accidente laboral, incapacidad del 30%. Ingreso no acreditado. Reclama gastos médicos por $500.000. La ART negó cobertura y lo trató con desconsideración…"
+            className={cn(inputCls, 'resize-y')}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button type="button" onClick={handleAnalizar} disabled={analizando}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50">
+              {analizando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Analizar caso
+            </button>
+            {consultaId && (
+              <button type="button" onClick={handleTraerConsulta}
+                className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5">
+                <Link2 className="h-4 w-4" /> Traer hechos de la consulta
+              </button>
+            )}
+          </div>
+          {resumenIA && (
+            <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <span className="font-medium">Detectado:</span> {resumenIA}
+            </div>
+          )}
+          {faltantes.length > 0 && (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">
+                <AlertTriangle className="h-3.5 w-3.5" /> Información faltante o a precisar
+              </p>
+              <ul className="list-disc pl-5 space-y-0.5 text-xs text-amber-700 dark:text-amber-300">
+                {faltantes.map((x, i) => <li key={i}>{x}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Valores de referencia (editables) */}
       <ValoresEditor cbt={cbt} smvm={valores?.smvm} vigencia={valores?.vigenciaDesde} />
