@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check,
+  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check, Printer,
 } from 'lucide-react'
+import { DanoPdfPreview } from '@/components/danos/dano-pdf-preview'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
 import { useCreateDano, useUpdateDano, useDanoCalculo } from '@/hooks/use-danos'
 import { useDanoPrecedentes } from '@/hooks/use-dano-precedentes'
@@ -281,8 +282,23 @@ export default function CalculadoraDanos() {
   const updateDano = useUpdateDano()
   const { data: calculoGuardado } = useDanoCalculo(calculoId)
   const [cargado, setCargado] = useState(false)
+  const pdfRef = useRef<HTMLDivElement>(null)
+
+  function imprimirDictamen() {
+    const content = pdfRef.current?.innerHTML
+    if (!content) return
+    const w = window.open('', '_blank', 'width=900,height=700')
+    if (!w) { toast.error('Habilitá las ventanas emergentes para imprimir'); return }
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Estimación de daños — ${titulo || 'sin título'}</title>`
+      + `<style>@page{size:A4;margin:1.5cm;}*{box-sizing:border-box;}html,body{margin:0;padding:0;background:#fff;}</style>`
+      + `</head><body>${content}</body></html>`)
+    w.document.close()
+    w.onafterprint = () => w.close()
+    setTimeout(() => { w.focus(); w.print() }, 300)
+  }
   const { data: precedentes = [] } = useDanoPrecedentes()
-  const rol = useAuthStore(s => s.profile?.rol)
+  const profile = useAuthStore(s => s.profile)
+  const rol = profile?.rol
   const [showPrecedentes, setShowPrecedentes] = useState(false)
   const baseComp = useMemo(
     () => (valores ? baseComparableDe(precedentes, valores, 'no_patrimonial') : null),
@@ -872,6 +888,10 @@ export default function CalculadoraDanos() {
               {(createDano.isPending || updateDano.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {calculoId ? 'Actualizar' : 'Guardar'}
             </button>
+            <button type="button" onClick={imprimirDictamen}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
+              <Printer className="h-4 w-4" /> Imprimir dictamen
+            </button>
           </div>
         </div>
       )}
@@ -894,6 +914,23 @@ export default function CalculadoraDanos() {
       </div>
 
       {showPrecedentes && <PrecedentesEditor onClose={() => setShowPrecedentes(false)} valores={valores} />}
+
+      {/* Documento imprimible (oculto) */}
+      {resultado && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }} aria-hidden>
+          <DanoPdfPreview
+            ref={pdfRef}
+            titulo={titulo || 'Estimación de daños'}
+            input={input}
+            resultado={resultado}
+            narrativa={narrativa || undefined}
+            comparables={f.rubros.has('no_patrimonial') && f.npBaseDesdeReales
+              ? (baseComp?.usados ?? []).map(n => ({ caratula: n.precedente.caratula, montoHoy: n.montoHoy ?? 0, normalizado: n.normalizado }))
+              : undefined}
+            abogado={profile?.nombre ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : undefined}
+          />
+        </div>
+      )}
     </div>
   )
 }
