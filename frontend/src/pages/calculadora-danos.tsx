@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X,
+  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2,
 } from 'lucide-react'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
 import { useCreateDano } from '@/hooks/use-danos'
@@ -211,6 +212,9 @@ function ValoresEditor({ cbt, smvm, vigencia }: { cbt: number; smvm?: number; vi
 
 // ── Página ────────────────────────────────────────────────────────────────────
 export default function CalculadoraDanos() {
+  const [searchParams] = useSearchParams()
+  const consultaId = searchParams.get('consulta_id')
+  const expedienteId = searchParams.get('expediente_id')
   const { data: valores, isLoading: valoresLoading } = useValoresReferencia()
   const cbt = valores?.cbtHogar3 ?? 0
   const createDano = useCreateDano()
@@ -270,9 +274,10 @@ export default function CalculadoraDanos() {
       await createDano.mutateAsync({
         titulo: titulo.trim(),
         tipoCaso: f.relacionConsumo ? 'consumo' : 'civil',
+        consultaId, expedienteId,
         input, resultado,
       })
-      toast.success('Cálculo guardado')
+      toast.success(consultaId || expedienteId ? 'Cálculo guardado y vinculado al legajo' : 'Cálculo guardado')
       setTitulo('')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
@@ -296,6 +301,13 @@ export default function CalculadoraDanos() {
           </p>
         </div>
       </div>
+
+      {(consultaId || expedienteId) && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <Link2 className="h-3.5 w-3.5" />
+          Al guardar, este cálculo queda vinculado {consultaId ? 'a la consulta' : 'al expediente'}.
+        </div>
+      )}
 
       {/* Valores de referencia (editables) */}
       <ValoresEditor cbt={cbt} smvm={valores?.smvm} vigencia={valores?.vigenciaDesde} />

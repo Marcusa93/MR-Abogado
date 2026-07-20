@@ -16,6 +16,7 @@ import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
 import { IntimacionPdfPreview } from '@/components/consultas/intimacion-pdf-preview'
 import type { TipoIntimacion } from '@/components/consultas/intimacion-pdf-preview'
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
+import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
@@ -1558,6 +1559,8 @@ export default function ConsultaDetallePage() {
 
       {/* Normativa y jurisprudencia de referencia */}
       <ConsultaAnclasPanel consultaId={consulta.id} />
+
+      <DanosCalculosPanel consultaId={consulta.id} />
 
       {/* Diagnóstico IA */}
       {diag && (

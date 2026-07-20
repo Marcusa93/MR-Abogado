@@ -5,6 +5,7 @@ import { AbogadoResponsableSelector } from './abogado-responsable-selector'
 import { formatDate, daysAgo } from '@/lib/utils/date-helpers'
 import type { Tables } from '@/types/database.types'
 import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
+import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import {
   User, Phone, Mail, CreditCard, Calendar, Building2, FileText, Scale,
   ChevronDown, ChevronUp, Briefcase, MessageSquare, UsersRound, Clock,
@@ -237,6 +238,8 @@ export function TabGeneral({ expediente }: TabGeneralProps) {
           </Acordeon>
         )}
       </div>
+
+      <DanosCalculosPanel expedienteId={expediente.id} />
     </div>
   )
 }
