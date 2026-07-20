@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2,
+  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check,
 } from 'lucide-react'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
 import { useCreateDano } from '@/hooks/use-danos'
 import { useAuthStore } from '@/stores/auth-store'
+import { createClient } from '@/lib/supabase/client'
 import { calcularDanos } from '@/lib/danos/escenarios'
 import { RUBROS, PRESETS_FORMULA, ESCALA_PUNITIVO, METODO_PUNITIVO_LABEL, MATRIZ_GRAVEDAD } from '@/lib/danos/constantes'
 import type {
@@ -221,6 +222,9 @@ export default function CalculadoraDanos() {
 
   const [f, setF] = useState<FormState>(() => initialState(0))
   const [titulo, setTitulo] = useState('')
+  const [narrativa, setNarrativa] = useState('')
+  const [generandoNarrativa, setGenerandoNarrativa] = useState(false)
+  const [copiado, setCopiado] = useState(false)
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(prev => ({ ...prev, [k]: v }))
   const toggleRubro = (k: string) => setF(prev => {
     const r = new Set(prev.rubros)
@@ -281,6 +285,33 @@ export default function CalculadoraDanos() {
       setTitulo('')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
+    }
+  }
+
+  async function handleGenerarNarrativa() {
+    if (!resultado) return
+    setGenerandoNarrativa(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const url = import.meta.env.VITE_SUPABASE_URL
+      const anon = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(`${url}/functions/v1/dano-narrativa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: anon,
+        },
+        body: JSON.stringify({ resultado, tipo_caso: f.relacionConsumo ? 'consumo' : 'civil' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error al generar')
+      setNarrativa(data.narrativa)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo generar la fundamentación')
+    } finally {
+      setGenerandoNarrativa(false)
     }
   }
 
@@ -549,6 +580,34 @@ export default function CalculadoraDanos() {
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
               CBT Hogar 3 usada: {formatPesos(cbt)}{valores?.smvm ? ` · SMVM: ${formatPesos(valores.smvm)}` : ''}
             </p>
+          </div>
+
+          {/* Fundamentación IA */}
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                  <Sparkles className="h-4 w-4 text-amber-500" /> Fundamentación
+                </h2>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">Redacta la justificación con IA. Los montos no se recalculan.</p>
+              </div>
+              <button type="button" onClick={handleGenerarNarrativa} disabled={generandoNarrativa}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-50 shrink-0">
+                {generandoNarrativa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {narrativa ? 'Regenerar' : 'Generar fundamentación'}
+              </button>
+            </div>
+            {narrativa && (
+              <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/[0.02] p-4">
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{narrativa}</p>
+                <button type="button"
+                  onClick={() => { navigator.clipboard.writeText(narrativa); setCopiado(true); setTimeout(() => setCopiado(false), 2000) }}
+                  className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                  {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiado ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Guardar */}
