@@ -72,7 +72,7 @@ Redactá estas notas en lenguaje jurídico formal para incluirlas como observaci
       'X-Title': 'MR Abogado Enriquecimiento Notas',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4-5',
+      model: 'anthropic/claude-sonnet-4',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

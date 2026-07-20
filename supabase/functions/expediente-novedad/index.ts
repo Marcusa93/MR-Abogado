@@ -138,7 +138,7 @@ NOVEDAD DICTADA POR EL ABOGADO:
       'X-Title': 'MR Abogado · Novedad expediente',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4-5',
+      model: 'anthropic/claude-sonnet-4',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

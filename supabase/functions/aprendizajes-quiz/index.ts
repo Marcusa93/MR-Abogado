@@ -152,7 +152,7 @@ Generá exactamente 5 preguntas, variadas en tipo y categoría.`
       'X-Title': 'MR Abogado Quiz Diario',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4-5',
+      model: 'anthropic/claude-sonnet-4',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
