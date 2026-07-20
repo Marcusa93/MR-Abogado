@@ -66,7 +66,10 @@ export function DanosCalculosPanel({
           {calculos.map(c => (
             <div key={c.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{c.titulo}</p>
+                <Link to={`/calculadora-danos?calculo_id=${c.id}`}
+                  className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate hover:text-amber-600 dark:hover:text-amber-400 transition-colors block">
+                  {c.titulo}
+                </Link>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {new Date(c.created_at).toLocaleDateString('es-AR')}
                   {c.nivel_confianza && (

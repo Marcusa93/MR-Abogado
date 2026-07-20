@@ -52,6 +52,21 @@ export function useDanos(filters: DanosFilters = {}) {
   })
 }
 
+export function useDanoCalculo(id: string | null) {
+  return useQuery({
+    queryKey: danosKeys.detail(id ?? ''),
+    enabled: !!id,
+    queryFn: async (): Promise<DanoCalculo | null> => {
+      if (!id) return null
+      const supabase = createClient()
+      const { data, error } = await (supabase as any)
+        .from('dano_calculos').select('*').eq('id', id).single()
+      if (error) throw error
+      return data as DanoCalculo
+    },
+  })
+}
+
 export interface CreateDanoInput {
   titulo: string
   tipoCaso?: string
@@ -93,6 +108,31 @@ export function useCreateDano() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: danosKeys.all })
     },
+  })
+}
+
+export function useUpdateDano() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (i: CreateDanoInput & { id: string }): Promise<void> => {
+      const supabase = createClient()
+      const montoRazonable = i.resultado.escenarios.razonable?.total ?? null
+      const { error } = await (supabase as any)
+        .from('dano_calculos')
+        .update({
+          titulo: i.titulo,
+          tipo_caso: i.tipoCaso ?? null,
+          input: i.input,
+          resultado: i.resultado,
+          valores_snapshot: i.resultado.auditoria.valoresReferencia,
+          monto_razonable_total: montoRazonable,
+          nivel_confianza: i.resultado.auditoria.nivelConfianza,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', i.id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: danosKeys.all }),
   })
 }
 

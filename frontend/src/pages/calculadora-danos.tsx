@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check,
 } from 'lucide-react'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
-import { useCreateDano } from '@/hooks/use-danos'
+import { useCreateDano, useUpdateDano, useDanoCalculo } from '@/hooks/use-danos'
 import { useDanoPrecedentes } from '@/hooks/use-dano-precedentes'
 import { baseComparableDe } from '@/lib/danos/precedentes'
 import { PrecedentesEditor } from '@/components/danos/precedentes-editor'
@@ -97,6 +97,60 @@ function initialState(cbt: number): FormState {
     punMetodo: 'canastas', punNivel: 'media', punCanastasManual: null,
     punCompensatorio: 0, punPc: 0.5, punPd: 0.5, punBeneficio: 0, punProbSancion: 0.1,
   }
+}
+
+// Reconstruye el estado del formulario desde un CalculoDanosInput guardado.
+function formFromInput(input: CalculoDanosInput, cbt: number): FormState {
+  const s = initialState(cbt)
+  s.fechaValuacion = input.fechaValuacion ?? s.fechaValuacion
+  s.fechaHecho = input.fechaHecho ?? ''
+  s.relacionConsumo = !!input.relacionConsumo
+  s.rubros = new Set(input.rubros ?? [])
+  if (input.incapacidad) {
+    const i = input.incapacidad
+    s.edad = i.edad ?? s.edad
+    s.porcentaje = i.porcentaje ?? s.porcentaje
+    if (i.preset) s.preset = i.preset
+    s.fuenteIngreso = i.ingreso?.fuente ?? s.fuenteIngreso
+    if (i.ingreso?.montoMensual != null) s.ingresoMensual = i.ingreso.montoMensual
+  }
+  if (input.lucroCesantePasado != null) s.lucroCesantePasado = input.lucroCesantePasado
+  if (input.gastos) {
+    s.medicosPasados = input.gastos.medicosPasados ?? 0
+    s.medicosFuturos = input.gastos.medicosFuturos ?? 0
+  }
+  if (input.noPatrimonial) {
+    const np = input.noPatrimonial
+    s.npAuto = !np.nivelManual
+    if (np.nivelManual) s.npNivel = np.nivelManual
+    s.npDuracion = np.duracionMeses ?? s.npDuracion
+    s.npVulnerabilidad = np.vulnerabilidad ?? s.npVulnerabilidad
+    s.npAfectacionSalud = !!np.afectacionSalud
+    s.npReiteracion = !!np.reiteracion
+    if (np.baseComparable != null) s.npBase = np.baseComparable
+    s.npBaseDesdeReales = np.baseEstimada === false
+  }
+  if (input.procedencia) {
+    const p = input.procedencia
+    s.procTratoIndigno = !!p.tratoIndigno
+    s.procRiesgoSalud = !!p.riesgoSalud
+    s.procReiteracion = !!p.reiteracion
+    s.procGrave = !!p.incumplimientoGraveConDano
+    s.procVulnerabilidad = !!p.vulnerabilidad
+    s.procObstructiva = !!p.conductaProcesalObstructiva
+  }
+  if (input.punitivo) {
+    const p = input.punitivo
+    s.punMetodo = p.metodo ?? s.punMetodo
+    if (p.nivel) s.punNivel = p.nivel
+    s.punCanastasManual = p.canastasManual ?? null
+    s.punCompensatorio = p.compensatorio ?? 0
+    s.punPc = p.probCondenaCompensatoria ?? s.punPc
+    s.punPd = p.probCondenaPunitiva ?? s.punPd
+    s.punBeneficio = p.beneficioIlicito ?? 0
+    s.punProbSancion = p.probSancion ?? s.punProbSancion
+  }
+  return s
 }
 
 // ── Componentes de layout reutilizables ──────────────────────────────────────
@@ -220,9 +274,13 @@ export default function CalculadoraDanos() {
   const [searchParams] = useSearchParams()
   const consultaId = searchParams.get('consulta_id')
   const expedienteId = searchParams.get('expediente_id')
+  const calculoId = searchParams.get('calculo_id')
   const { data: valores, isLoading: valoresLoading } = useValoresReferencia()
   const cbt = valores?.cbtHogar3 ?? 0
   const createDano = useCreateDano()
+  const updateDano = useUpdateDano()
+  const { data: calculoGuardado } = useDanoCalculo(calculoId)
+  const [cargado, setCargado] = useState(false)
   const { data: precedentes = [] } = useDanoPrecedentes()
   const rol = useAuthStore(s => s.profile?.rol)
   const [showPrecedentes, setShowPrecedentes] = useState(false)
@@ -241,6 +299,15 @@ export default function CalculadoraDanos() {
   const [faltantes, setFaltantes] = useState<string[]>([])
   const [resumenIA, setResumenIA] = useState('')
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF(prev => ({ ...prev, [k]: v }))
+
+  // Cargar un cálculo guardado en modo edición (una sola vez).
+  useEffect(() => {
+    if (calculoGuardado && !cargado) {
+      setF(formFromInput(calculoGuardado.input, valores?.cbtHogar3 ?? 0))
+      setTitulo(calculoGuardado.titulo)
+      setCargado(true)
+    }
+  }, [calculoGuardado, cargado, valores])
   const toggleRubro = (k: string) => setF(prev => {
     const r = new Set(prev.rubros)
     r.has(k) ? r.delete(k) : r.add(k)
@@ -290,14 +357,22 @@ export default function CalculadoraDanos() {
     if (!resultado) return
     if (!titulo.trim()) { toast.error('Poné un título para guardar el cálculo'); return }
     try {
-      await createDano.mutateAsync({
-        titulo: titulo.trim(),
-        tipoCaso: f.relacionConsumo ? 'consumo' : 'civil',
-        consultaId, expedienteId,
-        input, resultado,
-      })
-      toast.success(consultaId || expedienteId ? 'Cálculo guardado y vinculado al legajo' : 'Cálculo guardado')
-      setTitulo('')
+      if (calculoId) {
+        await updateDano.mutateAsync({
+          id: calculoId, titulo: titulo.trim(),
+          tipoCaso: f.relacionConsumo ? 'consumo' : 'civil', input, resultado,
+        })
+        toast.success('Cálculo actualizado')
+      } else {
+        await createDano.mutateAsync({
+          titulo: titulo.trim(),
+          tipoCaso: f.relacionConsumo ? 'consumo' : 'civil',
+          consultaId, expedienteId,
+          input, resultado,
+        })
+        toast.success(consultaId || expedienteId ? 'Cálculo guardado y vinculado al legajo' : 'Cálculo guardado')
+        setTitulo('')
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
     }
@@ -420,7 +495,13 @@ export default function CalculadoraDanos() {
         </div>
       </div>
 
-      {(consultaId || expedienteId) && (
+      {calculoId && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+          <Pencil className="h-3.5 w-3.5" />
+          Editando un cálculo guardado. Al guardar se actualiza el existente.
+        </div>
+      )}
+      {!calculoId && (consultaId || expedienteId) && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
           <Link2 className="h-3.5 w-3.5" />
           Al guardar, este cálculo queda vinculado {consultaId ? 'a la consulta' : 'al expediente'}.
@@ -786,10 +867,10 @@ export default function CalculadoraDanos() {
           <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-4 flex items-center gap-3">
             <input type="text" placeholder="Título del cálculo (ej. Romero c/ Prepaga)"
               value={titulo} onChange={e => setTitulo(e.target.value)} className={cn(inputCls, 'flex-1')} />
-            <button type="button" onClick={handleGuardar} disabled={createDano.isPending}
+            <button type="button" onClick={handleGuardar} disabled={createDano.isPending || updateDano.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50">
-              {createDano.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Guardar
+              {(createDano.isPending || updateDano.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {calculoId ? 'Actualizar' : 'Guardar'}
             </button>
           </div>
         </div>
