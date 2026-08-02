@@ -67,10 +67,13 @@ import {
   MoreHorizontal,
   ScrollText,
   Send,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 import { NovedadesPanel } from '@/components/expedientes/novedades-panel'
 import { NotificarClienteModal } from '@/components/expedientes/notificar-cliente-modal'
+import { useToggleSeguimientoActivo } from '@/hooks/use-expediente-seguimiento'
 
 // ---------------------------------------------------------------------------
 // Tabs
@@ -140,6 +143,8 @@ export default function ExpedienteDetailPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [descargarExpedienteOpen, setDescargarExpedienteOpen] = useState(false)
   const [notificarClienteOpen, setNotificarClienteOpen] = useState(false)
+
+  const toggleSeguimiento = useToggleSeguimientoActivo()
 
   // ---- Loading state ----
   if (isLoading) {
@@ -232,6 +237,40 @@ export default function ExpedienteDetailPage() {
 
             {/* Acciones */}
             <div className="flex items-center gap-1.5 flex-wrap sm:flex-shrink-0">
+              {/* Toggle seguimiento activo */}
+              {profile?.rol !== 'SECRETARIA' && (
+                <button
+                  onClick={() =>
+                    toggleSeguimiento.mutate({
+                      expedienteId: expediente.id,
+                      activo: !(expediente as any).seguimiento_activo,
+                    })
+                  }
+                  disabled={toggleSeguimiento.isPending}
+                  title={
+                    (expediente as any).seguimiento_activo
+                      ? 'En seguimiento activo — recibís alertas diarias si no hay actividad. Hacé clic para desactivar.'
+                      : 'Activar seguimiento — recibirás alertas si el expediente no tiene actividad en 48 hs.'
+                  }
+                  className={cn(
+                    'flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
+                    (expediente as any).seguimiento_activo
+                      ? 'border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
+                      : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/10',
+                  )}
+                >
+                  {toggleSeguimiento.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (expediente as any).seguimiento_activo ? (
+                    <Eye className="h-3.5 w-3.5" />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {(expediente as any).seguimiento_activo ? 'En seguimiento' : 'Seguimiento'}
+                  </span>
+                </button>
+              )}
               {(expediente.clientes as any)?.telefono && (
                 <WhatsAppButtons
                   telefono={(expediente.clientes as any).telefono}

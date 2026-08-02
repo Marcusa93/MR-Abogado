@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   Bell, BellOff, CheckCheck, Search, Loader2,
   Clock, CalendarClock, AlertTriangle, FileText, DollarSign, ArrowRightLeft,
-  Monitor, AtSign, FolderOpen, Building2, ExternalLink,
+  Monitor, AtSign, FolderOpen, Building2, ExternalLink, Eye,
 } from 'lucide-react'
 import {
   useAlertas, useMarcarLeida, useMarcarTodasLeidas, useSnoozeAlerta,
@@ -24,7 +25,7 @@ import { cn } from '@/lib/utils'
 // Tabs
 // ──────────────────────────────────────────────────────────────────────────
 
-type TabKey = 'todas' | 'sae' | 'tareas' | 'audiencias' | 'cobros' | 'otras'
+type TabKey = 'todas' | 'sae' | 'tareas' | 'audiencias' | 'cobros' | 'seguimiento' | 'otras'
 
 const TABS: { key: TabKey; label: string; match?: (t: string) => boolean; src: 'all' | 'alertas' | 'sae' }[] = [
   { key: 'todas', label: 'Todas', src: 'all' },
@@ -32,7 +33,8 @@ const TABS: { key: TabKey; label: string; match?: (t: string) => boolean; src: '
   { key: 'tareas', label: 'Tareas', src: 'alertas', match: (t) => ['TAREA_ASIGNADA', 'VENCIMIENTO_TAREA', 'TAREA_VENCIDA'].includes(t) },
   { key: 'audiencias', label: 'Audiencias', src: 'alertas', match: (t) => ['AUDIENCIA_PROXIMA', 'TURNO_PROXIMO'].includes(t) },
   { key: 'cobros', label: 'Cobros', src: 'alertas', match: (t) => t === 'COBRO_PENDIENTE' },
-  { key: 'otras', label: 'Otras', src: 'alertas', match: (t) => ['MENCION', 'SISTEMA', 'CUSTOM', 'DOCUMENTO_FALTANTE', 'ESTADO_CAMBIO', 'SIN_RESPONSABLE', 'SEGUIMIENTO_PENDIENTE'].includes(t) },
+  { key: 'seguimiento', label: 'Seguimiento', src: 'alertas', match: (t) => t === 'SEGUIMIENTO_PENDIENTE' },
+  { key: 'otras', label: 'Otras', src: 'alertas', match: (t) => ['MENCION', 'SISTEMA', 'CUSTOM', 'DOCUMENTO_FALTANTE', 'ESTADO_CAMBIO', 'SIN_RESPONSABLE'].includes(t) },
 ]
 
 const TIPO_ICON: Record<string, { icon: typeof Bell; color: string }> = {
@@ -143,6 +145,81 @@ function AlertaRow({
           >
             Responder
           </button>
+        )}
+        <button
+          onClick={onMarkRead}
+          className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
+        >
+          Leída
+        </button>
+        <SnoozeMenu onSnooze={onSnooze} />
+      </div>
+    </div>
+  )
+}
+
+function SeguimientoRow({
+  alerta, selected, onToggleSelect, onMarkRead, onSnooze,
+}: {
+  alerta: AlertaWithExpediente
+  selected: boolean
+  onToggleSelect: () => void
+  onMarkRead: () => void
+  onSnooze: (until: Date) => void
+}) {
+  const expedienteId = alerta.expediente_id
+  const caratula = alerta.expediente?.caratula || alerta.expediente?.numero || alerta.titulo
+  const numero = alerta.expediente?.numero
+  return (
+    <div className={cn(
+      'group rounded-lg border px-4 py-3 transition-colors flex flex-col sm:flex-row sm:items-start gap-3',
+      selected
+        ? 'border-amber-500/40 bg-amber-500/[0.06]'
+        : 'border-orange-500/30 bg-orange-500/[0.04] hover:bg-orange-500/[0.07]',
+    )}>
+      <div className="flex items-start gap-2.5 flex-1 min-w-0">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
+        />
+        <div className="shrink-0 mt-0.5 text-orange-400">
+          <Eye className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {expedienteId ? (
+            <Link
+              to={`/expedientes/${expedienteId}`}
+              onClick={onMarkRead}
+              className="block hover:opacity-80 transition-opacity"
+            >
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
+                {caratula}
+              </p>
+              {numero && (
+                <p className="mt-0.5 text-xs font-mono text-zinc-400">{numero}</p>
+              )}
+            </Link>
+          ) : (
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 line-clamp-2">{caratula}</p>
+          )}
+          <p className="mt-1 text-xs text-orange-300/80">Sin actividad registrada en las últimas 48 horas</p>
+          <span className="mt-1 inline-block text-[10px] text-zinc-500 dark:text-zinc-400">
+            {timeAgo(alerta.created_at)}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 pl-8 sm:pl-0 sm:shrink-0">
+        {expedienteId && (
+          <Link
+            to={`/expedientes/${expedienteId}`}
+            onClick={onMarkRead}
+            className="rounded px-2 py-1 text-[10px] font-medium text-orange-300 border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 whitespace-nowrap"
+          >
+            Ir al expediente
+          </Link>
         )}
         <button
           onClick={onMarkRead}
@@ -456,6 +533,14 @@ export default function NotificacionesPage() {
         </button>
       </div>
 
+      {/* Cabecera informativa del tab seguimiento */}
+      {tab === 'seguimiento' && (
+        <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.05] px-4 py-3 text-xs text-orange-200/80 leading-relaxed">
+          <span className="font-semibold text-orange-300">Seguimiento activo</span> — expedientes marcados con seguimiento que no registran actividad en las últimas 48 horas.
+          Podés marcar un expediente para seguimiento desde su página de detalle.
+        </div>
+      )}
+
       {/* List */}
       <div className="space-y-2">
         {isLoading ? (
@@ -473,6 +558,18 @@ export default function NotificacionesPage() {
           items.map(item => {
             const key = `${item.kind}-${item.data.id}`
             if (item.kind === 'alerta') {
+              if (item.data.tipo === 'SEGUIMIENTO_PENDIENTE') {
+                return (
+                  <SeguimientoRow
+                    key={key}
+                    alerta={item.data}
+                    selected={selected.has(key)}
+                    onToggleSelect={() => toggleOne(key)}
+                    onMarkRead={() => marcarLeida.mutate(item.data.id)}
+                    onSnooze={(until) => snoozeAlerta.mutate({ id: item.data.id, until })}
+                  />
+                )
+              }
               return (
                 <AlertaRow
                   key={key}
