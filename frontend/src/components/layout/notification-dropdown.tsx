@@ -29,6 +29,7 @@ import {
   FolderOpen,
   ChevronDown,
   ChevronRight,
+  X,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -437,7 +438,7 @@ export function NotificationDropdown() {
   // Close on click outside
   useEffect(() => {
     if (!isOpen) return
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent) {
       const target = e.target as Node
       if (
         panelRef.current && !panelRef.current.contains(target) &&
@@ -448,11 +449,11 @@ export function NotificationDropdown() {
     }
     // Defer to next tick so the opening click doesn't immediately close
     const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('pointerdown', handleClickOutside)
     }, 10)
     return () => {
       clearTimeout(timer)
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('pointerdown', handleClickOutside)
     }
   }, [isOpen])
 
@@ -496,6 +497,7 @@ export function NotificationDropdown() {
           <div
             className="fixed inset-0 z-[99]"
             onClick={() => setIsOpen(false)}
+            onPointerDown={() => setIsOpen(false)}
           />
 
           {/* Panel */}
@@ -530,6 +532,13 @@ export function NotificationDropdown() {
                   <span className="sm:hidden">Marcar todas</span>
                 </button>
               )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg p-1 text-zinc-500 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors shrink-0"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Content */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useBogaBotStore } from '@/stores/bogabot-chat-store'
 import { renderMentionParts } from '@/lib/utils/mentions'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { ESTADO_TAREA_LABELS, type EstadoTarea } from '@/types/enums'
@@ -506,7 +507,25 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-white/5 px-5 py-3 flex-wrap">
+        <div className="flex items-center justify-between gap-2 border-t border-white/5 px-5 py-3 flex-wrap">
+          {/* Consultar con BogaBot */}
+          <button
+            onClick={() => {
+              const ctx = [
+                `Tarea: "${tarea.titulo}"`,
+                tarea.descripcion ? `Descripción: ${tarea.descripcion}` : null,
+                tarea.expediente ? `Expediente: ${expLabel}` : null,
+              ].filter(Boolean).join('. ')
+              useBogaBotStore.getState().openWithInput(`${ctx}. `)
+              onClose()
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 transition-colors shrink-0"
+            title="Abrir BogaBot con contexto de esta tarea"
+          >
+            <span className="text-base leading-none">⚖️🤖</span>
+            <span className="hidden xs:inline">Consultar</span>
+          </button>
+          <div className="flex items-center gap-2 flex-wrap">
           {editing ? (
             <>
               <button
@@ -571,6 +590,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
               </button>
             </>
           )}
+          </div>
         </div>
       </div>
     </div>

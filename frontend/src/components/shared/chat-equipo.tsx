@@ -152,7 +152,7 @@ function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
 // ChatPanel
 // ---------------------------------------------------------------------------
 
-function ChatPanel({ onClose }: { onClose: () => void }) {
+function ChatPanel({ onClose, isMobile = false }: { onClose: () => void; isMobile?: boolean }) {
   const { mensajes, loading, sending, enviar, profileId } = useChat()
   const { data: teamProfiles = [] } = useTeamProfiles()
 
@@ -253,11 +253,17 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden"
-      style={{ width: PANEL_W, height: PANEL_H }}
+      className={cn(
+        'flex flex-col bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden',
+        isMobile ? 'h-full w-full' : 'rounded-2xl border border-zinc-200 dark:border-white/10',
+      )}
+      style={isMobile ? undefined : { width: PANEL_W, height: PANEL_H }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-white/[0.07] bg-zinc-50 dark:bg-white/[0.03]">
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-white/[0.07] bg-zinc-50 dark:bg-white/[0.03] shrink-0"
+        style={isMobile ? { paddingTop: 'max(0.75rem, env(safe-area-inset-top))' } : undefined}
+      >
         <div className="flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-amber-500" />
           <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Chat del estudio</span>
@@ -265,9 +271,9 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
         </div>
         <button
           onClick={onClose}
-          className="rounded-lg p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+          className="rounded-lg p-2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </button>
       </div>
 
@@ -291,7 +297,10 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Input */}
-      <div className="px-3 py-2.5 border-t border-zinc-100 dark:border-white/[0.07] flex gap-2 items-end relative">
+      <div
+        className="px-3 py-2.5 border-t border-zinc-100 dark:border-white/[0.07] flex gap-2 items-end relative shrink-0"
+        style={isMobile ? { paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' } : undefined}
+      >
         {showMentions && (
           <MentionDropdown
             profiles={teamProfiles}
@@ -339,6 +348,13 @@ export function ChatEquipo() {
   const { mensajes, profileId } = useChat()
 
   const { pos, isDragging, wasDrag, handlers } = useDraggable('chat-equipo-pos', BTN_SIZE)
+
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const [lastSeenCount, setLastSeenCount] = useState<number>(() => {
     const v = sessionStorage.getItem('chat_seen_count')
@@ -423,8 +439,8 @@ export function ChatEquipo() {
 
       {/* Chat panel */}
       {open && (
-        <div style={{ ...computedPanelStyle, zIndex: 51 }}>
-          <ChatPanel onClose={() => setOpen(false)} />
+        <div style={isMobile ? { position: 'fixed', inset: 0, zIndex: 51 } : { ...computedPanelStyle, zIndex: 51 }}>
+          <ChatPanel onClose={() => setOpen(false)} isMobile={isMobile} />
         </div>
       )}
 

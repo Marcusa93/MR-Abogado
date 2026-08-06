@@ -31,6 +31,10 @@ interface BogaBotChatState {
   cachedContext: string | null
   cachedContextPath: string | null
   cachedContextAt: number
+  // Input pre-seeding (cleared after use)
+  pendingInput: string
+  openWithInput: (input: string) => void
+  clearPendingInput: () => void
   // Actions
   toggle: () => void
   open: () => void
@@ -76,6 +80,9 @@ export const useBogaBotStore = create<BogaBotChatState>()(
       cachedContext: null,
       cachedContextPath: null,
       cachedContextAt: 0,
+      pendingInput: '',
+      openWithInput: (input: string) => set({ isOpen: true, pendingInput: input }),
+      clearPendingInput: () => set({ pendingInput: '' }),
       toggle: () => set((s) => ({ isOpen: !s.isOpen })),
       open: () => set({ isOpen: true }),
       close: () => set({ isOpen: false }),

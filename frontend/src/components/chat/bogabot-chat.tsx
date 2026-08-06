@@ -474,6 +474,7 @@ export function BogaBotChat() {
     isOpen, messages, isLoading, toggle, addMessage, markActionExecuted, setLoading,
     clearMessages, conversations, showHistory, newConversation,
     loadConversation, deleteConversation, toggleHistory, saveCurrentConversation,
+    pendingInput, clearPendingInput,
   } = useBogaBotStore()
   const { profile } = useAuth()
   const { pathname } = useLocation()
@@ -521,6 +522,15 @@ export function BogaBotChat() {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [isOpen])
+
+  // Consume pendingInput (pre-seeded from external context, e.g., task dialog)
+  useEffect(() => {
+    if (isOpen && pendingInput) {
+      setInput(pendingInput)
+      clearPendingInput()
+      setTimeout(() => inputRef.current?.focus(), 150)
+    }
+  }, [isOpen, pendingInput])
 
   const lastSentRef = useRef(0)
 
