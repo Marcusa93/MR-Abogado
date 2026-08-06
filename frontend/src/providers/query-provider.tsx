@@ -1,7 +1,7 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from '@/stores/toast-store'
-import { useNicoChatStore } from '@/stores/nico-chat-store'
+import { useBogaBotStore } from '@/stores/bogabot-chat-store'
 import { createClient } from '@/lib/supabase/client'
 
 /** Extract a user-friendly error message from Supabase or generic errors. */
@@ -70,7 +70,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
             toast.error('Error al guardar', getErrorMessage(error))
           },
           onSuccess: () => {
-            useNicoChatStore.getState().invalidateContext()
+            useBogaBotStore.getState().invalidateContext()
           },
         }),
       })

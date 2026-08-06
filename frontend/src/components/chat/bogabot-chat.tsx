@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useNicoChatStore } from '@/stores/nico-chat-store'
+import { useBogaBotStore } from '@/stores/bogabot-chat-store'
 import { type ChatMessage } from '@/lib/openrouter'
 import { useAuth } from '@/hooks/use-auth'
 import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics'
@@ -293,7 +293,7 @@ function ChatBubble({
   messageIdx?: number
 }) {
   const navigate = useNavigate()
-  const { close: closeChat } = useNicoChatStore()
+  const { close: closeChat } = useBogaBotStore()
   const isUser = message.role === 'user'
   const pending = !isUser ? message.pending_action : null
   const cleanContent = message.content.replace(/\*+/g, '')
@@ -353,8 +353,8 @@ function ChatBubble({
       )}
     >
       {!isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 mt-0.5">
-          <Bot className="h-3.5 w-3.5 text-white" />
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 mt-0.5 text-[14px] leading-none select-none">
+          ⚖️🤖
         </div>
       )}
       <div className="max-w-[85%]">
@@ -469,12 +469,12 @@ function ActionButton({
 // Main component
 // ---------------------------------------------------------------------------
 
-export function NicoIAChat() {
+export function BogaBotChat() {
   const {
     isOpen, messages, isLoading, toggle, addMessage, markActionExecuted, setLoading,
     clearMessages, conversations, showHistory, newConversation,
     loadConversation, deleteConversation, toggleHistory, saveCurrentConversation,
-  } = useNicoChatStore()
+  } = useBogaBotStore()
   const { profile } = useAuth()
   const { pathname } = useLocation()
   const { data: metrics } = useDashboardMetrics()
@@ -682,8 +682,8 @@ export function NicoIAChat() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900 px-3 py-2.5 sm:px-4 sm:py-3 sm:rounded-t-2xl shrink-0">
             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20 dark:bg-white/20">
-                <BrainCircuit className="h-4 w-4 text-amber-600 dark:text-white" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20 dark:bg-white/20 text-[18px] leading-none select-none">
+                ⚖️🤖
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">BogaBot</h3>
@@ -766,8 +766,8 @@ export function NicoIAChat() {
           <div className={cn('flex-1 overflow-y-auto px-4 py-3 space-y-3', showHistory && 'hidden')}>
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-950/40">
-                  <Bot className="h-7 w-7 text-amber-500" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-950/40 text-3xl leading-none select-none">
+                  ⚖️🤖
                 </div>
                 <div>
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -805,8 +805,8 @@ export function NicoIAChat() {
                   ))}
                 {isLoading && messages[messages.length - 1]?.content === '' && (
                   <div className="flex gap-2">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 mt-0.5">
-                      <Bot className="h-3.5 w-3.5 text-white" />
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600 mt-0.5 text-[11px] leading-none select-none">
+                      ⚖️🤖
                     </div>
                     <div className="rounded-2xl rounded-bl-md bg-white/10 px-4 py-3">
                       <div className="flex items-center gap-1.5">

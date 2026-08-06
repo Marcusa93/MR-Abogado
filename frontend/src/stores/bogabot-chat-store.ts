@@ -18,7 +18,7 @@ export interface Conversation {
 // Store
 // ---------------------------------------------------------------------------
 
-interface NicoChatState {
+interface BogaBotChatState {
   isOpen: boolean
   // Active conversation
   activeConversationId: string | null
@@ -64,7 +64,7 @@ function generateTitle(messages: ChatMessage[]): string {
   return text.length < firstUser.content.length ? text + '...' : text
 }
 
-export const useNicoChatStore = create<NicoChatState>()(
+export const useBogaBotStore = create<BogaBotChatState>()(
   persist(
     (set, get) => ({
       isOpen: false,
@@ -188,7 +188,7 @@ export const useNicoChatStore = create<NicoChatState>()(
       toggleHistory: () => set((s) => ({ showHistory: !s.showHistory })),
     }),
     {
-      name: 'nico-chat-storage',
+      name: 'bogabot-chat-storage',
       partialize: (state) => ({
         messages: state.messages.slice(-50),
         isOpen: state.isOpen,
@@ -200,7 +200,7 @@ export const useNicoChatStore = create<NicoChatState>()(
 )
 
 export function getCachedContextIfValid(pathname: string): string | null {
-  const state = useNicoChatStore.getState()
+  const state = useBogaBotStore.getState()
   if (
     state.cachedContext &&
     state.cachedContextPath === pathname &&

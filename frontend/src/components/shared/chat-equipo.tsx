@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
-import { useChat, type ChatMensaje } from '@/hooks/use-chat'
+import { useChat, useTeamProfiles, type ChatMensaje, type TeamProfile } from '@/hooks/use-chat'
 import { useDraggable } from '@/hooks/use-draggable'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/utils/date-helpers'
@@ -20,9 +20,13 @@ function initials(m: ChatMensaje): string {
   return (n + a).toUpperCase() || '?'
 }
 
-function nombre(m: ChatMensaje): string {
+function displayName(m: ChatMensaje): string {
   const parts = [m.perfil?.nombre, m.perfil?.apellido].filter(Boolean)
   return parts.length ? parts.join(' ') : 'Usuario'
+}
+
+function profileFullName(p: TeamProfile): string {
+  return [p.nombre, p.apellido].filter(Boolean).join(' ')
 }
 
 const AVATAR_COLORS = [
@@ -53,6 +57,67 @@ function panelStyle(btnX: number, btnY: number): React.CSSProperties {
   return { position: 'fixed', left, top, animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both' }
 }
 
+/** Renderiza el texto con @menciones resaltadas */
+function renderConMenciones(texto: string): React.ReactNode {
+  const parts = texto.split(/(@\S[^@]*)/g)
+  return parts.map((part, i) =>
+    part.startsWith('@')
+      ? <span key={i} className="text-amber-600 dark:text-amber-400 font-semibold">{part}</span>
+      : part
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MentionDropdown
+// ---------------------------------------------------------------------------
+
+function MentionDropdown({
+  profiles,
+  query,
+  selectedIdx,
+  onSelect,
+}: {
+  profiles: TeamProfile[]
+  query: string
+  selectedIdx: number
+  onSelect: (p: TeamProfile) => void
+}) {
+  const filtered = profiles.filter((p) => {
+    const full = profileFullName(p).toLowerCase()
+    return full.includes(query.toLowerCase())
+  }).slice(0, 6)
+
+  if (filtered.length === 0) return null
+
+  return (
+    <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 shadow-xl overflow-hidden z-10">
+      {filtered.map((p, i) => (
+        <button
+          key={p.id}
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onSelect(p) }}
+          className={cn(
+            'w-full flex items-center gap-2 px-3 py-2 text-left transition-colors',
+            i === selectedIdx
+              ? 'bg-amber-50 dark:bg-amber-500/20'
+              : 'hover:bg-zinc-50 dark:hover:bg-white/5',
+          )}
+        >
+          <div className={cn(
+            'h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white',
+            avatarColor(p.id),
+          )}>
+            {(p.nombre?.[0] ?? '').toUpperCase()}{(p.apellido?.[0] ?? '').toUpperCase()}
+          </div>
+          <span className="text-sm text-zinc-800 dark:text-zinc-200 truncate">
+            {profileFullName(p)}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // MensajeRow
 // ---------------------------------------------------------------------------
@@ -68,7 +133,7 @@ function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
       </div>
       <div className={cn('max-w-[75%] space-y-0.5', isOwn && 'items-end flex flex-col')}>
         <p className={cn('text-[10px] text-zinc-500', isOwn && 'text-right')}>
-          {isOwn ? 'Vos' : nombre(msg)} · {timeAgo(msg.created_at)}
+          {isOwn ? 'Vos' : displayName(msg)} · {timeAgo(msg.created_at)}
         </p>
         <div className={cn(
           'rounded-2xl px-3 py-2 text-sm leading-snug break-words',
@@ -76,7 +141,7 @@ function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
             ? 'bg-[var(--brand-navy)] text-white dark:bg-amber-500/90 dark:text-zinc-900 rounded-tr-sm'
             : 'bg-zinc-100 dark:bg-white/[0.08] text-zinc-900 dark:text-zinc-100 rounded-tl-sm',
         )}>
-          {msg.contenido}
+          {renderConMenciones(msg.contenido)}
         </div>
       </div>
     </div>
@@ -89,7 +154,15 @@ function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
 
 function ChatPanel({ onClose }: { onClose: () => void }) {
   const { mensajes, loading, sending, enviar, profileId } = useChat()
+  const { data: teamProfiles = [] } = useTeamProfiles()
+
   const [texto, setTexto] = useState('')
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionIdx, setMentionIdx] = useState(0)
+  // Map: "@Nombre Apellido" → profileId — for resolving picks on send
+  const [mentionMap, setMentionMap] = useState<Map<string, string>>(new Map())
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -99,14 +172,82 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  // Detect @mention trigger from cursor position
+  function detectMention(value: string) {
+    const cursor = inputRef.current?.selectionStart ?? value.length
+    const textToCursor = value.slice(0, cursor)
+    const match = textToCursor.match(/@([\w\s]*)$/)
+    if (match !== null) {
+      setMentionQuery(match[1])
+      setShowMentions(true)
+      setMentionIdx(0)
+    } else {
+      setShowMentions(false)
+      setMentionQuery('')
+    }
+  }
+
+  function insertMention(p: TeamProfile) {
+    const cursor = inputRef.current?.selectionStart ?? texto.length
+    const before = texto.slice(0, cursor)
+    const after = texto.slice(cursor)
+    const beforeMention = before.replace(/@([\w\s]*)$/, '')
+    const tag = `@${profileFullName(p)}`
+    const newText = beforeMention + tag + ' ' + after
+
+    setTexto(newText)
+    setMentionMap((prev) => new Map(prev).set(tag, p.id))
+    setShowMentions(false)
+    setMentionQuery('')
+
+    // Restore focus and cursor after React re-renders
+    requestAnimationFrame(() => {
+      if (inputRef.current) {
+        const pos = beforeMention.length + tag.length + 1
+        inputRef.current.setSelectionRange(pos, pos)
+        inputRef.current.focus()
+        // Resize
+        inputRef.current.style.height = 'auto'
+        inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 80) + 'px'
+      }
+    })
+  }
+
+  function resolveMenciones(): string[] {
+    const ids: string[] = []
+    for (const [tag, id] of mentionMap) {
+      if (texto.includes(tag)) ids.push(id)
+    }
+    return ids
+  }
+
   async function handleSend() {
     if (!texto.trim() || sending) return
     const txt = texto
+    const mIds = resolveMenciones()
     setTexto('')
-    await enviar(txt)
+    setMentionMap(new Map())
+    setShowMentions(false)
+    await enviar(txt, mIds)
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (showMentions) {
+      const filtered = teamProfiles.filter((p) =>
+        profileFullName(p).toLowerCase().includes(mentionQuery.toLowerCase())
+      ).slice(0, 6)
+
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx((i) => Math.min(i + 1, filtered.length - 1)); return }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIdx((i) => Math.max(i - 1, 0)); return }
+      if (e.key === 'Tab' || (e.key === 'Enter' && filtered.length > 0)) {
+        e.preventDefault()
+        const pick = filtered[mentionIdx]
+        if (pick) insertMention(pick)
+        return
+      }
+      if (e.key === 'Escape') { setShowMentions(false); return }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
@@ -150,13 +291,24 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Input */}
-      <div className="px-3 py-2.5 border-t border-zinc-100 dark:border-white/[0.07] flex gap-2 items-end">
+      <div className="px-3 py-2.5 border-t border-zinc-100 dark:border-white/[0.07] flex gap-2 items-end relative">
+        {showMentions && (
+          <MentionDropdown
+            profiles={teamProfiles}
+            query={mentionQuery}
+            selectedIdx={mentionIdx}
+            onSelect={insertMention}
+          />
+        )}
         <textarea
           ref={inputRef}
           value={texto}
-          onChange={(e) => setTexto(e.target.value.slice(0, 2000))}
+          onChange={(e) => {
+            setTexto(e.target.value.slice(0, 2000))
+            detectMention(e.target.value)
+          }}
           onKeyDown={handleKeyDown}
-          placeholder="Escribí un mensaje… (Enter para enviar)"
+          placeholder="Escribí un mensaje… @ para mencionar"
           rows={1}
           style={{ resize: 'none', maxHeight: 80 }}
           className="flex-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.04] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-400/40 overflow-y-auto"
@@ -201,7 +353,6 @@ export function ChatEquipo() {
   }, [open, othersTotal])
   const unread = Math.max(0, othersTotal - lastSeenCount)
 
-  // Default position: bottom-left
   const defaultBtnStyle: React.CSSProperties = {
     position: 'fixed',
     bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
@@ -212,7 +363,6 @@ export function ChatEquipo() {
     ? { position: 'fixed', left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
     : defaultBtnStyle
 
-  // Panel position follows the button
   const computedPanelStyle: React.CSSProperties = pos
     ? panelStyle(pos.x, pos.y)
     : {
@@ -247,7 +397,7 @@ export function ChatEquipo() {
             : '0 4px 20px rgba(0,0,0,0.3)',
           transition: isDragging ? 'none' : 'background 0.2s, box-shadow 0.2s',
           transform: open && !isDragging ? 'rotate(90deg)' : 'none',
-          touchAction: 'none', // prevent scroll interference on mobile
+          touchAction: 'none',
           userSelect: 'none',
         }}
         title="Chat del estudio (arrastrá para mover)"

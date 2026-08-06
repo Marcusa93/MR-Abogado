@@ -26,7 +26,7 @@ export interface ChatMessage {
 /**
  * Returns true if the Edge Function URL is configured (BogaBot can work).
  */
-export function isNicoIAEnabled(): boolean {
+export function isBogaBotEnabled(): boolean {
   try {
     const supabase = createClient()
     // If supabase client exists, the edge function endpoint is available

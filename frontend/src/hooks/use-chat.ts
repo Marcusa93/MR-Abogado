@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -7,10 +8,33 @@ export interface ChatMensaje {
   profile_id: string
   contenido: string
   created_at: string
+  menciones: string[]
   perfil?: { nombre: string | null; apellido: string | null }
 }
 
+export interface TeamProfile {
+  id: string
+  nombre: string | null
+  apellido: string | null
+}
+
 const PAGE = 50
+
+export function useTeamProfiles() {
+  const supabase = createClient()
+  return useQuery<TeamProfile[]>({
+    queryKey: ['team-profiles'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido')
+        .eq('activo', true)
+        .order('nombre')
+      return (data ?? []) as TeamProfile[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
 
 export function useChat() {
   const profile = useAuthStore((s) => s.profile)
@@ -25,7 +49,7 @@ export function useChat() {
     setLoading(true)
     ;(supabase as any)
       .from('chat_mensajes')
-      .select('id, profile_id, contenido, created_at, perfil:profiles!chat_mensajes_profile_id_fkey(nombre, apellido)')
+      .select('id, profile_id, contenido, created_at, menciones, perfil:profiles!chat_mensajes_profile_id_fkey(nombre, apellido)')
       .order('created_at', { ascending: false })
       .limit(PAGE)
       .then(({ data, error }: any) => {
@@ -44,7 +68,6 @@ export function useChat() {
         { event: 'INSERT', schema: 'public', table: 'chat_mensajes' },
         async (payload: any) => {
           const row = payload.new as ChatMensaje
-          // Fetch the profile data
           const { data } = await (supabase as any)
             .from('profiles')
             .select('nombre, apellido')
@@ -59,13 +82,14 @@ export function useChat() {
   }, [profile?.id])
 
   const enviar = useCallback(
-    async (texto: string) => {
+    async (texto: string, menciones: string[] = []) => {
       if (!profile?.id || !texto.trim()) return
       setSending(true)
       try {
         await (supabase as any).from('chat_mensajes').insert({
           profile_id: profile.id,
           contenido: texto.trim(),
+          menciones,
         })
       } finally {
         setSending(false)

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
-import { NicoIAChat } from '@/components/chat/nico-ia-chat'
+import { BogaBotChat } from '@/components/chat/bogabot-chat'
 import { useAlertasRealtime, requestNotificationPermission } from '@/hooks/use-alertas'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { OnboardingTour } from '@/components/shared/onboarding-tour'
@@ -90,7 +90,7 @@ export function DashboardLayout() {
         </main>
       </div>
 
-      <NicoIAChat />
+      <BogaBotChat />
       <OnboardingTour />
       <InstallPwaPrompt />
       <CommandPalette />
