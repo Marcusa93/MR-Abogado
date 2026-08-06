@@ -190,21 +190,15 @@ export function ChatEquipo() {
     <div
       style={{
         position: 'fixed',
-        bottom: '1.5rem',
-        right: '1.5rem',
+        bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+        left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-end',
+        alignItems: 'flex-start',
         gap: '0.75rem',
       }}
     >
-      {open && (
-        <div style={{ animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-          <ChatPanel onClose={() => setOpen(false)} />
-        </div>
-      )}
-
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -243,6 +237,19 @@ export function ChatEquipo() {
           </span>
         )}
       </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
+            left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
+            animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+          }}
+        >
+          <ChatPanel onClose={() => setOpen(false)} />
+        </div>
+      )}
 
       <style>{`
         @keyframes chat-slide-up {
