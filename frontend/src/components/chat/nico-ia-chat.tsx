@@ -7,6 +7,7 @@ import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics'
 import { useChatActionExecutor, type ChatAction } from '@/hooks/use-chat-actions'
 import { useBogabotAgent, pendingActionToChatAction } from '@/hooks/use-bogabot-agent'
 import { displayRol } from '@/lib/utils/display-rol'
+import { useDraggable } from '@/hooks/use-draggable'
 import { cn } from '@/lib/utils'
 import {
   X,
@@ -612,26 +613,51 @@ export function NicoIAChat() {
     })
   }, [actionExecutor, addMessage])
 
+  const { pos, isDragging, wasDrag, handlers: dragHandlers } = useDraggable('bogabot-pos', { w: 140, h: 48 })
+
   if (!enabled) return null
 
   const suggestions = getDynamicSuggestions(pathname, profile?.rol, metrics)
+
+  // When the button was dragged, open the panel near the new button position (desktop only).
+  const panelDragStyle: React.CSSProperties = (() => {
+    if (!pos || (typeof window !== 'undefined' && window.innerWidth < 640)) return {}
+    const PW = 380
+    const PH = Math.min(520, window.innerHeight * 0.8)
+    const BTN_H = 48
+    const gap = 8
+    const top = pos.y - PH - gap < 0
+      ? Math.min(window.innerHeight - PH - gap, pos.y + BTN_H + gap)
+      : pos.y - PH - gap
+    const left = Math.max(8, Math.min(window.innerWidth - PW - 8, pos.x))
+    return { left, top, right: 'auto', bottom: 'auto' }
+  })()
 
   return (
     <>
       {/* Floating button — pill with brain icon + label */}
       <button
-        onClick={toggle}
+        {...dragHandlers}
+        onClick={() => { if (wasDrag()) return; toggle() }}
         style={{
-          bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
-          right: 'max(1.25rem, calc(env(safe-area-inset-right) + 0.5rem))',
+          touchAction: 'none',
+          userSelect: 'none',
+          ...(pos
+            ? { bottom: 'auto', right: 'auto', left: pos.x, top: pos.y }
+            : {
+                bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+                right: 'max(1.25rem, calc(env(safe-area-inset-right) + 0.5rem))',
+              }
+          ),
         }}
         className={cn(
-          'fixed z-50 flex items-center gap-2 shadow-lg transition-all duration-200 hover:scale-105 max-sm:scale-90',
+          'fixed z-50 flex items-center gap-2 shadow-lg max-sm:scale-90',
+          isDragging ? 'cursor-grabbing shadow-2xl' : 'cursor-grab transition-all duration-200 hover:scale-105',
           isOpen
             ? 'h-11 w-11 sm:h-12 sm:w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'
             : 'rounded-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 pl-3 pr-4 py-2.5'
         )}
-        title="BogaBot Asistente (Alt+N)"
+        title="BogaBot Asistente (Alt+N — arrastrá para mover)"
       >
         {isOpen ? (
           <X className="h-5 w-5 text-white" />
@@ -649,6 +675,7 @@ export function NicoIAChat() {
           style={{
             paddingBottom: 'env(safe-area-inset-bottom)',
             paddingTop: 'env(safe-area-inset-top)',
+            ...panelDragStyle,
           }}
           className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-zinc-900 sm:p-0 sm:rounded-2xl sm:border sm:border-zinc-200 sm:dark:border-white/10 sm:shadow-2xl sm:animate-fade-in sm:left-auto sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(520px,80vh)] sm:w-[380px] md:w-[420px]"
         >

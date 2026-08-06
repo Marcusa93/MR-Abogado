@@ -2,8 +2,13 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react'
 import { useChat, type ChatMensaje } from '@/hooks/use-chat'
+import { useDraggable } from '@/hooks/use-draggable'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/utils/date-helpers'
+
+const BTN_SIZE = { w: 52, h: 52 }
+const PANEL_W = 340
+const PANEL_H = 480
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,6 +36,23 @@ function avatarColor(profileId: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
+/** Calcula dónde abrir el panel relativo a la posición del botón */
+function panelStyle(btnX: number, btnY: number): React.CSSProperties {
+  const W = window.innerWidth
+  const H = window.innerHeight
+  const gap = 8
+
+  const left = btnX + PANEL_W + gap > W
+    ? Math.max(8, btnX + BTN_SIZE.w - PANEL_W)
+    : btnX
+
+  const top = btnY - PANEL_H - gap < 0
+    ? Math.min(H - PANEL_H - gap, btnY + BTN_SIZE.h + gap)
+    : btnY - PANEL_H - gap
+
+  return { position: 'fixed', left, top, animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both' }
+}
+
 // ---------------------------------------------------------------------------
 // MensajeRow
 // ---------------------------------------------------------------------------
@@ -38,7 +60,6 @@ function avatarColor(profileId: string): string {
 function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
   return (
     <div className={cn('flex gap-2 mb-3', isOwn && 'flex-row-reverse')}>
-      {/* Avatar */}
       <div className={cn(
         'h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white self-end',
         avatarColor(msg.profile_id),
@@ -63,7 +84,7 @@ function MensajeRow({ msg, isOwn }: { msg: ChatMensaje; isOwn: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
-// Panel
+// ChatPanel
 // ---------------------------------------------------------------------------
 
 function ChatPanel({ onClose }: { onClose: () => void }) {
@@ -76,9 +97,7 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes.length])
 
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  useEffect(() => { inputRef.current?.focus() }, [])
 
   async function handleSend() {
     if (!texto.trim() || sending) return
@@ -88,15 +107,13 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
   return (
-    <div className="flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden"
-      style={{ width: 340, height: 480 }}
+    <div
+      className="flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-white/10 overflow-hidden"
+      style={{ width: PANEL_W, height: PANEL_H }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-white/[0.07] bg-zinc-50 dark:bg-white/[0.03]">
@@ -162,65 +179,80 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// Floating button + portal
+// Floating button (draggable)
 // ---------------------------------------------------------------------------
 
 export function ChatEquipo() {
   const [open, setOpen] = useState(false)
   const { mensajes, profileId } = useChat()
 
-  // Count unread: messages since last open (simple: just count others' messages not seen)
+  const { pos, isDragging, wasDrag, handlers } = useDraggable('chat-equipo-pos', BTN_SIZE)
+
   const [lastSeenCount, setLastSeenCount] = useState<number>(() => {
     const v = sessionStorage.getItem('chat_seen_count')
     return v ? parseInt(v, 10) : 0
   })
-
   const othersTotal = mensajes.filter((m) => m.profile_id !== profileId).length
-
   useEffect(() => {
     if (open) {
       setLastSeenCount(othersTotal)
       sessionStorage.setItem('chat_seen_count', String(othersTotal))
     }
   }, [open, othersTotal])
-
   const unread = Math.max(0, othersTotal - lastSeenCount)
 
-  return createPortal(
-    <div
-      style={{
+  // Default position: bottom-left
+  const defaultBtnStyle: React.CSSProperties = {
+    position: 'fixed',
+    bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+    left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
+  }
+
+  const btnStyle: React.CSSProperties = pos
+    ? { position: 'fixed', left: pos.x, top: pos.y, bottom: 'auto', right: 'auto' }
+    : defaultBtnStyle
+
+  // Panel position follows the button
+  const computedPanelStyle: React.CSSProperties = pos
+    ? panelStyle(pos.x, pos.y)
+    : {
         position: 'fixed',
-        bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+        bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
         left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
-        zIndex: 50,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: '0.75rem',
-      }}
-    >
+        animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+      }
+
+  return createPortal(
+    <>
+      {/* Floating button */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        {...handlers}
+        onClick={() => { if (wasDrag()) return; setOpen((v) => !v) }}
         style={{
-          position: 'relative',
-          width: 52,
-          height: 52,
+          ...btnStyle,
+          zIndex: 50,
+          width: BTN_SIZE.w,
+          height: BTN_SIZE.h,
           borderRadius: '50%',
           border: 'none',
-          cursor: 'pointer',
+          cursor: isDragging ? 'grabbing' : 'grab',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           background: open
             ? 'var(--brand-navy, #1a3a6b)'
             : 'linear-gradient(135deg, #f59e0b, #d97706)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-          transition: 'background 0.2s, transform 0.2s',
-          transform: open ? 'rotate(90deg)' : 'none',
+          boxShadow: isDragging
+            ? '0 8px 30px rgba(0,0,0,0.4)'
+            : '0 4px 20px rgba(0,0,0,0.3)',
+          transition: isDragging ? 'none' : 'background 0.2s, box-shadow 0.2s',
+          transform: open && !isDragging ? 'rotate(90deg)' : 'none',
+          touchAction: 'none', // prevent scroll interference on mobile
+          userSelect: 'none',
         }}
-        title="Chat del estudio"
+        title="Chat del estudio (arrastrá para mover)"
       >
-        {open
+        {open && !isDragging
           ? <X style={{ color: 'white', width: 20, height: 20 }} />
           : <MessageCircle style={{ color: 'white', width: 22, height: 22 }} />
         }
@@ -232,21 +264,16 @@ export function ChatEquipo() {
             fontSize: 10, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '2px solid white',
+            pointerEvents: 'none',
           }}>
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
+      {/* Chat panel */}
       {open && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
-            left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
-            animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
-          }}
-        >
+        <div style={{ ...computedPanelStyle, zIndex: 51 }}>
           <ChatPanel onClose={() => setOpen(false)} />
         </div>
       )}
@@ -257,7 +284,7 @@ export function ChatEquipo() {
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
-    </div>,
+    </>,
     document.body,
   )
 }
