@@ -50,6 +50,10 @@ interface NavItem {
   icon: typeof LayoutDashboard
   group: GroupKey
   badgeKey?: BadgeKey
+  /** Si true, este item solo se muestra al rol CRITERIO. */
+  criterioOnly?: boolean
+  /** Si true, este item se oculta al rol CRITERIO. */
+  hideForCriterio?: boolean
   adminOnly?: boolean
   cajaOnly?: boolean
   /** Si true, este item se oculta a la SECRETARIA. */
@@ -72,7 +76,8 @@ const DEFAULT_COLLAPSED: GroupKey[] = ['inteligencia']
 const navItems: readonly NavItem[] = [
   // OPERACIÓN — lo cotidiano
   { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true },
+  { href: '/criterio', label: 'Mi tablero', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
@@ -203,11 +208,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 no-scrollbar">
         {(() => {
           const esSecretaria = profile?.rol === 'SECRETARIA'
+          const esCriterio = profile?.rol === 'CRITERIO'
           const visibleItems = navItems.filter((item) => {
             if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
             if (item.cajaOnly && !tieneAccesoCaja) return false
             if (item.hideForSecretaria && esSecretaria) return false
             if (item.secretariaOnly && !esSecretaria) return false
+            if (item.criterioOnly && !esCriterio) return false
+            if (item.hideForCriterio && esCriterio) return false
             return true
           })
 

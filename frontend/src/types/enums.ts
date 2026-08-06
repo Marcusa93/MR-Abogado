@@ -199,6 +199,7 @@ export const Rol = {
   ADMIN: 'ADMIN',
   ABOGADO: 'ABOGADO',
   COLABORADOR: 'COLABORADOR',
+  CRITERIO: 'CRITERIO',
 } as const
 
 export type Rol = (typeof Rol)[keyof typeof Rol]
@@ -210,6 +211,7 @@ export const ROL_LABELS: Record<Rol, string> = {
   ADMIN: 'Administrador',
   ABOGADO: 'Abogado/a',
   COLABORADOR: 'Colaborador/a',
+  CRITERIO: 'Criterio Jurídico',
 }
 
 // ---------------------------------------------------------------------------

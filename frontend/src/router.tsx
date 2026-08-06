@@ -5,10 +5,11 @@ import { AppSplash } from '@/components/shared/app-splash'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
 import { useAuthStore } from '@/stores/auth-store'
 
-// Landing condicional por rol: SECRETARIA arranca en /hoy, el resto en /dashboard.
+// Landing condicional por rol.
 function HomeRedirect() {
   const profile = useAuthStore((s) => s.profile)
   if (profile?.rol === 'SECRETARIA') return <Navigate to="/hoy" replace />
+  if (profile?.rol === 'CRITERIO') return <Navigate to="/criterio" replace />
   return <Navigate to="/dashboard" replace />
 }
 
@@ -68,6 +69,7 @@ const ConsultaDetallePage = lazyWithRetry(() => import('@/pages/consulta-detalle
 const TableroPage = lazyWithRetry(() => import('@/pages/tareas'))
 const CalculadoraPlazosPage = lazyWithRetry(() => import('@/pages/calculadora-plazos'))
 const CalculadoraDanosPage = lazyWithRetry(() => import('@/pages/calculadora-danos'))
+const CriterioPage = lazyWithRetry(() => import('@/pages/criterio'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -147,6 +149,7 @@ export const router = createBrowserRouter([
       { path: 'buscar-audiencias', element: <SuspenseWrapper><BuscarAudienciasPage /></SuspenseWrapper> },
       { path: 'caja', element: <SuspenseWrapper><CajaPage /></SuspenseWrapper> },
       { path: 'hoy', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'criterio', element: <SuspenseWrapper><CriterioPage /></SuspenseWrapper> },
       { path: 'contenidos', element: <SuspenseWrapper><ContenidosPage /></SuspenseWrapper> },
       { path: 'contactos-profesionales', element: <SuspenseWrapper><ContactosProfesionalesPage /></SuspenseWrapper> },
       { path: 'notificaciones-sae', element: <SuspenseWrapper><NotificacionesSaePage /></SuspenseWrapper> },
