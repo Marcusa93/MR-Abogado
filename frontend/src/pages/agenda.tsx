@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   CalendarDays, CheckSquare, Scale, Clock,
-  ChevronLeft, ChevronRight, List, X,
+  ChevronLeft, ChevronRight, List, X, CalendarPlus, Users,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { AppSplash } from '@/components/shared/app-splash'
 import { cn } from '@/lib/utils'
+import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 
 // Secretaria usa su vista específica (lazy)
 const AgendaSecretaria = lazy(() => import('./agenda-secretaria'))
@@ -19,7 +20,7 @@ const AgendaSecretaria = lazy(() => import('./agenda-secretaria'))
 
 interface AgendaItem {
   id: string
-  kind: 'audiencia' | 'tarea' | 'plazo'
+  kind: 'audiencia' | 'tarea' | 'plazo' | 'reunion'
   fecha: string  // YYYY-MM-DD
   hora?: string | null
   titulo: string
@@ -28,6 +29,7 @@ interface AgendaItem {
   expedienteCaratula?: string | null
   prioridad?: string | null
   estadoLabel?: string | null
+  consultaId?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +146,24 @@ function useAgendaUnificada() {
     staleTime: 60_000,
   })
 
+  const { data: reuniones = [], isLoading: reu_loading } = useQuery({
+    queryKey: ['agenda-turnos', hoy],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data } = await (supabase as any)
+        .from('consultas')
+        .select('id, nombre, apellido, canal, tipo_asunto, fecha_turno')
+        .not('fecha_turno', 'is', null)
+        .gte('fecha_turno', new Date(desde + 'T00:00:00Z').toISOString())
+        .lte('fecha_turno', new Date(hasta + 'T23:59:59Z').toISOString())
+        .eq('estado', 'pendiente')
+        .order('fecha_turno')
+        .limit(200)
+      return (data ?? []) as any[]
+    },
+    staleTime: 60_000,
+  })
+
   const items: AgendaItem[] = useMemo(() => {
     const list: AgendaItem[] = []
 
@@ -177,6 +197,29 @@ function useAgendaUnificada() {
       })
     }
 
+    const CANAL_LABEL: Record<string, string> = {
+      presencial: 'Presencial',
+      web: 'Videollamada',
+      turno: 'Audiencia inicial',
+    }
+    for (const r of reuniones) {
+      const dt = new Date(r.fecha_turno)
+      const fecha = dt.toISOString().slice(0, 10)
+      const horas = String(dt.getHours()).padStart(2, '0')
+      const mins  = String(dt.getMinutes()).padStart(2, '0')
+      const hora  = `${horas}:${mins}`
+      const nombre = [r.nombre, r.apellido].filter(Boolean).join(' ')
+      list.push({
+        id: r.id,
+        kind: 'reunion',
+        fecha,
+        hora,
+        titulo: nombre || 'Reunión',
+        subtitulo: CANAL_LABEL[r.canal] ?? r.canal,
+        consultaId: r.id,
+      })
+    }
+
     return list.sort((a, b) => {
       if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha)
       if (a.hora && !b.hora) return -1
@@ -203,7 +246,7 @@ function useAgendaUnificada() {
   return {
     grouped,
     groupedMap,
-    isLoading: aud_loading || tar_loading,
+    isLoading: aud_loading || tar_loading || reu_loading,
   }
 }
 
@@ -213,14 +256,26 @@ function useAgendaUnificada() {
 
 function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
   const vencida  = isVencida(item.fecha, hoy)
-  const iconColor = item.kind === 'audiencia' ? 'text-sky-500' : item.kind === 'plazo' ? 'text-rose-500' : 'text-amber-500'
-  const Icon = item.kind === 'audiencia' ? Scale : item.kind === 'plazo' ? Clock : CheckSquare
+
+  const iconColor =
+    item.kind === 'audiencia' ? 'text-sky-500' :
+    item.kind === 'plazo'     ? 'text-rose-500' :
+    item.kind === 'reunion'   ? 'text-teal-500' :
+    'text-amber-500'
+
+  const Icon =
+    item.kind === 'audiencia' ? Scale :
+    item.kind === 'plazo'     ? Clock :
+    item.kind === 'reunion'   ? Users :
+    CheckSquare
 
   const inner = (
     <div className={cn(
       'flex items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors',
-      vencida && item.kind !== 'audiencia'
+      vencida && item.kind !== 'audiencia' && item.kind !== 'reunion'
         ? 'border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10'
+        : item.kind === 'reunion'
+        ? 'border-teal-500/20 bg-teal-500/5 hover:bg-teal-500/10'
         : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/8'
     )}>
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-100 dark:bg-white/10">
@@ -232,7 +287,7 @@ function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
           {item.hora && (
             <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 shrink-0">{item.hora.slice(0, 5)}</span>
           )}
-          {vencida && item.kind !== 'audiencia' && (
+          {vencida && item.kind !== 'audiencia' && item.kind !== 'reunion' && (
             <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">Vencida</span>
           )}
           {item.prioridad === 'URGENTE' && (
@@ -250,6 +305,9 @@ function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
     </div>
   )
 
+  if (item.kind === 'reunion' && item.consultaId) {
+    return <Link to={`/consultas/${item.consultaId}`} className="block">{inner}</Link>
+  }
   if (item.expedienteId) {
     return <Link to={`/expedientes/${item.expedienteId}`} className="block">{inner}</Link>
   }
@@ -412,6 +470,8 @@ function CalendarioMes({
                                 ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
                                 : item.kind === 'plazo'
                                 ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                                : item.kind === 'reunion'
+                                ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
                                 : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
                             )}
                           >
@@ -433,7 +493,9 @@ function CalendarioMes({
                             className={cn(
                               'h-1.5 w-1.5 rounded-full shrink-0',
                               item.kind === 'audiencia' ? 'bg-sky-500' :
-                              item.kind === 'plazo' ? 'bg-rose-500' : 'bg-amber-500'
+                              item.kind === 'plazo'     ? 'bg-rose-500' :
+                              item.kind === 'reunion'   ? 'bg-teal-500' :
+                              'bg-amber-500'
                             )}
                           />
                         ))}
@@ -462,11 +524,13 @@ function DiaSeleccionadoPanel({
   items,
   hoy,
   onClose,
+  onAgendarReunion,
 }: {
   fecha: string
   items: AgendaItem[]
   hoy: string
   onClose: () => void
+  onAgendarReunion: (fecha: string) => void
 }) {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden animate-fade-in">
@@ -474,13 +538,25 @@ function DiaSeleccionadoPanel({
         <h3 className="font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
           {labelFecha(fecha, hoy)}
         </h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {fecha >= hoy && (
+            <button
+              type="button"
+              onClick={() => onAgendarReunion(fecha)}
+              className="flex items-center gap-1 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Agendar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="p-4">
@@ -525,6 +601,8 @@ function AgendaSkeleton() {
 function AgendaUnificada() {
   const hoy = isoHoy()
   const { grouped, groupedMap, isLoading } = useAgendaUnificada()
+  const [modalReunion, setModalReunion] = useState(false)
+  const [defaultFechaReunion, setDefaultFechaReunion] = useState<string | undefined>(undefined)
 
   // Vista: lista o calendario
   const [vista, setVista] = useState<'lista' | 'calendario'>(() => {
@@ -578,7 +656,19 @@ function AgendaUnificada() {
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-500" />Audiencia</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Plazo</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Tarea</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal-500" />Reunión</span>
           </div>
+
+          {/* Botón agendar reunión */}
+          <button
+            type="button"
+            onClick={() => { setDefaultFechaReunion(undefined); setModalReunion(true) }}
+            className="flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Agendar reunión</span>
+            <span className="sm:hidden">Reunión</span>
+          </button>
 
           {/* Toggle de vista */}
           <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 p-1 gap-1">
@@ -611,6 +701,12 @@ function AgendaUnificada() {
           </div>
         </div>
       </div>
+
+      <AgendarReuniónModal
+        open={modalReunion}
+        onClose={() => setModalReunion(false)}
+        defaultFecha={defaultFechaReunion}
+      />
 
       {/* Contenido */}
       {isLoading ? (
@@ -683,6 +779,7 @@ function AgendaUnificada() {
               items={groupedMap[diaSeleccionado] ?? []}
               hoy={hoy}
               onClose={() => setDiaSeleccionado(null)}
+              onAgendarReunion={(f) => { setDefaultFechaReunion(f); setModalReunion(true) }}
             />
           )}
         </div>
