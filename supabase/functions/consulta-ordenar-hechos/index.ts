@@ -166,6 +166,22 @@ ${notas}`
         prioridad: 'ALTA',
         payload: { consulta_id: body.consulta_id },
       })
+
+      // Disparar push/email según preferencias del destinatario (fire-and-forget)
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/dispatch-alert-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          tipo: 'TAREA_ASIGNADA',
+          usuario_id: (criterioUser as any).id,
+          titulo: `Consulta de ${clienteLabel} para revisión`,
+          mensaje: 'La consulta fue analizada con IA. Hay hechos ordenados y preguntas sugeridas para que revises y completes la documentación necesaria.',
+          url: `/consultas/${body.consulta_id}`,
+        }),
+      }).catch((e) => console.error('[consulta-ordenar-hechos] dispatch error:', e))
     }
 
     logLlmCall(serviceClient, user.id, FUNCTION_NAME, inputBytes)
