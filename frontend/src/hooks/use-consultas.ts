@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth-store'
 // Tipos
 // ---------------------------------------------------------------------------
 
-export type ConsultaEstado = 'pendiente' | 'en_proceso' | 'presupuestada' | 'convertida' | 'descartada'
+export type ConsultaEstado = 'pendiente' | 'en_proceso' | 'en_revision' | 'presupuestada' | 'convertida' | 'descartada'
 export type ConsultaCanal = 'presencial' | 'telefono' | 'turno' | 'web' | 'referido'
 export type ConsultaTipoAsunto =
   | 'laboral_trabajador' | 'laboral_empleador'
@@ -70,11 +70,28 @@ export interface Consulta {
   estado: ConsultaEstado
   convertida_expediente_id: string | null
   assigned_to: string | null
+  hechos_ordenados: string | null
+  preguntas_sugeridas: string[]
+  hechos_ordenados_at: string | null
   created_by: string
   created_at: string
   updated_at: string
   assigned_profile?: { nombre: string | null; apellido: string | null } | null
   created_profile?: { nombre: string | null; apellido: string | null } | null
+}
+
+export interface SolicitudDoc {
+  id: string
+  consulta_id: string
+  descripcion: string
+  responsable_id: string | null
+  estado: 'pendiente' | 'recibido' | 'cancelado'
+  notas: string | null
+  fecha_limite: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  responsable_profile?: { nombre: string | null; apellido: string | null } | null
 }
 
 export interface Presupuesto {
@@ -128,6 +145,7 @@ export const CANAL_LABEL: Record<ConsultaCanal, string> = {
 export const ESTADO_LABEL: Record<ConsultaEstado, string> = {
   pendiente: 'Pendiente',
   en_proceso: 'En proceso',
+  en_revision: 'En revisión',
   presupuestada: 'Presupuestada',
   convertida: 'Convertida',
   descartada: 'Descartada',
@@ -403,6 +421,119 @@ export function useAddConsultaActividad() {
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['consulta-actividad', vars.consulta_id] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Ordenar hechos con IA
+// ---------------------------------------------------------------------------
+
+export function useOrdenarHechos() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (consulta_id: string) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(`${supabaseUrl}/functions/v1/consulta-ordenar-hechos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify({ consulta_id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Error al ordenar hechos')
+      return data as { ok: boolean; hechos_ordenados: string; preguntas_sugeridas: string[]; assigned_to: string | null }
+    },
+    onSuccess: (_d, consulta_id) => {
+      qc.invalidateQueries({ queryKey: ['consulta', consulta_id] })
+      qc.invalidateQueries({ queryKey: ['consultas'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Solicitudes de documentación
+// ---------------------------------------------------------------------------
+
+export function useSolicitudesDocs(consultaId: string | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['consulta-solicitud-docs', consultaId],
+    queryFn: async () => {
+      if (!consultaId) return []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('consulta_solicitud_docs')
+        .select('*, responsable_profile:profiles!consulta_solicitud_docs_responsable_id_fkey(nombre, apellido)')
+        .eq('consulta_id', consultaId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as SolicitudDoc[]
+    },
+    enabled: !!consultaId,
+  })
+}
+
+export function useCreateSolicitudDoc() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  const profile = useAuthStore(s => s.profile)
+  return useMutation({
+    mutationFn: async (payload: {
+      consulta_id: string
+      descripcion: string
+      responsable_id?: string | null
+      notas?: string | null
+      fecha_limite?: string | null
+    }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('consulta_solicitud_docs')
+        .insert({ ...payload, created_by: profile?.id ?? '', updated_at: new Date().toISOString() })
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['consulta-solicitud-docs', vars.consulta_id] })
+    },
+  })
+}
+
+export function useUpdateSolicitudDoc() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: Partial<SolicitudDoc> & { id: string; consulta_id: string }) => {
+      const { id, consulta_id: _cid, ...rest } = payload
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('consulta_solicitud_docs')
+        .update({ ...rest, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['consulta-solicitud-docs', vars.consulta_id] })
+    },
+  })
+}
+
+export function useDeleteSolicitudDoc() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; consulta_id: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('consulta_solicitud_docs').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['consulta-solicitud-docs', vars.consulta_id] })
     },
   })
 }

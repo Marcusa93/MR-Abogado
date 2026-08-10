@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   useConsulta, useUpdateConsulta, useDeleteConsulta,
   usePresupuestos, useUpsertPresupuesto, useDeletePresupuesto,
-  useConsultaActividad, useAddConsultaActividad,
+  useConsultaActividad, useAddConsultaActividad, useOrdenarHechos,
   calcularHonorarios, ARANCEL_VERBAL, ARANCEL_ESCRITO,
   TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL, HONORARIO_LABEL,
   type ConsultaEstado, type ConsultaTipoAsunto, type ConsultaCanal, type TipoHonorario,
@@ -18,6 +18,8 @@ import type { TipoIntimacion } from '@/components/consultas/intimacion-pdf-previ
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
 import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
+import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-ordenados'
+import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
@@ -34,6 +36,7 @@ import { timeAgo } from '@/lib/utils/date-helpers'
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
   pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  en_revision: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
   convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
@@ -1067,6 +1070,7 @@ export default function ConsultaDetallePage() {
   const [notasAbogadoInitialized, setNotasAbogadoInitialized] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [enriqueciendo, setEnriqueciendo] = useState(false)
+  const ordenarHechos = useOrdenarHechos()
   const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
   const [editandoDiag, setEditandoDiag] = useState(false)
   const [diagEdit, setDiagEdit] = useState<DiagnosticoIA | null>(null)
@@ -1138,6 +1142,29 @@ export default function ConsultaDetallePage() {
       toast.error('No se pudieron guardar las notas')
     }
   }, [id, notas, areasActivas, update])
+
+  const handleOrdenarHechos = useCallback(async () => {
+    if (!id || !notas.trim()) {
+      toast.error('Escribí los hechos del caso primero')
+      return
+    }
+    // Guardar notas antes de ordenar si hay cambios sin guardar
+    if (notas !== (consulta?.notas_libres ?? '')) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await update.mutateAsync({ id, notas_libres: notas, areas_derecho: areasActivas } as any)
+      } catch {
+        toast.error('No se pudieron guardar las notas antes de ordenar')
+        return
+      }
+    }
+    try {
+      await ordenarHechos.mutateAsync(id)
+      toast.success('Hechos ordenados. La consulta fue asignada a Claudio para revisión.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo ordenar los hechos')
+    }
+  }, [id, notas, consulta, areasActivas, update, ordenarHechos])
 
   const handleGenerarDiagnostico = useCallback(async () => {
     if (!consulta || !notas.trim()) {
@@ -1442,7 +1469,7 @@ export default function ConsultaDetallePage() {
                   <ChevronDown className="h-3 w-3" />
                 </button>
                 <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg z-10 hidden group-hover:block">
-                  {(['pendiente', 'en_proceso', 'presupuestada', 'convertida', 'descartada'] as ConsultaEstado[]).map(s => (
+                  {(['pendiente', 'en_proceso', 'en_revision', 'presupuestada', 'convertida', 'descartada'] as ConsultaEstado[]).map(s => (
                     <button
                       key={s}
                       type="button"
@@ -1532,7 +1559,7 @@ export default function ConsultaDetallePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-1">
+        <div className="flex flex-wrap items-center gap-3 pt-1">
           <button
             type="button"
             onClick={handleSaveNotas}
@@ -1544,18 +1571,47 @@ export default function ConsultaDetallePage() {
           </button>
           <button
             type="button"
-            onClick={handleGenerarDiagnostico}
-            disabled={generando || !notas.trim()}
-            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
+            onClick={handleOrdenarHechos}
+            disabled={ordenarHechos.isPending || !notas.trim()}
+            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
           >
-            {generando ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Analizando…</>
+            {ordenarHechos.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Ordenando…</>
             ) : (
-              <><Sparkles className="h-4 w-4" />{diag ? 'Regenerar diagnóstico' : 'Generar diagnóstico y presupuesto'}</>
+              <><ListChecks className="h-4 w-4" />Ordenar hechos con IA</>
             )}
           </button>
+          {!isSecretaria && (
+            <button
+              type="button"
+              onClick={handleGenerarDiagnostico}
+              disabled={generando || !notas.trim()}
+              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
+            >
+              {generando ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Analizando…</>
+              ) : (
+                <><Sparkles className="h-4 w-4" />{diag ? 'Regenerar diagnóstico' : 'Generar diagnóstico y presupuesto'}</>
+              )}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Hechos ordenados con IA */}
+      {consulta.hechos_ordenados && (
+        <ConsultaHechosOrdenados
+          consultaId={consulta.id}
+          hechosOrdenados={consulta.hechos_ordenados}
+          preguntasSugeridas={consulta.preguntas_sugeridas ?? []}
+          hechosOrdenadosAt={consulta.hechos_ordenados_at}
+        />
+      )}
+
+      {/* Solicitud de documentación */}
+      {(consulta.hechos_ordenados || !isSecretaria) && (
+        <ConsultaSolicitudDocs consultaId={consulta.id} />
+      )}
 
       {/* Normativa y jurisprudencia de referencia */}
       <ConsultaAnclasPanel consultaId={consulta.id} />

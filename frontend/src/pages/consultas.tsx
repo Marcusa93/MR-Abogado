@@ -21,6 +21,7 @@ import { timeAgo } from '@/lib/utils/date-helpers'
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
   pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  en_revision: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
   convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
   descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
@@ -30,6 +31,7 @@ const ESTADOS: Array<{ value: ConsultaEstado | ''; label: string }> = [
   { value: '', label: 'Todas' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'en_proceso', label: 'En proceso' },
+  { value: 'en_revision', label: 'En revisión' },
   { value: 'presupuestada', label: 'Presupuestadas' },
   { value: 'convertida', label: 'Convertidas' },
   { value: 'descartada', label: 'Descartadas' },
@@ -194,6 +196,12 @@ function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => voi
               <span className="flex items-center gap-1">
                 <Mail className="h-3 w-3" />
                 {consulta.email}
+              </span>
+            )}
+            {consulta.assigned_profile && (
+              <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                <MessageSquare className="h-3 w-3" />
+                {[consulta.assigned_profile.apellido, consulta.assigned_profile.nombre].filter(Boolean).join(', ')}
               </span>
             )}
           </div>
