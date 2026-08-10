@@ -86,7 +86,7 @@ ${notas}`
         'X-Title': 'MR Abogado',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4-5',
+        model: 'anthropic/claude-sonnet-4',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -107,11 +107,20 @@ ${notas}`
 
     let parsed: { hechos_ordenados: string; preguntas_sugeridas: string[] }
     try {
-      const cleaned = content.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '').trim()
+      let cleaned = content.trim()
+      // Estrategia 1: extraer el bloque ```json ... ``` si existe (en cualquier posición)
+      const codeBlock = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+      if (codeBlock) {
+        cleaned = codeBlock[1].trim()
+      } else {
+        // Estrategia 2: buscar el primer objeto JSON { ... } en la respuesta
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+        if (jsonMatch) cleaned = jsonMatch[0]
+      }
       parsed = JSON.parse(cleaned)
     } catch {
-      console.error('[consulta-ordenar-hechos] parse error, content:', content)
-      return json(req, { error: 'Respuesta del LLM no es JSON válido' }, 502)
+      console.error('[consulta-ordenar-hechos] parse error, len:', content.length, 'preview:', content.slice(0, 300))
+      return json(req, { error: 'No se pudo interpretar la respuesta del LLM. Intentá de nuevo.' }, 502)
     }
 
     if (!parsed.hechos_ordenados || !Array.isArray(parsed.preguntas_sugeridas)) {
