@@ -194,7 +194,19 @@ export function useTriggerSaeSync() {
       })
       if (error) throw await extractFnError(error)
       if (data?.error) throw new Error(data.error)
-      return data as { success: boolean; log_id: string; nuevas?: number; message?: string }
+      const result = data as { success: boolean; log_id: string; nuevas?: number; message?: string }
+
+      // Los cuerpos se omiten en sae-sync para reducir el tiempo de respuesta.
+      // Los traemos en background con sae-fetch-bodies y al terminar refrescamos.
+      if ((result.nuevas ?? 0) > 0) {
+        supabase.functions.invoke('sae-fetch-bodies', {
+          body: { expediente_id: expedienteId },
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
+        }).catch((err: unknown) => console.error('[sae-fetch-bodies bg]', err))
+      }
+
+      return result
     },
     onSuccess: (_data, { expedienteId }) => {
       queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })

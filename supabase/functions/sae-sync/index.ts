@@ -6,7 +6,6 @@ import {
   findCaseByNumber,
   fetchCaseHistory,
   fetchProceedingHistoryWithMeta,
-  fetchStoryBody,
   extractEstadoFromEntry,
   fetchEstadoOrganismoFromHistoria,
   SaeError,
@@ -80,8 +79,11 @@ async function sha256(input: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-async function buildFingerprint(caseNumber: string, fecha: string, titulo: string, body?: string): Promise<string> {
-  const key = [caseNumber, fecha, titulo, body ?? ''].map(s => s.trim().toLowerCase()).join('|')
+// Fingerprint basado en histid (ID único del SAE), no en el cuerpo.
+// Esto permite separar la sincronización de metadatos del fetch de cuerpos,
+// haciendo el sync mucho más rápido.
+async function buildFingerprint(caseNumber: string, fecha: string, titulo: string, histid: string): Promise<string> {
+  const key = [caseNumber, fecha, titulo, histid].map(s => s.trim().toLowerCase()).join('|')
   return sha256(key)
 }
 
@@ -378,24 +380,17 @@ Deno.serve(async (req) => {
         return db.localeCompare(da)
       })
 
-      // Fetch body text para las primeras 30 (cap razonable de tiempo de sync;
-      // el resto se baja on-demand al generar el PDF y se cachea en DB).
-      const withBody = await Promise.all(
-        sorted.map(async (story, idx) => {
-          const body = idx < 30
-            ? await fetchStoryBody(procid!, jurisdictionId!, story.histid, session)
-            : undefined
-          return { ...story, body }
-        })
-      )
-
       // ── Upsert en sae_movements ───────────────────────────────────────────
-      // Build movements + fingerprints first so we can check existence in one query
-      const built = await Promise.all(withBody.map(async (story) => {
+      // Los cuerpos NO se bajan en el sync: se traen async vía sae-fetch-bodies
+      // después de que el sync retorna. Esto reduce el tiempo de respuesta de
+      // ~20s a ~8-12s eliminando los 30 fetches paralelos al SAE.
+      const built = await Promise.all(sorted.map(async (story) => {
         const fecha = parseDate(story.fecha) ?? story.fecha.slice(0, 10)
-        const fingerprint = await buildFingerprint(exp.numero_sae, fecha, story.dscr, story.body)
+        // Fingerprint basado en histid (no en cuerpo) para no necesitar descargar el texto
+        const fingerprint = await buildFingerprint(exp.numero_sae, fecha, story.dscr, story.histid)
         const tipo = classifyMovement(story.dscr)
         return {
+          histid: story.histid,
           fingerprint,
           movement: {
             expediente_id,
@@ -403,7 +398,7 @@ Deno.serve(async (req) => {
             sae_case_id: procid,
             fecha,
             titulo: story.dscr,
-            cuerpo: story.body ?? null,
+            cuerpo: null,  // cargado async por sae-fetch-bodies
             tipo_movimiento: tipo,
             fingerprint,
             tiene_documentos: Boolean(story.archivos?.length || story.vinculos?.length),
@@ -417,16 +412,22 @@ Deno.serve(async (req) => {
         }
       }))
 
-      // Find which fingerprints already exist
-      const fingerprints = built.map(b => b.fingerprint)
-      const { data: existingFps } = await serviceClient
+      // Dedup por external_id (histid): más confiable que fingerprint para syncs
+      // incrementales porque el fingerprint ahora no incluye el cuerpo.
+      // La UNIQUE constraint (expediente_id, fingerprint) sigue protegiendo contra races.
+      const histids = built.map(b => b.histid).filter(Boolean)
+      const { data: existingByHistid } = await serviceClient
         .from('sae_movements')
-        .select('fingerprint')
+        .select('external_id')
         .eq('expediente_id', expediente_id)
-        .in('fingerprint', fingerprints)
-      const existingSet = new Set((existingFps ?? []).map((r: { fingerprint: string }) => r.fingerprint))
+        .in('external_id', histids)
+        .neq('fuente', 'manual')
 
-      const newOnes = built.filter(b => !existingSet.has(b.fingerprint))
+      const existingHistidSet = new Set(
+        (existingByHistid ?? []).map((r: { external_id: string | null }) => r.external_id).filter(Boolean)
+      )
+
+      const newOnes = built.filter(b => !existingHistidSet.has(b.histid))
       const duplicadas = built.length - newOnes.length
 
       // Insert only the new ones, returning IDs so we can attach AI analysis
