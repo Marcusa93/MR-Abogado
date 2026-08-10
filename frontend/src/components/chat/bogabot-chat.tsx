@@ -623,7 +623,16 @@ export function BogaBotChat() {
     })
   }, [actionExecutor, addMessage])
 
-  const { pos, isDragging, wasDrag, handlers: dragHandlers } = useDraggable('bogabot-pos', { w: 140, h: 48 })
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // En mobile el botón es solo el ícono (~48x44), en desktop es la pastilla con texto (~140x48)
+  const btnDragSize = isMobile ? { w: 48, h: 44 } : { w: 140, h: 48 }
+  const { pos, isDragging, wasDrag, handlers: dragHandlers } = useDraggable('bogabot-pos', btnDragSize)
 
   if (!enabled) return null
 
@@ -631,7 +640,7 @@ export function BogaBotChat() {
 
   // When the button was dragged, open the panel near the new button position (desktop only).
   const panelDragStyle: React.CSSProperties = (() => {
-    if (!pos || (typeof window !== 'undefined' && window.innerWidth < 640)) return {}
+    if (!pos || isMobile) return {}
     const PW = 380
     const PH = Math.min(520, window.innerHeight * 0.8)
     const BTN_H = 48
@@ -661,7 +670,7 @@ export function BogaBotChat() {
           ),
         }}
         className={cn(
-          'fixed z-50 flex items-center gap-2 shadow-lg max-sm:scale-90',
+          'fixed z-50 flex items-center gap-2 shadow-lg',
           isDragging ? 'cursor-grabbing shadow-2xl' : 'cursor-grab transition-all duration-200 hover:scale-105',
           isOpen
             ? 'h-11 w-11 sm:h-12 sm:w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'

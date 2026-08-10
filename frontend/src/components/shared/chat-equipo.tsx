@@ -254,8 +254,8 @@ function ChatPanel({ onClose, isMobile = false }: { onClose: () => void; isMobil
   return (
     <div
       className={cn(
-        'flex flex-col bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden',
-        isMobile ? 'h-full w-full' : 'rounded-2xl border border-zinc-200 dark:border-white/10',
+        'flex flex-col bg-white dark:bg-zinc-900 overflow-hidden',
+        isMobile ? 'h-full w-full' : 'rounded-2xl border border-zinc-200 dark:border-white/10 shadow-2xl',
       )}
       style={isMobile ? undefined : { width: PANEL_W, height: PANEL_H }}
     >
@@ -356,17 +356,23 @@ export function ChatEquipo() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  const othersTotal = mensajes.filter((m) => m.profile_id !== profileId).length
+  // Ref siempre tiene el total más actualizado (evita stale closure en el effect)
+  const othersTotalRef = useRef(0)
+  othersTotalRef.current = othersTotal
+
   const [lastSeenCount, setLastSeenCount] = useState<number>(() => {
     const v = sessionStorage.getItem('chat_seen_count')
     return v ? parseInt(v, 10) : 0
   })
-  const othersTotal = mensajes.filter((m) => m.profile_id !== profileId).length
+
+  // Actualizar al abrir Y al cerrar el chat para capturar mensajes que llegaron mientras estaba abierto
   useEffect(() => {
-    if (open) {
-      setLastSeenCount(othersTotal)
-      sessionStorage.setItem('chat_seen_count', String(othersTotal))
-    }
-  }, [open, othersTotal])
+    const cur = othersTotalRef.current
+    setLastSeenCount(cur)
+    sessionStorage.setItem('chat_seen_count', String(cur))
+  }, [open])
+
   const unread = Math.max(0, othersTotal - lastSeenCount)
 
   const defaultBtnStyle: React.CSSProperties = {
@@ -390,52 +396,54 @@ export function ChatEquipo() {
 
   return createPortal(
     <>
-      {/* Floating button */}
-      <button
-        {...handlers}
-        onClick={() => { if (wasDrag()) return; setOpen((v) => !v) }}
-        style={{
-          ...btnStyle,
-          zIndex: 50,
-          width: BTN_SIZE.w,
-          height: BTN_SIZE.h,
-          borderRadius: '50%',
-          border: 'none',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: open
-            ? 'var(--brand-navy, #1a3a6b)'
-            : 'linear-gradient(135deg, #f59e0b, #d97706)',
-          boxShadow: isDragging
-            ? '0 8px 30px rgba(0,0,0,0.4)'
-            : '0 4px 20px rgba(0,0,0,0.3)',
-          transition: isDragging ? 'none' : 'background 0.2s, box-shadow 0.2s',
-          transform: open && !isDragging ? 'rotate(90deg)' : 'none',
-          touchAction: 'none',
-          userSelect: 'none',
-        }}
-        title="Chat del estudio (arrastrá para mover)"
-      >
-        {open && !isDragging
-          ? <X style={{ color: 'white', width: 20, height: 20 }} />
-          : <MessageCircle style={{ color: 'white', width: 22, height: 22 }} />
-        }
-        {!open && unread > 0 && (
-          <span style={{
-            position: 'absolute', top: 0, right: 0,
-            width: 18, height: 18, borderRadius: '50%',
-            background: '#ef4444', color: 'white',
-            fontSize: 10, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid white',
-            pointerEvents: 'none',
-          }}>
-            {unread > 9 ? '9+' : unread}
-          </span>
-        )}
-      </button>
+      {/* Floating button — ocultarlo en mobile cuando el panel está abierto para evitar artifacts */}
+      {(!open || !isMobile) && (
+        <button
+          {...handlers}
+          onClick={() => { if (wasDrag()) return; setOpen((v) => !v) }}
+          style={{
+            ...btnStyle,
+            zIndex: 50,
+            width: BTN_SIZE.w,
+            height: BTN_SIZE.h,
+            borderRadius: '50%',
+            border: 'none',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: open
+              ? 'var(--brand-navy, #1a3a6b)'
+              : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            boxShadow: isDragging
+              ? '0 8px 30px rgba(0,0,0,0.4)'
+              : '0 4px 20px rgba(0,0,0,0.3)',
+            transition: isDragging ? 'none' : 'background 0.2s, box-shadow 0.2s',
+            transform: open && !isDragging ? 'rotate(90deg)' : 'none',
+            touchAction: 'none',
+            userSelect: 'none',
+          }}
+          title="Chat del estudio (arrastrá para mover)"
+        >
+          {open && !isDragging
+            ? <X style={{ color: 'white', width: 20, height: 20 }} />
+            : <MessageCircle style={{ color: 'white', width: 22, height: 22 }} />
+          }
+          {!open && unread > 0 && (
+            <span style={{
+              position: 'absolute', top: 0, right: 0,
+              width: 18, height: 18, borderRadius: '50%',
+              background: '#ef4444', color: 'white',
+              fontSize: 10, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '2px solid white',
+              pointerEvents: 'none',
+            }}>
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Chat panel */}
       {open && (
