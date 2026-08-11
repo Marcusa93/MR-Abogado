@@ -22,7 +22,7 @@ import { formatDate, timeAgo } from '@/lib/utils/date-helpers'
 import {
   Plus, Clock, X, Loader2, FolderOpen, User,
   PlayCircle, CheckCircle2, Save, RotateCcw,
-  MessageSquare, Send, Columns3, List,
+  MessageSquare, Send, Columns3, List, Users,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -480,11 +480,19 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
                 : tarea.expediente.numero}
             </span>
           </Link>
+        ) : tarea.consulta ? (
+          <Link to={`/consultas/${tarea.consulta.id}`} onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 hover:bg-orange-100 transition-colors max-w-[160px] truncate">
+            <Users className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">
+              Consulta: {[tarea.consulta.apellido, tarea.consulta.nombre].filter(Boolean).join(', ')}
+            </span>
+          </Link>
         ) : (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">Libre</span>
         )}
         <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', pConfig.color)}>{pConfig.label}</span>
-        {venc && (
+        {venc ? (
           <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px]',
             vencida ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
               : esHoy ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
@@ -492,7 +500,12 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
             <Clock className="h-2.5 w-2.5" />
             {vencida ? 'Vencida ' : ''}{formatDate(venc)}
           </span>
-        )}
+        ) : tarea.consulta ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-zinc-400 dark:text-zinc-500">
+            <Clock className="h-2.5 w-2.5" />
+            Asignado {timeAgo(tarea.created_at)}
+          </span>
+        ) : null}
         {tarea.etiquetas?.map(tag => (
           <span key={tag} className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10">{tag}</span>
         ))}
@@ -568,16 +581,26 @@ function TareaRow({ tarea, onComplete, onClick }: {
             <FolderOpen className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">{tarea.expediente.caratula?.slice(0, 18) ?? tarea.expediente.numero}</span>
           </Link>
+        ) : tarea.consulta ? (
+          <Link to={`/consultas/${tarea.consulta.id}`} onClick={e => e.stopPropagation()}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 max-w-[140px] truncate hover:bg-orange-100">
+            <Users className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">Consulta: {[tarea.consulta.apellido, tarea.consulta.nombre].filter(Boolean).join(', ')}</span>
+          </Link>
         ) : (
           <span className="text-[10px] text-violet-500 dark:text-violet-400">Libre</span>
         )}
         <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', pConfig.color)}>{pConfig.label}</span>
-        {venc && (
+        {venc ? (
           <span className={cn('text-[10px]',
             vencida ? 'text-red-500' : esHoy ? 'text-amber-500' : 'text-zinc-400')}>
             {vencida ? '⚠ ' : ''}{formatDate(venc)}
           </span>
-        )}
+        ) : tarea.consulta ? (
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+            Asignado {timeAgo(tarea.created_at)}
+          </span>
+        ) : null}
         <span className="text-[10px] text-zinc-400 min-w-[60px]">
           {(() => {
             const primary = tarea.asignado

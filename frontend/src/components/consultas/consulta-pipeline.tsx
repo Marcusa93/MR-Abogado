@@ -123,6 +123,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
     alertaDestinatarioId?: string
     alertaTitulo?: string
     alertaMensaje?: string
+    crearTarea?: { titulo: string; descripcion?: string }
   }) {
     try {
       await cambiar.mutateAsync({
@@ -133,6 +134,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
         alertaDestinatarioId: params.alertaDestinatarioId,
         alertaTitulo: params.alertaTitulo,
         alertaMensaje: params.alertaMensaje,
+        crearTarea: params.crearTarea,
       })
       toast.success(`Estado: ${ESTADO_LABEL[params.nuevoEstado]}`)
     } catch (e) {
@@ -149,6 +151,10 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
       alertaDestinatarioId: criterioProfile.id,
       alertaTitulo: `Consulta de ${nombreCliente}`,
       alertaMensaje: `Se te asignó la consulta de ${nombreCliente} para revisión.`,
+      crearTarea: {
+        titulo: `Revisar consulta: ${nombreCliente}`,
+        descripcion: notas || undefined,
+      },
     })
     setModal(null)
   }
@@ -163,7 +169,14 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   }
 
   async function handleRedactando() {
-    await transition({ nuevoEstado: 'redactando', assignedTo: criterioProfile?.id ?? consulta.assigned_to })
+    const assignedTo = criterioProfile?.id ?? consulta.assigned_to
+    await transition({
+      nuevoEstado: 'redactando',
+      assignedTo,
+      crearTarea: assignedTo ? {
+        titulo: `Redactar instrumento: ${nombreCliente}`,
+      } : undefined,
+    })
   }
 
   async function handleResuelta() {

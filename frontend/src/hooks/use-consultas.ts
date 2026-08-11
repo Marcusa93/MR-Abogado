@@ -577,6 +577,11 @@ interface CambiarEstadoInput {
   alertaTitulo?: string
   alertaMensaje?: string
   nombreCliente?: string
+  // Si se provee, crea una tarea real en la tabla tareas para el destinatario
+  crearTarea?: {
+    titulo: string
+    descripcion?: string
+  }
 }
 
 export function useCambiarEstadoConsulta() {
@@ -588,6 +593,7 @@ export function useCambiarEstadoConsulta() {
     mutationFn: async ({
       consultaId, estado, estadoNotas, assignedTo,
       alertaDestinatarioId, alertaTitulo, alertaMensaje,
+      crearTarea,
     }: CambiarEstadoInput) => {
       const updatePayload: Record<string, unknown> = {
         estado,
@@ -606,6 +612,22 @@ export function useCambiarEstadoConsulta() {
         descripcion: `Estado: ${ESTADO_LABEL[estado]}${estadoNotas ? ` — ${estadoNotas}` : ''}`,
         created_by: userId,
       })
+
+      // Crear tarea en la tabla tareas para que aparezca en el tablero del destinatario
+      if (crearTarea && assignedTo && userId) {
+        await (supabase as any).from('tareas').insert({
+          titulo: crearTarea.titulo,
+          descripcion: crearTarea.descripcion ?? null,
+          asignado_a: assignedTo,
+          asignados: [assignedTo],
+          prioridad: 'ALTA',
+          estado: 'PENDIENTE',
+          created_by: userId,
+          consulta_id: consultaId,
+          expediente_id: null,
+          fecha_vencimiento: null,
+        })
+      }
 
       if (alertaDestinatarioId && alertaTitulo) {
         await (supabase as any).from('alertas').insert({

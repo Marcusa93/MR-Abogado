@@ -57,6 +57,9 @@ export type TareaWithRelations = Tables<'tareas'> & {
   etiquetas?: string[] | null
   /** Columna agregada en migración 20260715010000 — no figura aún en database.types.ts */
   asignados?: string[] | null
+  /** Columna agregada en migración 20260811 — vincula la tarea a una consulta */
+  consulta_id?: string | null
+  consulta?: { id: string; nombre: string; apellido: string | null } | null
 }
 
 /**
@@ -133,7 +136,8 @@ export function useTareas(filters: TareasFilters = {}) {
             caratula,
             clientes (id, nombre, apellido, dni, cuil)
           ),
-          asignado:profiles!tareas_asignado_a_fkey (id, nombre, apellido)
+          asignado:profiles!tareas_asignado_a_fkey (id, nombre, apellido),
+          consulta:consultas!tareas_consulta_id_fkey (id, nombre, apellido)
         `,
           { count: 'exact' }
         )
@@ -204,7 +208,7 @@ export function useTareas(filters: TareasFilters = {}) {
       const totalCount = count ?? 0
 
       return {
-        data: (data ?? []) as TareaWithRelations[],
+        data: (data ?? []) as unknown as TareaWithRelations[],
         count: totalCount,
         page,
         pageSize,
