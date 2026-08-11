@@ -12,7 +12,7 @@ import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import {
   Plus, Search, Users, Phone, Mail, Calendar,
-  ChevronRight, MessageSquare, Briefcase,
+  ChevronRight, MessageSquare, Briefcase, LayoutGrid, List,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -21,9 +21,12 @@ import { timeAgo } from '@/lib/utils/date-helpers'
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
   pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  en_revision: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+  con_claudio: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  requiere_info: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  redactando: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
   convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  resuelta: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
   descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
 }
 
@@ -31,11 +34,17 @@ const ESTADOS: Array<{ value: ConsultaEstado | ''; label: string }> = [
   { value: '', label: 'Todas' },
   { value: 'pendiente', label: 'Pendientes' },
   { value: 'en_proceso', label: 'En proceso' },
-  { value: 'en_revision', label: 'En revisión' },
   { value: 'presupuestada', label: 'Presupuestadas' },
-  { value: 'convertida', label: 'Convertidas' },
+  { value: 'con_claudio', label: 'Con Claudio' },
+  { value: 'requiere_info', label: 'Requiere info' },
+  { value: 'redactando', label: 'Redactando' },
+  { value: 'convertida', label: 'Expediente' },
+  { value: 'resuelta', label: 'Resueltas' },
   { value: 'descartada', label: 'Descartadas' },
 ]
+
+const KANBAN_ESTADOS: ConsultaEstado[] = ['pendiente', 'en_proceso', 'presupuestada', 'con_claudio', 'requiere_info', 'redactando']
+const TERMINAL_ESTADOS: ConsultaEstado[] = ['convertida', 'resuelta', 'descartada']
 
 // ── Modal nueva consulta ────────────────────────────────────────────────────
 
@@ -221,7 +230,104 @@ function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => voi
   )
 }
 
+// ── Kanban card compacto ─────────────────────────────────────────────────────
+
+function KanbanCard({ consulta, onClick }: { consulta: any; onClick: () => void }) {
+  const nombre = [consulta.apellido, consulta.nombre].filter(Boolean).join(', ')
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-3 hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm transition-all space-y-1.5"
+    >
+      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{nombre}</div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400')}>
+          {TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto]}
+        </span>
+        {consulta.assigned_profile && (
+          <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate">
+            {[consulta.assigned_profile.apellido, consulta.assigned_profile.nombre].filter(Boolean).join(', ')}
+          </span>
+        )}
+      </div>
+      <div className="text-[10px] text-zinc-400">{timeAgo(consulta.created_at)}</div>
+    </button>
+  )
+}
+
+// ── Vista kanban ─────────────────────────────────────────────────────────────
+
+function KanbanView({ onCardClick }: { onCardClick: (id: string) => void }) {
+  const { data: consultas = [], isLoading, error } = useConsultas({})
+
+  if (isLoading) return <TableSkeleton rows={3} />
+  if (error) return <ErrorState message="No se pudo cargar las consultas" />
+
+  const byEstado: Record<string, any[]> = {}
+  for (const c of consultas) {
+    if (!byEstado[c.estado]) byEstado[c.estado] = []
+    byEstado[c.estado].push(c)
+  }
+
+  const cerradas = TERMINAL_ESTADOS.reduce((acc, e) => acc + (byEstado[e]?.length ?? 0), 0)
+  const countConvertida = byEstado['convertida']?.length ?? 0
+  const countResuelta = byEstado['resuelta']?.length ?? 0
+  const countDescartada = byEstado['descartada']?.length ?? 0
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-3 min-w-max">
+          {KANBAN_ESTADOS.map(estado => {
+            const cards = byEstado[estado] ?? []
+            return (
+              <div key={estado} className="w-56 shrink-0 flex flex-col gap-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className={cn('text-xs font-semibold rounded-full px-2 py-0.5', ESTADO_STYLE[estado])}>
+                    {ESTADO_LABEL[estado]}
+                  </span>
+                  <span className="text-xs font-bold text-zinc-400">{cards.length}</span>
+                </div>
+                <div className="flex flex-col gap-2 min-h-[60px] rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-2">
+                  {cards.length === 0 ? (
+                    <div className="text-[11px] text-zinc-400 italic text-center py-3">Sin consultas</div>
+                  ) : (
+                    cards.map((c: any) => (
+                      <KanbanCard key={c.id} consulta={c} onClick={() => onCardClick(c.id)} />
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {cerradas > 0 && (
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-white/10 pt-3">
+          {cerradas} cerradas: {countConvertida > 0 && `${countConvertida} expediente${countConvertida > 1 ? 's' : ''}`}
+          {countConvertida > 0 && (countResuelta > 0 || countDescartada > 0) && ', '}
+          {countResuelta > 0 && `${countResuelta} resuelta${countResuelta > 1 ? 's' : ''}`}
+          {countResuelta > 0 && countDescartada > 0 && ', '}
+          {countDescartada > 0 && `${countDescartada} descartada${countDescartada > 1 ? 's' : ''}`}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Página principal ────────────────────────────────────────────────────────
+
+type VistaMode = 'lista' | 'kanban'
+
+function getVistaInicial(): VistaMode {
+  try {
+    const stored = localStorage.getItem('consultas-vista')
+    if (stored === 'kanban' || stored === 'lista') return stored
+  } catch {}
+  return 'lista'
+}
 
 export default function ConsultasPage() {
   const navigate = useNavigate()
@@ -229,79 +335,122 @@ export default function ConsultasPage() {
   const [search, setSearch] = useState('')
   const [estado, setEstado] = useState<ConsultaEstado | ''>('')
   const [showNueva, setShowNueva] = useState(params.get('nueva') === '1')
+  const [vista, setVista] = useState<VistaMode>(getVistaInicial)
 
   const { data: consultas, isLoading, error } = useConsultas({ estado, search })
 
+  function handleSetVista(v: VistaMode) {
+    setVista(v)
+    try { localStorage.setItem('consultas-vista', v) } catch {}
+  }
+
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Consultas</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Potenciales clientes y diagnósticos previos al expediente</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowNueva(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Nueva consulta
-        </button>
-      </div>
-
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, apellido o teléfono…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
-      {/* Tabs de estado */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
-        {ESTADOS.map(e => (
+        <div className="flex items-center gap-2">
+          {/* Toggle lista/kanban */}
+          <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => handleSetVista('lista')}
+              className={cn(
+                'p-2 transition-colors',
+                vista === 'lista'
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200',
+              )}
+              title="Vista lista"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetVista('kanban')}
+              className={cn(
+                'p-2 transition-colors',
+                vista === 'kanban'
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200',
+              )}
+              title="Vista kanban"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
           <button
-            key={e.value}
             type="button"
-            onClick={() => setEstado(e.value)}
-            className={cn(
-              'shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-colors',
-              estado === e.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700',
-            )}
+            onClick={() => setShowNueva(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            {e.label}
+            <Plus className="h-4 w-4" />
+            Nueva consulta
           </button>
-        ))}
+        </div>
       </div>
 
-      {/* Lista */}
-      {isLoading ? (
-        <TableSkeleton rows={5} />
-      ) : error ? (
-        <ErrorState message="No se pudo cargar la lista de consultas" />
-      ) : !consultas?.length ? (
-        <EmptyState
-          icon={Users}
-          title="Sin consultas"
-          description={estado ? `No hay consultas en estado "${ESTADO_LABEL[estado]}"` : 'Todavía no hay consultas registradas'}
-          actionLabel="Nueva consulta"
-          onAction={() => setShowNueva(true)}
-        />
+      {vista === 'kanban' ? (
+        <KanbanView onCardClick={id => navigate(`/consultas/${id}`)} />
       ) : (
-        <div className="space-y-2">
-          {consultas.map(c => (
-            <ConsultaCard key={c.id} consulta={c} onClick={() => navigate(`/consultas/${c.id}`)} />
-          ))}
-        </div>
+        <>
+          {/* Filtros */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, apellido o teléfono…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Tabs de estado */}
+          <div className="flex gap-1 overflow-x-auto pb-1">
+            {ESTADOS.map(e => (
+              <button
+                key={e.value}
+                type="button"
+                onClick={() => setEstado(e.value)}
+                className={cn(
+                  'shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-colors',
+                  estado === e.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700',
+                )}
+              >
+                {e.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista */}
+          {isLoading ? (
+            <TableSkeleton rows={5} />
+          ) : error ? (
+            <ErrorState message="No se pudo cargar la lista de consultas" />
+          ) : !consultas?.length ? (
+            <EmptyState
+              icon={Users}
+              title="Sin consultas"
+              description={estado ? `No hay consultas en estado "${ESTADO_LABEL[estado]}"` : 'Todavía no hay consultas registradas'}
+              actionLabel="Nueva consulta"
+              onAction={() => setShowNueva(true)}
+            />
+          ) : (
+            <div className="space-y-2">
+              {consultas.map(c => (
+                <ConsultaCard key={c.id} consulta={c} onClick={() => navigate(`/consultas/${c.id}`)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {showNueva && (

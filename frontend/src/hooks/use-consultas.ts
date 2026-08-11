@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth-store'
 // Tipos
 // ---------------------------------------------------------------------------
 
-export type ConsultaEstado = 'pendiente' | 'en_proceso' | 'en_revision' | 'presupuestada' | 'convertida' | 'descartada'
+export type ConsultaEstado = 'pendiente' | 'en_proceso' | 'presupuestada' | 'con_claudio' | 'requiere_info' | 'redactando' | 'convertida' | 'resuelta' | 'descartada'
 export type ConsultaCanal = 'presencial' | 'telefono' | 'turno' | 'web' | 'referido'
 export type ConsultaTipoAsunto =
   | 'laboral_trabajador' | 'laboral_empleador'
@@ -68,6 +68,7 @@ export interface Consulta {
   intimacion: IntimacionDoc | null
   areas_derecho: string[]
   estado: ConsultaEstado
+  estado_notas: string | null
   convertida_expediente_id: string | null
   assigned_to: string | null
   hechos_ordenados: string | null
@@ -145,9 +146,12 @@ export const CANAL_LABEL: Record<ConsultaCanal, string> = {
 export const ESTADO_LABEL: Record<ConsultaEstado, string> = {
   pendiente: 'Pendiente',
   en_proceso: 'En proceso',
-  en_revision: 'En revisión',
   presupuestada: 'Presupuestada',
-  convertida: 'Convertida',
+  con_claudio: 'Con Claudio',
+  requiere_info: 'Requiere info',
+  redactando: 'Redactando',
+  convertida: 'Expediente',
+  resuelta: 'Resuelta',
   descartada: 'Descartada',
 }
 
@@ -535,5 +539,128 @@ export function useDeleteSolicitudDoc() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['consulta-solicitud-docs', vars.consulta_id] })
     },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Perfil CRITERIO
+// ---------------------------------------------------------------------------
+
+export function useCriterioProfile() {
+  const supabase = createClient()
+  return useQuery<{ id: string; nombre: string | null; apellido: string | null } | null>({
+    queryKey: ['criterio-profile'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido')
+        .eq('rol', 'CRITERIO')
+        .eq('activo', true)
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Cambiar estado (pipeline)
+// ---------------------------------------------------------------------------
+
+interface CambiarEstadoInput {
+  consultaId: string
+  estado: ConsultaEstado
+  estadoNotas?: string
+  assignedTo?: string | null
+  alertaDestinatarioId?: string
+  alertaTitulo?: string
+  alertaMensaje?: string
+  nombreCliente?: string
+}
+
+export function useCambiarEstadoConsulta() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  const userId = useAuthStore((s) => s.user?.id)
+
+  return useMutation({
+    mutationFn: async ({
+      consultaId, estado, estadoNotas, assignedTo,
+      alertaDestinatarioId, alertaTitulo, alertaMensaje,
+    }: CambiarEstadoInput) => {
+      const updatePayload: Record<string, unknown> = {
+        estado,
+        updated_at: new Date().toISOString(),
+      }
+      if (estadoNotas !== undefined) updatePayload.estado_notas = estadoNotas
+      if (assignedTo !== undefined) updatePayload.assigned_to = assignedTo
+
+      const { error: upErr } = await (supabase as any)
+        .from('consultas').update(updatePayload).eq('id', consultaId)
+      if (upErr) throw upErr
+
+      await (supabase as any).from('consulta_actividad').insert({
+        consulta_id: consultaId,
+        tipo: 'cambio_estado',
+        descripcion: `Estado: ${ESTADO_LABEL[estado]}${estadoNotas ? ` — ${estadoNotas}` : ''}`,
+        created_by: userId,
+      })
+
+      if (alertaDestinatarioId && alertaTitulo) {
+        await (supabase as any).from('alertas').insert({
+          tipo: 'TAREA_ASIGNADA',
+          titulo: alertaTitulo,
+          mensaje: alertaMensaje ?? '',
+          destinatario_id: alertaDestinatarioId,
+          prioridad: 'ALTA',
+          payload: { consulta_id: consultaId },
+        })
+
+        const { data: { session } } = await supabase.auth.getSession()
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dispatch-alert-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            tipo: 'TAREA_ASIGNADA',
+            usuario_id: alertaDestinatarioId,
+            titulo: alertaTitulo,
+            mensaje: alertaMensaje ?? '',
+            url: `/consultas/${consultaId}`,
+          }),
+        }).catch(e => console.error('[cambiarEstado] dispatch error', e))
+      }
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['consulta', vars.consultaId] })
+      qc.invalidateQueries({ queryKey: ['consultas'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Conteo por estado (dashboard widget)
+// ---------------------------------------------------------------------------
+
+export function useConsultasConteo() {
+  const supabase = createClient()
+  return useQuery<Record<ConsultaEstado, number>>({
+    queryKey: ['consultas-conteo'],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('consultas')
+        .select('estado')
+        .not('estado', 'in', '(convertida,resuelta,descartada)')
+      const conteo: Record<string, number> = {}
+      for (const row of (data ?? [])) {
+        conteo[row.estado] = (conteo[row.estado] ?? 0) + 1
+      }
+      return conteo as Record<ConsultaEstado, number>
+    },
+    staleTime: 60_000,
   })
 }

@@ -20,12 +20,13 @@ import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-ordenados'
 import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
+import { ConsultaPipeline } from '@/components/consultas/consulta-pipeline'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
   ArrowLeft, Sparkles, FolderPlus,
   Phone, Mail, Calendar, MessageSquare,
-  CheckCircle2, AlertTriangle, ChevronDown, Save,
+  CheckCircle2, AlertTriangle, Save,
   Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
   Pencil, Trash2, Plus, X,
 } from 'lucide-react'
@@ -36,9 +37,12 @@ import { timeAgo } from '@/lib/utils/date-helpers'
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
   pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
   en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  en_revision: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+  con_claudio: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  requiere_info: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  redactando: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
   convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  resuelta: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
   descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
 }
 
@@ -1321,16 +1325,6 @@ export default function ConsultaDetallePage() {
 
   const handlePrefillConsumed = useCallback(() => setPrefilledPresupuesto(null), [])
 
-  const handleEstado = useCallback(async (nuevoEstado: ConsultaEstado) => {
-    if (!id) return
-    try {
-      await update.mutateAsync({ id, estado: nuevoEstado })
-      toast.success(`Estado actualizado a "${ESTADO_LABEL[nuevoEstado]}"`)
-    } catch {
-      toast.error('No se pudo actualizar el estado')
-    }
-  }, [id, update])
-
   if (isLoading) return (
     <div className="max-w-2xl mx-auto space-y-4 animate-pulse">
       {[1, 2, 3].map(i => <div key={i} className="h-32 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />)}
@@ -1459,28 +1453,10 @@ export default function ConsultaDetallePage() {
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Estado selector */}
-              <div className="relative group">
-                <button
-                  type="button"
-                  className={cn('flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all', ESTADO_STYLE[consulta.estado])}
-                >
-                  {ESTADO_LABEL[consulta.estado]}
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg z-10 hidden group-hover:block">
-                  {(['pendiente', 'en_proceso', 'en_revision', 'presupuestada', 'convertida', 'descartada'] as ConsultaEstado[]).map(s => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handleEstado(s)}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-300 first:rounded-t-xl last:rounded-b-xl"
-                    >
-                      {ESTADO_LABEL[s]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Estado badge (solo lectura — el pipeline maneja transiciones) */}
+              <span className={cn('rounded-full px-3 py-1 text-xs font-medium', ESTADO_STYLE[consulta.estado])}>
+                {ESTADO_LABEL[consulta.estado]}
+              </span>
               {/* Editar datos */}
               <button
                 type="button"
@@ -1514,6 +1490,15 @@ export default function ConsultaDetallePage() {
           </div>
         )}
       </div>
+
+      {/* Pipeline de estados */}
+      {profile && (
+        <ConsultaPipeline
+          consulta={consulta}
+          profile={profile}
+          onConvertir={handleConvertir}
+        />
+      )}
 
       {/* Hechos del caso */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
