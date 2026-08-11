@@ -545,6 +545,26 @@ export function useDeleteSolicitudDoc() {
 }
 
 // ---------------------------------------------------------------------------
+// Perfiles activos (para asignación de tareas)
+// ---------------------------------------------------------------------------
+
+export function useActiveProfiles() {
+  const supabase = createClient()
+  return useQuery<Array<{ id: string; nombre: string | null; apellido: string | null; rol: string | null }>>({
+    queryKey: ['profiles-activos'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido, rol')
+        .eq('activo', true)
+        .order('apellido', { ascending: true })
+      return data ?? []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Perfil CRITERIO
 // ---------------------------------------------------------------------------
 
@@ -663,6 +683,75 @@ export function useCambiarEstadoConsulta() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['consulta', vars.consultaId] })
       qc.invalidateQueries({ queryKey: ['consultas'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Asignar tarea a cualquier perfil desde una consulta (sin cambiar estado)
+// ---------------------------------------------------------------------------
+
+export function useAsignarTareaConsulta() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  const userId = useAuthStore((s) => s.user?.id)
+
+  return useMutation({
+    mutationFn: async ({
+      consultaId,
+      destinatarioId,
+      titulo,
+      descripcion,
+    }: {
+      consultaId: string
+      destinatarioId: string
+      titulo: string
+      descripcion?: string
+    }) => {
+      if (userId) {
+        const { error: tareaErr } = await (supabase as any).from('tareas').insert({
+          titulo,
+          descripcion: descripcion ?? null,
+          asignado_a: destinatarioId,
+          asignados: [destinatarioId],
+          prioridad: 'ALTA',
+          estado: 'PENDIENTE',
+          created_by: userId,
+          consulta_id: consultaId,
+          expediente_id: null,
+          fecha_vencimiento: null,
+        })
+        if (tareaErr) throw tareaErr
+      }
+
+      await (supabase as any).from('alertas').insert({
+        tipo: 'TAREA_ASIGNADA',
+        titulo,
+        mensaje: descripcion ?? titulo,
+        destinatario_id: destinatarioId,
+        prioridad: 'ALTA',
+        payload: { consulta_id: consultaId },
+      })
+
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dispatch-alert-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          tipo: 'TAREA_ASIGNADA',
+          usuario_id: destinatarioId,
+          titulo,
+          mensaje: descripcion ?? titulo,
+          url: `/consultas/${consultaId}`,
+        }),
+      }).catch(e => console.error('[asignarTarea] dispatch error', e))
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tareas'] })
     },
   })
 }

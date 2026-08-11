@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ArrowRight, UserCheck, FileSearch, PenLine, CheckCircle, XCircle, FolderPlus, RotateCcw, Clock } from 'lucide-react'
-import { useCambiarEstadoConsulta, useCriterioProfile, ESTADO_LABEL, type ConsultaEstado } from '@/hooks/use-consultas'
+import { Loader2, ArrowRight, UserCheck, FileSearch, PenLine, CheckCircle, XCircle, FolderPlus, RotateCcw, Clock, ClipboardList } from 'lucide-react'
+import { useCambiarEstadoConsulta, useCriterioProfile, useActiveProfiles, useAsignarTareaConsulta, ESTADO_LABEL, type ConsultaEstado } from '@/hooks/use-consultas'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -81,6 +81,85 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
   )
 }
 
+// ─── Modal asignar tarea ──────────────────────────────────────────────────────
+
+function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, onCancel, loading }: {
+  nombreCliente: string
+  profiles: Array<{ id: string; nombre: string | null; apellido: string | null; rol: string | null }>
+  currentUserId?: string
+  onConfirm: (destinatarioId: string, titulo: string, descripcion: string) => void
+  onCancel: () => void
+  loading: boolean
+}) {
+  const [destinatarioId, setDestinatarioId] = useState('')
+  const [titulo, setTitulo] = useState(`Comunicarse con ${nombreCliente}`)
+  const [descripcion, setDescripcion] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-6 space-y-4">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Asignar tarea</h3>
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Responsable</label>
+          <select
+            value={destinatarioId}
+            onChange={e => setDestinatarioId(e.target.value)}
+            autoFocus
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Seleccionar…</option>
+            {profiles.map(p => {
+              const nombre = [p.apellido, p.nombre].filter(Boolean).join(', ')
+              return (
+                <option key={p.id} value={p.id}>
+                  {nombre}{p.id === currentUserId ? ' (yo)' : ''}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Título de la tarea</label>
+          <input
+            type="text"
+            value={titulo}
+            onChange={e => setTitulo(e.target.value)}
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Instrucciones</label>
+          <textarea
+            value={descripcion}
+            onChange={e => setDescripcion(e.target.value)}
+            placeholder="Ej: Llamar al cliente para coordinar la firma del poder…"
+            rows={3}
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => destinatarioId && titulo.trim() && onConfirm(destinatarioId, titulo.trim(), descripcion)}
+            disabled={loading || !destinatarioId || !titulo.trim()}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
+            Asignar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 interface ConsultaForPipeline {
@@ -113,8 +192,10 @@ interface Props {
 export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   const navigate = useNavigate()
   const cambiar = useCambiarEstadoConsulta()
+  const asignar = useAsignarTareaConsulta()
   const { data: criterioProfile } = useCriterioProfile()
-  const [modal, setModal] = useState<null | 'requiere_info' | 'pasar_claudio_manual'>(null)
+  const { data: activeProfiles = [] } = useActiveProfiles()
+  const [modal, setModal] = useState<null | 'requiere_info' | 'pasar_claudio_manual' | 'asignar_tarea'>(null)
 
   const { estado } = consulta
   const isCriterio = profile.rol === 'CRITERIO'
@@ -193,6 +274,17 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   async function handleDescartar() {
     if (!window.confirm('¿Descartar esta consulta?')) return
     await transition({ nuevoEstado: 'descartada', assignedTo: null })
+  }
+
+  async function handleAsignarTarea(destinatarioId: string, titulo: string, descripcion: string) {
+    try {
+      await asignar.mutateAsync({ consultaId: consulta.id, destinatarioId, titulo, descripcion })
+      toast.success('Tarea asignada')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo asignar la tarea')
+    } finally {
+      setModal(null)
+    }
   }
 
   return (
@@ -353,6 +445,19 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
             </button>
           )}
 
+          {/* Asignar tarea a cualquier persona del equipo */}
+          {profile.rol !== 'SECRETARIA' && (
+            <button
+              type="button"
+              onClick={() => setModal('asignar_tarea')}
+              disabled={asignar.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              Asignar tarea
+            </button>
+          )}
+
           {/* Descartar (cualquier estado no terminal, solo no-secretaria) */}
           {profile.rol !== 'SECRETARIA' && (
             <button
@@ -385,6 +490,16 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
           onConfirm={notas => handlePasarAClaudio(notas || undefined)}
           onCancel={() => setModal(null)}
           loading={cambiar.isPending}
+        />
+      )}
+      {modal === 'asignar_tarea' && (
+        <ModalAsignarTarea
+          nombreCliente={nombreCliente}
+          profiles={activeProfiles}
+          currentUserId={profile.id}
+          onConfirm={handleAsignarTarea}
+          onCancel={() => setModal(null)}
+          loading={asignar.isPending}
         />
       )}
     </div>
