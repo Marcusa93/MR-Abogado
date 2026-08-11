@@ -74,6 +74,8 @@ export interface Consulta {
   hechos_ordenados: string | null
   preguntas_sugeridas: string[]
   hechos_ordenados_at: string | null
+  estado_changed_at: string | null
+  recordatorio_enviado_at: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -199,7 +201,7 @@ export function useConsultas(filters: ConsultasFilters = {}) {
         .from('consultas')
         .select(`
           id, nombre, apellido, telefono, email, canal, tipo_asunto,
-          estado, diagnostico_at, created_at, assigned_to,
+          estado, diagnostico_at, created_at, assigned_to, estado_changed_at,
           assigned_profile:profiles!consultas_assigned_to_fkey(nombre, apellido)
         `)
         .order('created_at', { ascending: false })
@@ -597,6 +599,7 @@ export function useCambiarEstadoConsulta() {
     }: CambiarEstadoInput) => {
       const updatePayload: Record<string, unknown> = {
         estado,
+        estado_changed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
       if (estadoNotas !== undefined) updatePayload.estado_notas = estadoNotas

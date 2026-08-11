@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ArrowRight, UserCheck, FileSearch, PenLine, CheckCircle, XCircle, FolderPlus, RotateCcw } from 'lucide-react'
+import { Loader2, ArrowRight, UserCheck, FileSearch, PenLine, CheckCircle, XCircle, FolderPlus, RotateCcw, Clock } from 'lucide-react'
 import { useCambiarEstadoConsulta, useCriterioProfile, ESTADO_LABEL, type ConsultaEstado } from '@/hooks/use-consultas'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
@@ -87,10 +87,16 @@ interface ConsultaForPipeline {
   id: string
   estado: ConsultaEstado
   estado_notas: string | null
+  estado_changed_at: string | null
   assigned_to: string | null
   convertida_expediente_id: string | null
   nombre: string
   apellido: string | null
+}
+
+function diasEnEstado(iso: string | null | undefined): number {
+  if (!iso) return 0
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24))
 }
 
 interface Profile {
@@ -245,6 +251,17 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
           {consulta.estado_notas && (
             <div className="text-[11px] opacity-80 mt-0.5">{consulta.estado_notas}</div>
           )}
+          {(() => {
+            const dias = diasEnEstado(consulta.estado_changed_at)
+            if (dias < 2) return null
+            const timeColor = dias > 7 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+            return (
+              <div className={cn('flex items-center gap-1 text-[11px] font-medium mt-0.5', timeColor)}>
+                <Clock className="h-3 w-3" />
+                {dias === 1 ? '1 día' : `${dias} días`} en este estado
+              </div>
+            )
+          })()}
         </div>
         {estado === 'convertida' && consulta.convertida_expediente_id && (
           <button

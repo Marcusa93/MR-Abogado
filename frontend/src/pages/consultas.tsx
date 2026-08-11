@@ -12,9 +12,28 @@ import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import {
   Plus, Search, Users, Phone, Mail, Calendar,
-  ChevronRight, MessageSquare, Briefcase, LayoutGrid, List,
+  ChevronRight, MessageSquare, Briefcase, LayoutGrid, List, Clock,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
+
+function diasDesde(iso: string | null | undefined): number {
+  if (!iso) return 0
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function TiempoEstadoBadge({ estadoChangedAt }: { estadoChangedAt: string | null | undefined }) {
+  const dias = diasDesde(estadoChangedAt)
+  if (dias < 3) return null
+  const color = dias > 7
+    ? 'text-red-600 dark:text-red-400'
+    : 'text-amber-600 dark:text-amber-400'
+  return (
+    <span className={cn('text-[10px] font-medium flex items-center gap-0.5 shrink-0', color)}>
+      <Clock className="h-3 w-3" />
+      {dias === 1 ? '1 día' : `${dias} días`}
+    </span>
+  )
+}
 
 // ── Estado badges ───────────────────────────────────────────────────────────
 
@@ -223,6 +242,7 @@ function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => voi
           {consulta.diagnostico_at && (
             <span className="text-[10px] text-green-600 dark:text-green-400">✓ Diagnóstico</span>
           )}
+          <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
           <ChevronRight className="h-4 w-4 text-zinc-300 dark:text-zinc-600 mt-1 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors" />
         </div>
       </div>
@@ -251,7 +271,10 @@ function KanbanCard({ consulta, onClick }: { consulta: any; onClick: () => void 
           </span>
         )}
       </div>
-      <div className="text-[10px] text-zinc-400">{timeAgo(consulta.created_at)}</div>
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10px] text-zinc-400">{timeAgo(consulta.created_at)}</span>
+        <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
+      </div>
     </button>
   )
 }

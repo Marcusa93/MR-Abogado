@@ -141,7 +141,8 @@ ${notas}`
       hechos_ordenados: parsed.hechos_ordenados,
       preguntas_sugeridas: parsed.preguntas_sugeridas,
       hechos_ordenados_at: now,
-      estado: 'en_revision',
+      estado: 'con_claudio',
+      estado_changed_at: now,
       updated_at: now,
     }
 
