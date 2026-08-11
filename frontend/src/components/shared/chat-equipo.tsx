@@ -362,15 +362,19 @@ export function ChatEquipo() {
   othersTotalRef.current = othersTotal
 
   const [lastSeenCount, setLastSeenCount] = useState<number>(() => {
-    const v = sessionStorage.getItem('chat_seen_count')
+    // localStorage persiste entre recargas y restauraciones de pestaña en mobile
+    const v = localStorage.getItem('chat_seen_count')
     return v ? parseInt(v, 10) : 0
   })
 
-  // Actualizar al abrir Y al cerrar el chat para capturar mensajes que llegaron mientras estaba abierto
+  // Solo actualizar cuando el usuario realmente abre/cierra — no en el mount inicial
+  // (en mount los mensajes aún no cargaron y escribir 0 pisaría el valor guardado)
+  const mountedRef = useRef(false)
   useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return }
     const cur = othersTotalRef.current
     setLastSeenCount(cur)
-    sessionStorage.setItem('chat_seen_count', String(cur))
+    localStorage.setItem('chat_seen_count', String(cur))
   }, [open])
 
   const unread = Math.max(0, othersTotal - lastSeenCount)
