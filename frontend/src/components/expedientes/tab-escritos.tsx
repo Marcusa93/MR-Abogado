@@ -109,6 +109,8 @@ function NuevoEscritoDialog({
   const [modeloSel, setModeloSel] = useState('')
   const [estiloTexto, setEstiloTexto] = useState('')
   const [guardarComo, setGuardarComo] = useState('')
+  const [contraparteTexto, setContraparteTexto] = useState('')
+  const [showContraparte, setShowContraparte] = useState(false)
   const { data: tiposPrevios = [] } = useEscritoTiposPrevios()
   const { data: templates = [] } = useEscritoTemplates()
   const { data: movimientos = [] } = useSaeMovements(expedienteId)
@@ -164,12 +166,9 @@ function NuevoEscritoDialog({
     return Array.from(merged).sort()
   }, [tiposPrevios])
 
-  // Providencias a las que se puede "responder": tipos respondibles o con acción sugerida.
-  const providencias = useMemo(() => {
-    return movimientos
-      .filter(m => RESPONDIBLE_TYPES.has(m.tipo_movimiento ?? '') || Boolean(m.ai_suggested_action))
-      .slice(0, 40)
-  }, [movimientos])
+  // Todas las actuaciones disponibles para seleccionar como "responde a".
+  // Se incluyen tanto providencias como escritos de la contraparte.
+  const providencias = useMemo(() => movimientos.slice(0, 80), [movimientos])
 
   // Al elegir una providencia, pre-cargar tipo/instrucciones o idea desde su acción sugerida.
   const onSelectProvidencia = (id: string) => {
@@ -207,6 +206,7 @@ function NuevoEscritoDialog({
     setModo('tipo'); setTipo(''); setIdea(''); setRespondeA('')
     setTitulo(''); setInstrucciones('')
     setModeloSel(''); setEstiloTexto(''); setGuardarComo('')
+    setContraparteTexto(''); setShowContraparte(false)
     generate.reset()
   }
 
@@ -225,6 +225,7 @@ function NuevoEscritoDialog({
         tipo: modo === 'idea' ? '' : tipo.trim(),
         idea_libre: modo === 'idea' ? idea.trim() : undefined,
         responde_a_movimiento_id: respondeA || undefined,
+        escrito_contraparte_texto: contraparteTexto.trim() || undefined,
         titulo: titulo.trim() || undefined,
         instrucciones: instrucciones.trim() || undefined,
         ...(modeloSel === 'NUEVO'
@@ -318,11 +319,11 @@ function NuevoEscritoDialog({
             </button>
           </div>
 
-          {/* Responder a una providencia (opcional, ambos modos) */}
+          {/* Actuación o escrito de contraparte al que responde (opcional, ambos modos) */}
           {providencias.length > 0 && (
             <div>
               <label className="mb-1 block text-xs font-medium text-zinc-300">
-                Responder a una actuación (opcional)
+                Actuación o escrito de contraparte al que respondés (opcional)
               </label>
               <select
                 value={respondeA}
@@ -330,18 +331,46 @@ function NuevoEscritoDialog({
                 disabled={generate.isPending}
                 className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
               >
-                <option value="">— El escrito no responde a una providencia puntual —</option>
+                <option value="">— Sin actuación de referencia —</option>
                 {providencias.map(m => (
                   <option key={m.id} value={m.id}>
-                    {m.fecha} · {m.tipo_movimiento}{m.titulo ? ` · ${m.titulo.slice(0, 60)}` : ''}
+                    {m.fecha} · {m.tipo_movimiento}{m.titulo ? ` · ${m.titulo.slice(0, 55)}` : ''}
                   </option>
                 ))}
               </select>
               <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-                Elegí la providencia que este escrito contesta o cumple. Si tiene acción sugerida, se pre-carga.
+                Podés elegir una providencia, un traslado, o el escrito de la contraparte (ej: expresión de agravios del Dr. Seidan).
               </p>
             </div>
           )}
+
+          {/* Texto del escrito de la contraparte — para rebatir punto por punto */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowContraparte(v => !v)}
+              disabled={generate.isPending}
+              className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <FileSearch className="h-3.5 w-3.5" />
+              {showContraparte ? 'Ocultar texto de la contraparte' : 'Agregar texto de la contraparte para rebatir'}
+            </button>
+            {showContraparte && (
+              <div className="mt-2">
+                <textarea
+                  value={contraparteTexto}
+                  onChange={e => setContraparteTexto(e.target.value)}
+                  placeholder={`Pegá los fragmentos del escrito de la contraparte (del PDF de SAE) que querés rebatir.\nLa IA va a argumentar en contra punto por punto.\n\nEj: el Dr. Seidan sostiene que... / la sentencia de primera instancia resolvió que...`}
+                  rows={6}
+                  disabled={generate.isPending}
+                  className="w-full rounded-lg border border-rose-500/20 bg-rose-950/10 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-rose-500/40 focus:outline-none focus:ring-2 focus:ring-rose-500/15 resize-y"
+                />
+                <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                  No hace falta pegar todo: con los argumentos principales alcanza. Se usa solo para guiar la respuesta.
+                </p>
+              </div>
+            )}
+          </div>
 
           {modo === 'idea' ? (
             <div>

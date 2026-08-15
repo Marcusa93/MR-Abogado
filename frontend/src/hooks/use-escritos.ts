@@ -139,6 +139,8 @@ interface GenerateInput {
   idea_libre?: string | null
   /** Providencia (movimiento SAE) a la que este escrito responde. */
   responde_a_movimiento_id?: string | null
+  /** Texto del escrito de la contraparte que se quiere contestar (pegado desde el PDF). */
+  escrito_contraparte_texto?: string | null
 }
 
 interface GenerateResult {

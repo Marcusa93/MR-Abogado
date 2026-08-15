@@ -32,6 +32,12 @@ const RAG_WEAK_TOPK = 2
 const RAG_MATCH_COUNT = 8           // top-N que pide la RPC antes del filtro de score
 const RAG_MAX_PINNED_CHUNKS = 30    // sanity cap: si un user fija un doc gigante, no exploda el prompt
 
+// Tipos que son providencias del juzgado (vs. escritos de la contraparte)
+const RESPONDIBLE_TYPES_EDGE = new Set([
+  'decreto', 'traslado', 'intimacion', 'cedula', 'sentencia',
+  'providencia', 'resolucion', 'auto', 'despacho',
+])
+
 // Mismas reglas que tab-actuaciones-claves.tsx
 const KEY_TYPES = new Set([
   'sentencia', 'audiencia', 'intimacion', 'embargo',
@@ -614,6 +620,8 @@ Deno.serve(async (req) => {
       on_behalf_of_user_id?: string | null
       /** Borrador anterior que el abogado quiere mejorar (en lugar de generar desde cero). */
       borrador_previo?: unknown
+      /** Texto del escrito de la contraparte que se quiere contestar (pegado desde el PDF). */
+      escrito_contraparte_texto?: string | null
     } | null
 
     // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
@@ -704,23 +712,50 @@ Deno.serve(async (req) => {
 
     const claves = filterClaves((movsRaw ?? []) as MovementRow[])
 
-    // 4.5) Providencia a la que se responde (foco principal, si se eligió una)
+    // 4.5) Providencia / escrito de contraparte al que se responde (foco principal, si se eligió uno)
     let providenciaCtx = ''
     if (body.responde_a_movimiento_id) {
-      const prov = ((movsRaw ?? []) as MovementRow[]).find(m => m.id === body.responde_a_movimiento_id)
+      // Fetch full movement with cuerpo (body text from SAE, not in the initial load)
+      const { data: provFull } = await serviceClient
+        .from('sae_movements')
+        .select('id, fecha, titulo, tipo_movimiento, cuerpo, ai_summary, ai_suggested_action, ai_extracted')
+        .eq('id', body.responde_a_movimiento_id)
+        .maybeSingle()
+      const prov = provFull as (MovementRow & { cuerpo?: string | null }) | null
       if (prov) {
         const plazos = prov.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
         const acc = prov.ai_suggested_action
           ? `\n- Acción sugerida por el análisis: ${prov.ai_suggested_action.titulo}${prov.ai_suggested_action.descripcion ? ` — ${prov.ai_suggested_action.descripcion}` : ''}`
           : ''
-        providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
+        const esEscritoContraparte = !RESPONDIBLE_TYPES_EDGE.has(prov.tipo_movimiento ?? '')
+        const cuerpoTruncado = prov.cuerpo ? prov.cuerpo.slice(0, 3000) : null
+        if (esEscritoContraparte) {
+          // Es un escrito de la contraparte — el prompt debe orientarse a rebatirlo
+          providenciaCtx = `\n## Escrito de la CONTRAPARTE al que respondés (foco principal)
+El abogado indica que este escrito CONTESTA el siguiente escrito de la parte contraria. Estructurá tu respuesta para REBATIR sus argumentos con los hechos del expediente y la normativa aplicable.
+- Fecha: ${prov.fecha}
+- Tipo: ${prov.tipo_movimiento}
+- Título: ${prov.titulo}
+- Resumen IA: ${prov.ai_summary ?? '(sin resumen IA)'}${cuerpoTruncado ? `\n- Texto original (SAE):\n${cuerpoTruncado}` : ''}${acc}`
+        } else {
+          providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
 El abogado indica que este escrito CONTESTA o DA CUMPLIMIENTO a esta providencia. El escrito debe responder o cumplir con lo que ella ordena, con coherencia procesal y lógica jurídica.
 - Fecha: ${prov.fecha}
 - Tipo: ${prov.tipo_movimiento}
 - Título: ${prov.titulo}
 - Resumen: ${prov.ai_summary ?? '(sin resumen IA)'}${plazos ? `\n- Plazos: ${plazos}` : ''}${acc}`
+        }
       }
     }
+
+    // 4.6) Texto del escrito de la contraparte pegado manualmente (PDF de SAE)
+    const MAX_CONTRAPARTE_CHARS = 8000
+    const contraparteCtx = body.escrito_contraparte_texto?.trim()
+      ? `\n## Texto del escrito de la contraparte (pegado por el abogado desde el PDF)
+El abogado pegó fragmentos del escrito de la parte contraria que quiere REBATIR. Identificá sus argumentos principales y estructurá tu respuesta para contestarlos punto por punto, con base en los hechos del expediente. No cites ni avales estos argumentos — tu trabajo es contrarrestarlos.
+
+${body.escrito_contraparte_texto.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.escrito_contraparte_texto.trim().length > MAX_CONTRAPARTE_CHARS ? '\n[… texto truncado …]' : ''}`
+      : ''
 
     // 5) Determinar registro tonal según tipo (o la idea libre)
     const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
@@ -887,6 +922,8 @@ ${body.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en
 
 ${providenciaCtx}
 
+${contraparteCtx}
+
 ${expedienteCtx}
 ${novedadesCtx}
 ${clavesCtx}
@@ -909,6 +946,8 @@ Redactá el escrito siguiendo el formato JSON indicado.`
 ${body.titulo ? `Título sugerido: "${body.titulo}"` : `Determiná el título en MAYÚSCULAS para un escrito de tipo "${tipoEfectivo}".`}
 ⚠️ Las "Próximas acciones de agenda" que aparezcan en las actuaciones son recordatorios del sistema de gestión para el abogado. NO determinan el tipo de escrito. El abogado ya te indicó el tipo arriba — respetalo sin excepción.
 ${providenciaCtx}
+
+${contraparteCtx}
 
 ${expedienteCtx}
 ${novedadesCtx}
