@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
     const esSeccion = body.alcance === 'seccion'
+    const esInsertar = body.alcance === 'insertar'
 
     // Contexto opcional del expediente (carátula + resumen IA)
     let expedienteCtx = ''
@@ -80,7 +81,20 @@ Deno.serve(async (req) => {
       ? 'Mantené el registro procesal-seco: frases directas, una idea por oración, sin retórica innecesaria.'
       : 'Mantené el estilo y tono del texto original.'
 
-    const sistemaPrompt = `Sos un asistente jurídico especializado en escritos judiciales argentinos.
+    const sistemaPrompt = esInsertar
+      ? `Sos un asistente jurídico especializado en escritos judiciales argentinos.
+Tu tarea es REDACTAR UN PÁRRAFO NUEVO para insertar dentro de un escrito judicial ya existente.
+El párrafo debe encajar con naturalidad en el flujo del texto que lo rodea.
+
+Reglas:
+- ${registroNote}
+- NO inventes hechos, fechas, partes ni citas legales que no surjan del contexto o la instrucción.
+- El párrafo nuevo debe fluir lógicamente desde el anterior y hacia el siguiente.
+- Si solo hay un párrafo de contexto (anterior o siguiente), encadenate con él.
+- Devolvé SOLO el texto del párrafo nuevo, sin comentarios ni explicaciones.
+- NO uses markdown, asteriscos, ni listas con guiones.
+- El texto es para un escrito judicial argentino: formal, impersonal, vocabulario jurídico preciso.`
+      : `Sos un asistente jurídico especializado en escritos judiciales argentinos.
 Tu única tarea es MODIFICAR el texto de ${esSeccion ? 'una sección' : 'un párrafo'} de un escrito ya redactado, aplicando exactamente la instrucción del abogado.
 
 Reglas:
@@ -93,7 +107,17 @@ Reglas:
 - NO uses markdown, asteriscos, ni listas con guiones.
 - El texto es para un escrito judicial argentino: formal, impersonal, usando vocabulario jurídico preciso.`
 
-    const userMsg = `ESCRITO: "${body.escrito_titulo ?? 'Escrito judicial'}"${body.titulo_seccion ? `\nSECCIÓN: ${body.titulo_seccion}` : ''}${expedienteCtx}
+    const userMsg = esInsertar
+      ? `ESCRITO: "${body.escrito_titulo ?? 'Escrito judicial'}"${body.titulo_seccion ? `\nSECCIÓN: ${body.titulo_seccion}` : ''}${expedienteCtx}
+
+CONTEXTO DEL TEXTO CIRCUNDANTE:
+${body.texto_actual}
+
+INSTRUCCIÓN DEL ABOGADO (qué párrafo nuevo redactar):
+${body.instruccion}
+
+Redactá el párrafo nuevo:`
+      : `ESCRITO: "${body.escrito_titulo ?? 'Escrito judicial'}"${body.titulo_seccion ? `\nSECCIÓN: ${body.titulo_seccion}` : ''}${expedienteCtx}
 
 TEXTO ACTUAL:
 ${body.texto_actual}

@@ -826,6 +826,73 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
   )
 }
 
+// Separador clickeable entre párrafos para insertar uno nuevo con IA
+function InsertDivider({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <div className="group/div flex items-center gap-1 py-0.5">
+      <div className={cn('flex-1 h-px transition-colors', active ? 'bg-violet-500/30' : 'bg-white/5 group-hover/div:bg-violet-500/15')} />
+      <button
+        type="button"
+        onMouseDown={e => e.preventDefault()}
+        onClick={onClick}
+        className={cn(
+          'flex items-center justify-center rounded-full h-4 w-4 transition-all',
+          active
+            ? 'text-violet-300 bg-violet-500/20 opacity-100'
+            : 'text-zinc-600 hover:text-violet-300 hover:bg-violet-500/10 opacity-0 group-hover/div:opacity-100',
+        )}
+        title="Insertar párrafo con IA"
+      >
+        <Plus className="h-2.5 w-2.5" />
+      </button>
+      <div className={cn('flex-1 h-px transition-colors', active ? 'bg-violet-500/30' : 'bg-white/5 group-hover/div:bg-violet-500/15')} />
+    </div>
+  )
+}
+
+// Panel de inserción de párrafo nuevo con IA
+function InsertPanel({ aiInstruccion, setAiInstruccion, isPending, onSubmit, onCancel }: {
+  aiInstruccion: string
+  setAiInstruccion: (v: string) => void
+  isPending: boolean
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
+      <div className="flex flex-wrap gap-1">
+        {AI_CHIPS.map(c => (
+          <button key={c.label} type="button" onClick={() => setAiInstruccion(c.text)}
+            className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/25 transition-colors">
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={aiInstruccion}
+        onChange={e => setAiInstruccion(e.target.value)}
+        placeholder="Describí el párrafo a insertar. Ej: Agregar argumento sobre la carga de la prueba..."
+        rows={2}
+        autoFocus
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } }}
+        className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none resize-none"
+      />
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onSubmit}
+          disabled={!aiInstruccion.trim() || isPending}
+          className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50">
+          {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+          Insertar
+        </button>
+        <button type="button" onClick={onCancel}
+          className="text-xs text-zinc-500 hover:text-zinc-300">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Chips de acciones rápidas para los paneles IA (sección y párrafo)
 const AI_CHIPS = [
   { label: 'Profundizar', text: 'Profundizar el argumento con mayor desarrollo jurídico.' },
@@ -865,8 +932,10 @@ function EscritoEditorModal({
   const [sectionAiPanel, setSectionAiPanel] = useState<number | null>(null)
   const [parrafoAiPanel, setParrafoAiPanel] = useState<{ si: number; pi: number } | null>(null)
   const [aiInstruccion, setAiInstruccion] = useState('')
-  // Draft de sección: propuesta IA pendiente de aceptar/descartar
+  // Draft de sección: propuesta IA pendiente de aceptar/descartar (editable)
   const [sectionDraft, setSectionDraft] = useState<{ si: number; parrafos: string[] } | null>(null)
+  // Panel de inserción: posición donde insertar un párrafo nuevo con IA
+  const [insertPanel, setInsertPanel] = useState<{ si: number; afterPi: number } | null>(null)
   // Undo: último reemplazo IA (párrafo o sección) para poder revertir
   const [lastUndo, setLastUndo] = useState<{
     type: 'parrafo' | 'seccion'; si: number; pi?: number; prev: string | string[]
@@ -935,9 +1004,47 @@ function EscritoEditorModal({
     setLastUndo(null)
   }
 
+  const handleInsertarParrafo = async (si: number, afterPi: number) => {
+    const sec = contenido.secciones[si]
+    const prev = afterPi >= 0 ? sec.parrafos[afterPi] : null
+    const next = afterPi + 1 < sec.parrafos.length ? sec.parrafos[afterPi + 1] : null
+    const contexto = [
+      prev ? `[Párrafo anterior]:\n${prev}` : null,
+      next ? `[Párrafo siguiente]:\n${next}` : null,
+    ].filter(Boolean).join('\n\n') || `[Sección: ${sec.titulo}]`
+    try {
+      const { resultado } = await refinar.mutateAsync({
+        expediente_id: escrito.expediente_id,
+        escrito_titulo: titulo,
+        registro_tonal: escrito.registro_tonal,
+        titulo_seccion: sec.titulo,
+        texto_actual: contexto,
+        instruccion: aiInstruccion,
+        alcance: 'insertar',
+      })
+      setContenido(c => ({
+        ...c,
+        secciones: c.secciones.map((s, idx) => idx !== si ? s : {
+          ...s,
+          parrafos: [
+            ...s.parrafos.slice(0, afterPi + 1),
+            resultado.trim(),
+            ...s.parrafos.slice(afterPi + 1),
+          ],
+        }),
+      }))
+      setDirty(true)
+      setInsertPanel(null)
+      setAiInstruccion('')
+      toast.success('Párrafo insertado')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo insertar el párrafo')
+    }
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !sugerirOpen && sectionAiPanel === null && parrafoAiPanel === null) onClose()
+      if (e.key === 'Escape' && !sugerirOpen && sectionAiPanel === null && parrafoAiPanel === null && insertPanel === null && !sectionDraft) onClose()
     }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -945,7 +1052,7 @@ function EscritoEditorModal({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [onClose, sugerirOpen, sectionAiPanel, parrafoAiPanel])
+  }, [onClose, sugerirOpen, sectionAiPanel, parrafoAiPanel, insertPanel, sectionDraft])
 
   // Texto que pre-llena la búsqueda de jurisprudencia: párrafo activo o último
   const defaultQuery = (() => {
@@ -1261,18 +1368,25 @@ function EscritoEditorModal({
                 </div>
               )}
 
-              {/* Draft view — propuesta IA pendiente de aceptar/descartar */}
+              {/* Draft view — propuesta IA editable antes de aplicar */}
               {sectionDraft?.si === si && (
                 <div className="mb-3 rounded-lg border border-violet-400/30 bg-violet-950/30 p-3">
                   <div className="flex items-center gap-1.5 mb-2 text-[11px] font-medium text-violet-300">
                     <Wand2 className="h-3 w-3" />
-                    Propuesta IA — revisá y aplicá o descartá
+                    Propuesta IA — editá si hace falta y aplicá
                   </div>
                   <div className="space-y-2 mb-3">
-                    {sectionDraft.parrafos.map((p, pi) => (
-                      <p key={pi} className="rounded border border-violet-500/15 bg-violet-950/20 px-2 py-1.5 text-xs text-zinc-200 whitespace-pre-wrap leading-relaxed">
-                        {p}
-                      </p>
+                    {sectionDraft.parrafos.map((dp, dpi) => (
+                      <textarea
+                        key={dpi}
+                        value={dp}
+                        onChange={e => setSectionDraft(d => d ? {
+                          ...d,
+                          parrafos: d.parrafos.map((p, j) => j === dpi ? e.target.value : p),
+                        } : null)}
+                        rows={Math.max(2, Math.ceil(dp.length / 80))}
+                        className="w-full rounded border border-violet-500/20 bg-violet-950/20 px-2 py-1.5 text-xs text-zinc-200 focus:border-violet-400/50 focus:outline-none resize-none"
+                      />
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
@@ -1306,8 +1420,25 @@ function EscritoEditorModal({
                 </button>
               )}
 
-              {/* Párrafos */}
-              <div className="space-y-2">
+              {/* Párrafos con separadores de inserción */}
+              <div className="space-y-1">
+                {/* Separador antes del primer párrafo */}
+                <InsertDivider
+                  active={insertPanel?.si === si && insertPanel.afterPi === -1}
+                  onClick={() => {
+                    setInsertPanel({ si, afterPi: -1 }); setSectionAiPanel(null); setParrafoAiPanel(null); setAiInstruccion('')
+                  }}
+                />
+                {insertPanel?.si === si && insertPanel.afterPi === -1 && (
+                  <InsertPanel
+                    aiInstruccion={aiInstruccion}
+                    setAiInstruccion={setAiInstruccion}
+                    isPending={refinar.isPending}
+                    onSubmit={() => handleInsertarParrafo(si, -1)}
+                    onCancel={() => { setInsertPanel(null); setAiInstruccion('') }}
+                  />
+                )}
+
                 {sec.parrafos?.map((p, pi) => (
                   <div key={pi}>
                     <div className="relative">
@@ -1332,7 +1463,7 @@ function EscritoEditorModal({
                             if (parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi) {
                               setParrafoAiPanel(null)
                             } else {
-                              setParrafoAiPanel({ si, pi }); setSectionAiPanel(null); setAiInstruccion('')
+                              setParrafoAiPanel({ si, pi }); setSectionAiPanel(null); setInsertPanel(null); setAiInstruccion('')
                             }
                           }}
                           className={cn(
@@ -1352,15 +1483,10 @@ function EscritoEditorModal({
                     {/* Panel IA de párrafo */}
                     {parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi && (
                       <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
-                        {/* Chips de acciones rápidas */}
                         <div className="flex flex-wrap gap-1">
                           {AI_CHIPS.map(c => (
-                            <button
-                              key={c.label}
-                              type="button"
-                              onClick={() => setAiInstruccion(c.text)}
-                              className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/25 transition-colors"
-                            >
+                            <button key={c.label} type="button" onClick={() => setAiInstruccion(c.text)}
+                              className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/25 transition-colors">
                               {c.label}
                             </button>
                           ))}
@@ -1375,20 +1501,14 @@ function EscritoEditorModal({
                           className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none resize-none"
                         />
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleRefinarParrafo(si, pi)}
+                          <button type="button" onClick={() => handleRefinarParrafo(si, pi)}
                             disabled={!aiInstruccion.trim() || refinar.isPending}
-                            className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50"
-                          >
+                            className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50">
                             {refinar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
                             Aplicar
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => { setParrafoAiPanel(null); setAiInstruccion('') }}
-                            className="text-xs text-zinc-500 hover:text-zinc-300"
-                          >
+                          <button type="button" onClick={() => { setParrafoAiPanel(null); setAiInstruccion('') }}
+                            className="text-xs text-zinc-500 hover:text-zinc-300">
                             Cancelar
                           </button>
                         </div>
@@ -1397,13 +1517,27 @@ function EscritoEditorModal({
 
                     {/* Deshacer último cambio IA en este párrafo */}
                     {lastUndo?.type === 'parrafo' && lastUndo.si === si && lastUndo.pi === pi && (
-                      <button
-                        type="button"
-                        onClick={handleUndo}
-                        className="mt-0.5 flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
-                      >
+                      <button type="button" onClick={handleUndo}
+                        className="mt-0.5 flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors">
                         ↩ Deshacer cambio IA
                       </button>
+                    )}
+
+                    {/* Separador de inserción después de este párrafo */}
+                    <InsertDivider
+                      active={insertPanel?.si === si && insertPanel.afterPi === pi}
+                      onClick={() => {
+                        setInsertPanel({ si, afterPi: pi }); setSectionAiPanel(null); setParrafoAiPanel(null); setAiInstruccion('')
+                      }}
+                    />
+                    {insertPanel?.si === si && insertPanel.afterPi === pi && (
+                      <InsertPanel
+                        aiInstruccion={aiInstruccion}
+                        setAiInstruccion={setAiInstruccion}
+                        isPending={refinar.isPending}
+                        onSubmit={() => handleInsertarParrafo(si, pi)}
+                        onCancel={() => { setInsertPanel(null); setAiInstruccion('') }}
+                      />
                     )}
                   </div>
                 ))}

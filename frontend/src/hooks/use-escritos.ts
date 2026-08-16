@@ -255,7 +255,7 @@ interface RefinarInput {
   titulo_seccion?: string
   texto_actual: string
   instruccion: string
-  alcance: 'seccion' | 'parrafo'
+  alcance: 'seccion' | 'parrafo' | 'insertar'
 }
 
 export function useRefinarEscrito() {
