@@ -826,6 +826,15 @@ function WorkflowBar({ escrito }: { escrito: Escrito }) {
   )
 }
 
+// Chips de acciones rápidas para los paneles IA (sección y párrafo)
+const AI_CHIPS = [
+  { label: 'Profundizar', text: 'Profundizar el argumento con mayor desarrollo jurídico.' },
+  { label: 'Más formal', text: 'Reformular con tono más formal y contundente.' },
+  { label: 'Reducir', text: 'Reducir la extensión manteniendo el argumento central.' },
+  { label: 'Reformular', text: 'Reformular completamente, conservando el contenido esencial.' },
+  { label: 'Agregar norma', text: 'Agregar referencia a norma o jurisprudencia aplicable.' },
+]
+
 // ────────────────────────────────────────────────────────────────────────────
 // Editor de escrito (full-screen modal)
 // ────────────────────────────────────────────────────────────────────────────
@@ -856,12 +865,19 @@ function EscritoEditorModal({
   const [sectionAiPanel, setSectionAiPanel] = useState<number | null>(null)
   const [parrafoAiPanel, setParrafoAiPanel] = useState<{ si: number; pi: number } | null>(null)
   const [aiInstruccion, setAiInstruccion] = useState('')
+  // Draft de sección: propuesta IA pendiente de aceptar/descartar
+  const [sectionDraft, setSectionDraft] = useState<{ si: number; parrafos: string[] } | null>(null)
+  // Undo: último reemplazo IA (párrafo o sección) para poder revertir
+  const [lastUndo, setLastUndo] = useState<{
+    type: 'parrafo' | 'seccion'; si: number; pi?: number; prev: string | string[]
+  } | null>(null)
 
   const handleRefinarSeccion = async (si: number) => {
     const sec = contenido.secciones[si]
     const textoActual = sec.parrafos.join('\n\n')
     try {
       const { resultado } = await refinar.mutateAsync({
+        expediente_id: escrito.expediente_id,
         escrito_titulo: titulo,
         registro_tonal: escrito.registro_tonal,
         titulo_seccion: sec.titulo,
@@ -870,13 +886,20 @@ function EscritoEditorModal({
         alcance: 'seccion',
       })
       const nuevos = resultado.split('\n\n').map(p => p.trim()).filter(Boolean)
-      updateSeccion(si, { parrafos: nuevos })
+      setSectionDraft({ si, parrafos: nuevos })
       setSectionAiPanel(null)
       setAiInstruccion('')
-      toast.success('Sección actualizada')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo refinar')
     }
+  }
+
+  const handleAplicarDraft = (si: number) => {
+    if (!sectionDraft || sectionDraft.si !== si) return
+    setLastUndo({ type: 'seccion', si, prev: contenido.secciones[si].parrafos })
+    updateSeccion(si, { parrafos: sectionDraft.parrafos })
+    setSectionDraft(null)
+    toast.success('Sección actualizada')
   }
 
   const handleRefinarParrafo = async (si: number, pi: number) => {
@@ -884,6 +907,7 @@ function EscritoEditorModal({
     const textoActual = sec.parrafos[pi]
     try {
       const { resultado } = await refinar.mutateAsync({
+        expediente_id: escrito.expediente_id,
         escrito_titulo: titulo,
         registro_tonal: escrito.registro_tonal,
         titulo_seccion: sec.titulo,
@@ -891,6 +915,7 @@ function EscritoEditorModal({
         instruccion: aiInstruccion,
         alcance: 'parrafo',
       })
+      setLastUndo({ type: 'parrafo', si, pi, prev: textoActual })
       updateParrafo(si, pi, resultado.trim())
       setParrafoAiPanel(null)
       setAiInstruccion('')
@@ -898,6 +923,16 @@ function EscritoEditorModal({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo refinar')
     }
+  }
+
+  const handleUndo = () => {
+    if (!lastUndo) return
+    if (lastUndo.type === 'parrafo' && lastUndo.pi !== undefined) {
+      updateParrafo(lastUndo.si, lastUndo.pi, lastUndo.prev as string)
+    } else if (lastUndo.type === 'seccion') {
+      updateSeccion(lastUndo.si, { parrafos: lastUndo.prev as string[] })
+    }
+    setLastUndo(null)
   }
 
   useEffect(() => {
@@ -1164,7 +1199,7 @@ function EscritoEditorModal({
                   type="button"
                   onClick={() => {
                     if (sectionAiPanel === si) { setSectionAiPanel(null) } else {
-                      setSectionAiPanel(si); setParrafoAiPanel(null); setAiInstruccion('')
+                      setSectionAiPanel(si); setSectionDraft(null); setParrafoAiPanel(null); setAiInstruccion('')
                     }
                   }}
                   className={cn(
@@ -1183,10 +1218,23 @@ function EscritoEditorModal({
               {/* Panel IA de sección */}
               {sectionAiPanel === si && (
                 <div className="mb-3 rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
+                  {/* Chips de acciones rápidas */}
+                  <div className="flex flex-wrap gap-1">
+                    {AI_CHIPS.map(c => (
+                      <button
+                        key={c.label}
+                        type="button"
+                        onClick={() => setAiInstruccion(c.text)}
+                        className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/25 transition-colors"
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     value={aiInstruccion}
                     onChange={e => setAiInstruccion(e.target.value)}
-                    placeholder="Ej: Profundizar el argumento de prescripción. Agregar referencia al art. 2560 CCyCN. Reescribir con tono más contundente..."
+                    placeholder="Ej: Profundizar el argumento de prescripción. Agregar referencia al art. 2560 CCyCN..."
                     rows={2}
                     autoFocus
                     onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setSectionAiPanel(null) } }}
@@ -1211,6 +1259,51 @@ function EscritoEditorModal({
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* Draft view — propuesta IA pendiente de aceptar/descartar */}
+              {sectionDraft?.si === si && (
+                <div className="mb-3 rounded-lg border border-violet-400/30 bg-violet-950/30 p-3">
+                  <div className="flex items-center gap-1.5 mb-2 text-[11px] font-medium text-violet-300">
+                    <Wand2 className="h-3 w-3" />
+                    Propuesta IA — revisá y aplicá o descartá
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    {sectionDraft.parrafos.map((p, pi) => (
+                      <p key={pi} className="rounded border border-violet-500/15 bg-violet-950/20 px-2 py-1.5 text-xs text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAplicarDraft(si)}
+                      className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-xs font-medium text-white transition-colors"
+                    >
+                      <Check className="h-3 w-3" />
+                      Aplicar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSectionDraft(null)}
+                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Deshacer último cambio IA en esta sección */}
+              {lastUndo?.type === 'seccion' && lastUndo.si === si && !sectionDraft && (
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  className="mb-2 flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  ↩ Deshacer cambio IA en sección
+                </button>
               )}
 
               {/* Párrafos */}
@@ -1259,10 +1352,23 @@ function EscritoEditorModal({
                     {/* Panel IA de párrafo */}
                     {parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi && (
                       <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
+                        {/* Chips de acciones rápidas */}
+                        <div className="flex flex-wrap gap-1">
+                          {AI_CHIPS.map(c => (
+                            <button
+                              key={c.label}
+                              type="button"
+                              onClick={() => setAiInstruccion(c.text)}
+                              className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/25 transition-colors"
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
                         <textarea
                           value={aiInstruccion}
                           onChange={e => setAiInstruccion(e.target.value)}
-                          placeholder="Ej: Ampliar este argumento. Reformular con más contundencia. Agregar jurisprudencia sobre X..."
+                          placeholder="Ej: Ampliar este argumento. Reformular con más contundencia..."
                           rows={2}
                           autoFocus
                           onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setParrafoAiPanel(null) } }}
@@ -1287,6 +1393,17 @@ function EscritoEditorModal({
                           </button>
                         </div>
                       </div>
+                    )}
+
+                    {/* Deshacer último cambio IA en este párrafo */}
+                    {lastUndo?.type === 'parrafo' && lastUndo.si === si && lastUndo.pi === pi && (
+                      <button
+                        type="button"
+                        onClick={handleUndo}
+                        className="mt-0.5 flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                      >
+                        ↩ Deshacer cambio IA
+                      </button>
                     )}
                   </div>
                 ))}

@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
     if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as {
+      expediente_id?: string | null
       escrito_titulo?: string
       registro_tonal?: 'retorico' | 'procesal' | null
       titulo_seccion?: string
@@ -54,6 +55,25 @@ Deno.serve(async (req) => {
 
     const esSeccion = body.alcance === 'seccion'
 
+    // Contexto opcional del expediente (carátula + resumen IA)
+    let expedienteCtx = ''
+    if (body.expediente_id) {
+      const { data: exp } = await serviceClient
+        .from('expedientes')
+        .select('caratula, fuero, numero, ai_brief')
+        .eq('id', body.expediente_id)
+        .maybeSingle()
+      if (exp) {
+        const row = exp as { caratula?: string | null; fuero?: string | null; numero?: string | null; ai_brief?: string | null }
+        const parts: string[] = []
+        if (row.caratula) parts.push(`Carátula: ${row.caratula}`)
+        if (row.numero) parts.push(`N° expediente: ${row.numero}`)
+        if (row.fuero) parts.push(`Fuero: ${row.fuero}`)
+        if (row.ai_brief) parts.push(`Resumen del expediente:\n${row.ai_brief.slice(0, 1200)}`)
+        if (parts.length) expedienteCtx = `\n## Contexto del expediente\n${parts.join('\n')}`
+      }
+    }
+
     const registroNote = body.registro_tonal === 'retorico'
       ? 'Mantené el registro retórico-suspicaz del texto original: conectores adversativos, lectura crítica de la prueba contraria, sutileza léxica. No uses adjetivos hostiles directos.'
       : body.registro_tonal === 'procesal'
@@ -73,7 +93,7 @@ Reglas:
 - NO uses markdown, asteriscos, ni listas con guiones.
 - El texto es para un escrito judicial argentino: formal, impersonal, usando vocabulario jurídico preciso.`
 
-    const userMsg = `ESCRITO: "${body.escrito_titulo ?? 'Escrito judicial'}"${body.titulo_seccion ? `\nSECCIÓN: ${body.titulo_seccion}` : ''}
+    const userMsg = `ESCRITO: "${body.escrito_titulo ?? 'Escrito judicial'}"${body.titulo_seccion ? `\nSECCIÓN: ${body.titulo_seccion}` : ''}${expedienteCtx}
 
 TEXTO ACTUAL:
 ${body.texto_actual}

@@ -249,6 +249,7 @@ export function useDeleteEscrito() {
 // ─── Refinar párrafo o sección con IA ───────────────────────────────────────
 
 interface RefinarInput {
+  expediente_id?: string | null
   escrito_titulo?: string
   registro_tonal?: 'retorico' | 'procesal' | null
   titulo_seccion?: string
