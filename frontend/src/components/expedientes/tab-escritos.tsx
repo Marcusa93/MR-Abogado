@@ -7,7 +7,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
   PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles, FileSearch,
   AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck, Gavel,
-  Mic, Square,
+  Mic, Square, Wand2,
 } from 'lucide-react'
 import { SugerirJurisprudenciaDialog } from './sugerir-jurisprudencia-dialog'
 import { useAuth } from '@/hooks/use-auth'
@@ -15,7 +15,7 @@ import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
   useDeleteEscrito, useUpdateEscrito, useEscritoTemplates,
   useAttachSignedPdf, usePresentarEscrito, useFetchPortalCategorias,
-  useTranscribirAudio,
+  useTranscribirAudio, useRefinarEscrito,
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
@@ -851,15 +851,66 @@ function EscritoEditorModal({
   const [activeParrafo, setActiveParrafo] = useState<{ si: number; pi: number } | null>(null)
   const [sugerirOpen, setSugerirOpen] = useState(false)
 
+  // IA inline: refinar sección o párrafo
+  const refinar = useRefinarEscrito()
+  const [sectionAiPanel, setSectionAiPanel] = useState<number | null>(null)
+  const [parrafoAiPanel, setParrafoAiPanel] = useState<{ si: number; pi: number } | null>(null)
+  const [aiInstruccion, setAiInstruccion] = useState('')
+
+  const handleRefinarSeccion = async (si: number) => {
+    const sec = contenido.secciones[si]
+    const textoActual = sec.parrafos.join('\n\n')
+    try {
+      const { resultado } = await refinar.mutateAsync({
+        escrito_titulo: titulo,
+        registro_tonal: escrito.registro_tonal,
+        titulo_seccion: sec.titulo,
+        texto_actual: textoActual,
+        instruccion: aiInstruccion,
+        alcance: 'seccion',
+      })
+      const nuevos = resultado.split('\n\n').map(p => p.trim()).filter(Boolean)
+      updateSeccion(si, { parrafos: nuevos })
+      setSectionAiPanel(null)
+      setAiInstruccion('')
+      toast.success('Sección actualizada')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo refinar')
+    }
+  }
+
+  const handleRefinarParrafo = async (si: number, pi: number) => {
+    const sec = contenido.secciones[si]
+    const textoActual = sec.parrafos[pi]
+    try {
+      const { resultado } = await refinar.mutateAsync({
+        escrito_titulo: titulo,
+        registro_tonal: escrito.registro_tonal,
+        titulo_seccion: sec.titulo,
+        texto_actual: textoActual,
+        instruccion: aiInstruccion,
+        alcance: 'parrafo',
+      })
+      updateParrafo(si, pi, resultado.trim())
+      setParrafoAiPanel(null)
+      setAiInstruccion('')
+      toast.success('Párrafo actualizado')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo refinar')
+    }
+  }
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !sugerirOpen) onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !sugerirOpen && sectionAiPanel === null && parrafoAiPanel === null) onClose()
+    }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [onClose, sugerirOpen])
+  }, [onClose, sugerirOpen, sectionAiPanel, parrafoAiPanel])
 
   // Texto que pre-llena la búsqueda de jurisprudencia: párrafo activo o último
   const defaultQuery = (() => {
@@ -1102,26 +1153,142 @@ function EscritoEditorModal({
 
           {contenido.secciones?.map((sec, si) => (
             <div key={si} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
-              <input
-                value={sec.titulo}
-                onChange={(e) => updateSeccion(si, { titulo: e.target.value })}
-                className="w-full bg-transparent text-sm font-semibold text-zinc-200 mb-2 focus:outline-none border-b border-transparent focus:border-amber-500/40"
-              />
+              {/* Título de sección + botón IA sección */}
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  value={sec.titulo}
+                  onChange={(e) => updateSeccion(si, { titulo: e.target.value })}
+                  className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-200 focus:outline-none border-b border-transparent focus:border-amber-500/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sectionAiPanel === si) { setSectionAiPanel(null) } else {
+                      setSectionAiPanel(si); setParrafoAiPanel(null); setAiInstruccion('')
+                    }
+                  }}
+                  className={cn(
+                    'shrink-0 flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
+                    sectionAiPanel === si
+                      ? 'bg-violet-500/30 text-violet-200'
+                      : 'bg-violet-500/10 text-violet-400 hover:bg-violet-500/20',
+                  )}
+                  title="Refinar esta sección con IA"
+                >
+                  <Wand2 className="h-3 w-3" />
+                  IA
+                </button>
+              </div>
+
+              {/* Panel IA de sección */}
+              {sectionAiPanel === si && (
+                <div className="mb-3 rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
+                  <textarea
+                    value={aiInstruccion}
+                    onChange={e => setAiInstruccion(e.target.value)}
+                    placeholder="Ej: Profundizar el argumento de prescripción. Agregar referencia al art. 2560 CCyCN. Reescribir con tono más contundente..."
+                    rows={2}
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setSectionAiPanel(null) } }}
+                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none resize-none"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRefinarSeccion(si)}
+                      disabled={!aiInstruccion.trim() || refinar.isPending}
+                      className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
+                    >
+                      {refinar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                      Generar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSectionAiPanel(null); setAiInstruccion('') }}
+                      className="text-xs text-zinc-500 hover:text-zinc-300"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Párrafos */}
               <div className="space-y-2">
                 {sec.parrafos?.map((p, pi) => (
-                  <textarea
-                    key={pi}
-                    value={p}
-                    onChange={(e) => updateParrafo(si, pi, e.target.value)}
-                    onFocus={() => setActiveParrafo({ si, pi })}
-                    rows={Math.max(2, Math.ceil(p.length / 80))}
-                    className={cn(
-                      'w-full rounded border bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-500/40 focus:outline-none resize-none',
-                      activeParrafo?.si === si && activeParrafo?.pi === pi
-                        ? 'border-amber-500/50'
-                        : 'border-white/10'
+                  <div key={pi}>
+                    <div className="relative">
+                      <textarea
+                        value={p}
+                        onChange={(e) => updateParrafo(si, pi, e.target.value)}
+                        onFocus={() => { setActiveParrafo({ si, pi }); setParrafoAiPanel(null) }}
+                        rows={Math.max(2, Math.ceil(p.length / 80))}
+                        className={cn(
+                          'w-full rounded border bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-500/40 focus:outline-none resize-none',
+                          activeParrafo?.si === si && activeParrafo?.pi === pi
+                            ? 'border-amber-500/50'
+                            : 'border-white/10'
+                        )}
+                      />
+                      {/* Botón IA párrafo — solo visible cuando está activo */}
+                      {activeParrafo?.si === si && activeParrafo?.pi === pi && (
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            if (parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi) {
+                              setParrafoAiPanel(null)
+                            } else {
+                              setParrafoAiPanel({ si, pi }); setSectionAiPanel(null); setAiInstruccion('')
+                            }
+                          }}
+                          className={cn(
+                            'absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+                            parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi
+                              ? 'bg-violet-500/30 text-violet-200'
+                              : 'bg-violet-500/15 text-violet-400 hover:bg-violet-500/25',
+                          )}
+                          title="Refinar este párrafo con IA"
+                        >
+                          <Wand2 className="h-3 w-3" />
+                          IA
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Panel IA de párrafo */}
+                    {parrafoAiPanel?.si === si && parrafoAiPanel?.pi === pi && (
+                      <div className="mt-1 rounded-lg border border-violet-500/20 bg-violet-950/20 p-2.5 space-y-2">
+                        <textarea
+                          value={aiInstruccion}
+                          onChange={e => setAiInstruccion(e.target.value)}
+                          placeholder="Ej: Ampliar este argumento. Reformular con más contundencia. Agregar jurisprudencia sobre X..."
+                          rows={2}
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setParrafoAiPanel(null) } }}
+                          className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none resize-none"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRefinarParrafo(si, pi)}
+                            disabled={!aiInstruccion.trim() || refinar.isPending}
+                            className="flex items-center gap-1.5 rounded bg-violet-600 hover:bg-violet-700 px-2.5 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50"
+                          >
+                            {refinar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                            Aplicar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setParrafoAiPanel(null); setAiInstruccion('') }}
+                            className="text-xs text-zinc-500 hover:text-zinc-300"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  />
+                  </div>
                 ))}
               </div>
             </div>

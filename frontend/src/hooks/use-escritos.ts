@@ -246,6 +246,29 @@ export function useDeleteEscrito() {
   })
 }
 
+// ─── Refinar párrafo o sección con IA ───────────────────────────────────────
+
+interface RefinarInput {
+  escrito_titulo?: string
+  registro_tonal?: 'retorico' | 'procesal' | null
+  titulo_seccion?: string
+  texto_actual: string
+  instruccion: string
+  alcance: 'seccion' | 'parrafo'
+}
+
+export function useRefinarEscrito() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: RefinarInput): Promise<{ resultado: string }> => {
+      const { data, error } = await supabase.functions.invoke('escrito-refinar', { body: input })
+      if (error) throw await extractFnError(error)
+      if (!data?.ok) throw new Error(data?.error ?? 'Error al refinar el texto')
+      return data as { resultado: string }
+    },
+  })
+}
+
 // ─── Adjuntar PDF firmado ───────────────────────────────────────────────────
 
 export function useAttachSignedPdf() {
