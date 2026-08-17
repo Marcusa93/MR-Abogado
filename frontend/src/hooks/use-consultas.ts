@@ -757,6 +757,63 @@ export function useAsignarTareaConsulta() {
 }
 
 // ---------------------------------------------------------------------------
+// Convertir consulta en expediente
+// ---------------------------------------------------------------------------
+
+export function useConvertirConsultaAExpediente() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      consulta_id,
+      cliente_id,
+      fuero,
+      observaciones,
+    }: {
+      consulta_id: string
+      cliente_id: string
+      fuero?: string | null
+      observaciones?: string | null
+    }): Promise<string> => {
+      const { data, error } = await supabase.rpc('create_expediente', {
+        p_cliente_id: cliente_id,
+        p_tipo_tramite_id: null as unknown as string,
+        p_prioridad: 'MEDIA',
+        p_es_propio: true,
+        p_observaciones: observaciones ?? undefined,
+      })
+      if (error) throw error
+
+      const expId =
+        typeof data === 'object' && data !== null && 'id' in data
+          ? (data as { id: string }).id
+          : (data as string)
+
+      if (fuero) {
+        await (supabase as any).from('expedientes').update({ fuero }).eq('id', expId)
+      }
+
+      const { error: updErr } = await (supabase as any)
+        .from('consultas')
+        .update({
+          estado: 'convertida',
+          convertida_expediente_id: expId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', consulta_id)
+      if (updErr) throw updErr
+
+      return expId
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['consultas'] })
+      qc.invalidateQueries({ queryKey: ['expedientes'] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Conteo por estado (dashboard widget)
 // ---------------------------------------------------------------------------
 

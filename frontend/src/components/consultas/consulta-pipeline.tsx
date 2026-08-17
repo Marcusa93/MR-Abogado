@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Loader2, ArrowRight, UserCheck, FileSearch, PenLine, CheckCircle, XCircle, FolderPlus, RotateCcw, Clock, ClipboardList } from 'lucide-react'
-import { useCambiarEstadoConsulta, useCriterioProfile, useActiveProfiles, useAsignarTareaConsulta, ESTADO_LABEL, type ConsultaEstado } from '@/hooks/use-consultas'
+import { useCambiarEstadoConsulta, useCriterioProfile, useActiveProfiles, useAsignarTareaConsulta, ESTADO_LABEL, type ConsultaEstado, type Consulta } from '@/hooks/use-consultas'
+import { ConvertirExpedienteModal } from '@/components/consultas/convertir-expediente-modal'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -171,6 +172,23 @@ interface ConsultaForPipeline {
   convertida_expediente_id: string | null
   nombre: string
   apellido: string | null
+  notas_libres?: string | null
+  hechos_ordenados?: string | null
+  tipo_asunto?: string
+  telefono?: string | null
+  email?: string | null
+  canal?: string
+  areas_derecho?: string[]
+  diagnostico_ia?: unknown
+  diagnostico_at?: string | null
+  intimacion?: unknown
+  estado_notas_consulta?: string | null
+  preguntas_sugeridas?: string[]
+  hechos_ordenados_at?: string | null
+  recordatorio_enviado_at?: string | null
+  created_by?: string
+  created_at?: string
+  updated_at?: string
 }
 
 function diasEnEstado(iso: string | null | undefined): number {
@@ -195,7 +213,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   const asignar = useAsignarTareaConsulta()
   const { data: criterioProfile } = useCriterioProfile()
   const { data: activeProfiles = [] } = useActiveProfiles()
-  const [modal, setModal] = useState<null | 'requiere_info' | 'pasar_claudio_manual' | 'asignar_tarea'>(null)
+  const [modal, setModal] = useState<null | 'requiere_info' | 'pasar_claudio_manual' | 'asignar_tarea' | 'convertir'>(null)
 
   const { estado } = consulta
   const isCriterio = profile.rol === 'CRITERIO'
@@ -355,15 +373,23 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
             )
           })()}
         </div>
-        {estado === 'convertida' && consulta.convertida_expediente_id && (
+        {estado === 'convertida' && consulta.convertida_expediente_id ? (
           <button
             type="button"
             onClick={() => navigate(`/expedientes/${consulta.convertida_expediente_id}`)}
-            className="text-xs font-medium underline opacity-80 hover:opacity-100"
+            className="flex items-center gap-1 text-xs font-medium underline opacity-80 hover:opacity-100"
           >
-            Ver expediente
+            Ver expediente <ArrowRight className="h-3 w-3" />
           </button>
-        )}
+        ) : estado !== 'convertida' && consulta.convertida_expediente_id ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/expedientes/${consulta.convertida_expediente_id}`)}
+            className="flex items-center gap-1 text-xs font-medium underline opacity-80 hover:opacity-100"
+          >
+            Ver expediente <ArrowRight className="h-3 w-3" />
+          </button>
+        ) : null}
       </div>
 
       {/* Acciones contextuales */}
@@ -424,11 +450,23 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
           {(['con_claudio', 'redactando'] as ConsultaEstado[]).includes(estado) && isCriterio && (
             <button
               type="button"
-              onClick={onConvertir}
+              onClick={() => setModal('convertir')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             >
               <FolderPlus className="h-3.5 w-3.5" />
               Crear expediente
+            </button>
+          )}
+
+          {/* Convertir en expediente: disponible desde cualquier estado no terminal, para cualquier rol */}
+          {!isCriterio && !(['con_claudio', 'redactando'] as ConsultaEstado[]).includes(estado) && (
+            <button
+              type="button"
+              onClick={() => setModal('convertir')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              Convertir en expediente
             </button>
           )}
 
@@ -500,6 +538,13 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
           onConfirm={handleAsignarTarea}
           onCancel={() => setModal(null)}
           loading={asignar.isPending}
+        />
+      )}
+      {modal === 'convertir' && (
+        <ConvertirExpedienteModal
+          consulta={consulta as unknown as Consulta}
+          onClose={() => setModal(null)}
+          onSuccess={() => setModal(null)}
         />
       )}
     </div>

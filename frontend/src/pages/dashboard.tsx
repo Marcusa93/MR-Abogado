@@ -18,7 +18,9 @@ import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-pane
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
 import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/semaforo-panel'
 import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
+import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
 import { ConsultasWidget } from '@/components/dashboard/consultas-widget'
+import { ActividadRecienteDashboardPanel } from '@/components/dashboard/actividad-reciente-dashboard-panel'
 import { ErrorState } from '@/components/shared/error-state'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
@@ -191,7 +193,10 @@ export function DashboardView({
       {/* 3. Panel abogados (director) */}
       <AbogadosPanel />
 
-      {/* 3.5 Consultas activas */}
+      {/* 3.5 Carga del equipo (admin/director) */}
+      <CargaEquipoPanel />
+
+      {/* 3.6 Consultas activas */}
       <ConsultasWidget />
 
       {/* 4. Distribución por fuero + etapa */}
@@ -209,7 +214,10 @@ export function DashboardView({
         <PlazosProximosPanel />
       </div>
 
-      {/* 7. Alertas */}
+      {/* 7. Feed de actividad del equipo */}
+      <ActividadRecienteDashboardPanel />
+
+      {/* 8. Alertas */}
       {alertas.length > 0 && <AlertasMiniPanel alertas={alertas} />}
 
       {/* 8. Semáforo */}
