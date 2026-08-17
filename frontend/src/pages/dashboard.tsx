@@ -190,29 +190,29 @@ export function DashboardView({
       {/* 2. Strip hoy */}
       {hayHoy && <HoyStrip turnosHoy={turnosHoy} tareasHoy={tareasHoy} />}
 
-      {/* 3. Panel abogados (director) */}
+      {/* 3. Tareas y plazos — arriba para toma de decisión rápida */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <MisTareasPanel />
+        <PlazosProximosPanel />
+      </div>
+
+      {/* 4. Panel abogados (director) */}
       <AbogadosPanel />
 
-      {/* 3.5 Carga del equipo (admin/director) */}
+      {/* 4.5 Carga del equipo (admin/director) */}
       <CargaEquipoPanel />
 
-      {/* 3.6 Consultas activas */}
+      {/* 4.6 Consultas activas */}
       <ConsultasWidget />
 
-      {/* 4. Distribución por fuero + etapa */}
+      {/* 5. Distribución por fuero + etapa */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FueroCard byFuero={byFuero} total={totalExpedientes} />
         <EtapaCard byEtapa={byEtapa} total={totalExpedientes} />
       </div>
 
-      {/* 5. Actuaciones SAE — protagonista */}
+      {/* 6. Actuaciones SAE */}
       <ActuacionesRecientesPanel />
-
-      {/* 6. Tareas y plazos */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <MisTareasPanel />
-        <PlazosProximosPanel />
-      </div>
 
       {/* 7. Feed de actividad del equipo */}
       <ActividadRecienteDashboardPanel />
