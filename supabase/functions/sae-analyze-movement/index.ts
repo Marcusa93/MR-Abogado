@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       fin: r.fin,
     }))
 
-    const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean }[] = []
+    const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean; auto_tarea_id?: string | null }[] = []
 
     await Promise.all(allowedMovements.map(async (m) => {
       // Si el usuario mandó document_text explícito, salteamos el filtro
@@ -118,6 +118,13 @@ Deno.serve(async (req) => {
           documentFileNames,
           feriaPeriods,
         })
+        // Fetch current auto_tarea_id before updating (dedup check)
+        const { data: currentRow } = await serviceClient
+          .from('sae_movements')
+          .select('auto_tarea_id')
+          .eq('id', m.id)
+          .single()
+
         await serviceClient
           .from('sae_movements')
           .update({
@@ -129,7 +136,65 @@ Deno.serve(async (req) => {
             ai_error: null,
           })
           .eq('id', m.id)
-        results.push({ id: m.id, success: true, summary: analysis.summary })
+
+        // Auto-crear tarea si IA detectó acción requerida con plazo
+        let autoTareaId: string | null = (currentRow as any)?.auto_tarea_id ?? null
+        if (!autoTareaId) {
+          const accion = analysis.suggested_action
+          const plazos = analysis.extracted.plazos.filter(p => p.vence_aprox)
+          const fechaVencimiento = plazos[0]?.vence_aprox ?? accion?.fecha ?? null
+
+          if (accion && accion.tipo === 'tarea' && fechaVencimiento) {
+            try {
+              // Buscar el abogado titular del expediente para asignar
+              const { data: miembros } = await serviceClient
+                .from('expediente_miembros')
+                .select('profile_id')
+                .eq('expediente_id', m.expediente_id)
+                .eq('rol', 'abogado')
+                .eq('activo', true)
+                .limit(1)
+              const asignadoA = (miembros?.[0] as any)?.profile_id ?? null
+
+              const descripcionPlazo = plazos.length > 0
+                ? `Plazo: ${plazos[0].descripcion} (${plazos[0].dias} días${plazos[0].habiles ? ' hábiles' : ''})\n\n`
+                : ''
+              const descripcion = `${descripcionPlazo}${accion.descripcion}\n\nGenerada automáticamente desde actuación SAE: "${m.titulo}" (${m.fecha})`
+
+              const { data: nuevaTarea, error: tareaError } = await serviceClient
+                .from('tareas')
+                .insert({
+                  expediente_id: m.expediente_id,
+                  titulo: accion.titulo,
+                  descripcion,
+                  prioridad: accion.prioridad,
+                  estado: 'PENDIENTE',
+                  fecha_vencimiento: fechaVencimiento,
+                  asignado_a: asignadoA,
+                  asignados: asignadoA ? [asignadoA] : [],
+                  es_plazo_judicial: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single()
+
+              if (!tareaError && nuevaTarea) {
+                autoTareaId = (nuevaTarea as any).id
+                await serviceClient
+                  .from('sae_movements')
+                  .update({ auto_tarea_id: autoTareaId })
+                  .eq('id', m.id)
+              } else if (tareaError) {
+                console.warn('[sae-analyze-movement] auto-tarea insert falló', tareaError.message)
+              }
+            } catch (err) {
+              console.warn('[sae-analyze-movement] auto-tarea error', err)
+            }
+          }
+        }
+
+        results.push({ id: m.id, success: true, summary: analysis.summary, auto_tarea_id: autoTareaId })
 
         // Si es sentencia/decreto con cuerpo sustancial, disparar extracción
         // de aprendizaje. Fire-and-forget.
