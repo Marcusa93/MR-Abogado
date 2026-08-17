@@ -67,7 +67,7 @@ export function FueroDistributionPanel({ expedientes }: { expedientes: Expedient
               return (
                 <Link
                   key={key}
-                  to="/expedientes"
+                  to={key === 'sin_fuero' ? '/expedientes' : `/expedientes?fuero=${key}`}
                   className="group flex items-center gap-2.5 rounded-xl px-2 py-2 -mx-2 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors"
                 >
                   <span

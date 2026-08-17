@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useTareas, useCompletarTarea, expedienteLabel, type TareaWithRelations } from '@/hooks/use-tareas'
+import { useTareas, useCompletarTarea, useUpdateTarea, expedienteLabel, type TareaWithRelations } from '@/hooks/use-tareas'
 import { useAuth } from '@/hooks/use-auth'
+import { useTeamMembers } from '@/hooks/use-team-members'
 import { cn } from '@/lib/utils'
 import { VerTareaDialog } from '@/components/expedientes/ver-tarea-dialog'
 import {
@@ -13,6 +14,7 @@ import {
   ArrowRight,
   Loader2,
   FolderOpen,
+  UserPlus,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -56,14 +58,21 @@ const PRIORIDAD_DOT: Record<string, string> = {
 // Task row component
 // ---------------------------------------------------------------------------
 
+type TeamMember = { id: string; nombre: string | null; apellido: string | null }
+
 function TareaRow({
   tarea,
   onOpen,
+  members,
+  onAssign,
 }: {
   tarea: TareaWithRelations
   onOpen: (t: TareaWithRelations) => void
+  members: TeamMember[]
+  onAssign: (tareaId: string, profileId: string | null, prevProfileId: string | null) => void
 }) {
   const completar = useCompletarTarea()
+  const [assignOpen, setAssignOpen] = useState(false)
   const dateInfo = getDateLabel(tarea.fecha_vencimiento)
   const expLabel = expedienteLabel(tarea.expediente)
 
@@ -115,6 +124,48 @@ function TareaRow({
               <span className="truncate">{expLabel || 'Expediente'}</span>
             </Link>
           )}
+          {/* Asignación rápida */}
+          {assignOpen ? (
+            <select
+              autoFocus
+              className="rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-[11px] py-0.5 px-1 cursor-pointer"
+              defaultValue={tarea.asignado_a ?? ''}
+              onBlur={() => setAssignOpen(false)}
+              onChange={(e) => {
+                e.stopPropagation()
+                onAssign(tarea.id, e.target.value || null, tarea.asignado_a ?? null)
+                setAssignOpen(false)
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="">Sin asignar</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.apellido} {m.nombre}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setAssignOpen(true)
+              }}
+              className={cn(
+                'flex items-center gap-1 transition-colors',
+                tarea.asignado_a
+                  ? 'text-zinc-400 dark:text-zinc-500 opacity-0 group-hover:opacity-100'
+                  : 'text-zinc-400 dark:text-zinc-500 hover:text-[var(--brand-accent)]'
+              )}
+              title={tarea.asignado_a ? 'Reasignar' : 'Asignar'}
+            >
+              <UserPlus className="h-3 w-3" />
+              {tarea.asignado_a
+                ? `${tarea.asignado?.apellido ?? ''} ${tarea.asignado?.nombre ?? ''}`.trim()
+                : 'Asignar'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -132,6 +183,8 @@ function MisTareasPanelView({
   profileId,
   verTarea,
   setVerTarea,
+  members,
+  onAssign,
 }: {
   pendientes: TareaWithRelations[]
   isLoading: boolean
@@ -139,6 +192,8 @@ function MisTareasPanelView({
   profileId?: string
   verTarea: TareaWithRelations | null
   setVerTarea: (tarea: TareaWithRelations | null) => void
+  members: TeamMember[]
+  onAssign: (tareaId: string, profileId: string | null, prevProfileId: string | null) => void
 }) {
   const vencidasCount = pendientes.filter((t) => {
     const d = getDaysUntil(t.fecha_vencimiento)
@@ -195,7 +250,7 @@ function MisTareasPanelView({
         ) : (
           <div className="divide-y divide-[rgb(87_124_142_/_10%)] dark:divide-white/6 px-1 py-1">
             {pendientes.map((t) => (
-              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} />
+              <TareaRow key={t.id} tarea={t} onOpen={setVerTarea} members={members} onAssign={onAssign} />
             ))}
           </div>
         )}
@@ -217,6 +272,9 @@ export function MisTareasPanel() {
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN'
   const [verTarea, setVerTarea] = useState<TareaWithRelations | null>(null)
+  const updateTarea = useUpdateTarea()
+  const { data: membersData } = useTeamMembers()
+  const members: TeamMember[] = membersData ?? []
 
   const { data, isLoading } = useTareas({
     asignado_a: isAdmin ? undefined : profile?.id,
@@ -226,8 +284,15 @@ export function MisTareasPanel() {
   })
 
   const tareas = data?.data ?? []
-  // Only show pending/in-progress
   const pendientes = tareas.filter((t) => t.estado === 'PENDIENTE' || t.estado === 'EN_PROGRESO')
+
+  const handleAssign = (tareaId: string, newProfileId: string | null, prevProfileId: string | null) => {
+    updateTarea.mutate({
+      id: tareaId,
+      asignado_a: newProfileId,
+      prevAsignadoA: prevProfileId,
+    })
+  }
 
   return (
     <MisTareasPanelView
@@ -237,6 +302,8 @@ export function MisTareasPanel() {
       profileId={profile?.id}
       verTarea={verTarea}
       setVerTarea={setVerTarea}
+      members={members}
+      onAssign={handleAssign}
     />
   )
 }
