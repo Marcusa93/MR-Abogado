@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
 import {
   Bell, BellOff, Check, CheckCheck, Loader2, ExternalLink, AlertCircle, FileText, RefreshCw,
-  Building2, CalendarDays, Search, FileCheck2, Clock, X,
+  Building2, CalendarDays, Search, FileCheck2, Clock, X, ShieldCheck, TriangleAlert,
 } from 'lucide-react'
 import { ConstanciaModal } from '@/components/sae/constancia-modal'
 import { useQueryClient } from '@tanstack/react-query'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
   useSaeNotificaciones, useMarkSaeNotifAsRead, useMarkAllSaeNotifAsRead,
-  useSaeNotifPreferences, useTriggerSaePoll,
+  useSaeNotifPreferences, useTriggerSaePoll, useConfirmarVistaSae,
   type SaeNotificacion, type PollResult,
 } from '@/hooks/use-sae-notificaciones'
 import {
@@ -154,14 +154,34 @@ function PlazoPropuestosPanel() {
 
 function NotifCard({ notif }: { notif: SaeNotificacion }) {
   const mark = useMarkSaeNotifAsRead()
+  const confirmarVista = useConfirmarVistaSae()
   const [showConstancia, setShowConstancia] = useState(false)
   const unread = !notif.leida
   const fueroSlug = notif.raw_payload?.fuero
   const fueroLabel = getFueroLabel(fueroSlug)
   const caratulaLocal = notif.expediente?.caratula
-  const fechaPortal = notif.fecha_emision ?? notif.created_at
-
   const isUrgente = notif.prioridad === 'urgente'
+
+  // ─── Cálculo de brecha scraper ───────────────────────────────────────────
+  // fecha_emision = fecha que aparece en el casillero electrónico = fecha que
+  // inicia el plazo procesal. fecha_captura = cuándo el scraper lo detectó.
+  const depositaDateStr = notif.fecha_emision ? notif.fecha_emision.slice(0, 10) : null
+  const detectadaDateStr = notif.fecha_captura.slice(0, 10)
+  // Días corridos entre depósito y detección (normalmente 0, puede ser 1 si el
+  // depósito fue tarde y el cron corrió antes de la próxima ventana de detección).
+  const brechaDias = depositaDateStr
+    ? Math.max(0, Math.round(
+        (new Date(detectadaDateStr).getTime() - new Date(depositaDateStr).getTime()) / 86_400_000
+      ))
+    : null
+  // Horas entre detección y ahora (para mostrar "detectada hace X")
+  const horasDesdeDeteccion = Math.round(
+    (Date.now() - new Date(notif.fecha_captura).getTime()) / 3_600_000
+  )
+
+  const plazo = notif.plazo_sugerido && notif.plazo_sugerido.estado !== 'descartado'
+    ? notif.plazo_sugerido
+    : null
 
   return (
     <div className={cn(
@@ -172,7 +192,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
           ? 'border-cyan-500/40 bg-cyan-500/[0.06] shadow-[0_0_0_1px_rgba(6,182,212,0.15)]'
           : 'border-white/5 bg-white/[0.02]',
     )}>
-      {/* Header: meta info (fuero · expediente · fecha) */}
+      {/* Header: meta info (fuero · expediente · "Nueva" badge · Leído) */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2 text-[11px]">
           {fueroLabel && (
@@ -186,26 +206,18 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
               Exp. {notif.numero_expediente}
             </span>
           )}
-          <span
-            className="text-zinc-500 dark:text-zinc-400 inline-flex items-center gap-1"
-            title={formatFechaCompleta(fechaPortal)}
-          >
-            <CalendarDays className="h-3 w-3" />
-            {formatFechaRelativa(fechaPortal)}
-          </span>
           {unread && (
             <span className="rounded-full bg-cyan-500/25 px-2 py-0.5 font-semibold text-cyan-200">
               Nueva
             </span>
           )}
         </div>
-        {/* Marcar leído rápido */}
         {unread && (
           <button
             onClick={() => mark.mutate(notif.id)}
             disabled={mark.isPending}
             className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
-            title="Marcar como leída"
+            title="Marcar como leída en la app"
           >
             {mark.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
             Leído
@@ -238,30 +250,89 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 leading-snug">{notif.titulo}</h3>
       )}
 
-      {/* Resumen IA — si hay y agrega valor sobre el título */}
+      {/* Resumen IA */}
       {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
-        <p className="mt-1 text-[11px] text-amber-200/80 italic">
-          {notif.ia_resumen}
-        </p>
+        <p className="mt-1 text-[11px] text-amber-200/80 italic">{notif.ia_resumen}</p>
       )}
 
-      {/* Carátula del expediente (si está en cartera) o destinatario (sino) */}
+      {/* Carátula del expediente o destinatario */}
       {caratulaLocal ? (
-        <p className="mt-1 text-xs text-zinc-300 italic truncate" title={caratulaLocal}>
-          {caratulaLocal}
-        </p>
+        <p className="mt-1 text-xs text-zinc-300 italic truncate" title={caratulaLocal}>{caratulaLocal}</p>
       ) : notif.raw_payload?.destinatario && (
-        <p className="mt-1 text-xs text-zinc-400 truncate">
-          Destinatario: {notif.raw_payload.destinatario}
-        </p>
+        <p className="mt-1 text-xs text-zinc-400 truncate">Destinatario: {notif.raw_payload.destinatario}</p>
       )}
 
-      {/* Oficina judicial */}
       {notif.oficina && (
         <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{notif.oficina}</p>
       )}
 
-      {/* Acciones */}
+      {/* ─── Bloque de fechas y plazo procesal ──────────────────────────── */}
+      <div className="mt-2.5 rounded-lg bg-black/20 border border-white/[0.06] px-3 py-2 space-y-1.5 text-[11px]">
+
+        {/* Fecha depositada en casillero */}
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-3 w-3 text-violet-400 shrink-0" />
+          <span className="text-zinc-500">Depositada en casillero:</span>
+          {notif.fecha_emision
+            ? <span className="text-zinc-100 font-semibold">{formatFechaCorta(notif.fecha_emision.slice(0, 10))}</span>
+            : <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
+                <TriangleAlert className="h-3 w-3" /> sin fecha de depósito disponible
+              </span>
+          }
+        </div>
+
+        {/* Detectada por el scraper */}
+        <div className="flex items-center gap-2">
+          <Clock className="h-3 w-3 text-zinc-500 shrink-0" />
+          <span className="text-zinc-500">Detectada por la app:</span>
+          <span className="text-zinc-300" title={formatFechaCompleta(notif.fecha_captura)}>
+            {horasDesdeDeteccion < 1 ? 'hace menos de 1 h'
+              : horasDesdeDeteccion < 24 ? `hace ${horasDesdeDeteccion} h`
+              : formatFechaRelativa(notif.fecha_captura)}
+          </span>
+          {brechaDias !== null && brechaDias > 0 && (
+            <span className="inline-flex items-center gap-1 text-amber-400 ml-1">
+              <TriangleAlert className="h-3 w-3" />
+              {brechaDias === 1 ? '1 día de retraso en detección' : `${brechaDias} días de retraso en detección`}
+            </span>
+          )}
+        </div>
+
+        {/* Plazo procesal calculado por IA */}
+        {plazo && (
+          <div className="flex items-start gap-2 pt-1 border-t border-white/[0.06]">
+            <AlertCircle className="h-3 w-3 text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <span className="text-zinc-500">Plazo estimado: </span>
+              <span className="text-zinc-200">
+                {plazo.dias} días {plazo.es_habiles ? 'hábiles' : 'corridos'}{' '}
+                desde{' '}
+                <span className="text-zinc-100 font-medium">{formatFechaCorta(plazo.fecha_actuacion)}</span>
+                {' '}→ vence aprox.{' '}
+                <span className={cn(
+                  'font-semibold',
+                  plazo.confianza === 'alta' ? 'text-amber-300' : 'text-amber-400/80',
+                )}>
+                  {formatFechaCorta(plazo.fecha_vencimiento)}
+                </span>
+              </span>
+              {!notif.fecha_emision && (
+                <span className="block mt-0.5 text-amber-400">
+                  ⚠ calculado desde la detección (sin fecha de depósito — verificar en portal)
+                </span>
+              )}
+              {plazo.base_legal && (
+                <span className="block text-zinc-500 mt-0.5">{plazo.base_legal}</span>
+              )}
+              {plazo.confianza !== 'alta' && (
+                <span className="block text-zinc-500 mt-0.5">Confianza {plazo.confianza} — revisar antes de agendar</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Acciones ───────────────────────────────────────────────────── */}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         {notif.expediente_id ? (
           <Link
@@ -290,10 +361,35 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
             type="button"
             onClick={() => setShowConstancia(true)}
             className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/15"
-            title="Ver constancia legal de toma de conocimiento"
+            title="Ver constancia legal de toma de conocimiento en la app"
           >
             <FileCheck2 className="h-3 w-3" />
             Constancia
+          </button>
+        )}
+
+        {/* Badge o botón "Revisé en SAE" */}
+        {notif.confirmado_visto_en_sae_at ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-300"
+            title={`Confirmado en el portal del SAE: ${formatFechaCompleta(notif.confirmado_visto_en_sae_at)}`}
+          >
+            <ShieldCheck className="h-3 w-3" />
+            Revisado en SAE · {formatFechaRelativa(notif.confirmado_visto_en_sae_at)}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => confirmarVista.mutate(notif.id, {
+              onSuccess: () => toast.success('Confirmado — queda registrado que revisaste en el portal del SAE'),
+              onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al confirmar'),
+            })}
+            disabled={confirmarVista.isPending}
+            className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300 hover:bg-violet-500/20 disabled:opacity-30"
+            title="Marcá esto cuando hayas ido al portal del SAE y verificado la notificación allí"
+          >
+            {confirmarVista.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+            Revisé en SAE
           </button>
         )}
       </div>
@@ -363,7 +459,7 @@ export default function NotificacionesSaePage() {
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Notificaciones SAE</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Notificaciones digitales capturadas del portal del SAE 2 veces por día.
+              Casillero electrónico · "Depositada en casillero" es la fecha que inicia el plazo procesal.
             </p>
           </div>
         </div>
@@ -546,9 +642,14 @@ export default function NotificacionesSaePage() {
 
       <div className="mt-6 rounded-lg border border-white/5 bg-white/[0.02] p-3 flex items-start gap-2">
         <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          Esta lista se actualiza con dos consultas al portal: 00:15 y 08:30 (hora AR). Si necesitás ver algo en tiempo real, abrí el portal del SAE directamente.
-        </p>
+        <div className="space-y-1">
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            El rastreador consulta el portal 2 veces al día (00:15 y 08:30 AR). La columna <span className="text-zinc-300">"Depositada en casillero"</span> es la fecha que publica el portal y desde la cual corre el plazo procesal. <span className="text-zinc-300">"Detectada por la app"</span> es cuándo el rastreador la encontró — puede ser horas después. Para ver algo en tiempo real usá <span className="text-zinc-300">Sincronizar ahora</span>.
+          </p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            El botón <span className="text-zinc-300">"Revisé en SAE"</span> registra que fuiste al portal y verificaste la notificación allí — diferente de marcarla como leída en esta app.
+          </p>
+        </div>
       </div>
     </div>
   )

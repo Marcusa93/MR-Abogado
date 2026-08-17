@@ -3,6 +3,17 @@ import { createClient } from '@/lib/supabase/client'
 
 const supabase = createClient()
 
+export interface PlazoProcesalInline {
+  tipo_acto: string
+  dias: number
+  es_habiles: boolean
+  base_legal: string | null
+  fecha_actuacion: string   // 'YYYY-MM-DD'
+  fecha_vencimiento: string // 'YYYY-MM-DD'
+  confianza: 'alta' | 'media' | 'baja'
+  estado: 'pendiente' | 'confirmado' | 'descartado'
+}
+
 export interface SaeNotificacion {
   id: string
   profile_id: string
@@ -13,12 +24,17 @@ export interface SaeNotificacion {
   oficina: string | null
   tipo: string | null
   titulo: string | null
+  // fecha_emision = fecha que aparece en el casillero electrónico = inicio del plazo procesal
   fecha_emision: string | null
+  // fecha_captura = cuándo el scraper detectó la notificación (puede diferir horas de fecha_emision)
   fecha_captura: string
   leida: boolean
   leida_at: string | null
   notified_push_at: string | null
   notified_email_at: string | null
+  // confirmación explícita de que el abogado fue al portal SAE y lo verificó allí
+  confirmado_visto_en_sae_at: string | null
+  confirmado_visto_por: string | null
   created_at: string
   raw_payload?: { fuero?: string; ver_url?: string; leido_portal?: boolean; destinatario?: string } | null
   // Clasificación IA de prioridad (migración 050)
@@ -26,6 +42,8 @@ export interface SaeNotificacion {
   plazo_estimado_dias?: number | null
   ia_resumen?: string | null
   ia_analyzed_at?: string | null
+  // Plazo procesal calculado por IA (migración 20260714)
+  plazo_sugerido?: PlazoProcesalInline | null
   // Join con expediente local (si está vinculado)
   expediente?: { id: string; caratula: string | null; numero: string | null } | null
 }
@@ -259,5 +277,28 @@ export function useSnoozeSaeNotif() {
       qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
       qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
     },
+  })
+}
+
+// ── Confirmar vista en portal SAE ─────────────────────────────
+// Distinto de "marcar como leída en la app": esto registra que el abogado
+// fue al portal SAE y verificó la notificación allí (relevante para plazos).
+
+export function useConfirmarVistaSae() {
+  const qc = useQueryClient()
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+      const { error } = await supabase
+        .from('sae_notificaciones' as never)
+        .update({
+          confirmado_visto_en_sae_at: new Date().toISOString(),
+          confirmado_visto_por: user.id,
+        } as never)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sae-notificaciones'] }),
   })
 }
