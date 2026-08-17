@@ -1,66 +1,133 @@
 import { Link } from 'react-router-dom'
-import { Users, ArrowRight } from 'lucide-react'
-import { useConsultasConteo, ESTADO_LABEL, type ConsultaEstado } from '@/hooks/use-consultas'
+import { Users, ArrowRight, TrendingUp } from 'lucide-react'
+import { useConsultasFunnel } from '@/hooks/use-consultas'
 import { cn } from '@/lib/utils'
 
-const PILL_COLOR: Partial<Record<ConsultaEstado, string>> = {
-  pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  con_claudio: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  requiere_info: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  redactando: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-}
-
-const ACTIVE_ESTADOS: ConsultaEstado[] = ['pendiente', 'en_proceso', 'presupuestada', 'con_claudio', 'requiere_info', 'redactando']
+// Estados del pipeline en orden de avance
+const PIPELINE_ESTADOS: { key: string; label: string; color: string; bar: string }[] = [
+  { key: 'pendiente',     label: 'Pendiente',     color: 'text-amber-600 dark:text-amber-400',   bar: 'bg-amber-400' },
+  { key: 'en_proceso',    label: 'En proceso',    color: 'text-blue-600 dark:text-blue-400',     bar: 'bg-blue-500' },
+  { key: 'presupuestada', label: 'Presupuestada', color: 'text-violet-600 dark:text-violet-400', bar: 'bg-violet-500' },
+  { key: 'con_claudio',   label: 'Con Claudio',   color: 'text-orange-600 dark:text-orange-400', bar: 'bg-orange-400' },
+  { key: 'requiere_info', label: 'Requiere info', color: 'text-rose-600 dark:text-rose-400',     bar: 'bg-rose-400' },
+  { key: 'redactando',    label: 'Redactando',    color: 'text-indigo-600 dark:text-indigo-400', bar: 'bg-indigo-400' },
+]
 
 export function ConsultasWidget() {
-  const { data: conteo = {} as Record<ConsultaEstado, number>, isLoading } = useConsultasConteo()
-
-  const total = ACTIVE_ESTADOS.reduce((acc, e) => acc + (conteo[e] ?? 0), 0)
-  const activas = ACTIVE_ESTADOS.filter(e => (conteo[e] ?? 0) > 0)
+  const { data, isLoading } = useConsultasFunnel()
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 animate-pulse">
-        <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded mb-3" />
-        <div className="h-8 w-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
+      <div className="dashboard-panel rounded-[1.5rem] p-5 animate-pulse">
+        <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded mb-4" />
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-5 bg-zinc-100 dark:bg-zinc-800 rounded" />
+          ))}
+        </div>
       </div>
     )
   }
 
+  const activas = data?.activas ?? {}
+  const totalActivas = data?.totalActivas ?? 0
+  const convertidas30d = data?.convertidas30d ?? 0
+  const resueltasDescartadas30d = data?.resueltasDescartadas30d ?? 0
+  const tasaConversion = data?.tasaConversion ?? null
+
+  const maxCount = Math.max(...PIPELINE_ESTADOS.map(e => activas[e.key] ?? 0), 1)
+  const activosFiltrados = PIPELINE_ESTADOS.filter(e => (activas[e.key] ?? 0) > 0)
+
   return (
-    <Link
-      to="/consultas"
-      className="block rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm transition-all group"
-    >
-      <div className="flex items-center justify-between mb-3">
+    <div className="dashboard-panel rounded-[1.5rem] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-[rgb(87_124_142_/_14%)] px-5 py-4 dark:border-white/8">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-zinc-400" />
-          <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Consultas activas</span>
+          <Users className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+          <div>
+            <p className="dashboard-eyebrow text-[10px]">captación</p>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Consultas</h3>
+          </div>
+          {totalActivas > 0 && (
+            <span className="dashboard-chip dashboard-chip-accent">{totalActivas} activas</span>
+          )}
         </div>
-        <ArrowRight className="h-3.5 w-3.5 text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors" />
+        <Link
+          to="/consultas"
+          className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold"
+        >
+          Ver todas <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
 
-      <div className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-3">
-        {total}
-        <span className="text-sm font-normal text-zinc-400 dark:text-zinc-500 ml-1">en trámite</span>
-      </div>
+      <div className="p-5 space-y-5">
+        {/* Pipeline activo */}
+        {activosFiltrados.length === 0 ? (
+          <p className="text-center text-xs text-zinc-400 dark:text-zinc-500 py-4 italic">
+            Sin consultas activas en este momento
+          </p>
+        ) : (
+          <div className="space-y-2.5">
+            {activosFiltrados.map(({ key, label, color, bar }) => {
+              const count = activas[key] ?? 0
+              const pct = Math.round((count / maxCount) * 100)
+              return (
+                <Link
+                  key={key}
+                  to={`/consultas?estado=${key}`}
+                  className="group flex items-center gap-3 rounded-lg px-2 py-1 -mx-2 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  <span className={cn('w-[90px] shrink-0 text-[11px] font-medium truncate', color)}>
+                    {label}
+                  </span>
+                  <div className="flex-1 h-1.5 rounded-full bg-zinc-100 dark:bg-white/10 overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all duration-500', bar)}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-5 shrink-0 text-right text-xs font-bold text-zinc-700 dark:text-zinc-200 tabular-nums">
+                    {count}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
 
-      {activas.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {activas.map(e => (
-            <span
-              key={e}
-              className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', PILL_COLOR[e] ?? 'bg-zinc-100 text-zinc-600')}
-            >
-              {conteo[e]} {ESTADO_LABEL[e]}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">Sin consultas activas</p>
-      )}
-    </Link>
+        {/* Conversión últimos 30 días */}
+        {(convertidas30d > 0 || resueltasDescartadas30d > 0) && (
+          <div className="border-t border-[rgb(87_124_142_/_10%)] dark:border-white/8 pt-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-3">
+              Últimos 30 días
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100">{convertidas30d}</span>
+                  {' '}convertida{convertidas30d !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {resueltasDescartadas30d > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-zinc-300 dark:bg-zinc-600 shrink-0" />
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="font-bold text-zinc-700 dark:text-zinc-300">{resueltasDescartadas30d}</span>
+                    {' '}cerrada{resueltasDescartadas30d !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              {tasaConversion !== null && (
+                <div className="ml-auto flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  {tasaConversion}% conversión
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

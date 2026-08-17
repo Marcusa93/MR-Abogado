@@ -835,3 +835,60 @@ export function useConsultasConteo() {
     staleTime: 60_000,
   })
 }
+
+export interface ConsultasFunnelData {
+  activas: Record<string, number>
+  totalActivas: number
+  convertidas30d: number
+  resueltasDescartadas30d: number
+  tasaConversion: number | null
+}
+
+export function useConsultasFunnel() {
+  const supabase = createClient()
+  return useQuery<ConsultasFunnelData>({
+    queryKey: ['consultas-funnel'],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const [activeRes, terminalRes] = await Promise.all([
+        (supabase as any)
+          .from('consultas')
+          .select('estado')
+          .not('estado', 'in', '(convertida,resuelta,descartada)'),
+        (supabase as any)
+          .from('consultas')
+          .select('estado')
+          .in('estado', ['convertida', 'resuelta', 'descartada'])
+          .gte('updated_at', thirtyDaysAgo.toISOString()),
+      ])
+
+      const activas: Record<string, number> = {}
+      for (const row of (activeRes.data ?? [])) {
+        activas[row.estado] = (activas[row.estado] ?? 0) + 1
+      }
+
+      let convertidas30d = 0
+      let resueltasDescartadas30d = 0
+      for (const row of (terminalRes.data ?? [])) {
+        if (row.estado === 'convertida') convertidas30d++
+        else resueltasDescartadas30d++
+      }
+
+      const totalTerminal = convertidas30d + resueltasDescartadas30d
+      const tasaConversion = totalTerminal > 0
+        ? Math.round((convertidas30d / totalTerminal) * 100)
+        : null
+
+      return {
+        activas,
+        totalActivas: Object.values(activas).reduce((a, b) => a + b, 0),
+        convertidas30d,
+        resueltasDescartadas30d,
+        tasaConversion,
+      }
+    },
+    staleTime: 60_000,
+  })
+}
