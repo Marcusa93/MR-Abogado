@@ -304,7 +304,6 @@ export function CrearTurnoDialog({
               <input
                 type="date"
                 value={fecha}
-                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFecha(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'f' || e.key === 'F') {

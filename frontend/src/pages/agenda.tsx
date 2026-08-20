@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { AppSplash } from '@/components/shared/app-splash'
 import { cn } from '@/lib/utils'
 import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
+import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 
 // Secretaria usa su vista específica (lazy)
 const AgendaSecretaria = lazy(() => import('./agenda-secretaria'))
@@ -102,7 +103,7 @@ function useAgendaUnificada() {
   const hasta = isoShift(hoy, 90)   // tres meses adelante
 
   const { data: audiencias = [], isLoading: aud_loading } = useQuery({
-    queryKey: ['agenda-audiencias', hoy],
+    queryKey: ['agenda', 'audiencias', hoy],
     queryFn: async () => {
       const supabase = createClient()
       const { data } = await supabase
@@ -124,7 +125,7 @@ function useAgendaUnificada() {
   })
 
   const { data: tareas = [], isLoading: tar_loading } = useQuery({
-    queryKey: ['agenda-tareas', hoy],
+    queryKey: ['agenda', 'tareas', hoy],
     queryFn: async () => {
       const supabase = createClient()
       // es_plazo_judicial existe en DB pero no en tipos generados — cast a any
@@ -147,7 +148,7 @@ function useAgendaUnificada() {
   })
 
   const { data: reuniones = [], isLoading: reu_loading } = useQuery({
-    queryKey: ['agenda-turnos', hoy],
+    queryKey: ['agenda', 'turnos', hoy],
     queryFn: async () => {
       const supabase = createClient()
       const { data } = await (supabase as any)
@@ -525,12 +526,14 @@ function DiaSeleccionadoPanel({
   hoy,
   onClose,
   onAgendarReunion,
+  onAgendarAudiencia,
 }: {
   fecha: string
   items: AgendaItem[]
   hoy: string
   onClose: () => void
   onAgendarReunion: (fecha: string) => void
+  onAgendarAudiencia: (fecha: string) => void
 }) {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden animate-fade-in">
@@ -540,14 +543,24 @@ function DiaSeleccionadoPanel({
         </h3>
         <div className="flex items-center gap-2">
           {fecha >= hoy && (
-            <button
-              type="button"
-              onClick={() => onAgendarReunion(fecha)}
-              className="flex items-center gap-1 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
-            >
-              <CalendarPlus className="h-3.5 w-3.5" />
-              Agendar
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onAgendarAudiencia(fecha)}
+                className="flex items-center gap-1 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors"
+              >
+                <Scale className="h-3.5 w-3.5" />
+                Audiencia
+              </button>
+              <button
+                type="button"
+                onClick={() => onAgendarReunion(fecha)}
+                className="flex items-center gap-1 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" />
+                Reunión
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -603,6 +616,8 @@ function AgendaUnificada() {
   const { grouped, groupedMap, isLoading } = useAgendaUnificada()
   const [modalReunion, setModalReunion] = useState(false)
   const [defaultFechaReunion, setDefaultFechaReunion] = useState<string | undefined>(undefined)
+  const [modalAudiencia, setModalAudiencia] = useState(false)
+  const [defaultFechaAudiencia, setDefaultFechaAudiencia] = useState<string | undefined>(undefined)
 
   // Vista: lista o calendario
   const [vista, setVista] = useState<'lista' | 'calendario'>(() => {
@@ -659,6 +674,17 @@ function AgendaUnificada() {
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal-500" />Reunión</span>
           </div>
 
+          {/* Botón nueva audiencia */}
+          <button
+            type="button"
+            onClick={() => { setDefaultFechaAudiencia(undefined); setModalAudiencia(true) }}
+            className="flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors"
+          >
+            <Scale className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Nueva audiencia</span>
+            <span className="sm:hidden">Audiencia</span>
+          </button>
+
           {/* Botón agendar reunión */}
           <button
             type="button"
@@ -706,6 +732,12 @@ function AgendaUnificada() {
         open={modalReunion}
         onClose={() => setModalReunion(false)}
         defaultFecha={defaultFechaReunion}
+      />
+
+      <CrearTurnoDialog
+        open={modalAudiencia}
+        onClose={() => setModalAudiencia(false)}
+        initialValues={defaultFechaAudiencia ? { fecha: defaultFechaAudiencia } : undefined}
       />
 
       {/* Contenido */}
@@ -780,6 +812,7 @@ function AgendaUnificada() {
               hoy={hoy}
               onClose={() => setDiaSeleccionado(null)}
               onAgendarReunion={(f) => { setDefaultFechaReunion(f); setModalReunion(true) }}
+              onAgendarAudiencia={(f) => { setDefaultFechaAudiencia(f); setModalAudiencia(true) }}
             />
           )}
         </div>
