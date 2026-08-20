@@ -804,6 +804,13 @@ export function useConvertirConsultaAExpediente() {
         .eq('id', consulta_id)
       if (updErr) throw updErr
 
+      // Migrar adjuntos de la consulta al expediente recién creado
+      await (supabase as any)
+        .from('adjuntos')
+        .update({ expediente_id: expId, consulta_id: null })
+        .eq('consulta_id', consulta_id)
+        .is('deleted_at', null)
+
       return expId
     },
     onSuccess: () => {

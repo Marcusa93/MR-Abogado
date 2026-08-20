@@ -1,5 +1,5 @@
-// Análisis IA de un adjunto (PDF subido). Frontend ya extrajo el texto.
-// Body: { adjunto_id: string, document_text: string }
+// Análisis IA de un adjunto (PDF o imagen subida). Frontend extrae texto (PDFs) o pasa image_url (imágenes).
+// Body: { adjunto_id: string, document_text?: string, image_url?: string, force?: boolean }
 // Returns: { success, summary, extracted, model } o { error }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -17,6 +17,7 @@ interface AdjuntoRow {
   id: string
   expediente_id: string | null
   cliente_id: string | null
+  consulta_id: string | null
   nombre_archivo: string
   categoria: string | null
   ai_analyzed_at: string | null
@@ -40,22 +41,26 @@ Deno.serve(async (req) => {
     if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
 
     const body = await req.json().catch(() => null) as
-      | { adjunto_id?: string; document_text?: string; force?: boolean }
+      | { adjunto_id?: string; document_text?: string; image_url?: string; force?: boolean }
       | null
     const adjuntoId = body?.adjunto_id
     const documentText = typeof body?.document_text === 'string' ? body.document_text : ''
+    const imageUrl = typeof body?.image_url === 'string' ? body.image_url : undefined
     if (!adjuntoId) return json(req, { error: 'Falta adjunto_id' }, 400)
-    if (!documentText.trim()) return json(req, { error: 'Falta document_text (probable PDF escaneado).' }, 400)
+    // Se requiere texto O imagen — si hay imageUrl no hace falta texto
+    if (!imageUrl && !documentText.trim()) {
+      return json(req, { error: 'Falta document_text o image_url (probable PDF escaneado sin texto).' }, 400)
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // RLS-aware fetch para autorización (anon client respeta can_view_expediente)
+    // RLS-aware fetch para autorización (anon client respeta can_view_expediente y consulta branch)
     const { data: ownedRows, error: ownedError } = await anonClient
       .from('adjuntos')
-      .select('id, expediente_id, cliente_id, nombre_archivo, categoria, ai_analyzed_at')
+      .select('id, expediente_id, cliente_id, consulta_id, nombre_archivo, categoria, ai_analyzed_at')
       .eq('id', adjuntoId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -82,7 +87,8 @@ Deno.serve(async (req) => {
 
     try {
       const analysis = await analyzeAdjuntoWithAI({
-        documentText,
+        documentText: imageUrl ? undefined : documentText,
+        imageUrl,
         fileName: adj.nombre_archivo,
         categoria: adj.categoria,
         apiKey,

@@ -21,6 +21,7 @@ import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-ordenados'
 import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
 import { ConsultaPipeline } from '@/components/consultas/consulta-pipeline'
+import { ConsultaAdjuntos } from '@/components/consultas/consulta-adjuntos'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
@@ -1515,6 +1516,12 @@ export default function ConsultaDetallePage() {
         <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
           <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Contexto adicional (grabaciones, documentos, apuntes)</h3>
           <ConsultaContextos consultaId={consulta.id} />
+        </div>
+
+        {/* Documentos adjuntos (PDF / imágenes) */}
+        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
+          <ConsultaAdjuntos consultaId={consulta.id} />
         </div>
 
         {/* Selector de áreas del derecho */}

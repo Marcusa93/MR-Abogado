@@ -74,7 +74,8 @@ REGLAS DE EXTRACCIÓN:
 - Arrays vacíos [] si no hay datos. NO inventes "no se mencionan".`
 
 interface AnalyzeInput {
-  documentText: string
+  documentText?: string
+  imageUrl?: string
   fileName: string
   categoria?: string | null
   apiKey: string
@@ -82,19 +83,54 @@ interface AnalyzeInput {
 }
 
 export async function analyzeAdjuntoWithAI(input: AnalyzeInput): Promise<AdjuntoAnalysis> {
-  const text = input.documentText.trim()
-  if (!text) throw new Error('Documento sin texto extraíble (probable PDF escaneado).')
+  const model = input.model ?? DEFAULT_MODEL
 
-  // Cap input to ~80K chars (~20K tokens) to keep costs predictable.
-  const truncated = text.length > 80_000
-  const docText = truncated ? text.slice(0, 80_000) + '\n\n[... TEXTO TRUNCADO ...]' : text
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let messages: { role: string; content: any }[]
+  let isVision = false
 
-  const userMessage = `Documento: ${input.fileName}${input.categoria ? ` (categoría declarada: ${input.categoria})` : ''}
+  if (input.imageUrl) {
+    // Vision path: imagen enviada como URL firmada
+    isVision = true
+    messages = [
+      {
+        role: 'system',
+        content: 'Sos un asistente jurídico para un abogado litigante en Tucumán, Argentina. Analizás imágenes de documentos jurídicos y extraés información estructurada. Respondé ÚNICAMENTE con JSON válido, sin markdown ni triple backticks.',
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: input.imageUrl },
+          },
+          {
+            type: 'text',
+            text: `Documento: ${input.fileName}${input.categoria ? ` (categoría declarada: ${input.categoria})` : ''}\n\nAnalizá la imagen adjunta y devolvé el JSON solicitado con la misma estructura que para documentos de texto.`,
+          },
+        ],
+      },
+    ]
+  } else if (input.documentText !== undefined) {
+    const text = input.documentText.trim()
+    if (!text) throw new Error('Documento sin texto extraíble (probable PDF escaneado).')
+
+    // Cap input to ~80K chars (~20K tokens) to keep costs predictable.
+    const truncated = text.length > 80_000
+    const docText = truncated ? text.slice(0, 80_000) + '\n\n[... TEXTO TRUNCADO ...]' : text
+
+    const userMessage = `Documento: ${input.fileName}${input.categoria ? ` (categoría declarada: ${input.categoria})` : ''}
 
 Contenido:
 ${docText}`
 
-  const model = input.model ?? DEFAULT_MODEL
+    messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userMessage },
+    ]
+  } else {
+    throw new Error('Se requiere documentText o imageUrl para analizar el adjunto.')
+  }
 
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
@@ -106,11 +142,8 @@ ${docText}`
     },
     body: JSON.stringify({
       model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userMessage },
-      ],
-      response_format: { type: 'json_object' },
+      messages,
+      ...(isVision ? {} : { response_format: { type: 'json_object' } }),
       temperature: 0.1,
       max_tokens: 2000,
     }),

@@ -320,3 +320,194 @@ export function useDeleteAdjunto() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// useAdjuntosConsulta — lista adjuntos de una consulta
+// ---------------------------------------------------------------------------
+
+export function useAdjuntosConsulta(consultaId: string | undefined, opts?: { pollWhilePending?: boolean }) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['adjuntos-consulta', consultaId],
+    staleTime: 30_000,
+    refetchInterval: opts?.pollWhilePending ? 5000 : false,
+    queryFn: async () => {
+      if (!consultaId) return []
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('adjuntos')
+        .select('*')
+        .eq('consulta_id', consultaId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data ?? []) as any[]
+    },
+    enabled: !!consultaId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// analyzeConsultaAdjuntoInBackground — análisis IA asíncrono para adjuntos de consulta
+// ---------------------------------------------------------------------------
+
+async function analyzeConsultaAdjuntoInBackground({
+  supabase,
+  adjuntoId,
+  consultaId,
+  file,
+  isImage,
+  storagePath,
+  queryClient,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+  adjuntoId: string
+  consultaId: string
+  file: File
+  isImage: boolean
+  storagePath: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  queryClient: any
+}) {
+  try {
+    if (isImage) {
+      // Para imágenes: obtener signed URL y pasar image_url al analizador (vision)
+      const { data: signed, error: signError } = await supabase.storage
+        .from('adjuntos')
+        .createSignedUrl(storagePath, 300)
+      if (signError || !signed?.signedUrl) {
+        console.warn('[analyzeConsultaAdjuntoInBackground] no se pudo obtener signed URL', signError)
+        return
+      }
+      await supabase.functions.invoke('analyze-adjunto', {
+        body: { adjunto_id: adjuntoId, image_url: signed.signedUrl },
+      })
+    } else {
+      // Para PDFs: extraer texto en el cliente
+      const { text } = await extractPdfText(file, { maxChars: 100_000 })
+      if (!text.trim()) return
+      await supabase.functions.invoke('analyze-adjunto', {
+        body: { adjunto_id: adjuntoId, document_text: text },
+      })
+    }
+  } catch (err) {
+    console.warn('[analyzeConsultaAdjuntoInBackground] falló', err)
+  } finally {
+    queryClient.invalidateQueries({ queryKey: ['adjuntos-consulta', consultaId] })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// useUploadAdjuntoConsulta — sube un adjunto para una consulta (nativo sin conversión)
+// ---------------------------------------------------------------------------
+
+export function useUploadAdjuntoConsulta() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      consultaId,
+      file,
+    }: {
+      consultaId: string
+      file: File
+    }) => {
+      if (file.size > 50 * 1024 * 1024) {
+        throw new Error('El archivo supera el límite de 50 MB.')
+      }
+
+      const isImage = file.type.startsWith('image/')
+      const ext = file.name.split('.').pop() ?? (isImage ? 'jpg' : 'pdf')
+      const storageName = `consultas/${consultaId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('adjuntos')
+        .upload(storageName, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+          upsert: false,
+        })
+
+      if (uploadError) throw new Error(`Error subiendo archivo: ${uploadError.message}`)
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const insertData: any = {
+        consulta_id: consultaId,
+        nombre_archivo: file.name,
+        tipo_mime: file.type,
+        tamano_bytes: file.size,
+        storage_path: storageName,
+        categoria: null,
+        descripcion: null,
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('adjuntos')
+        .insert(insertData)
+        .select()
+        .single()
+
+      if (error) {
+        await supabase.storage.from('adjuntos').remove([storageName]).catch(() => {})
+        throw error
+      }
+
+      // Disparar análisis en background (siempre, para consultas)
+      if (data?.id) {
+        void analyzeConsultaAdjuntoInBackground({
+          supabase,
+          adjuntoId: data.id,
+          consultaId,
+          file,
+          isImage,
+          storagePath: storageName,
+          queryClient,
+        })
+      }
+
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['adjuntos-consulta', variables.consultaId] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useMigrateConsultaAdjuntos — mueve adjuntos de consulta → expediente al convertir
+// ---------------------------------------------------------------------------
+
+export function useMigrateConsultaAdjuntos() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      consultaId,
+      expedienteId,
+    }: {
+      consultaId: string
+      expedienteId: string
+    }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('adjuntos')
+        .update({ expediente_id: expedienteId, consulta_id: null })
+        .eq('consulta_id', consultaId)
+        .is('deleted_at', null)
+
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['adjuntos-consulta', variables.consultaId] })
+      queryClient.invalidateQueries({ queryKey: ['adjuntos', variables.expedienteId] })
+    },
+  })
+}
