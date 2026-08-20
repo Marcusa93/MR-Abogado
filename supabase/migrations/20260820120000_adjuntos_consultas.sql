@@ -29,10 +29,12 @@ CREATE POLICY adjuntos_select_visible ON public.adjuntos FOR SELECT USING (
   )
 );
 
--- Update RLS INSERT: allow consulta_id without expediente check
+-- Update RLS INSERT: cualquier usuario autenticado puede insertar adjuntos
+-- de consultas (expediente_id IS NULL) o de expedientes que puede ver.
+-- No se impone uploaded_by en RLS — se setea en código para auditoría.
 DROP POLICY IF EXISTS adjuntos_insert_visible ON public.adjuntos;
 CREATE POLICY adjuntos_insert_visible ON public.adjuntos FOR INSERT WITH CHECK (
-  uploaded_by = auth.uid()
+  auth.uid() IS NOT NULL
   AND (
     expediente_id IS NULL
     OR public.can_view_expediente(expediente_id)
