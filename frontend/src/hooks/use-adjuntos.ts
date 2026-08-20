@@ -436,6 +436,9 @@ export function useUploadAdjuntoConsulta() {
 
       if (uploadError) throw new Error(`Error subiendo archivo: ${uploadError.message}`)
 
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const insertData: any = {
         consulta_id: consultaId,
@@ -445,6 +448,7 @@ export function useUploadAdjuntoConsulta() {
         storage_path: storageName,
         categoria: null,
         descripcion: null,
+        uploaded_by: user.id,
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
