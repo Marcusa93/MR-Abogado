@@ -534,6 +534,7 @@ Deno.serve(async (req) => {
     push_enviados: 0,
     push_diferidos: 0,
     emails_enviados: 0,
+    dedup_race: 0,
     fueros_iterados: [] as string[],
     fueros_con_novedades_detectadas: null as string[] | null,
     discovery_mode: 'auto' as 'auto' | 'manual',
@@ -756,7 +757,7 @@ Deno.serve(async (req) => {
           for (let i = nuevas.length - 1; i >= 0; i--) {
             if (!insertedIds.has(nuevas[i].sae_notif_id)) nuevas.splice(i, 1)
           }
-          stats.errores.push({ profile_id: p.id, error: `Dedup: descartadas ${before - nuevas.length} ya conocidas` })
+          stats.dedup_race += before - nuevas.length
         }
       }
     }
