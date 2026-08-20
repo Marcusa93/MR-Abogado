@@ -15,12 +15,7 @@ export function ConsultaAdjuntos({ consultaId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const upload = useUploadAdjuntoConsulta()
 
-  // Pollear cada 5 segundos para detectar cuando termina el análisis IA.
-  // pollWhilePending=true siempre activo mientras el componente está montado;
-  // los adjuntos ya analizados igualmente tienen ai_analyzed_at y no cambian.
-  const { data: adjuntos = [], isLoading } = useAdjuntosConsulta(consultaId, {
-    pollWhilePending: true,
-  })
+  const { data: adjuntos = [], isLoading } = useAdjuntosConsulta(consultaId)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])

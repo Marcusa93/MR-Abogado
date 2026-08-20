@@ -325,13 +325,19 @@ export function useDeleteAdjunto() {
 // useAdjuntosConsulta — lista adjuntos de una consulta
 // ---------------------------------------------------------------------------
 
-export function useAdjuntosConsulta(consultaId: string | undefined, opts?: { pollWhilePending?: boolean }) {
+export function useAdjuntosConsulta(consultaId: string | undefined) {
   const supabase = createClient()
 
   return useQuery({
     queryKey: ['adjuntos-consulta', consultaId],
     staleTime: 30_000,
-    refetchInterval: opts?.pollWhilePending ? 5000 : false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    refetchInterval: (query: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = query.state.data as any[] | undefined
+      const hasPending = data?.some((a: any) => !a.ai_analyzed_at && !a.ai_error)
+      return hasPending ? 4000 : false
+    },
     queryFn: async () => {
       if (!consultaId) return []
 
@@ -374,29 +380,42 @@ async function analyzeConsultaAdjuntoInBackground({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   queryClient: any
 }) {
+  const markError = async (msg: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('adjuntos')
+      .update({ ai_error: msg, ai_analyzed_at: new Date().toISOString() })
+      .eq('id', adjuntoId)
+  }
+
   try {
     if (isImage) {
-      // Para imágenes: obtener signed URL y pasar image_url al analizador (vision)
       const { data: signed, error: signError } = await supabase.storage
         .from('adjuntos')
-        .createSignedUrl(storagePath, 300)
+        .createSignedUrl(storagePath, 600)
       if (signError || !signed?.signedUrl) {
         console.warn('[analyzeConsultaAdjuntoInBackground] no se pudo obtener signed URL', signError)
+        await markError('No se pudo generar URL de análisis')
         return
       }
-      await supabase.functions.invoke('analyze-adjunto', {
+      const { error: invokeError } = await supabase.functions.invoke('analyze-adjunto', {
         body: { adjunto_id: adjuntoId, image_url: signed.signedUrl },
       })
+      if (invokeError) await markError(String(invokeError?.message ?? invokeError).slice(0, 300))
     } else {
-      // Para PDFs: extraer texto en el cliente
       const { text } = await extractPdfText(file, { maxChars: 100_000 })
-      if (!text.trim()) return
-      await supabase.functions.invoke('analyze-adjunto', {
+      if (!text.trim()) {
+        await markError('PDF sin texto extraíble (probablemente escaneado)')
+        return
+      }
+      const { error: invokeError } = await supabase.functions.invoke('analyze-adjunto', {
         body: { adjunto_id: adjuntoId, document_text: text },
       })
+      if (invokeError) await markError(String(invokeError?.message ?? invokeError).slice(0, 300))
     }
   } catch (err) {
     console.warn('[analyzeConsultaAdjuntoInBackground] falló', err)
+    await markError(err instanceof Error ? err.message.slice(0, 300) : 'Error inesperado').catch(() => {})
   } finally {
     queryClient.invalidateQueries({ queryKey: ['adjuntos-consulta', consultaId] })
   }

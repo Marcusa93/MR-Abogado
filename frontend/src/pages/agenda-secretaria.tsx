@@ -8,6 +8,7 @@ import { useAlertas, useResolverAlerta } from '@/hooks/use-alertas'
 import { useCreateSeguimiento, type CreateSeguimientoInput } from '@/hooks/use-seguimientos'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
+import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { formatDateWithWeekday } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ import {
   Calendar,
   ListChecks,
   MapPin,
+  Users,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -732,6 +734,7 @@ export default function AgendaSecretariaPage() {
   const [expandedExp, setExpandedExp] = useState<string | null>(null)
   const [crearTareaOpen, setCrearTareaOpen] = useState(false)
   const [crearAudienciaOpen, setCrearAudienciaOpen] = useState(false)
+  const [reunionOpen, setReunionOpen] = useState(false)
   const [completedExps, setCompletedExps] = useState<Set<string>>(new Set())
   const [mostrarTodosExps, setMostrarTodosExps] = useState(false)
 
@@ -764,7 +767,7 @@ export default function AgendaSecretariaPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Agenda
@@ -773,18 +776,27 @@ export default function AgendaSecretariaPage() {
             Audiencias, seguimientos y tareas pendientes
           </p>
         </div>
-        {/* KPIs rápidos */}
-        <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* KPIs rápidos */}
           {audienciasHoy.length > 0 && (
-            <span className="rounded-full bg-sky-900/40 px-3 py-1 font-medium text-sky-300">
+            <span className="rounded-full bg-sky-900/40 px-3 py-1 text-xs font-medium text-sky-300">
               {audienciasHoy.length} audiencia{audienciasHoy.length > 1 ? 's' : ''} hoy
             </span>
           )}
           {tareasVencidas.length > 0 && (
-            <span className="rounded-full bg-rose-900/30 px-3 py-1 font-medium text-rose-400">
+            <span className="rounded-full bg-rose-900/30 px-3 py-1 text-xs font-medium text-rose-400">
               {tareasVencidas.length} tarea{tareasVencidas.length > 1 ? 's' : ''} vencida{tareasVencidas.length > 1 ? 's' : ''}
             </span>
           )}
+          {/* Botón agendar reunión */}
+          <button
+            type="button"
+            onClick={() => setReunionOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-teal-600/20 border border-teal-500/30 px-3 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-600/30 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Agendar reunión
+          </button>
         </div>
       </div>
 
@@ -1040,6 +1052,7 @@ export default function AgendaSecretariaPage() {
 
       <CrearTareaDialog open={crearTareaOpen} onClose={() => setCrearTareaOpen(false)} />
       <CrearTurnoDialog open={crearAudienciaOpen} onClose={() => setCrearAudienciaOpen(false)} />
+      <AgendarReuniónModal open={reunionOpen} onClose={() => setReunionOpen(false)} />
     </div>
   )
 }
