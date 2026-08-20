@@ -27,6 +27,8 @@ function NormativaTab({ consultaId }: { consultaId: string }) {
   const unpin = useUnpinNormativaConsulta(consultaId)
 
   const ancladosIds = new Set(anclados.map(d => d.id))
+  const [pinningId, setPinningId] = useState<string | null>(null)
+  const [unpinningId, setUnpinningId] = useState<string | null>(null)
 
   return (
     <div className="space-y-3">
@@ -38,8 +40,11 @@ function NormativaTab({ consultaId }: { consultaId: string }) {
               key={doc.id}
               label={doc.titulo}
               sub={[doc.tipo, doc.numero, doc.jurisdiccion].filter(Boolean).join(' · ')}
-              onUnpin={() => unpin.mutate(doc.id)}
-              loading={unpin.isPending}
+              onUnpin={() => {
+                setUnpinningId(doc.id)
+                unpin.mutate(doc.id, { onSettled: () => setUnpinningId(null) })
+              }}
+              loading={unpinningId === doc.id}
             />
           ))}
         </div>
@@ -69,8 +74,11 @@ function NormativaTab({ consultaId }: { consultaId: string }) {
               label={doc.titulo}
               sub={[doc.tipo, doc.numero, doc.jurisdiccion].filter(Boolean).join(' · ')}
               pinned={ancladosIds.has(doc.id)}
-              onPin={() => pin.mutate(doc.id)}
-              loading={pin.isPending}
+              onPin={() => {
+                setPinningId(doc.id)
+                pin.mutate(doc.id, { onSettled: () => setPinningId(null) })
+              }}
+              loading={pinningId === doc.id}
             />
           ))}
         </div>
@@ -92,6 +100,8 @@ function JurisprudenciaTab({ consultaId }: { consultaId: string }) {
   const unpin = useUnpinJurisprudenciaConsulta(consultaId)
 
   const ancladosIds = new Set(anclados.map(d => d.id))
+  const [pinningId, setPinningId] = useState<string | null>(null)
+  const [unpinningId, setUnpinningId] = useState<string | null>(null)
 
   return (
     <div className="space-y-3">
@@ -103,8 +113,11 @@ function JurisprudenciaTab({ consultaId }: { consultaId: string }) {
               key={doc.id}
               label={doc.caratula}
               sub={[doc.tribunal, doc.fecha].filter(Boolean).join(' · ')}
-              onUnpin={() => unpin.mutate(doc.id)}
-              loading={unpin.isPending}
+              onUnpin={() => {
+                setUnpinningId(doc.id)
+                unpin.mutate(doc.id, { onSettled: () => setUnpinningId(null) })
+              }}
+              loading={unpinningId === doc.id}
             />
           ))}
         </div>
@@ -134,8 +147,11 @@ function JurisprudenciaTab({ consultaId }: { consultaId: string }) {
               label={doc.caratula}
               sub={[doc.tribunal, doc.fecha].filter(Boolean).join(' · ')}
               pinned={ancladosIds.has(doc.id)}
-              onPin={() => pin.mutate(doc.id)}
-              loading={pin.isPending}
+              onPin={() => {
+                setPinningId(doc.id)
+                pin.mutate(doc.id, { onSettled: () => setPinningId(null) })
+              }}
+              loading={pinningId === doc.id}
             />
           ))}
         </div>
