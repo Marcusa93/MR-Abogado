@@ -21,6 +21,8 @@ interface AdjuntoRow {
   nombre_archivo: string
   categoria: string | null
   ai_analyzed_at: string | null
+  storage_path: string
+  tipo_mime: string | null
 }
 
 Deno.serve(async (req) => {
@@ -45,12 +47,9 @@ Deno.serve(async (req) => {
       | null
     const adjuntoId = body?.adjunto_id
     const documentText = typeof body?.document_text === 'string' ? body.document_text : ''
-    const imageUrl = typeof body?.image_url === 'string' ? body.image_url : undefined
+    // imageUrl puede venir del body (legado) o se generará internamente para imágenes
+    const imageUrlFromBody = typeof body?.image_url === 'string' ? body.image_url : undefined
     if (!adjuntoId) return json(req, { error: 'Falta adjunto_id' }, 400)
-    // Se requiere texto O imagen — si hay imageUrl no hace falta texto
-    if (!imageUrl && !documentText.trim()) {
-      return json(req, { error: 'Falta document_text o image_url (probable PDF escaneado sin texto).' }, 400)
-    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -60,7 +59,7 @@ Deno.serve(async (req) => {
     // RLS-aware fetch para autorización (anon client respeta can_view_expediente y consulta branch)
     const { data: ownedRows, error: ownedError } = await anonClient
       .from('adjuntos')
-      .select('id, expediente_id, cliente_id, consulta_id, nombre_archivo, categoria, ai_analyzed_at')
+      .select('id, expediente_id, cliente_id, consulta_id, nombre_archivo, categoria, ai_analyzed_at, storage_path, tipo_mime')
       .eq('id', adjuntoId)
       .is('deleted_at', null)
       .maybeSingle()
@@ -83,6 +82,33 @@ Deno.serve(async (req) => {
         extracted: existing?.ai_extracted ?? null,
         model: existing?.ai_model ?? null,
       })
+    }
+
+    // Resolver imageUrl: si vino en el body usarlo, si no y el adjunto es imagen
+    // generarlo internamente con service_role (evita problemas de RLS de storage en el browser)
+    const isImageMime = (adj.tipo_mime ?? '').startsWith('image/')
+    let imageUrl = imageUrlFromBody
+    if (!imageUrl && isImageMime && adj.storage_path) {
+      const { data: signed, error: signErr } = await serviceClient.storage
+        .from('adjuntos')
+        .createSignedUrl(adj.storage_path, 600)
+      if (signErr || !signed?.signedUrl) {
+        await serviceClient.from('adjuntos').update({
+          ai_error: `No se pudo generar URL de análisis: ${signErr?.message ?? 'desconocido'}`,
+          ai_analyzed_at: new Date().toISOString(),
+        }).eq('id', adjuntoId)
+        return json(req, { error: 'No se pudo generar URL de análisis' }, 502)
+      }
+      imageUrl = signed.signedUrl
+    }
+
+    // Validar que tenemos algo que analizar
+    if (!imageUrl && !documentText.trim()) {
+      await serviceClient.from('adjuntos').update({
+        ai_error: 'PDF sin texto extraíble (probablemente escaneado)',
+        ai_analyzed_at: new Date().toISOString(),
+      }).eq('id', adjuntoId)
+      return json(req, { error: 'PDF sin texto extraíble' }, 400)
     }
 
     try {
