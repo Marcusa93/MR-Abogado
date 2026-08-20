@@ -136,6 +136,24 @@ Deno.serve(async (req) => {
         })
         .eq('id', adjuntoId)
 
+      // Si el adjunto pertenece a una consulta, volcar los hechos extraídos a notas_libres.
+      // Se usa RPC atómica para evitar race conditions si hay múltiples adjuntos.
+      if (adj.consulta_id) {
+        const ext = analysis.extracted
+        const lineas: string[] = [`\n\n— ${adj.nombre_archivo} (${ext.tipo_documento})`]
+        if (ext.objeto) lineas.push(`Objeto: ${ext.objeto}`)
+        if (Array.isArray(ext.hechos_clave) && ext.hechos_clave.length > 0) {
+          ext.hechos_clave.forEach((h: string) => lineas.push(`• ${h}`))
+        }
+        if (lineas.length > 1) {
+          serviceClient.rpc('append_consulta_notas', {
+            p_consulta_id: adj.consulta_id,
+            p_text: lineas.join('\n'),
+          }).then(() => undefined).catch((err: unknown) =>
+            console.warn('[analyze-adjunto] append_consulta_notas falló', err))
+        }
+      }
+
       // Auto-trigger ingest para búsqueda cross-expediente + extracción de
       // aprendizaje si es sentencia. Fire-and-forget.
       if (fullTextToStore) {

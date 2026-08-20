@@ -108,7 +108,7 @@ export function ConsultaAdjuntos({ consultaId }: Props) {
                 </div>
 
                 {/* Info */}
-                <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm text-zinc-800 dark:text-zinc-200 truncate max-w-xs">
                       {adj.nombre_archivo}
@@ -120,15 +120,42 @@ export function ConsultaAdjuntos({ consultaId }: Props) {
                       </span>
                     )}
                     {hasError && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                        title={adj.ai_error ?? ''}>
                         Error al analizar
+                      </span>
+                    )}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {adj.ai_extracted && (adj.ai_extracted as any).tipo_documento && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 capitalize">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {(adj.ai_extracted as any).tipo_documento}
                       </span>
                     )}
                   </div>
                   {adj.ai_summary && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                       {adj.ai_summary}
                     </p>
+                  )}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {adj.ai_extracted && (adj.ai_extracted as any).objeto && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      <span className="font-medium">Objeto:</span> {(adj.ai_extracted as any).objeto}
+                    </p>
+                  )}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {adj.ai_extracted && Array.isArray((adj.ai_extracted as any).hechos_clave) && (adj.ai_extracted as any).hechos_clave.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {(adj.ai_extracted as any).hechos_clave.map((h: string, i: number) => (
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="shrink-0 mt-0.5 h-1.5 w-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500" />
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
 
