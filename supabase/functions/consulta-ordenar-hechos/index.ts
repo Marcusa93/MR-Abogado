@@ -57,25 +57,51 @@ Deno.serve(async (req) => {
     const tipoAsunto = (consulta as any).tipo_asunto ?? 'otro'
     const areas: string[] = (consulta as any).areas_derecho ?? [tipoAsunto]
 
+    // Documentación adjunta analizada — enriquece los hechos con evidencia documental
+    let documentalCtx = ''
+    const { data: adjuntos } = await serviceClient
+      .from('adjuntos' as any)
+      .select('nombre_archivo, ai_summary, ai_extracted')
+      .eq('consulta_id', body.consulta_id)
+      .not('ai_analyzed_at', 'is', null)
+      .is('ai_error', null)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (adjuntos && (adjuntos as any[]).length > 0) {
+      const bloques = (adjuntos as any[]).map(adj => {
+        const ext = adj.ai_extracted as any
+        const lineas: string[] = [`### ${adj.nombre_archivo}${ext?.tipo_documento ? ` (${ext.tipo_documento})` : ''}`]
+        if (adj.ai_summary) lineas.push(adj.ai_summary)
+        if (ext?.objeto) lineas.push(`Objeto: ${ext.objeto}`)
+        if (Array.isArray(ext?.hechos_clave) && ext.hechos_clave.length > 0) {
+          lineas.push('Hechos documentados:')
+          ext.hechos_clave.forEach((h: string) => lineas.push(`- ${h}`))
+        }
+        return lineas.join('\n')
+      })
+      documentalCtx = `\n\n## Documentación adjunta (analizada por IA)\n${bloques.join('\n\n')}`
+    }
+
     const systemPrompt = `Sos un abogado del Estudio Jurídico Dr. Marco Rossi, Tucumán, Argentina.
 Tu tarea es analizar los hechos relatados en una consulta inicial y:
 1. Reorganizarlos en orden cronológico claro, redactándolos en forma de relato jurídico estructurado.
-2. Identificar y sugerir preguntas adicionales que habría que hacerle al cliente para completar el caso.
+2. Si hay documentación adjunta analizada, integrar y contrastar con lo relatado: incorporar hechos documentados, señalar inconsistencias o datos adicionales que surjan de los documentos.
+3. Identificar y sugerir preguntas adicionales que habría que hacerle al cliente para completar el caso.
 
 Área(s) del derecho involucrada(s): ${areas.join(', ')}.
 Foro: Tucumán, Argentina.
 
 Devolvé ÚNICAMENTE un objeto JSON válido (sin markdown, sin texto extra) con esta estructura:
 {
-  "hechos_ordenados": "string — relato cronológico y jurídicamente estructurado de los hechos, en español argentino formal. Máximo 1500 palabras.",
+  "hechos_ordenados": "string — relato cronológico y jurídicamente estructurado de los hechos, integrando relato del cliente y evidencia documental. Máximo 1500 palabras.",
   "preguntas_sugeridas": ["string", "string", ...] — lista de 3 a 8 preguntas concretas que quedan sin responder y son relevantes para el caso
 }`
 
     const userPrompt = `Cliente: ${clienteLabel}
 Tipo de asunto: ${tipoAsunto}
 
-HECHOS RELATADOS:
-${notas}`
+HECHOS RELATADOS POR EL CLIENTE:
+${notas}${documentalCtx}`
 
     const llmRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

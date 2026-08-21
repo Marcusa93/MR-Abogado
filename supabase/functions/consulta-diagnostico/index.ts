@@ -113,6 +113,7 @@ async function generateModulo(
   ctx: {
     clienteLabel: string
     notas_libres: string
+    documentalCtx: string
     contextosCtx: string
     normativaCtx: string
     jurisCtx: string
@@ -127,7 +128,7 @@ async function generateModulo(
 
   const systemPrompt = `Sos un abogado del Estudio Jurídico Dr. Marco Rossi, Tucumán, Argentina.
 Generás diagnósticos jurídicos precisos y accionables para cada área del derecho involucrada en una consulta.
-Contexto geográfico: fuero tucumano (Cámara Civil y Comercial, Cámara de Trabajo, Cámara de Familia, CFSS para previsional, Tribunales Penales de Tucumán).${ctx.normativaCtx || ctx.jurisCtx ? '\nCuando hay normativa o jurisprudencia anclada, priorizarla para fundamentar el diagnóstico.' : ''}
+Contexto geográfico: fuero tucumano (Cámara Civil y Comercial, Cámara de Trabajo, Cámara de Familia, CFSS para previsional, Tribunales Penales de Tucumán).${ctx.documentalCtx ? '\nHay documentación adjunta analizada por IA: usala para contrastar y fortalecer el diagnóstico, identificar inconsistencias entre lo relatado y lo documentado, y extraer hechos adicionales.' : ''}${ctx.normativaCtx || ctx.jurisCtx ? '\nCuando hay normativa o jurisprudencia anclada, priorizarla para fundamentar el diagnóstico.' : ''}
 
 ${expertise.expertise}
 
@@ -152,8 +153,8 @@ Devolvé ÚNICAMENTE un objeto JSON válido (sin markdown, sin texto extra) con 
   const userPrompt = `Cliente: ${ctx.clienteLabel}
 Área a analizar: ${expertise.label}${otherAreasNote}
 
-Hechos del caso:
-${ctx.notas_libres.trim()}${ctx.contextosCtx}${ctx.normativaCtx}${ctx.jurisCtx}
+Hechos del caso (relato del cliente):
+${ctx.notas_libres.trim()}${ctx.documentalCtx}${ctx.contextosCtx}${ctx.normativaCtx}${ctx.jurisCtx}
 
 Generá el diagnóstico para el área ${expertise.label}.`
 
@@ -323,10 +324,40 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── Documentación adjunta analizada ──────────────────────────────────────
+  let documentalCtx = ''
+  if (consulta_id) {
+    const { data: adjuntos } = await adminClient
+      .from('adjuntos')
+      .select('nombre_archivo, ai_summary, ai_extracted')
+      .eq('consulta_id', consulta_id)
+      .not('ai_analyzed_at', 'is', null)
+      .is('ai_error', null)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (adjuntos && adjuntos.length > 0) {
+      const bloques = (adjuntos as any[]).map(adj => {
+        const ext = adj.ai_extracted as any
+        const lineas: string[] = [`### ${adj.nombre_archivo}${ext?.tipo_documento ? ` (${ext.tipo_documento})` : ''}`]
+        if (adj.ai_summary) lineas.push(adj.ai_summary)
+        if (ext?.objeto) lineas.push(`Objeto: ${ext.objeto}`)
+        if (Array.isArray(ext?.hechos_clave) && ext.hechos_clave.length > 0) {
+          lineas.push('Hechos documentados:')
+          ext.hechos_clave.forEach((h: string) => lineas.push(`- ${h}`))
+        }
+        if (Array.isArray(ext?.normativa_citada) && ext.normativa_citada.length > 0) {
+          lineas.push(`Normativa citada: ${ext.normativa_citada.map((n: any) => n.norma).join(', ')}`)
+        }
+        return lineas.join('\n')
+      })
+      documentalCtx = `\n\n## Documentación adjunta a la consulta (analizada por IA)\n${bloques.join('\n\n')}`
+    }
+  }
+
   const clienteLabel = [nombre, apellido].filter(Boolean).join(' ') || 'el consultante'
 
   // ── Llamadas LLM paralelas por área ──────────────────────────────────────
-  const ctx = { clienteLabel, notas_libres, contextosCtx, normativaCtx, jurisCtx, allAreas: areas }
+  const ctx = { clienteLabel, notas_libres, documentalCtx, contextosCtx, normativaCtx, jurisCtx, allAreas: areas }
   const results = await Promise.allSettled(
     areas.map(area => generateModulo(area, ctx, openrouterKey))
   )
