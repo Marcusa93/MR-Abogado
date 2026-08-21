@@ -367,6 +367,7 @@ async function analyzeConsultaAdjuntoInBackground({
   consultaId,
   file,
   isImage,
+  isAudio,
   queryClient,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -375,19 +376,23 @@ async function analyzeConsultaAdjuntoInBackground({
   consultaId: string
   file: File
   isImage: boolean
+  isAudio: boolean
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   queryClient: any
 }) {
   try {
-    if (isImage) {
+    if (isAudio) {
+      // Audio: transcribir con Groq Whisper (edge function descarga con service_role)
+      await supabase.functions.invoke('transcribe-adjunto', {
+        body: { adjunto_id: adjuntoId },
+      })
+    } else if (isImage) {
       // Para imágenes: la edge function genera la signed URL internamente con service_role.
-      // Solo se pasa adjunto_id — evita problemas de RLS de storage en el browser.
       await supabase.functions.invoke('analyze-adjunto', {
         body: { adjunto_id: adjuntoId },
       })
     } else {
       // Para PDFs: extraer texto en el cliente y pasarlo a la edge function.
-      // Si el PDF no tiene texto (escaneado), la edge function marca el error en DB.
       const { text } = await extractPdfText(file, { maxChars: 100_000 })
       await supabase.functions.invoke('analyze-adjunto', {
         body: { adjunto_id: adjuntoId, document_text: text },
@@ -421,7 +426,8 @@ export function useUploadAdjuntoConsulta() {
       }
 
       const isImage = file.type.startsWith('image/')
-      const ext = file.name.split('.').pop() ?? (isImage ? 'jpg' : 'pdf')
+      const isAudio = file.type.startsWith('audio/') || file.type === 'video/mp4' || file.type === 'video/webm'
+      const ext = file.name.split('.').pop() ?? (isImage ? 'jpg' : isAudio ? 'mp3' : 'pdf')
       const storageName = `consultas/${consultaId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
 
       const { error: uploadError } = await supabase.storage
@@ -461,7 +467,7 @@ export function useUploadAdjuntoConsulta() {
         throw error
       }
 
-      // Disparar análisis en background (siempre, para consultas)
+      // Disparar análisis/transcripción en background (siempre, para consultas)
       if (data?.id) {
         void analyzeConsultaAdjuntoInBackground({
           supabase,
@@ -469,6 +475,7 @@ export function useUploadAdjuntoConsulta() {
           consultaId,
           file,
           isImage,
+          isAudio,
           queryClient,
         })
       }
