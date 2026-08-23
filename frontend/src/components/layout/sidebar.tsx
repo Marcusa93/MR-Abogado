@@ -31,6 +31,7 @@ import {
   Calculator,
   Scale,
   Search,
+  Briefcase,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
@@ -77,7 +78,8 @@ const navItems: readonly NavItem[] = [
   // OPERACIÓN — lo cotidiano
   { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
   { href: '/criterio', label: 'Mi tablero', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
+  { href: '/mi-trabajo', label: 'Mi trabajo', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
