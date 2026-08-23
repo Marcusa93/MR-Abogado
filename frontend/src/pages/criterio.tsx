@@ -12,6 +12,7 @@ import { Breadcrumb } from '@/components/shared/breadcrumb'
 import type { Consulta, ConsultaTipoAsunto } from '@/hooks/use-consultas'
 import { TIPO_ASUNTO_LABEL } from '@/hooks/use-consultas'
 import type { TareaWithRelations } from '@/hooks/use-tareas'
+import { useWorkloadMiembros } from '@/hooks/use-workload'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -151,6 +152,52 @@ function useMisConsultas(profileId: string | undefined) {
 }
 
 // ---------------------------------------------------------------------------
+// ExpedienteCard
+// ---------------------------------------------------------------------------
+
+function ExpedienteCard({ miembro }: { miembro: { id: string; rol: string; expediente: { id: string; numero: string | null; caratula: string | null; fuero: string | null; estado_interno: string | null } | null } }) {
+  const exp = miembro.expediente
+  if (!exp) return null
+  return (
+    <Link
+      to={`/expedientes/${exp.id}`}
+      className="flex items-start gap-3 rounded-lg border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3"
+    >
+      <FolderOpen className="h-4 w-4 shrink-0 text-amber-400/70 mt-0.5" />
+      <div className="min-w-0 flex-1 space-y-1">
+        {exp.numero && (
+          <p className="text-[10px] text-zinc-500">{exp.numero}</p>
+        )}
+        <p className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">
+          {exp.caratula ?? '—'}
+        </p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {exp.fuero && (
+            <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-400 capitalize">
+              {exp.fuero}
+            </span>
+          )}
+          {exp.estado_interno && (
+            <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-400 capitalize">
+              {exp.estado_interno.replace(/_/g, ' ').toLowerCase()}
+            </span>
+          )}
+          <span className={cn(
+            'rounded px-1.5 py-0.5 text-[10px] font-medium capitalize',
+            miembro.rol === 'abogado'
+              ? 'bg-indigo-500/15 text-indigo-300'
+              : 'bg-zinc-500/10 text-zinc-400'
+          )}>
+            {miembro.rol}
+          </span>
+        </div>
+      </div>
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-zinc-600 mt-0.5" />
+    </Link>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -166,6 +213,7 @@ export default function CriterioPage() {
   })
 
   const { data: consultas = [], isLoading: loadingConsultas } = useMisConsultas(profileId)
+  const { data: miembros = [], isLoading: loadingMiembros } = useWorkloadMiembros(profileId)
 
   const tareas = (tareasPaginadas?.data ?? []).filter(
     (t) => t.estado !== 'COMPLETADA' && t.estado !== 'CANCELADA',
@@ -203,7 +251,7 @@ export default function CriterioPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
           <p className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-medium">Tareas activas</p>
           <p className="mt-1 text-2xl sm:text-3xl font-bold text-zinc-100">{tareas.length}</p>
@@ -217,6 +265,10 @@ export default function CriterioPage() {
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-3 sm:p-4">
           <p className="text-[11px] sm:text-xs text-violet-400 uppercase tracking-wider font-medium">Consultas</p>
           <p className="mt-1 text-2xl sm:text-3xl font-bold text-violet-300">{consultas.length}</p>
+        </div>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 sm:p-4">
+          <p className="text-[11px] sm:text-xs text-amber-400 uppercase tracking-wider font-medium">Expedientes</p>
+          <p className="mt-1 text-2xl sm:text-3xl font-bold text-amber-300">{miembros.length}</p>
         </div>
       </div>
 
@@ -305,6 +357,30 @@ export default function CriterioPage() {
           )}
         </div>
       </div>
+
+      {/* Expedientes asignados como miembro */}
+      {(loadingMiembros || miembros.length > 0) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4 text-amber-400" />
+            <h2 className="text-sm font-semibold text-zinc-200">Expedientes asignados</h2>
+            {miembros.length > 0 && (
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                {miembros.length}
+              </span>
+            )}
+          </div>
+          {loadingMiembros ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-zinc-500" /></div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {miembros.map((m) => (
+                <ExpedienteCard key={m.id} miembro={m} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
