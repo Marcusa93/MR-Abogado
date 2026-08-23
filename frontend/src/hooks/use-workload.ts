@@ -40,6 +40,13 @@ export interface WorkloadMiembro {
   } | null
 }
 
+export interface MemberSummary {
+  tareas: number
+  tareasVencidas: number
+  consultas: number
+  miembros: number
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -109,9 +116,88 @@ export function useWorkloadMiembros(profileId: string | undefined) {
   })
 }
 
+export function useTeamWorkloadSummary(profileIds: string[]) {
+  const supabase = createClient()
+  const key = [...profileIds].sort().join(',')
+  return useQuery<Record<string, MemberSummary>>({
+    queryKey: ['team-workload-summary', key],
+    enabled: profileIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const init: MemberSummary = { tareas: 0, tareasVencidas: 0, consultas: 0, miembros: 0 }
+      const summary: Record<string, MemberSummary> = {}
+      profileIds.forEach(id => { summary[id] = { ...init } })
+
+      const results = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('tareas')
+          .select('asignado_a, fecha_vencimiento')
+          .in('asignado_a', profileIds)
+          .in('estado', ['PENDIENTE', 'EN_PROGRESO']),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('consultas')
+          .select('assigned_to')
+          .in('assigned_to', profileIds)
+          .not('estado', 'in', '("convertida","descartada")'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from('expediente_miembros')
+          .select('profile_id, expediente:expedientes(deleted_at)')
+          .in('profile_id', profileIds)
+          .eq('activo', true),
+      ])
+
+      const tareasData: { asignado_a: string; fecha_vencimiento: string | null }[] = results[0].data ?? []
+      const consultasData: { assigned_to: string | null }[] = results[1].data ?? []
+      const miembrosData: { profile_id: string; expediente: { deleted_at: string | null } | null }[] = results[2].data ?? []
+
+      const now = Date.now()
+      tareasData.forEach(t => {
+        if (!summary[t.asignado_a]) return
+        summary[t.asignado_a].tareas++
+        if (t.fecha_vencimiento && new Date(t.fecha_vencimiento).getTime() < now) {
+          summary[t.asignado_a].tareasVencidas++
+        }
+      })
+      consultasData.forEach(c => {
+        if (c.assigned_to && summary[c.assigned_to]) summary[c.assigned_to].consultas++
+      })
+      miembrosData.forEach(m => {
+        if (!m.expediente?.deleted_at && summary[m.profile_id]) summary[m.profile_id].miembros++
+      })
+
+      return summary
+    },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
+
+export function useActualizarEstadoTarea() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tareaId, estado }: { tareaId: string; estado: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('tareas')
+        .update({ estado, updated_at: new Date().toISOString() })
+        .eq('id', tareaId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workload-tareas'] })
+      qc.invalidateQueries({ queryKey: ['tareas'] })
+      qc.invalidateQueries({ queryKey: ['team-workload-summary'] })
+      toast.success('Estado actualizado')
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar'),
+  })
+}
 
 export function useReasignarTarea() {
   const supabase = createClient()
