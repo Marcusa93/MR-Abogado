@@ -96,6 +96,14 @@ del bot de Telegram en el VPS), tenés autonomía total: **nunca le pidas a Marc
 corra comandos en su terminal** — hacelo vos y terminá la tarea completa (código +
 deploy + verificación) antes de reportar.
 
+- **Frontend (Vercel)**: el webhook GitHub→Vercel falla intermitentemente. Siempre deployar
+  con CLI después de `git push`:
+  ```bash
+  vercel deploy --prod --token $VERCEL_TOKEN --yes
+  ```
+  `VERCEL_TOKEN` está en `.env` del bot. Proyecto: `mr-abogado-system` (org `marco-rossis-projects-15e01031`).
+  Dominio de producción: `https://app.marcorossi.com.ar`.
+
 - **Edge functions**: `supabase functions deploy <fn> --project-ref $SUPABASE_PROJECT_ID`
   (el CLI está instalado en el VPS; sin Docker bundlea vía API, funciona igual).
 - **SQL / migraciones en prod**: aplicá por Management API:
