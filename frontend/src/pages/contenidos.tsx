@@ -208,6 +208,7 @@ export default function ContenidosPage() {
   const [filterEstado, setFilterEstado] = useState<EstadoContenido | 'all'>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Contenido | null>(null)
+  const [initialPublicarEl, setInitialPublicarEl] = useState('')
   const [guionDialogOpen, setGuionDialogOpen] = useState(false)
   const [viewingGuion, setViewingGuion] = useState<Contenido | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -518,6 +519,11 @@ export default function ContenidosPage() {
         <ContenidoCalendar
           contenidos={contenidos}
           onEdit={abrirContenido}
+          onCreateForDate={(fecha) => {
+            setInitialPublicarEl(fecha)
+            setEditing(null)
+            setDialogOpen(true)
+          }}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -598,7 +604,7 @@ export default function ContenidosPage() {
         </div>
       )}
 
-      {dialogOpen && <ContenidoDialog editing={editing} onClose={() => { setDialogOpen(false); setEditing(null) }} />}
+      {dialogOpen && <ContenidoDialog editing={editing} defaultPublicarEl={initialPublicarEl} onClose={() => { setDialogOpen(false); setEditing(null); setInitialPublicarEl('') }} />}
       {guionDialogOpen && <GuionReelDialog onClose={() => setGuionDialogOpen(false)} />}
       {viewingGuion && <GuionReelViewer contenido={viewingGuion} onClose={() => setViewingGuion(null)} />}
       {calendarioOpen && (
@@ -791,9 +797,10 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-function ContenidoCalendar({ contenidos, onEdit }: {
+function ContenidoCalendar({ contenidos, onEdit, onCreateForDate }: {
   contenidos: Contenido[]
   onEdit: (c: Contenido) => void
+  onCreateForDate?: (fecha: string) => void
 }) {
   const hoy = new Date()
   const [cursor, setCursor] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() })
@@ -856,7 +863,12 @@ function ContenidoCalendar({ contenidos, onEdit }: {
           const items = d ? (byDate[dateStr(d)] ?? []) : []
           const esHoy = d != null && dateStr(d) === todayStr
           return (
-            <CalDia key={i} id={d ? dateStr(d) : null} vacio={!d}>
+            <CalDia
+              key={i}
+              id={d ? dateStr(d) : null}
+              vacio={!d}
+              onCreateClick={d && onCreateForDate ? () => onCreateForDate(dateStr(d)) : undefined}
+            >
               {d && (
                 <>
                   <div className={cn('mb-1 text-[11px]', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/30 font-semibold text-violet-200' : 'text-zinc-500')}>{d}</div>
@@ -893,12 +905,27 @@ function ContenidoCalendar({ contenidos, onEdit }: {
 }
 
 // Celda de día: zona donde se puede soltar una tarjeta para agendarla.
-function CalDia({ id, vacio, children }: { id: string | null; vacio: boolean; children: React.ReactNode }) {
+function CalDia({ id, vacio, children, onCreateClick }: {
+  id: string | null
+  vacio: boolean
+  children: React.ReactNode
+  onCreateClick?: () => void
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: id ?? `empty-${Math.random()}`, disabled: !id })
   return (
     <div ref={id ? setNodeRef : undefined}
-      className={cn('min-h-[92px] bg-zinc-950/40 p-1.5 transition-colors', vacio && 'opacity-40', isOver && 'bg-violet-500/15 ring-1 ring-inset ring-violet-400/50')}>
-      {children}
+      className={cn('group/day min-h-[92px] bg-zinc-950/40 p-1.5 transition-colors flex flex-col', vacio && 'opacity-40', isOver && 'bg-violet-500/15 ring-1 ring-inset ring-violet-400/50')}>
+      <div className="flex-1">{children}</div>
+      {id && onCreateClick && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCreateClick() }}
+          className="mt-0.5 flex w-full items-center justify-center rounded py-0.5 text-zinc-700 opacity-0 group-hover/day:opacity-100 hover:bg-white/5 hover:text-zinc-400 transition-all"
+          title="Agregar contenido en esta fecha"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
     </div>
   )
 }
@@ -1101,7 +1128,7 @@ function composerDestino(categoria: CategoriaContenido, texto: string): { url: s
   }
 }
 
-function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onClose: () => void }) {
+function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Contenido | null; defaultPublicarEl?: string; onClose: () => void }) {
   const { user } = useAuth()
   const createContenido = useCreateContenido()
   const updateContenido = useUpdateContenido()
@@ -1112,7 +1139,7 @@ function ContenidoDialog({ editing, onClose }: { editing: Contenido | null; onCl
   const [estado, setEstado] = useState<EstadoContenido>(editing?.estado ?? 'borrador')
   const [cuerpo, setCuerpo] = useState(editing?.cuerpo ?? '')
   const [hashtags, setHashtags] = useState(editing?.hashtags ?? '')
-  const [publicarEl, setPublicarEl] = useState(editing?.publicar_el ?? '')
+  const [publicarEl, setPublicarEl] = useState(editing?.publicar_el ?? defaultPublicarEl ?? '')
   const [imagenUrl, setImagenUrl] = useState<string | null>(editing?.imagen_url ?? null)
   const imagenRef = useRef<HTMLInputElement>(null)
 
