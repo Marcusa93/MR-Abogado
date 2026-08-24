@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useModalHistory } from '@/hooks/use-modal-history'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, useFetchBodies, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { ModalNuevaActuacion } from './modal-nueva-actuacion'
 import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -203,7 +203,10 @@ function ActuacionRow({
   const cuerpoLen = movement.cuerpo?.trim().length ?? 0
   const esLargo = cuerpoLen > 1200
   const attachments = extractAttachments(movement)
-  const canExpand = hasCuerpo || attachments.length > 0
+  // cuerpo === null (no undefined) significa que aún no fue descargado por sae-fetch-bodies
+  const cuerpoNoCargado = movement.cuerpo === null && movement.fuente !== 'manual'
+  const canExpand = hasCuerpo || attachments.length > 0 || cuerpoNoCargado
+  const fetchBodies = useFetchBodies()
 
   const aiSummary = movement.ai_summary?.trim() || null
   const aiExtracted = movement.ai_extracted ?? null
@@ -463,6 +466,26 @@ function ActuacionRow({
 
       {expanded && (
         <div className="border-t border-white/5 px-4 py-3 space-y-3">
+          {cuerpoNoCargado && !hasCuerpo && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-white/8 bg-white/[0.02] px-3 py-2.5">
+              <span className="text-xs text-zinc-500">Texto del decreto no descargado aún</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fetchBodies.mutate({ expedienteId: movement.expediente_id })
+                }}
+                disabled={fetchBodies.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/20 bg-sky-500/5 px-2.5 py-1 text-[11px] font-medium text-sky-300 hover:bg-sky-500/10 transition-colors disabled:opacity-50"
+              >
+                {fetchBodies.isPending
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : <Clock className="h-3 w-3" />
+                }
+                Cargar texto
+              </button>
+            </div>
+          )}
           {hasCuerpo && (
             <>
               <div className="flex items-center justify-between gap-2">

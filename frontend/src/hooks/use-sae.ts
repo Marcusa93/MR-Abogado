@@ -196,21 +196,38 @@ export function useTriggerSaeSync() {
       if (data?.error) throw new Error(data.error)
       const result = data as { success: boolean; log_id: string; nuevas?: number; message?: string }
 
-      // Los cuerpos se omiten en sae-sync para reducir el tiempo de respuesta.
-      // Los traemos en background con sae-fetch-bodies y al terminar refrescamos.
-      if ((result.nuevas ?? 0) > 0) {
-        supabase.functions.invoke('sae-fetch-bodies', {
-          body: { expediente_id: expedienteId },
-        }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
-        }).catch((err: unknown) => console.error('[sae-fetch-bodies bg]', err))
-      }
+      // Siempre llamamos sae-fetch-bodies: además de los movimientos nuevos,
+      // rellena cuerpos de syncs anteriores que pudieron haber fallado.
+      supabase.functions.invoke('sae-fetch-bodies', {
+        body: { expediente_id: expedienteId },
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
+      }).catch((err: unknown) => console.error('[sae-fetch-bodies bg]', err))
 
       return result
     },
     onSuccess: (_data, { expedienteId }) => {
       queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
       queryClient.invalidateQueries({ queryKey: ['expediente', expedienteId] })
+    },
+  })
+}
+
+// ─── Fetch bodies on-demand ──────────────────────────────────────────────────
+
+export function useFetchBodies() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ expedienteId }: { expedienteId: string }) => {
+      const { data, error } = await supabase.functions.invoke('sae-fetch-bodies', {
+        body: { expediente_id: expedienteId },
+      })
+      if (error) throw await extractFnError(error)
+      return data as { fetched: number; failed: number; skipped: number; total: number }
+    },
+    onSuccess: (_data, { expedienteId }) => {
+      queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
     },
   })
 }

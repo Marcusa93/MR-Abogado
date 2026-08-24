@@ -456,7 +456,7 @@ Deno.serve(async (req) => {
       // ── Push notification al owner cuando hay nuevas actuaciones ────────
       // Skip si era la primera sync (existingSet.size === 0) — sería ruido
       // post-import. Solo avisamos cuando ya había historial previo.
-      if (nuevas > 0 && existingSet.size > 0) {
+      if (nuevas > 0 && existingHistidSet.size > 0) {
         try {
           const importantTypes = new Set(['sentencia', 'audiencia', 'intimacion', 'embargo'])
           const importantNew = insertedRows.filter(r => importantTypes.has(r.movement.tipo_movimiento))
