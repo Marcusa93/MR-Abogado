@@ -178,6 +178,7 @@ function groupByDate(movements: SaeMovement[]): DateGroup[] {
 function ActuacionRow({
   movement,
   isNew,
+  isHighlighted,
   onOpenPdf,
   onCreateFromSuggestion,
   onAnalyze,
@@ -190,6 +191,7 @@ function ActuacionRow({
 }: {
   movement: SaeMovement
   isNew: boolean
+  isHighlighted?: boolean
   onOpenPdf: (atts: SaeAttachment[], startIndex: number, movement: SaeMovement) => void
   onCreateFromSuggestion: (action: AiSuggestedAction) => void
   onAnalyze: (movementId: string) => void
@@ -200,7 +202,7 @@ function ActuacionRow({
   onDelete: (movement: SaeMovement) => void
   onCreateTarea: (movement: SaeMovement) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(isHighlighted ?? false)
   const [reading, setReading] = useState(false)
   const hasCuerpo = !!movement.cuerpo?.trim()
   const cuerpoLen = movement.cuerpo?.trim().length ?? 0
@@ -222,14 +224,18 @@ function ActuacionRow({
   const hasActionableHighlight = Boolean(aiAction)
 
   return (
-    <div className={cn(
-      'rounded-lg border bg-white/[0.02] overflow-hidden transition-colors',
-      isNew
-        ? 'border-cyan-500/30 bg-cyan-500/[0.04]'
-        : hasActionableHighlight
-          ? 'border-white/10'
-          : 'border-white/5'
-    )}>
+    <div
+      data-movement-id={movement.id}
+      className={cn(
+        'rounded-lg border bg-white/[0.02] overflow-hidden transition-colors',
+        isNew
+          ? 'border-cyan-500/30 bg-cyan-500/[0.04]'
+          : hasActionableHighlight
+            ? 'border-white/10'
+            : 'border-white/5',
+        isHighlighted && 'ring-2 ring-amber-500/40 border-amber-500/30 bg-amber-500/[0.03]',
+      )}
+    >
       <button
         onClick={() => canExpand && setExpanded((v) => !v)}
         className={cn(
@@ -688,12 +694,13 @@ interface TabActuacionesProps {
   expedienteId: string
   numeroSae: string | null | undefined
   ultimaSincronizacion: string | null | undefined
+  highlightMovementId?: string
 }
 
-export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }: TabActuacionesProps) {
+export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId }: TabActuacionesProps) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
-  const document = useSaeDocument()
+  const saeDocument = useSaeDocument()
   const analyze = useAnalyzeMovements()
   const setMovementKey = useSetMovementKey()
   const setMovementAudiencia = useSetMovementAudiencia()
@@ -769,7 +776,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   const [tipoFilter, setTipoFilter] = useState<MovementType | 'all'>('all')
   const [fuenteFilter, setFuenteFilter] = useState<'all' | 'sae' | 'manual'>('all')
   const [modalNuevaOpen, setModalNuevaOpen] = useState(false)
-  const [tareaPrefill, setTareaPrefill] = useState<{ open: boolean; values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: AiSuggestedAction['prioridad'] } }>({ open: false })
+  const [tareaPrefill, setTareaPrefill] = useState<{ open: boolean; saeMovementId?: string; values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: AiSuggestedAction['prioridad'] } }>({ open: false })
   const [turnoPrefill, setTurnoPrefill] = useState<{ open: boolean; values?: { fecha: string; notas: string } }>({ open: false })
 
   // Capture lastViewedAt at first render (frozen reference) so the "new" highlight stays
@@ -792,6 +799,16 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       localStorage.setItem(storageKey, new Date().toISOString())
     }
   }, [isLoading, movements.length, storageKey])
+
+  // Scroll y highlight de actuación referenciada por URL (?mid=...)
+  useEffect(() => {
+    if (!highlightMovementId || movements.length === 0) return
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-movement-id="${highlightMovementId}"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [highlightMovementId, movements.length])
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
@@ -845,7 +862,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
       toast.error('Falta información de la actuación para descargar el archivo.')
       return
     }
-    document.mutate(
+    saeDocument.mutate(
       { movementId: m.id, procid, jurisdictionId, histid, fileName: att.fileName },
       {
         onSuccess: ({ objectUrl }) => setViewer((v) => ({ ...v, objectUrl, error: null })),
@@ -968,24 +985,32 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
   }
 
   const handleCreateTarea = (movement: SaeMovement) => {
-    if (movement.ai_suggested_action) {
-      handleCreateFromSuggestion(movement.ai_suggested_action)
-      return
-    }
     const tipo = movement.tipo_movimiento ?? 'otro'
     const prefix = TIPO_TAREA_PREFIX[tipo] ?? 'Gestionar actuación'
     const titulo = movement.titulo
       ? `${prefix}: ${movement.titulo.slice(0, 70)}`
       : prefix
-    setTareaPrefill({
-      open: true,
-      values: {
-        titulo,
-        descripcion: movement.ai_summary ?? '',
-        fechaVencimiento: '',
-        prioridad: TIPO_PRIORIDAD[tipo] ?? 'MEDIA',
-      },
-    })
+    const base = {
+      titulo,
+      descripcion: movement.ai_summary ?? '',
+      fechaVencimiento: '',
+      prioridad: TIPO_PRIORIDAD[tipo] ?? 'MEDIA',
+    }
+    // Si hay sugerencia IA, usa esos valores pero igual vincula la actuación
+    if (movement.ai_suggested_action) {
+      const action = movement.ai_suggested_action
+      if (action.tipo !== 'turno') {
+        setTareaPrefill({
+          open: true,
+          saeMovementId: movement.id,
+          values: { titulo: action.titulo, descripcion: action.descripcion, fechaVencimiento: action.fecha ?? '', prioridad: action.prioridad },
+        })
+        return
+      }
+      handleCreateFromSuggestion(action)
+      return
+    }
+    setTareaPrefill({ open: true, saeMovementId: movement.id, values: base })
   }
 
   const handleCreateFromSuggestion = (action: AiSuggestedAction) => {
@@ -1260,6 +1285,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       key={m.id}
                       movement={m}
                       isNew={isMovementNew(m)}
+                      isHighlighted={!!highlightMovementId && m.id === highlightMovementId}
                       onOpenPdf={handleOpenPdf}
                       onCreateFromSuggestion={handleCreateFromSuggestion}
                       onAnalyze={(id) => handleAnalyzeIds([id], false)}
@@ -1282,7 +1308,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         open={viewer.open}
         onClose={handleCloseViewer}
         fileName={viewer.attachments[viewer.index]?.fileName ?? ''}
-        isLoading={document.isPending}
+        isLoading={saeDocument.isPending}
         objectUrl={viewer.objectUrl}
         error={viewer.error}
         totalFiles={viewer.attachments.length}
@@ -1297,6 +1323,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
         open={tareaPrefill.open}
         onClose={() => setTareaPrefill({ open: false })}
         expedienteId={expedienteId}
+        saeMovementId={tareaPrefill.saeMovementId}
         initialValues={tareaPrefill.values}
       />
 

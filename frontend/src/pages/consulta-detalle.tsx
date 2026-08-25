@@ -31,7 +31,7 @@ import {
   Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, Save,
   Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
-  Pencil, Trash2, Plus, X, ListTodo, Check,
+  Pencil, Trash2, Plus, X, ListTodo, Check, ExternalLink,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -1113,6 +1113,16 @@ function TareaConsultaItem({ tarea, onCompleted }: { tarea: TareaConsultaRow; on
             )}>
               {new Date(tarea.fecha_vencimiento + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
             </span>
+          )}
+          {tarea.sae_movement_id && tarea.expediente_id && (
+            <Link
+              to={`/expedientes/${tarea.expediente_id}?tab=actuaciones&mid=${tarea.sae_movement_id}`}
+              className="inline-flex items-center gap-0.5 text-amber-500/70 hover:text-amber-400 transition-colors"
+              title="Ver actuación vinculada"
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span>Ver actuación</span>
+            </Link>
           )}
         </div>
       </div>

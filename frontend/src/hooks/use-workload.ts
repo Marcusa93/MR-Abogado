@@ -15,6 +15,7 @@ export interface WorkloadTarea {
   estado: string
   fecha_vencimiento: string | null
   asignado_a: string
+  sae_movement_id: string | null
   expediente: { id: string; numero: string | null; caratula: string | null } | null
   consulta: { id: string; nombre: string; apellido: string | null } | null
 }
@@ -63,7 +64,7 @@ export function useWorkloadTareas(profileId: string | undefined) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('tareas')
-        .select('id, titulo, descripcion, prioridad, estado, fecha_vencimiento, asignado_a, expediente:expedientes(id, numero, caratula), consulta:consultas(id, nombre, apellido)')
+        .select('id, titulo, descripcion, prioridad, estado, fecha_vencimiento, asignado_a, sae_movement_id, expediente:expedientes(id, numero, caratula), consulta:consultas(id, nombre, apellido)')
         .eq('asignado_a', profileId)
         .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
         .order('fecha_vencimiento', { ascending: true, nullsLast: true })

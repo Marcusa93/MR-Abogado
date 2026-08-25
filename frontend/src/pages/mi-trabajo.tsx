@@ -490,13 +490,26 @@ export default function MiTrabajoPage() {
                           </td>
                         )}
                         <td className="px-3 py-3">
-                          <Link
-                            to={t.expediente ? `/expedientes/${t.expediente.id}` : t.consulta ? `/consultas/${t.consulta.id}` : '/tareas'}
-                            title="Abrir"
-                            className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors inline-flex"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
+                          <div className="flex items-center gap-1">
+                            {t.sae_movement_id && t.expediente?.id && (
+                              <Link
+                                to={`/expedientes/${t.expediente.id}?tab=actuaciones&mid=${t.sae_movement_id}`}
+                                title="Ver actuación vinculada"
+                                className="p-1 rounded text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors inline-flex"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Link>
+                            )}
+                            {!t.sae_movement_id && (
+                              <Link
+                                to={t.expediente ? `/expedientes/${t.expediente.id}` : t.consulta ? `/consultas/${t.consulta.id}` : '/tareas'}
+                                title="Abrir"
+                                className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors inline-flex"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Link>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )

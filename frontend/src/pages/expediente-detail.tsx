@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { PrioridadBadge } from '@/components/shared/prioridad-badge'
@@ -102,6 +102,7 @@ type TabId = (typeof TABS)[number]['id']
 export default function ExpedienteDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
@@ -116,7 +117,15 @@ export default function ExpedienteDetailPage() {
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
 
-  const [activeTab, setActiveTab] = useState<TabId>('datos')
+  // Leer tab y movement highlight desde URL (?tab=actuaciones&mid=uuid)
+  const searchParams = new URLSearchParams(location.search)
+  const urlTab = searchParams.get('tab')
+  const highlightMovementId = searchParams.get('mid') ?? undefined
+
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (urlTab && TABS.some(t => t.id === urlTab)) return urlTab as TabId
+    return 'datos'
+  })
   const activeTabRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
@@ -510,6 +519,7 @@ export default function ExpedienteDetailPage() {
             expedienteId={id!}
             numeroSae={(expediente as any).numero_sae ?? null}
             ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
+            highlightMovementId={highlightMovementId}
           />
         )}
         {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}

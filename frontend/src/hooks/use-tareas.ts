@@ -682,6 +682,8 @@ export interface TareaConsultaRow {
   fecha_vencimiento: string | null
   asignado_a: string | null
   completada_at: string | null
+  sae_movement_id: string | null
+  expediente_id: string | null
   asignado: { nombre: string | null; apellido: string | null } | null
 }
 
@@ -695,7 +697,7 @@ export function useTareasConsulta(consultaId: string | undefined) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('tareas')
-        .select('id, titulo, estado, prioridad, fecha_vencimiento, asignado_a, completada_at, asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
+        .select('id, titulo, estado, prioridad, fecha_vencimiento, asignado_a, completada_at, sae_movement_id, expediente_id, asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
         .eq('consulta_id', consultaId)
         .order('created_at', { ascending: false })
       if (error) throw error

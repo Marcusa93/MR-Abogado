@@ -15,6 +15,7 @@ interface CrearTareaDialogProps {
   onClose: () => void
   expedienteId?: string
   consultaId?: string
+  saeMovementId?: string
   initialValues?: {
     titulo?: string
     descripcion?: string
@@ -28,6 +29,7 @@ export function CrearTareaDialog({
   onClose,
   expedienteId,
   consultaId,
+  saeMovementId,
   initialValues,
 }: CrearTareaDialogProps) {
   const createTarea = useCreateTarea()
@@ -70,7 +72,7 @@ export function CrearTareaDialog({
         fecha_vencimiento: fechaVencimiento || null,
         asignado_a: asignados[0] ?? '',
         created_by: profile?.id ?? '',
-        ...({ etiquetas, asignados, ...(consultaId ? { consulta_id: consultaId } : {}) } as any),
+        ...({ etiquetas, asignados, ...(consultaId ? { consulta_id: consultaId } : {}), ...(saeMovementId ? { sae_movement_id: saeMovementId } : {}) } as any),
       })
       toast.success('Tarea creada')
       resetAndClose()
