@@ -36,6 +36,7 @@ import {
   Star,
   Video,
   Trash2,
+  ListTodo,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
@@ -185,6 +186,7 @@ function ActuacionRow({
   onToggleAudiencia,
   onToggleOle,
   onDelete,
+  onCreateTarea,
 }: {
   movement: SaeMovement
   isNew: boolean
@@ -196,6 +198,7 @@ function ActuacionRow({
   onToggleAudiencia: (movement: SaeMovement) => void
   onToggleOle: (movement: SaeMovement) => void
   onDelete: (movement: SaeMovement) => void
+  onCreateTarea: (movement: SaeMovement) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [reading, setReading] = useState(false)
@@ -446,6 +449,14 @@ function ActuacionRow({
         </div>
 
         <div className="shrink-0 flex items-center gap-0.5 mt-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onCreateTarea(movement) }}
+            className="p-1 rounded text-zinc-600 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+            title="Crear tarea vinculada a esta actuación"
+          >
+            <ListTodo className="h-3.5 w-3.5" />
+          </button>
           {movement.fuente === 'manual' && (
             <button
               type="button"
@@ -940,6 +951,43 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
     [movements],
   )
 
+  const TIPO_TAREA_PREFIX: Partial<Record<string, string>> = {
+    decreto: 'Cumplir decreto',
+    traslado: 'Contestar traslado',
+    intimacion: 'Cumplir intimación',
+    cedula: 'Contestar cédula',
+    sentencia: 'Notificar sentencia al cliente',
+    audiencia: 'Preparar audiencia',
+    embargo: 'Gestionar embargo',
+    oficio: 'Diligenciar oficio',
+    prueba: 'Producir prueba',
+  }
+  const TIPO_PRIORIDAD: Partial<Record<string, 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE'>> = {
+    intimacion: 'ALTA', embargo: 'ALTA', sentencia: 'ALTA',
+    traslado: 'ALTA', cedula: 'ALTA', audiencia: 'ALTA',
+  }
+
+  const handleCreateTarea = (movement: SaeMovement) => {
+    if (movement.ai_suggested_action) {
+      handleCreateFromSuggestion(movement.ai_suggested_action)
+      return
+    }
+    const tipo = movement.tipo_movimiento ?? 'otro'
+    const prefix = TIPO_TAREA_PREFIX[tipo] ?? 'Gestionar actuación'
+    const titulo = movement.titulo
+      ? `${prefix}: ${movement.titulo.slice(0, 70)}`
+      : prefix
+    setTareaPrefill({
+      open: true,
+      values: {
+        titulo,
+        descripcion: movement.ai_summary ?? '',
+        fechaVencimiento: '',
+        prioridad: TIPO_PRIORIDAD[tipo] ?? 'MEDIA',
+      },
+    })
+  }
+
   const handleCreateFromSuggestion = (action: AiSuggestedAction) => {
     if (action.tipo === 'turno') {
       setTurnoPrefill({
@@ -1220,6 +1268,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion }
                       onToggleAudiencia={handleToggleAudiencia}
                       onToggleOle={handleToggleOle}
                       onDelete={handleDeleteManual}
+                      onCreateTarea={handleCreateTarea}
                     />
                   ))}
                 </div>
