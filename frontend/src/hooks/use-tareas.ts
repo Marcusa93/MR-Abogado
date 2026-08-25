@@ -671,6 +671,40 @@ export function useReopenTarea() {
 }
 
 // ---------------------------------------------------------------------------
+// useTareasConsulta - Tasks linked to a specific consulta
+// ---------------------------------------------------------------------------
+
+export interface TareaConsultaRow {
+  id: string
+  titulo: string
+  estado: string
+  prioridad: string
+  fecha_vencimiento: string | null
+  asignado_a: string | null
+  completada_at: string | null
+  asignado: { nombre: string | null; apellido: string | null } | null
+}
+
+export function useTareasConsulta(consultaId: string | undefined) {
+  const supabase = createClient()
+  return useQuery<TareaConsultaRow[]>({
+    queryKey: ['tareas-consulta', consultaId],
+    enabled: !!consultaId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('tareas')
+        .select('id, titulo, estado, prioridad, fecha_vencimiento, asignado_a, completada_at, asignado:profiles!tareas_asignado_a_fkey(nombre, apellido)')
+        .eq('consulta_id', consultaId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as TareaConsultaRow[]
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Comentarios de tarea
 // ---------------------------------------------------------------------------
 

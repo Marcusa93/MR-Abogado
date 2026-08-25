@@ -11,6 +11,8 @@ import {
   type ConsultaEstado, type ConsultaTipoAsunto, type ConsultaCanal, type TipoHonorario,
   type Presupuesto, type DiagnosticoIA, type DiagnosticoModulo, type IntimacionDoc,
 } from '@/hooks/use-consultas'
+import { useTareasConsulta, useCompletarTarea, type TareaConsultaRow } from '@/hooks/use-tareas'
+import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { useAuthStore } from '@/stores/auth-store'
 import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
 import { IntimacionPdfPreview } from '@/components/consultas/intimacion-pdf-preview'
@@ -29,7 +31,7 @@ import {
   Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, Save,
   Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
-  Pencil, Trash2, Plus, X,
+  Pencil, Trash2, Plus, X, ListTodo, Check,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -1044,6 +1046,129 @@ function ModuloDiagnostico({
   )
 }
 
+// ── Tareas vinculadas a la consulta ────────────────────────────────────────
+
+const ESTADO_TAREA_LABEL: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  EN_PROGRESO: 'En progreso',
+  COMPLETADA: 'Completada',
+  CANCELADA: 'Cancelada',
+}
+const ESTADO_TAREA_STYLE: Record<string, string> = {
+  PENDIENTE: 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
+  EN_PROGRESO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
+  COMPLETADA: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+  CANCELADA: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+}
+const PRIORIDAD_DOT: Record<string, string> = {
+  URGENTE: 'bg-red-500',
+  ALTA: 'bg-orange-500',
+  MEDIA: 'bg-amber-500',
+  BAJA: 'bg-zinc-400',
+}
+
+function TareaConsultaItem({ tarea, onCompleted }: { tarea: TareaConsultaRow; onCompleted: () => void }) {
+  const completar = useCompletarTarea()
+  const completada = tarea.estado === 'COMPLETADA'
+  const asignadoNombre = tarea.asignado
+    ? [tarea.asignado.nombre, tarea.asignado.apellido].filter(Boolean).join(' ')
+    : '—'
+
+  return (
+    <div className={cn(
+      'flex items-start gap-3 py-2.5 border-b border-zinc-100 dark:border-white/5 last:border-0',
+      completada && 'opacity-60',
+    )}>
+      <button
+        type="button"
+        onClick={() => { if (!completada) completar.mutate(tarea.id, { onSuccess: onCompleted }) }}
+        disabled={completada || completar.isPending}
+        className={cn(
+          'mt-0.5 shrink-0 h-4 w-4 rounded border transition-colors',
+          completada
+            ? 'border-green-500 bg-green-500 flex items-center justify-center'
+            : 'border-zinc-300 dark:border-zinc-600 hover:border-green-500',
+        )}
+        title={completada ? 'Completada' : 'Marcar como completada'}
+      >
+        {completada && <Check className="h-2.5 w-2.5 text-white" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={cn('text-sm text-zinc-800 dark:text-zinc-200', completada && 'line-through')}>
+            {tarea.titulo}
+          </span>
+          <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', ESTADO_TAREA_STYLE[tarea.estado] ?? ESTADO_TAREA_STYLE.PENDIENTE)}>
+            {ESTADO_TAREA_LABEL[tarea.estado] ?? tarea.estado}
+          </span>
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', PRIORIDAD_DOT[tarea.prioridad] ?? PRIORIDAD_DOT.MEDIA)} title={tarea.prioridad} />
+        </div>
+        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-zinc-400">
+          <span>{asignadoNombre}</span>
+          {tarea.fecha_vencimiento && (
+            <span className={cn(
+              tarea.fecha_vencimiento < new Date().toISOString().split('T')[0] && !completada
+                ? 'text-red-500'
+                : '',
+            )}>
+              {new Date(tarea.fecha_vencimiento + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TareasConsultaSection({ consultaId }: { consultaId: string }) {
+  const { data: tareas = [], isLoading, refetch } = useTareasConsulta(consultaId)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  return (
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ListTodo className="h-4 w-4 text-amber-500" />
+          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Tareas</h2>
+          {tareas.length > 0 && (
+            <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              {tareas.filter(t => t.estado !== 'COMPLETADA').length} pendientes
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-500 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nueva tarea
+        </button>
+      </div>
+
+      {isLoading && <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />}
+
+      {!isLoading && tareas.length === 0 && (
+        <p className="text-xs text-zinc-400 italic">Sin tareas vinculadas a esta consulta.</p>
+      )}
+
+      {tareas.length > 0 && (
+        <div>
+          {tareas.map(t => (
+            <TareaConsultaItem key={t.id} tarea={t} onCompleted={() => refetch()} />
+          ))}
+        </div>
+      )}
+
+      <CrearTareaDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        consultaId={consultaId}
+      />
+    </div>
+  )
+}
+
 // ── Página principal ────────────────────────────────────────────────────────
 
 export default function ConsultaDetallePage() {
@@ -1995,6 +2120,9 @@ export default function ConsultaDetallePage() {
           )}
         </div>
       )}
+
+      {/* Tareas vinculadas */}
+      <TareasConsultaSection consultaId={consulta.id} />
 
       {/* Actividad / Seguimiento */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">

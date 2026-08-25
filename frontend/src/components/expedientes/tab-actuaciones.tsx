@@ -452,7 +452,7 @@ function ActuacionRow({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onCreateTarea(movement) }}
-            className="p-1 rounded text-zinc-600 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+            className="p-1 rounded text-amber-500/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
             title="Crear tarea vinculada a esta actuación"
           >
             <ListTodo className="h-3.5 w-3.5" />
