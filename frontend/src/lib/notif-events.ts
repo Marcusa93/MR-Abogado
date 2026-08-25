@@ -72,6 +72,20 @@ export const NOTIF_EVENTS: NotifEvent[] = [
     pushDefault: true,
     emailDefault: false,
   },
+  {
+    key: 'TAREA_COMPLETADA',
+    label: 'Tarea completada',
+    desc: 'Cuando una tarea en la que participás se marca como completada.',
+    pushDefault: true,
+    emailDefault: false,
+  },
+  {
+    key: 'TAREA_ELIMINADA',
+    label: 'Tarea eliminada',
+    desc: 'Cuando una tarea es eliminada del sistema.',
+    pushDefault: true,
+    emailDefault: false,
+  },
 ]
 
 export type NotifPrefs = Record<string, { push: boolean; email: boolean }>

@@ -5,12 +5,25 @@ import {
   keepPreviousData,
 } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Tables, TablesInsert } from '@/types/database.types'
 import type { EstadoTarea, Prioridad } from '@/types/enums'
 import { parseMentions } from '@/lib/utils/mentions'
 import { useAuthStore } from '@/stores/auth-store'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { toast } from '@/stores/toast-store'
+
+// Devuelve IDs de socios (DIRECTOR/SOCIO/ADMIN) excluyendo los IDs dados.
+// Se usa para notificar a la dirección del estudio en eventos de tareas.
+async function fetchSociosIds(supabase: SupabaseClient, excludeIds: string[]): Promise<string[]> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .in('rol', ['DIRECTOR', 'SOCIO', 'ADMIN'])
+    .eq('activo', true)
+  if (!data) return []
+  return (data as { id: string }[]).map(p => p.id).filter(id => !excludeIds.includes(id))
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -230,7 +243,8 @@ export function useCompletarTarea() {
 
   return useMutation({
     mutationFn: async (tareaId: string) => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('tareas')
         .update({
           estado: 'COMPLETADA',
@@ -238,35 +252,50 @@ export function useCompletarTarea() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', tareaId)
-        .select()
+        .select('id, titulo, expediente_id, asignados, asignado_a, created_by')
         .single()
 
       if (error) throw error
-      return data
+      return data as { id: string; titulo: string; expediente_id: string | null; asignados: string[] | null; asignado_a: string | null; created_by: string | null }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: tareasKeys.all })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
-      // Notificar al creador si es distinto de quien completó
-      if (data.created_by && data.created_by !== profile?.id) {
-        supabase.from('alertas').insert({
-          tipo: 'ESTADO_CAMBIO',
-          titulo: `Tarea completada: ${data.titulo}`,
-          mensaje: `${profile?.nombre ?? 'Alguien'} marcó como completada: "${data.titulo}".`,
-          expediente_id: data.expediente_id ?? null,
-          destinatario_id: data.created_by,
-          payload: {
-            tarea_id: data.id,
-            link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas',
-          },
-        } as never).then(() => {}, () => {})
-      }
-      // Also invalidate the parent expediente detail
       if (data.expediente_id) {
-        queryClient.invalidateQueries({
-          queryKey: ['expedientes', 'detail', data.expediente_id],
-        })
+        queryClient.invalidateQueries({ queryKey: ['expedientes', 'detail', data.expediente_id] })
       }
+
+      const completadorId = profile?.id ?? ''
+      const completadorNombre = profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Alguien'
+      const link = data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas'
+      const asignadosIds: string[] = ((data as any).asignados as string[] | undefined) ?? (data.asignado_a ? [data.asignado_a] : [])
+
+      // IDs que ya reciben notificación directa (asignados + completador)
+      const yaNotificados = new Set([completadorId, ...asignadosIds])
+
+      // Notificar al creador si no es el completador ni asignado
+      const toNotify: string[] = []
+      if (data.created_by && !yaNotificados.has(data.created_by)) {
+        toNotify.push(data.created_by)
+      }
+
+      // Notificar socios/directores que no estén ya cubiertos
+      const sociosIds = await fetchSociosIds(supabase, [...yaNotificados])
+      sociosIds.forEach(id => { if (!toNotify.includes(id)) toNotify.push(id) })
+
+      if (toNotify.length > 0) {
+        supabase.from('alertas').insert(
+          toNotify.map(userId => ({
+            tipo: 'TAREA_COMPLETADA',
+            titulo: `Tarea completada: ${data.titulo}`,
+            mensaje: `${completadorNombre} marcó como completada: "${data.titulo}".`,
+            expediente_id: data.expediente_id ?? null,
+            destinatario_id: userId,
+            payload: { tarea_id: data.id, link },
+          })) as never
+        ).then(() => {}, () => {})
+      }
+
       toast.success('Tarea completada')
     },
   })
@@ -279,25 +308,63 @@ export function useCompletarTarea() {
 export function useDeleteTarea() {
   const supabase = createClient()
   const queryClient = useQueryClient()
+  const profile = useAuthStore(s => s.profile)
 
   return useMutation({
     mutationFn: async ({ tareaId, expedienteId }: { tareaId: string; expedienteId?: string }) => {
+      // Fetch antes de borrar para tener datos para notificaciones
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tarea } = await (supabase as any)
+        .from('tareas')
+        .select('id, titulo, expediente_id, asignados, asignado_a, created_by')
+        .eq('id', tareaId)
+        .single() as { data: { id: string; titulo: string; expediente_id: string | null; asignados: string[] | null; asignado_a: string | null; created_by: string | null } | null }
+
       const { error } = await supabase
         .from('tareas')
         .delete()
         .eq('id', tareaId)
 
       if (error) throw error
-      return { expedienteId }
+      return { expedienteId, tarea }
     },
-    onSuccess: ({ expedienteId }) => {
+    onSuccess: async ({ expedienteId, tarea }) => {
       queryClient.invalidateQueries({ queryKey: tareasKeys.all })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       if (expedienteId) {
-        queryClient.invalidateQueries({
-          queryKey: ['expedientes', 'detail', expedienteId],
-        })
+        queryClient.invalidateQueries({ queryKey: ['expedientes', 'detail', expedienteId] })
       }
+
+      if (tarea) {
+        const eliminadorId = profile?.id ?? ''
+        const eliminadorNombre = profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Alguien'
+        const link = tarea.expediente_id ? `/expedientes/${tarea.expediente_id}` : '/tareas'
+        const asignadosIds: string[] = ((tarea as any).asignados as string[] | undefined) ?? (tarea.asignado_a ? [tarea.asignado_a] : [])
+
+        // Notificar: asignados + creador + socios, excepto quien elimina
+        const yaNotificados = new Set([eliminadorId])
+        const toNotify: string[] = []
+        asignadosIds.forEach(id => { if (id && !yaNotificados.has(id)) { toNotify.push(id); yaNotificados.add(id) } })
+        if (tarea.created_by && !yaNotificados.has(tarea.created_by)) {
+          toNotify.push(tarea.created_by); yaNotificados.add(tarea.created_by)
+        }
+        const sociosIds = await fetchSociosIds(supabase, [...yaNotificados])
+        sociosIds.forEach(id => { if (!toNotify.includes(id)) toNotify.push(id) })
+
+        if (toNotify.length > 0) {
+          supabase.from('alertas').insert(
+            toNotify.map(userId => ({
+              tipo: 'TAREA_ELIMINADA',
+              titulo: `Tarea eliminada: ${tarea.titulo}`,
+              mensaje: `${eliminadorNombre} eliminó la tarea "${tarea.titulo}".`,
+              expediente_id: tarea.expediente_id ?? null,
+              destinatario_id: userId,
+              payload: { link },
+            })) as never
+          ).then(() => {}, () => {})
+        }
+      }
+
       toast.success('Tarea eliminada')
     },
   })
@@ -537,6 +604,31 @@ export function useCreateTarea() {
             console.error('[useCreateTarea] insert alertas MENCION falló', e)
           }
         }
+      }
+
+      // Notificar socios/directores que no estén entre los asignados
+      try {
+        const exp = (data as any).expediente as { numero?: string | null; caratula?: string | null } | null
+        const expLabel = exp?.caratula || exp?.numero || null
+        const sociosIds = await fetchSociosIds(supabase, [currentUserId ?? '', ...asignadosIds].filter(Boolean))
+        if (sociosIds.length > 0) {
+          await supabase.from('alertas').insert(
+            sociosIds.map(userId => ({
+              tipo: 'TAREA_ASIGNADA',
+              titulo: expLabel
+                ? `Nueva tarea en ${expLabel}: ${data.titulo}`
+                : `Nueva tarea creada: ${data.titulo}`,
+              mensaje: expLabel
+                ? `Se creó una tarea en el expediente ${expLabel}.`
+                : 'Se creó una nueva tarea.',
+              expediente_id: data.expediente_id ?? null,
+              destinatario_id: userId,
+              payload: { tarea_id: data.id, link: data.expediente_id ? `/expedientes/${data.expediente_id}` : '/tareas' },
+            })) as never
+          )
+        }
+      } catch (e) {
+        console.error('[useCreateTarea] insert alertas socios falló', e)
       }
 
       queryClient.invalidateQueries({ queryKey: ['alertas'] })

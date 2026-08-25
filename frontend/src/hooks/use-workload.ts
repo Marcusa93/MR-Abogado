@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useAuthStore } from '@/stores/auth-store'
 import { toast } from '@/stores/toast-store'
 
 // ---------------------------------------------------------------------------
@@ -180,20 +181,62 @@ export function useTeamWorkloadSummary(profileIds: string[]) {
 export function useActualizarEstadoTarea() {
   const supabase = createClient()
   const qc = useQueryClient()
+  const profile = useAuthStore(s => s.profile)
   return useMutation({
     mutationFn: async ({ tareaId, estado }: { tareaId: string; estado: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from('tareas')
         .update({ estado, updated_at: new Date().toISOString() })
         .eq('id', tareaId)
+        .select('id, titulo, expediente_id, asignados, asignado_a, created_by')
+        .single()
       if (error) throw error
+      return { tarea: data, estado }
     },
-    onSuccess: () => {
+    onSuccess: async ({ tarea, estado }) => {
       qc.invalidateQueries({ queryKey: ['workload-tareas'] })
       qc.invalidateQueries({ queryKey: ['tareas'] })
       qc.invalidateQueries({ queryKey: ['team-workload-summary'] })
       toast.success('Estado actualizado')
+
+      if (estado === 'COMPLETADA' && tarea) {
+        const completadorId = profile?.id ?? ''
+        const completadorNombre = profile ? `${profile.nombre} ${profile.apellido ?? ''}`.trim() : 'Alguien'
+        const asignadosIds: string[] = (tarea.asignados as string[] | undefined) ?? (tarea.asignado_a ? [tarea.asignado_a] : [])
+        const link = tarea.expediente_id ? `/expedientes/${tarea.expediente_id}` : '/tareas'
+
+        const yaNotificados = new Set([completadorId, ...asignadosIds])
+        const toNotify: string[] = []
+        if (tarea.created_by && !yaNotificados.has(tarea.created_by)) {
+          toNotify.push(tarea.created_by); yaNotificados.add(tarea.created_by)
+        }
+
+        // Socios
+        const { data: sociosData } = await (supabase as any)
+          .from('profiles')
+          .select('id')
+          .in('rol', ['DIRECTOR', 'SOCIO', 'ADMIN'])
+          .eq('activo', true)
+        if (sociosData) {
+          (sociosData as { id: string }[]).forEach(p => {
+            if (!yaNotificados.has(p.id) && !toNotify.includes(p.id)) toNotify.push(p.id)
+          })
+        }
+
+        if (toNotify.length > 0) {
+          ;(supabase as any).from('alertas').insert(
+            toNotify.map((userId: string) => ({
+              tipo: 'TAREA_COMPLETADA',
+              titulo: `Tarea completada: ${tarea.titulo}`,
+              mensaje: `${completadorNombre} marcó como completada: "${tarea.titulo}".`,
+              expediente_id: tarea.expediente_id ?? null,
+              destinatario_id: userId,
+              payload: { tarea_id: tarea.id, link },
+            }))
+          ).then(() => {}, () => {})
+        }
+      }
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Error al actualizar'),
   })
