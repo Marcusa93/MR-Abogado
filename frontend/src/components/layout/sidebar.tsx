@@ -252,7 +252,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       key={item.href}
                       to={item.href}
                       title={isCollapsed ? item.label : undefined}
-                      data-tour={`nav-${item.href.replace(/^\//, '').split('-')[0]}`}
+                      data-tour={`nav-${item.href.replace(/^\//, '')}`}
                       className={cn(
                         'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                         isCollapsed && 'justify-center px-2',

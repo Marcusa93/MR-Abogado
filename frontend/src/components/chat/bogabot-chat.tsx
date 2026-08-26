@@ -656,6 +656,7 @@ export function BogaBotChat() {
     <>
       {/* Floating button — pill with brain icon + label */}
       <button
+        data-tour="bogabot-trigger"
         {...dragHandlers}
         onClick={() => { if (wasDrag()) return; toggle() }}
         style={{

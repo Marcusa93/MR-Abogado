@@ -65,9 +65,9 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         <div className="flex items-center gap-0.5 sm:gap-1.5">
           <div className="hidden sm:flex items-center gap-1.5">
             <SaeHealthBadge />
-            <HelpButton />
             <PushToggle />
           </div>
+          <HelpButton />
           <NotificationDropdown />
           <UserMenu />
         </div>
