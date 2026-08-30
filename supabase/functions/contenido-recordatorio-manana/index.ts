@@ -1,10 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Edge function: contenido-recordatorio
+// Edge function: contenido-recordatorio-manana
 //
 // Invocada por pg_cron todos los días a las 12:00 UTC (9:00 Argentina).
-// Busca contenidos con publicar_el = hoy y estado = 'aprobado'.
-// → Notificación push/email interna a creador y asignado.
-// → Mensaje de Telegram a Marco con la lista de lo que hay que publicar hoy.
+// Busca contenidos con publicar_el = mañana, cualquier estado activo,
+// y envía un mensaje de Telegram a Marco para que revise lo que viene.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -43,12 +42,18 @@ const CATEGORIA_EMOJI: Record<string, string> = {
   otro: '📌',
 }
 
+const ESTADO_LABEL: Record<string, string> = {
+  borrador: 'borrador',
+  en_revision: 'en revisión',
+  aprobado: 'aprobado ✅',
+  publicado: 'publicado',
+}
+
 interface ContenidoRow {
   id: string
   titulo: string
   categoria: string
-  created_by: string
-  asignado_a: string | null
+  estado: string
 }
 
 async function sendTelegram(botToken: string, chatId: string, text: string): Promise<void> {
@@ -73,65 +78,48 @@ Deno.serve(async (req) => {
   const marcoChatId = Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? ''
   const admin = createClient(supabaseUrl, serviceKey)
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Calcular fecha de mañana en zona Argentina (UTC-3)
+  const nowUTC = new Date()
+  const mananaArg = new Date(nowUTC.getTime() + (-3) * 60 * 60 * 1000)
+  mananaArg.setUTCDate(mananaArg.getUTCDate() + 1)
+  const manana = mananaArg.toISOString().slice(0, 10)
 
   const { data: contenidos, error } = await admin
     .from('contenidos')
-    .select('id, titulo, categoria, created_by, asignado_a')
-    .eq('publicar_el', today)
-    .eq('estado', 'aprobado')
+    .select('id, titulo, categoria, estado')
+    .eq('publicar_el', manana)
+    .not('estado', 'in', '("publicado","archivado")')
     .is('deleted_at', null)
+    .order('categoria')
 
   if (error) return json({ error: error.message }, 500)
-  if (!contenidos?.length) return json({ sent: 0, skipped: 'sin_contenidos_hoy' })
+  if (!contenidos?.length) return json({ sent: 0, skipped: 'sin_contenidos_manana' })
 
-  // Push interno a creador y asignado
-  let sent = 0
-  for (const c of contenidos as ContenidoRow[]) {
+  if (!botToken || !marcoChatId) {
+    return json({ skipped: 'sin_telegram_config', contenidos: contenidos.length })
+  }
+
+  const lineas = (contenidos as ContenidoRow[]).map((c) => {
+    const emoji = CATEGORIA_EMOJI[c.categoria] ?? '📌'
     const label = CATEGORIA_LABEL[c.categoria] ?? c.categoria
-    const userIds = [...new Set([c.created_by, c.asignado_a].filter((id): id is string => !!id))]
-    for (const userId of userIds) {
-      try {
-        const res = await fetch(`${supabaseUrl}/functions/v1/dispatch-alert-notification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
-          body: JSON.stringify({
-            tipo: 'CONTENIDO_PROGRAMADO',
-            usuario_id: userId,
-            titulo: `Publicar hoy: ${c.titulo}`,
-            mensaje: `Tenés un contenido de ${label} aprobado programado para hoy.`,
-            url: '/contenidos',
-          }),
-        })
-        if (res.ok) sent++
-      } catch (e) {
-        console.error('dispatch failed for contenido', c.id, e)
-      }
-    }
+    const estadoStr = ESTADO_LABEL[c.estado] ?? c.estado
+    return `${emoji} *${label}* — ${c.titulo}\n   _Estado: ${estadoStr}_`
+  })
+
+  const texto = [
+    `📅 *Mañana publicás* (${manana})`,
+    '',
+    lineas.join('\n\n'),
+    '',
+    '_Revisá y aprobá en app.marcorossi.com.ar/contenidos_',
+  ].join('\n')
+
+  try {
+    await sendTelegram(botToken, marcoChatId, texto)
+  } catch (e) {
+    console.error('Telegram send failed', e)
+    return json({ error: 'telegram_failed' }, 500)
   }
 
-  // Mensaje Telegram con la lista completa
-  if (botToken && marcoChatId) {
-    const lineas = (contenidos as ContenidoRow[]).map((c) => {
-      const emoji = CATEGORIA_EMOJI[c.categoria] ?? '📌'
-      const label = CATEGORIA_LABEL[c.categoria] ?? c.categoria
-      return `${emoji} *${label}* — ${c.titulo}`
-    })
-
-    const texto = [
-      `🚀 *Publicá hoy* (${today})`,
-      '',
-      lineas.join('\n'),
-      '',
-      '_app.marcorossi.com.ar/contenidos_',
-    ].join('\n')
-
-    try {
-      await sendTelegram(botToken, marcoChatId, texto)
-    } catch (e) {
-      console.error('Telegram send failed', e)
-    }
-  }
-
-  return json({ sent, contenidos: contenidos.length })
+  return json({ sent: 1, contenidos: contenidos.length, fecha: manana })
 })
