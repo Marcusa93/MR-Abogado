@@ -37,6 +37,8 @@ import {
   Video,
   Trash2,
   ListTodo,
+  List,
+  GanttChart,
 } from 'lucide-react'
 import { toast } from '@/stores/toast-store'
 import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
@@ -688,6 +690,170 @@ function SaeStat({
   )
 }
 
+// ─── Timeline view ────────────────────────────────────────────────────────────
+
+const TIPO_DOT: Partial<Record<MovementType, string>> = {
+  sentencia: 'bg-rose-400',
+  traslado: 'bg-violet-400',
+  audiencia: 'bg-amber-400',
+  prueba: 'bg-blue-400',
+  embargo: 'bg-orange-400',
+  cedula: 'bg-sky-400',
+  oficio: 'bg-teal-400',
+  intimacion: 'bg-red-400',
+  planilla: 'bg-indigo-400',
+  informe: 'bg-cyan-400',
+  decreto: 'bg-purple-400',
+  escrito_parte: 'bg-emerald-400',
+  otro: 'bg-zinc-500',
+}
+
+function TimelineView({
+  movements,
+  highlightMovementId,
+}: {
+  movements: SaeMovement[]
+  highlightMovementId?: string
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(
+    highlightMovementId ? new Set([highlightMovementId]) : new Set()
+  )
+  const toggle = (id: string) =>
+    setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  if (movements.length === 0) return null
+
+  // Agrupar por mes
+  const byMonth: { key: string; label: string; items: SaeMovement[] }[] = []
+  for (const m of movements) {
+    const d = new Date((m.fecha ?? m.created_at ?? '').slice(0, 10) + 'T00:00:00Z')
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    const last = byMonth[byMonth.length - 1]
+    if (last?.key === key) last.items.push(m)
+    else byMonth.push({ key, label, items: [m] })
+  }
+
+  return (
+    <div className="space-y-6">
+      {byMonth.map((group) => (
+        <div key={group.key}>
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 capitalize">
+            {group.label}
+          </p>
+          <div className="relative pl-6">
+            {/* Línea vertical */}
+            <div className="absolute left-[7px] top-0 bottom-0 w-px bg-white/[0.07]" />
+
+            <div className="space-y-1">
+              {group.items.map((m, idx) => {
+                const isLast = idx === group.items.length - 1
+                const isOpen = expanded.has(m.id)
+                const isHighlighted = highlightMovementId === m.id
+                const dotColor = TIPO_DOT[m.tipo_movimiento] ?? 'bg-zinc-500'
+                const isAudiencia = m.is_audiencia === true || m.tipo_movimiento === 'audiencia'
+                const fecha = (m.fecha ?? m.created_at ?? '').slice(0, 10)
+                const d = new Date(fecha + 'T00:00:00Z')
+                const dd = String(d.getUTCDate()).padStart(2, '0')
+                const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                const diaSemana = diasSemana[d.getUTCDay()]
+
+                return (
+                  <div
+                    key={m.id}
+                    data-movement-id={m.id}
+                    className={cn(
+                      'relative',
+                      !isLast && 'pb-1',
+                    )}
+                  >
+                    {/* Nodo en la línea */}
+                    <div className="absolute -left-6 top-[10px] flex flex-col items-center">
+                      {isAudiencia ? (
+                        <div
+                          className={cn(
+                            'h-3.5 w-3.5 rotate-45 rounded-sm border-2 border-[#1e1e2e]',
+                            dotColor,
+                            isHighlighted && 'ring-2 ring-amber-400/60 ring-offset-1 ring-offset-[#1e1e2e]',
+                          )}
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            'h-2.5 w-2.5 rounded-full border-2 border-[#1e1e2e]',
+                            dotColor,
+                            isHighlighted && 'ring-2 ring-amber-400/60 ring-offset-1 ring-offset-[#1e1e2e]',
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Tarjeta */}
+                    <button
+                      type="button"
+                      onClick={() => toggle(m.id)}
+                      className={cn(
+                        'w-full text-left rounded-lg px-3 py-2 transition-colors',
+                        isHighlighted
+                          ? 'bg-amber-500/8 ring-1 ring-amber-500/25'
+                          : isOpen
+                            ? 'bg-white/[0.04]'
+                            : 'hover:bg-white/[0.04]',
+                      )}
+                    >
+                      <div className="flex items-start gap-2">
+                        {/* Fecha */}
+                        <div className="shrink-0 w-8 text-center pt-0.5">
+                          <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 leading-none">{diaSemana}</p>
+                          <p className="text-base font-bold text-zinc-400 dark:text-zinc-300 leading-tight">{dd}</p>
+                        </div>
+
+                        {/* Contenido */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={cn(
+                              'inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                              TIPO_COLORS[m.tipo_movimiento],
+                            )}>
+                              {TIPO_LABELS[m.tipo_movimiento]}
+                            </span>
+                            {m.is_key && (
+                              <span className="inline-flex rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400">
+                                Clave
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-sm font-medium text-zinc-200 leading-snug line-clamp-2">
+                            {m.titulo || '(sin título)'}
+                          </p>
+                        </div>
+
+                        <ChevronDown
+                          className={cn(
+                            'mt-1 h-3.5 w-3.5 shrink-0 text-zinc-600 transition-transform duration-200',
+                            isOpen && 'rotate-180',
+                          )}
+                        />
+                      </div>
+
+                      {/* Cuerpo expandido */}
+                      {isOpen && m.cuerpo && (
+                        <p className="mt-2 ml-10 text-xs leading-relaxed text-zinc-400 whitespace-pre-wrap line-clamp-6">
+                          {m.cuerpo}
+                        </p>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface TabActuacionesProps {
@@ -775,6 +941,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
   const [search, setSearch] = useState('')
   const [tipoFilter, setTipoFilter] = useState<MovementType | 'all'>('all')
   const [fuenteFilter, setFuenteFilter] = useState<'all' | 'sae' | 'manual'>('all')
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list')
   const [modalNuevaOpen, setModalNuevaOpen] = useState(false)
   const [tareaPrefill, setTareaPrefill] = useState<{ open: boolean; saeMovementId?: string; values?: { titulo: string; descripcion: string; fechaVencimiento: string; prioridad: AiSuggestedAction['prioridad'] } }>({ open: false })
   const [turnoPrefill, setTurnoPrefill] = useState<{ open: boolean; values?: { fecha: string; notas: string } }>({ open: false })
@@ -1178,6 +1345,36 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
                 </button>
               )}
             </div>
+            {/* Toggle lista / timeline */}
+            <div className="flex shrink-0 items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                title="Vista lista"
+                className={cn(
+                  'rounded-md p-1.5 transition-colors',
+                  viewMode === 'list'
+                    ? 'bg-white/10 text-zinc-200'
+                    : 'text-zinc-500 hover:text-zinc-300',
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('timeline')}
+                title="Vista línea de tiempo"
+                className={cn(
+                  'rounded-md p-1.5 transition-colors',
+                  viewMode === 'timeline'
+                    ? 'bg-white/10 text-zinc-200'
+                    : 'text-zinc-500 hover:text-zinc-300',
+                )}
+              >
+                <GanttChart className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
             <button
               onClick={() => setModalNuevaOpen(true)}
               className="shrink-0 flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors"
@@ -1241,7 +1438,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
           )}
         </div>
 
-        {/* ── List ── */}
+        {/* ── List / Timeline ── */}
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-zinc-500 dark:text-zinc-400" />
@@ -1265,6 +1462,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
               </button>
             )}
           </div>
+        ) : viewMode === 'timeline' ? (
+          <TimelineView movements={filtered} highlightMovementId={highlightMovementId} />
         ) : (
           <div className="space-y-5">
             {groups.map((group) => (
