@@ -18,6 +18,7 @@ export interface AsuntoItem {
   blocker: string | null
   folder_url: string | null
   last_activity_at: string
+  activity_count: number
   href: string
   numero: string | null
   convertida_expediente_id: string | null
@@ -29,16 +30,16 @@ const PRIO_ORDER: Record<string, number> = { URGENTE: 0, ALTA: 1, MEDIA: 2, BAJA
 
 const TIPO_ASUNTO_LABEL: Record<string, string> = {
   laboral_trabajador: 'Laboral (trab.)',
-  laboral_empleador: 'Laboral (emp.)',
-  civil: 'Civil',
-  familia: 'Familia',
-  previsional: 'Previsional',
-  penal: 'Penal',
-  otro: 'Otro',
+  laboral_empleador:  'Laboral (emp.)',
+  civil:              'Civil',
+  familia:            'Familia',
+  previsional:        'Previsional',
+  penal:              'Penal',
+  otro:               'Otro',
 }
 
-const ESTADOS_EXCLUIDOS_CONSULTA = ['convertida', 'descartada', 'resuelta']
-const ESTADOS_EXCLUIDOS_EXPEDIENTE = ['FINALIZADO', 'NO_VIABLE_RECHAZADO']
+const ESTADOS_EXCLUIDOS_CONSULTA    = ['convertida', 'descartada', 'resuelta']
+const ESTADOS_EXCLUIDOS_EXPEDIENTE  = ['FINALIZADO', 'NO_VIABLE_RECHAZADO']
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -61,20 +62,20 @@ export function useMiTrabajoBoard(profileId: string | undefined) {
     staleTime: 60_000,
     queryFn: async () => {
       if (!profileId) return []
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any
 
+      // Datos principales
       const [consultasRes, miembrosRes] = await Promise.all([
         sb
           .from('consultas')
-          .select('id, nombre, apellido, tipo_asunto, estado, prioridad, next_action, blocker, folder_url, updated_at, estado_changed_at, convertida_expediente_id')
+          .select('id, nombre, apellido, tipo_asunto, estado, prioridad, next_action, blocker, folder_url, updated_at, estado_changed_at, last_activity_at, convertida_expediente_id')
           .eq('assigned_to', profileId)
           .not('estado', 'in', `(${ESTADOS_EXCLUIDOS_CONSULTA.map(e => `"${e}"`).join(',')})`),
 
         sb
           .from('expediente_miembros')
-          .select('id, expediente:expedientes(id, numero, caratula, fuero, estado_interno, prioridad, next_action, blocker, folder_url, updated_at, deleted_at, cliente:clientes(nombre, apellido))')
+          .select('id, expediente:expedientes(id, numero, caratula, fuero, estado_interno, prioridad, next_action, blocker, folder_url, updated_at, last_activity_at, deleted_at, cliente:clientes(nombre, apellido))')
           .eq('profile_id', profileId)
           .eq('activo', true),
       ])
@@ -82,7 +83,7 @@ export function useMiTrabajoBoard(profileId: string | undefined) {
       if (consultasRes.error) throw consultasRes.error
       if (miembrosRes.error) throw miembrosRes.error
 
-      // Consultas → AsuntoItem
+      // Construir items base
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const consultas: AsuntoItem[] = (consultasRes.data ?? []).map((c: any) => ({
         id: c.id,
@@ -95,13 +96,13 @@ export function useMiTrabajoBoard(profileId: string | undefined) {
         next_action: c.next_action ?? null,
         blocker: c.blocker ?? null,
         folder_url: c.folder_url ?? null,
-        last_activity_at: c.estado_changed_at ?? c.updated_at,
+        last_activity_at: c.last_activity_at ?? c.estado_changed_at ?? c.updated_at,
+        activity_count: 0,
         href: `/consultas/${c.id}`,
         numero: null,
         convertida_expediente_id: c.convertida_expediente_id ?? null,
       }))
 
-      // Expedientes (via miembros) → AsuntoItem
       const seen = new Set<string>()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const expedientes: AsuntoItem[] = (miembrosRes.data ?? [])
@@ -132,7 +133,8 @@ export function useMiTrabajoBoard(profileId: string | undefined) {
             next_action: exp.next_action ?? null,
             blocker: exp.blocker ?? null,
             folder_url: exp.folder_url ?? null,
-            last_activity_at: exp.updated_at,
+            last_activity_at: exp.last_activity_at ?? exp.updated_at,
+            activity_count: 0,
             href: `/expedientes/${exp.id}`,
             numero: exp.numero ?? null,
             convertida_expediente_id: null,
@@ -141,7 +143,39 @@ export function useMiTrabajoBoard(profileId: string | undefined) {
 
       const all = [...consultas, ...expedientes]
 
-      // Ordenar: prioridad desc, luego actividad más antigua primero
+      // Conteos de actividad (dos queries con IN — eficientes)
+      const consultaIds  = consultas.map(c => c.id)
+      const expedienteIds = expedientes.map(e => e.id)
+
+      const [cCountRes, eCountRes] = await Promise.all([
+        consultaIds.length > 0
+          ? sb.from('consulta_actividad').select('consulta_id').in('consulta_id', consultaIds)
+          : { data: [] as { consulta_id: string }[] },
+        expedienteIds.length > 0
+          ? sb.from('expediente_notas').select('expediente_id').in('expediente_id', expedienteIds).eq('eliminada', false)
+          : { data: [] as { expediente_id: string }[] },
+      ])
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cCounts: Record<string, number> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (cCountRes.data ?? []) as any[]) {
+        cCounts[r.consulta_id] = (cCounts[r.consulta_id] ?? 0) + 1
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eCounts: Record<string, number> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (eCountRes.data ?? []) as any[]) {
+        eCounts[r.expediente_id] = (eCounts[r.expediente_id] ?? 0) + 1
+      }
+
+      for (const item of all) {
+        item.activity_count = item.tipo === 'consulta'
+          ? (cCounts[item.id] ?? 0)
+          : (eCounts[item.id] ?? 0)
+      }
+
+      // Orden por defecto: prioridad ↑, luego actividad más antigua primero
       all.sort((a, b) => {
         const pa = PRIO_ORDER[a.prioridad] ?? 2
         const pb = PRIO_ORDER[b.prioridad] ?? 2
