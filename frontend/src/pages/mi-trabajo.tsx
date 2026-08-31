@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import {
   Loader2, ExternalLink, FolderOpen, FolderPlus, Users,
   Briefcase, AlertCircle, Lock, Clock, Search, X, History,
-  ArrowUpDown, ArrowUp, ArrowDown,
+  ArrowUpDown, ArrowUp, ArrowDown, PlusCircle,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -355,6 +355,13 @@ function AsuntoRow({ item, sinMovimientoDias, onUpdate, onOpenActividad }: {
               </span>
             )}
           </button>
+          {item.tipo === 'consulta' && !item.convertida_expediente_id && (
+            <Link to={`/expedientes/nuevo?desde_consulta=${item.id}`}
+              title="Crear caso a partir de esta consulta"
+              className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors inline-flex">
+              <PlusCircle className="h-3.5 w-3.5" />
+            </Link>
+          )}
           <Link to={item.href} title="Abrir detalle"
             className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors inline-flex">
             <ExternalLink className="h-3.5 w-3.5" />

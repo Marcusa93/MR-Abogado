@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useBlocker } from 'react-router-dom'
+import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { useCreateExpediente } from '@/hooks/use-expedientes'
 import { useTiposProceso } from '@/hooks/use-proceso'
 import { toast } from '@/stores/toast-store'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS, ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS, type EstadoInterno } from '@/types/enums'
 import type { Prioridad } from '@/types/enums'
+import { createClient } from '@/lib/supabase/client'
 
 const ESTADOS_CREACION: { value: string; label: string }[] = ESTADO_INTERNO_VALUES.map(
   (v) => ({ value: v, label: ESTADO_INTERNO_LABELS[v] })
 )
-import { ArrowLeft, Loader2, Save, UserPlus } from 'lucide-react'
+import { ArrowLeft, Loader2, Save, UserPlus, ArrowRightCircle } from 'lucide-react'
 
 import { ClienteCombobox } from '@/components/clientes/cliente-combobox'
 
@@ -44,8 +45,19 @@ const errorClass = 'mt-1 text-xs text-rose-500'
 // Page
 // ---------------------------------------------------------------------------
 
+const TIPO_ASUNTO_TO_FUERO: Record<string, string> = {
+  laboral_trabajador: 'laboral',
+  laboral_empleador:  'laboral',
+  civil:              'civil',
+  familia:            'familia',
+  previsional:        'previsional',
+  penal:              'penal',
+}
+
 export default function NuevoExpedientePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const desdeConsultaId = searchParams.get('desde_consulta')
   const createExpediente = useCreateExpediente()
   const { data: tiposProceso = [] } = useTiposProceso()
 
@@ -57,6 +69,24 @@ export default function NuevoExpedientePage() {
   const [observaciones, setObservaciones] = useState('')
   const [touched, setTouched] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [consultaBanner, setConsultaBanner] = useState<{ label: string } | null>(null)
+
+  useEffect(() => {
+    if (!desdeConsultaId) return
+    const sb = createClient() as any
+    sb.from('consultas')
+      .select('nombre, apellido, tipo_asunto, prioridad')
+      .eq('id', desdeConsultaId)
+      .single()
+      .then(({ data }: any) => {
+        if (!data) return
+        const label = data.apellido ? `${data.apellido}, ${data.nombre}` : data.nombre
+        setConsultaBanner({ label })
+        if (data.prioridad) setPrioridad(data.prioridad as Prioridad)
+        const fueroMapped = TIPO_ASUNTO_TO_FUERO[data.tipo_asunto]
+        if (fueroMapped) setFuero(fueroMapped)
+      })
+  }, [desdeConsultaId])
 
   // Materias del fuero seleccionado
   const materias = fuero ? tiposProceso.filter((t) => t.fuero === fuero) : []
@@ -86,7 +116,7 @@ export default function NuevoExpedientePage() {
 
     try {
       setSubmitted(true)
-      await createExpediente.mutateAsync({
+      const result = await createExpediente.mutateAsync({
         cliente_id: clienteId,
         prioridad,
         estado_interno: estadoInicial as EstadoInterno,
@@ -94,8 +124,26 @@ export default function NuevoExpedientePage() {
         fuero: fuero || null,
         tipo_proceso_id: tipoProcesoid || null,
       })
+
+      const newId: string | null =
+        result && typeof result === 'object' && 'id' in result
+          ? (result as any).id
+          : typeof result === 'string' ? result : null
+
+      if (desdeConsultaId && newId) {
+        const sb = createClient() as any
+        await sb
+          .from('consultas')
+          .update({
+            convertida_expediente_id: newId,
+            estado: 'convertida',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', desdeConsultaId)
+      }
+
       toast.success('Expediente creado correctamente')
-      navigate('/expedientes')
+      navigate(newId ? `/expedientes/${newId}` : '/expedientes')
     } catch {
       setSubmitted(false)
     }
@@ -118,6 +166,14 @@ export default function NuevoExpedientePage() {
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
           El número de expediente se genera automáticamente (EXP-{new Date().getFullYear()}-XXXX).
         </p>
+        {consultaBanner && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-purple-200 dark:border-purple-800/40 bg-purple-50 dark:bg-purple-900/10 px-3 py-2">
+            <ArrowRightCircle className="h-4 w-4 shrink-0 text-purple-500" />
+            <span className="text-sm text-purple-700 dark:text-purple-300">
+              Convirtiendo consulta de <strong>{consultaBanner.label}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Form */}
