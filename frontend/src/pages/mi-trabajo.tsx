@@ -12,10 +12,11 @@ import {
   type AsuntoItem,
   type AsuntoField,
 } from '@/hooks/use-mi-trabajo'
+import { ActividadDrawer } from '@/components/mi-trabajo/actividad-drawer'
 import { cn } from '@/lib/utils'
 import {
   Loader2, ExternalLink, FolderOpen, FolderPlus, Users,
-  Briefcase, AlertCircle, Lock, Clock, Search, X,
+  Briefcase, AlertCircle, Lock, Clock, Search, X, History,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -320,10 +321,12 @@ function AsuntoRow({
   item,
   sinMovimientoDias,
   onUpdate,
+  onOpenActividad,
 }: {
   item: AsuntoItem
   sinMovimientoDias: number
   onUpdate: (field: AsuntoField, value: string | null) => void
+  onOpenActividad: () => void
 }) {
   const days = daysSince(item.last_activity_at)
   const isSinMovimiento = days >= sinMovimientoDias
@@ -428,15 +431,25 @@ function AsuntoRow({
         />
       </td>
 
-      {/* Link */}
+      {/* Acciones */}
       <td className="px-3 py-3">
-        <Link
-          to={item.href}
-          title="Abrir"
-          className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors inline-flex"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onOpenActividad}
+            title="Historial de actividad"
+            className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors"
+          >
+            <History className="h-3.5 w-3.5" />
+          </button>
+          <Link
+            to={item.href}
+            title="Abrir detalle"
+            className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors inline-flex"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </td>
     </tr>
   )
@@ -538,6 +551,9 @@ export default function MiTrabajoPage() {
   const { data: items = [], isLoading } = useMiTrabajoBoard(selectedId)
   const updateField = useUpdateAsuntoField()
 
+  // Drawer de actividad
+  const [actividadAsunto, setActividadAsunto] = useState<AsuntoItem | null>(null)
+
   // Filters
   const [search, setSearch] = useState('')
   const [filterPrioridad, setFilterPrioridad] = useState<string | null>(null)
@@ -608,6 +624,14 @@ export default function MiTrabajoPage() {
 
   return (
     <div className="space-y-4">
+
+      {/* Drawer de actividad */}
+      {actividadAsunto && (
+        <ActividadDrawer
+          item={actividadAsunto}
+          onClose={() => setActividadAsunto(null)}
+        />
+      )}
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -763,6 +787,7 @@ export default function MiTrabajoPage() {
                         item={item}
                         sinMovimientoDias={sinMovimientoDias}
                         onUpdate={(field, value) => handleUpdate(item, field, value)}
+                        onOpenActividad={() => setActividadAsunto(item)}
                       />
                     ))}
                   </tbody>
