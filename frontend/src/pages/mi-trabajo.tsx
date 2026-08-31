@@ -281,22 +281,22 @@ function FolderCell({ value, onSave }: { value: string | null; onSave: (v: strin
 function QuickNotePopover({ item }: { item: AsuntoItem }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const addActividad = useAddActividad()
 
+  const close = useCallback(() => { setOpen(false); setText('') }, [])
+
   useEffect(() => {
     if (!open) return
-    setTimeout(() => textareaRef.current?.focus(), 50)
+    setTimeout(() => textareaRef.current?.focus(), 80)
+    // Click-outside solo en desktop (en mobile usa el backdrop)
     function onMouseDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setText('')
-      }
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) close()
     }
     document.addEventListener('mousedown', onMouseDown)
     return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [open])
+  }, [open, close])
 
   function submit() {
     const trimmed = text.trim()
@@ -308,40 +308,64 @@ function QuickNotePopover({ item }: { item: AsuntoItem }) {
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <button type="button" onClick={() => setOpen(o => !o)} title="Nota rápida"
         className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
         <PenLine className="h-3.5 w-3.5" />
       </button>
+
       {open && (
-        <div className="absolute right-0 bottom-full mb-1.5 w-60 z-30 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-white/10 shadow-2xl p-2.5 flex flex-col gap-2">
-          <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
-            Nota rápida — {item.cliente_label}
-          </p>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
-              if (e.key === 'Escape') { setOpen(false); setText('') }
-            }}
-            placeholder="Escribí la nota… (Enter para guardar, Shift+Enter para nueva línea)"
-            rows={3}
-            className="text-xs rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-none placeholder:text-zinc-400 w-full"
-          />
-          <div className="flex justify-end gap-1.5">
-            <button type="button" onClick={() => { setOpen(false); setText('') }}
-              className="text-xs px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
-              Cancelar
-            </button>
-            <button type="button" onClick={submit} disabled={!text.trim() || addActividad.isPending}
-              className="text-xs px-3 py-1 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors flex items-center gap-1">
-              {addActividad.isPending && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
-              Guardar
-            </button>
+        <>
+          {/* Backdrop mobile — toca para cerrar */}
+          <div className="fixed inset-0 z-40 sm:hidden bg-black/40 dark:bg-black/60"
+            onClick={close} aria-hidden="true" />
+
+          {/* Contenido:
+              Mobile  → bottom sheet fijo, ancho completo
+              Desktop → popover flotante sobre el botón
+          */}
+          <div ref={popoverRef} className={cn(
+            'z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 shadow-2xl flex flex-col gap-3',
+            // Mobile
+            'fixed inset-x-0 bottom-0 rounded-t-2xl p-5',
+            // Desktop
+            'sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:rounded-xl sm:mb-2 sm:w-64 sm:p-3 sm:gap-2',
+          )}>
+            {/* Handle mobile */}
+            <div className="sm:hidden flex justify-center -mt-2 mb-1">
+              <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+            </div>
+
+            <p className="text-xs font-semibold text-zinc-500 truncate">
+              Nota — {item.cliente_label}
+            </p>
+
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
+                if (e.key === 'Escape') close()
+              }}
+              placeholder="Escribí la nota… (Enter para guardar)"
+              rows={4}
+              className="text-sm sm:text-xs rounded-xl sm:rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 sm:px-2.5 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder:text-zinc-400 w-full"
+            />
+
+            <div className="flex gap-2 sm:gap-1.5 sm:justify-end">
+              <button type="button" onClick={close}
+                className="flex-1 sm:flex-none text-sm sm:text-xs px-4 sm:px-2.5 py-2.5 sm:py-1 rounded-xl sm:rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={submit} disabled={!text.trim() || addActividad.isPending}
+                className="flex-1 sm:flex-none text-sm sm:text-xs px-4 sm:px-3 py-2.5 sm:py-1 rounded-xl sm:rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-1.5">
+                {addActividad.isPending && <Loader2 className="h-3.5 w-3.5 sm:h-2.5 sm:w-2.5 animate-spin" />}
+                Guardar
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

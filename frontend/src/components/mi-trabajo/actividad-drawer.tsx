@@ -47,20 +47,35 @@ export function ActividadDrawer({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — siempre visible, toca para cerrar */}
       <div
-        className="fixed inset-0 bg-black/20 dark:bg-black/50 z-40"
+        className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
-      <div className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-white/8 z-50 flex flex-col shadow-2xl">
+      {/* Panel
+          Mobile : bottom sheet desde ~10% del topo, ancho completo, esquinas redondeadas arriba
+          Desktop: panel lateral derecho fijo, 420px de ancho
+      */}
+      <div className={cn(
+        'fixed z-50 flex flex-col bg-white dark:bg-zinc-900 shadow-2xl',
+        // Mobile: bottom sheet
+        'inset-x-0 bottom-0 top-[8%] rounded-t-2xl',
+        // Desktop: right panel
+        'sm:inset-y-0 sm:top-0 sm:right-0 sm:left-auto sm:w-[420px] sm:rounded-none',
+        'sm:border-l sm:border-zinc-200 sm:dark:border-white/8',
+      )}>
+
+        {/* Indicador de arrastre — solo mobile */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+        </div>
 
         {/* Header */}
-        <div className="flex items-start gap-3 px-5 py-4 border-b border-zinc-100 dark:border-white/5 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-zinc-100 dark:border-white/5 shrink-0">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-0.5">
               <span className={cn(
                 'text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
                 item.tipo === 'consulta'
@@ -77,19 +92,21 @@ export function ActividadDrawer({
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug truncate">
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug truncate text-sm">
               {item.cliente_label}
             </h3>
             {item.titulo && item.titulo !== item.cliente_label && (
               <p className="text-xs text-zinc-400 truncate mt-0.5">{item.titulo}</p>
             )}
           </div>
+          {/* Botón cerrar — tap target generoso */}
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+            aria-label="Cerrar"
+            className="shrink-0 flex items-center justify-center h-9 w-9 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
