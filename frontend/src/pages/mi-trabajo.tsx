@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth-store'
 import { useTeamMembers } from '@/hooks/use-team-members'
@@ -14,17 +14,19 @@ import {
 } from '@/hooks/use-mi-trabajo'
 import {
   useAddActividad,
+  useAsuntoActividad,
   TIPOS_CONSULTA,
   TIPOS_EXPEDIENTE,
   TIPO_LABELS,
+  TIPO_DOT,
+  TIPO_BADGE,
 } from '@/hooks/use-asunto-actividad'
-import { ActividadDrawer } from '@/components/mi-trabajo/actividad-drawer'
 import { cn } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils/date-helpers'
 import {
   Loader2, ExternalLink, FolderOpen, FolderPlus, Users,
   Briefcase, AlertCircle, Lock, Clock, Search, X, History,
-  ArrowUpDown, ArrowUp, ArrowDown, PlusCircle, PenLine,
-  AlignJustify, LayoutList,
+  PlusCircle, Plus,
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +40,13 @@ const PRIORIDAD: Record<string, { label: string; dot: string; text: string }> = 
   URGENTE: { label: 'Urgente', dot: 'bg-red-500',                    text: 'text-red-600 dark:text-red-400'    },
 }
 
-// Left border by priority — applied to the first td for visual hierarchy
+const PRIO_TOP: Record<string, string> = {
+  URGENTE: 'border-t-red-500',
+  ALTA:    'border-t-amber-400',
+  MEDIA:   'border-t-blue-400',
+  BAJA:    'border-t-zinc-200 dark:border-t-zinc-700',
+}
+
 const PRIO_BORDER: Record<string, string> = {
   URGENTE: 'border-l-red-500',
   ALTA:    'border-l-amber-400',
@@ -46,19 +54,16 @@ const PRIO_BORDER: Record<string, string> = {
   BAJA:    'border-l-zinc-200 dark:border-l-zinc-700',
 }
 
-// Estado badge colors independent of priority
 const ESTADO_BADGE: Record<string, string> = {
-  // Consultas
-  pendiente:     'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400',
-  en_proceso:    'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
-  presupuestada: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
-  con_claudio:   'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
-  requiere_info: 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300',
-  redactando:    'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300',
-  convertida:    'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300',
-  resuelta:      'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300',
-  descartada:    'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500',
-  // Expedientes
+  pendiente:           'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400',
+  en_proceso:          'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+  presupuestada:       'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
+  con_claudio:         'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
+  requiere_info:       'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300',
+  redactando:          'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300',
+  convertida:          'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300',
+  resuelta:            'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300',
+  descartada:          'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500',
   NUEVA_CONSULTA:      'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400',
   PARA_INICIAR:        'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
   INICIADO:            'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
@@ -87,7 +92,7 @@ const ESTADO_EXPEDIENTE: Record<string, string> = {
 
 const FUERO_LABEL: Record<string, string> = {
   civil: 'Civil', laboral: 'Laboral', penal: 'Penal', familia: 'Familia',
-  administrativo: 'Administrativo', comercial: 'Comercial', previsional: 'Previsional', otro: 'Otro',
+  administrativo: 'Adm.', comercial: 'Comercial', previsional: 'Previsional', otro: 'Otro',
 }
 
 const TIPO_ASUNTO_LABEL: Record<string, string> = {
@@ -131,7 +136,6 @@ function materiaLabel(item: AsuntoItem): string {
   return FUERO_LABEL[item.materia] ?? item.materia
 }
 
-// Parses "2026-09-05: Texto" → { date, text }. Plain text → { date: null, text }
 function parseNextAction(raw: string | null): { date: Date | null; text: string } {
   if (!raw) return { date: null, text: '' }
   const m = raw.match(/^(\d{4}-\d{2}-\d{2})[:\s]\s*(.+)$/)
@@ -150,75 +154,11 @@ function nextActionStatus(date: Date | null): { label: string; cls: string } | n
   return { label: `En ${Math.ceil(diff / 7)}sem`, cls: 'text-zinc-400' }
 }
 
-// Urgency score: primary by priority, secondary by days without movement + blocker
-// Higher score = more urgent = appears first in default sort
 function urgencyScore(item: AsuntoItem): number {
   const prioBase = ({ URGENTE: 3, ALTA: 2, MEDIA: 1, BAJA: 0 }[item.prioridad] ?? 1)
   const movScore = Math.min(daysSince(item.last_activity_at), 999)
   const blockerBonus = item.blocker ? 10 : 0
   return prioBase * 100_000 + movScore * 100 + blockerBonus
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// InlineEdit
-// ─────────────────────────────────────────────────────────────────────────────
-
-function InlineEdit({
-  value, onSave, placeholder = 'Agregar…', className, renderValue,
-}: {
-  value: string | null
-  onSave: (v: string | null) => void
-  placeholder?: string
-  className?: string
-  renderValue?: React.ReactNode
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-  const commit = useCallback(() => {
-    setEditing(false)
-    const v = draft.trim()
-    if (v !== (value ?? '')) onSave(v || null)
-  }, [draft, value, onSave])
-
-  if (!editing) return (
-    <button type="button" onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      title={value ?? placeholder}
-      className={cn('text-left w-full py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-white/5 px-1 -ml-1 transition-colors',
-        !renderValue && (value ? 'text-zinc-700 dark:text-zinc-300 text-xs truncate' : 'text-zinc-300 dark:text-zinc-600 italic text-xs truncate'),
-        className)}>
-      {renderValue ?? value ?? placeholder}
-    </button>
-  )
-  return (
-    <input ref={ref} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
-      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(value ?? '') } }}
-      placeholder={placeholder}
-      className="w-full text-xs bg-zinc-50 dark:bg-zinc-800 border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none min-w-0" />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NextActionCell — InlineEdit con date badge cuando se usa formato YYYY-MM-DD
-// ─────────────────────────────────────────────────────────────────────────────
-
-function NextActionCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => void }) {
-  const { date, text } = parseNextAction(value)
-  const status = nextActionStatus(date)
-
-  const display = value ? (
-    <div className="flex flex-col gap-0.5 w-full min-w-0">
-      {status && (
-        <span className={cn('text-[9px] font-semibold uppercase tracking-wide leading-none', status.cls)}>
-          {status.label}
-        </span>
-      )}
-      <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate">{text}</span>
-    </div>
-  ) : undefined
-
-  return <InlineEdit value={value} onSave={onSave} placeholder="Próxima acción…" renderValue={display} />
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,246 +175,6 @@ function PrioCell({ value, onChange }: { value: string; onChange: (v: string) =>
         {Object.entries(PRIORIDAD).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
       </select>
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// FolderCell
-// ─────────────────────────────────────────────────────────────────────────────
-
-function FolderCell({ value, onSave }: { value: string | null; onSave: (v: string | null) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-  const commit = useCallback(() => {
-    setEditing(false)
-    const v = draft.trim()
-    if (v !== (value ?? '')) onSave(v || null)
-  }, [draft, value, onSave])
-
-  if (editing) return (
-    <input ref={ref} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
-      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); setDraft(value ?? '') } }}
-      placeholder="https://drive.google.com/..."
-      className="w-28 text-xs bg-zinc-50 dark:bg-zinc-800 border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none" />
-  )
-  if (value) return (
-    <div className="flex items-center gap-1 group">
-      <a href={value} target="_blank" rel="noopener noreferrer" title="Abrir carpeta Drive"
-        className="p-1 rounded text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-        <FolderOpen className="h-3.5 w-3.5" />
-      </a>
-      <button type="button" onClick={() => { setDraft(value); setEditing(true) }}
-        className="opacity-0 group-hover:opacity-100 p-1 rounded text-zinc-300 hover:text-zinc-500 transition-all text-[10px] leading-none" title="Editar link">
-        ✎
-      </button>
-    </div>
-  )
-  return (
-    <button type="button" onClick={() => { setDraft(''); setEditing(true) }} title="Agregar carpeta Drive"
-      className="p-1 rounded text-zinc-200 dark:text-zinc-700 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-      <FolderPlus className="h-3.5 w-3.5" />
-    </button>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// QuickNotePopover — nota rápida sin abrir el drawer completo
-// ─────────────────────────────────────────────────────────────────────────────
-
-function QuickNotePopover({ item }: { item: AsuntoItem }) {
-  const [open, setOpen] = useState(false)
-  const [text, setText] = useState('')
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const addActividad = useAddActividad()
-
-  const close = useCallback(() => { setOpen(false); setText('') }, [])
-
-  useEffect(() => {
-    if (!open) return
-    setTimeout(() => textareaRef.current?.focus(), 80)
-    // Click-outside solo en desktop (en mobile usa el backdrop)
-    function onMouseDown(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) close()
-    }
-    document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
-  }, [open, close])
-
-  function submit() {
-    const trimmed = text.trim()
-    if (!trimmed || addActividad.isPending) return
-    addActividad.mutate(
-      { item, tipo: 'nota', descripcion: trimmed },
-      { onSuccess: () => { setText(''); setOpen(false) } },
-    )
-  }
-
-  return (
-    <div className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)} title="Nota rápida"
-        className="p-1 rounded text-zinc-300 dark:text-zinc-600 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
-        <PenLine className="h-3.5 w-3.5" />
-      </button>
-
-      {open && (
-        <>
-          {/* Backdrop mobile — toca para cerrar */}
-          <div className="fixed inset-0 z-40 sm:hidden bg-black/40 dark:bg-black/60"
-            onClick={close} aria-hidden="true" />
-
-          {/* Contenido:
-              Mobile  → bottom sheet fijo, ancho completo
-              Desktop → popover flotante sobre el botón
-          */}
-          <div ref={popoverRef} className={cn(
-            'z-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 shadow-2xl flex flex-col gap-3',
-            // Mobile
-            'fixed inset-x-0 bottom-0 rounded-t-2xl p-5',
-            // Desktop
-            'sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:rounded-xl sm:mb-2 sm:w-64 sm:p-3 sm:gap-2',
-          )}>
-            {/* Handle mobile */}
-            <div className="sm:hidden flex justify-center -mt-2 mb-1">
-              <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-            </div>
-
-            <p className="text-xs font-semibold text-zinc-500 truncate">
-              Nota — {item.cliente_label}
-            </p>
-
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() }
-                if (e.key === 'Escape') close()
-              }}
-              placeholder="Escribí la nota… (Enter para guardar)"
-              rows={4}
-              className="text-sm sm:text-xs rounded-xl sm:rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 sm:px-2.5 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder:text-zinc-400 w-full"
-            />
-
-            <div className="flex gap-2 sm:gap-1.5 sm:justify-end">
-              <button type="button" onClick={close}
-                className="flex-1 sm:flex-none text-sm sm:text-xs px-4 sm:px-2.5 py-2.5 sm:py-1 rounded-xl sm:rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
-                Cancelar
-              </button>
-              <button type="button" onClick={submit} disabled={!text.trim() || addActividad.isPending}
-                className="flex-1 sm:flex-none text-sm sm:text-xs px-4 sm:px-3 py-2.5 sm:py-1 rounded-xl sm:rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-1.5">
-                {addActividad.isPending && <Loader2 className="h-3.5 w-3.5 sm:h-2.5 sm:w-2.5 animate-spin" />}
-                Guardar
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EditTextSheet — bottom sheet para editar un campo de texto en mobile
-// ─────────────────────────────────────────────────────────────────────────────
-
-function EditTextSheet({ label, value, placeholder, onSave, onClose }: {
-  label: string; value: string | null; placeholder?: string
-  onSave: (v: string | null) => void; onClose: () => void
-}) {
-  const [text, setText] = useState(value ?? '')
-  const ref = useRef<HTMLInputElement>(null)
-  useEffect(() => { setTimeout(() => ref.current?.focus(), 80) }, [])
-
-  function commit() { onSave(text.trim() || null) }
-
-  return (
-    <>
-      <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60" onClick={onClose} aria-hidden="true" />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-zinc-900 rounded-t-2xl p-5 flex flex-col gap-3 shadow-2xl">
-        <div className="flex justify-center -mt-1 mb-1">
-          <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-        </div>
-        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">{label}</p>
-        <input ref={ref} type="text" value={text} onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onClose() }}
-          placeholder={placeholder}
-          className="text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 w-full" />
-        <div className="flex gap-2">
-          {value && (
-            <button type="button" onClick={() => onSave(null)}
-              className="flex-none text-sm px-3 py-2.5 rounded-xl border border-red-200 dark:border-red-900/40 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
-              Borrar
-            </button>
-          )}
-          <button type="button" onClick={onClose}
-            className="flex-1 text-sm py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-500 transition-colors">
-            Cancelar
-          </button>
-          <button type="button" onClick={commit}
-            className="flex-1 text-sm py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition-colors">
-            Guardar
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NoteSheet — bottom sheet para agregar nota con selector de tipo (mobile)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function NoteSheet({ item, onClose }: { item: AsuntoItem; onClose: () => void }) {
-  const tipos = item.tipo === 'consulta' ? [...TIPOS_CONSULTA] : [...TIPOS_EXPEDIENTE]
-  const [tipo, setTipo] = useState(tipos[0])
-  const [text, setText] = useState('')
-  const ref = useRef<HTMLTextAreaElement>(null)
-  const addActividad = useAddActividad()
-
-  useEffect(() => { setTimeout(() => ref.current?.focus(), 80) }, [])
-
-  function submit() {
-    if (!text.trim() || addActividad.isPending) return
-    addActividad.mutate({ item, tipo, descripcion: text.trim() }, { onSuccess: onClose })
-  }
-
-  return (
-    <>
-      <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60" onClick={onClose} aria-hidden="true" />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-zinc-900 rounded-t-2xl p-5 flex flex-col gap-3 shadow-2xl">
-        <div className="flex justify-center -mt-1">
-          <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-        </div>
-        <p className="text-xs font-semibold text-zinc-500 truncate">{item.cliente_label}</p>
-        <div className="flex gap-2 flex-wrap">
-          {tipos.map(t => (
-            <button key={t} type="button" onClick={() => setTipo(t)}
-              className={cn('text-xs px-2.5 py-1 rounded-full border transition-colors',
-                tipo === t ? 'bg-blue-500 border-blue-500 text-white' : 'border-zinc-200 dark:border-white/10 text-zinc-500')}>
-              {TIPO_LABELS[t] ?? t}
-            </button>
-          ))}
-        </div>
-        <textarea ref={ref} value={text} onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Escape') onClose() }}
-          placeholder="Describí la actividad…" rows={3}
-          className="text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder:text-zinc-400 w-full" />
-        <div className="flex gap-2">
-          <button type="button" onClick={onClose}
-            className="flex-1 text-sm py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-500 transition-colors">
-            Cancelar
-          </button>
-          <button type="button" onClick={submit} disabled={!text.trim() || addActividad.isPending}
-            className="flex-1 text-sm py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-1.5">
-            {addActividad.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Guardar
-          </button>
-        </div>
-      </div>
-    </>
   )
 }
 
@@ -506,411 +206,402 @@ function KpiChip({ count, label, icon: Icon, active, variant = 'zinc', onClick }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SortHeader
+// AsuntoGridCard — tarjeta visual para el grid
 // ─────────────────────────────────────────────────────────────────────────────
 
-type SortField = 'prioridad' | 'last_activity' | 'cliente' | 'estado'
-
-function SortHeader({ field, label, current, dir, onSort }: {
-  field: SortField; label: string; current: SortField; dir: 'asc' | 'desc'; onSort: (f: SortField) => void
-}) {
-  const active = current === field
-  return (
-    <th onClick={() => onSort(field)}
-      className="px-3 py-2.5 text-left font-medium cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-200 select-none whitespace-nowrap">
-      <span className="flex items-center gap-1">
-        {label}
-        {active
-          ? (dir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)
-          : <ArrowUpDown className="h-3 w-3 opacity-30" />}
-      </span>
-    </th>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action buttons — shared between Row and Card
-// ─────────────────────────────────────────────────────────────────────────────
-
-function RowActions({ item, onOpenActividad, size = 'sm' }: {
-  item: AsuntoItem; onOpenActividad: () => void; size?: 'sm' | 'md'
-}) {
-  const btnCls = size === 'sm'
-    ? 'p-1 rounded transition-colors inline-flex'
-    : 'p-1.5 rounded transition-colors inline-flex'
-  const iconCls = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'
-
-  return (
-    <div className="flex items-center gap-0.5">
-      <QuickNotePopover item={item} />
-      <button type="button" onClick={onOpenActividad} title="Historial de actividad"
-        className={cn(btnCls, 'relative text-zinc-300 dark:text-zinc-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10')}>
-        <History className={iconCls} />
-        {item.activity_count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 flex items-center justify-center text-[8px] font-bold bg-indigo-500 text-white rounded-full leading-none">
-            {item.activity_count > 9 ? '9+' : item.activity_count}
-          </span>
-        )}
-      </button>
-      {item.tipo === 'consulta' && !item.convertida_expediente_id && (
-        <Link to={`/expedientes/nuevo?desde_consulta=${item.id}`}
-          title="Crear caso a partir de esta consulta"
-          className={cn(btnCls, 'text-zinc-300 dark:text-zinc-600 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10')}>
-          <PlusCircle className={iconCls} />
-        </Link>
-      )}
-      <Link to={item.href} title="Abrir detalle"
-        className={cn(btnCls, 'text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10')}>
-        <ExternalLink className={iconCls} />
-      </Link>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AsuntoRow — tabla desktop
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AsuntoRow({ item, sinMovimientoDias, compact, onUpdate, onOpenActividad }: {
-  item: AsuntoItem; sinMovimientoDias: number; compact: boolean
-  onUpdate: (field: AsuntoField, value: string | null) => void
-  onOpenActividad: () => void
+function AsuntoGridCard({ item, selected, sinMovimientoDias, onSelect }: {
+  item: AsuntoItem; selected: boolean; sinMovimientoDias: number; onSelect: () => void
 }) {
   const days = daysSince(item.last_activity_at)
-  const isBloqueado = !!item.blocker
-  const isSinMovimiento = days >= sinMovimientoDias
-  const py = compact ? 'py-1.5' : 'py-3'
+  const { text: naText } = parseNextAction(item.next_action)
 
   return (
-    <tr className={cn('transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.02]',
-      isBloqueado && 'bg-amber-50/30 dark:bg-amber-900/5',
-      isSinMovimiento && !isBloqueado && 'bg-red-50/20 dark:bg-red-900/5')}>
+    <button type="button" onClick={onSelect}
+      className={cn(
+        'w-full text-left rounded-xl border-2 border-t-[3px] p-3.5 flex flex-col gap-2',
+        'transition-all duration-150 cursor-pointer bg-white dark:bg-zinc-900',
+        PRIO_TOP[item.prioridad] ?? 'border-t-zinc-200',
+        selected
+          ? 'border-blue-400 dark:border-blue-500 shadow-md ring-1 ring-blue-200 dark:ring-blue-900/40'
+          : 'border-zinc-200 dark:border-white/8 hover:border-zinc-300 dark:hover:border-white/14 hover:shadow-sm',
+        item.blocker && !selected && 'bg-amber-50/30 dark:bg-amber-900/5',
+        !item.blocker && days >= sinMovimientoDias && !selected && 'bg-red-50/20 dark:bg-red-900/5',
+      )}>
 
-      {/* Asunto — lleva el border de prioridad */}
-      <td className={cn('px-4 min-w-[200px] max-w-[260px] border-l-4', py,
-        PRIO_BORDER[item.prioridad] ?? 'border-l-transparent')}>
-        <div className="flex items-start gap-2 min-w-0">
-          <span className={cn('shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded',
-            item.tipo === 'consulta'
-              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-              : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400')}>
-            {item.tipo === 'consulta' ? 'Cta' : 'Exp'}
-          </span>
-          <div className="min-w-0">
-            <span className="block font-medium text-zinc-800 dark:text-zinc-200 text-sm truncate" title={item.cliente_label}>
-              {item.cliente_label}
-            </span>
-            {!compact && (
-              <span className="block text-xs text-zinc-400 truncate mt-0.5" title={item.titulo}>
-                {item.titulo}
-              </span>
-            )}
-            {item.tipo === 'consulta' && item.convertida_expediente_id && (
-              <Link to={`/expedientes/${item.convertida_expediente_id}`}
-                className="inline-flex items-center gap-0.5 text-[10px] text-teal-600 dark:text-teal-400 hover:underline mt-0.5">
-                → Ver caso
-              </Link>
-            )}
-          </div>
-        </div>
-      </td>
-
-      {/* Materia */}
-      <td className={cn('px-3 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400', py)}>
-        {materiaLabel(item)}
-      </td>
-
-      {/* Prioridad */}
-      <td className={cn('px-3', py)}>
-        <PrioCell value={item.prioridad} onChange={v => onUpdate('prioridad', v)} />
-      </td>
-
-      {/* Estado — color semántico por estado */}
-      <td className={cn('px-3', py)}>
-        <span className={cn('inline-block px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap',
-          ESTADO_BADGE[item.estado] ?? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
-          {estadoLabel(item)}
+      {/* Top row: tipo + days */}
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn('text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
+          item.tipo === 'consulta'
+            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+            : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400')}>
+          {item.tipo === 'consulta' ? 'Consulta' : 'Expediente'}
         </span>
-      </td>
+        <span className={cn('text-xs font-bold tabular-nums shrink-0', activityColor(days, sinMovimientoDias))}>
+          {days === 0 ? 'hoy' : `${days}d`}
+        </span>
+      </div>
 
-      {/* Próxima acción con date badge */}
-      <td className={cn('px-3 min-w-[160px] max-w-[200px]', py)}>
-        <NextActionCell value={item.next_action} onSave={v => onUpdate('next_action', v)} />
-      </td>
+      {/* Cliente */}
+      <div>
+        <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm leading-snug line-clamp-2">
+          {item.cliente_label}
+        </h3>
+        {item.titulo && item.titulo !== item.cliente_label && (
+          <p className="text-[10px] text-zinc-400 truncate mt-0.5">{item.titulo}</p>
+        )}
+      </div>
+
+      {/* Estado */}
+      <span className={cn('self-start inline-block px-2 py-0.5 rounded-full text-[10px] font-medium',
+        ESTADO_BADGE[item.estado] ?? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
+        {estadoLabel(item)}
+      </span>
+
+      {/* Próxima acción */}
+      {naText && (
+        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1">{naText}</p>
+      )}
 
       {/* Bloqueo */}
-      <td className={cn('px-3 min-w-[140px] max-w-[180px]', py)}>
-        {isBloqueado ? (
-          <div className="flex items-center gap-1 group">
-            <Lock className="h-3 w-3 shrink-0 text-amber-500" />
-            <InlineEdit value={item.blocker} onSave={v => onUpdate('blocker', v)} placeholder="Bloqueo…"
-              className="text-amber-700 dark:text-amber-400" />
-            <button type="button" onClick={() => onUpdate('blocker', null)} title="Limpiar bloqueo"
-              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded text-zinc-300 hover:text-red-400 transition-all">
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ) : (
-          <InlineEdit value={null} onSave={v => onUpdate('blocker', v)} placeholder="Sin bloqueo" />
-        )}
-      </td>
+      {item.blocker && (
+        <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+          <Lock className="h-2.5 w-2.5 shrink-0" />
+          <span className="truncate">{item.blocker}</span>
+        </div>
+      )}
 
-      {/* Última actividad */}
-      <td className={cn('px-3 whitespace-nowrap text-xs', py)}>
-        <span className={activityColor(days, sinMovimientoDias)} title={item.last_activity_at}>
-          {relativeTime(item.last_activity_at)}
-        </span>
-      </td>
-
-      {/* Carpeta Drive */}
-      <td className={cn('px-3', py)}>
-        <FolderCell value={item.folder_url} onSave={v => onUpdate('folder_url', v)} />
-      </td>
-
-      {/* Acciones */}
-      <td className={cn('px-3', py)}>
-        <RowActions item={item} onOpenActividad={onOpenActividad} />
-      </td>
-    </tr>
+      {/* Footer */}
+      {item.activity_count > 0 && (
+        <div className="flex items-center gap-1 mt-auto pt-2 border-t border-zinc-50 dark:border-white/5 text-[10px] text-zinc-400">
+          <History className="h-2.5 w-2.5" />
+          {item.activity_count}
+        </div>
+      )}
+    </button>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AsuntoCard — layout mobile con swipe + campos editables
+// CompactListRow — fila compacta para la barra lateral cuando hay panel abierto
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AsuntoCard({ item, sinMovimientoDias, onUpdate, onOpenActividad }: {
-  item: AsuntoItem; sinMovimientoDias: number; onOpenActividad: () => void
-  onUpdate: (field: AsuntoField, value: string | null) => void
+function CompactListRow({ item, selected, sinMovimientoDias, onSelect }: {
+  item: AsuntoItem; selected: boolean; sinMovimientoDias: number; onSelect: () => void
 }) {
   const days = daysSince(item.last_activity_at)
-  const { date, text: naText } = parseNextAction(item.next_action)
-  const naStatus = nextActionStatus(date)
+  const p = PRIORIDAD[item.prioridad] ?? PRIORIDAD.MEDIA
 
-  // Edición de campos
-  const [editField, setEditField] = useState<'next_action' | 'blocker' | 'folder_url' | null>(null)
-  const [showNote, setShowNote] = useState(false)
+  return (
+    <button type="button" onClick={onSelect}
+      className={cn(
+        'w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-zinc-50 dark:border-white/5 transition-colors',
+        selected
+          ? 'bg-blue-50 dark:bg-blue-900/10 border-l-2 border-l-blue-500 pl-2.5'
+          : 'hover:bg-zinc-50 dark:hover:bg-white/[0.02]',
+      )}>
+      <span className={cn('h-2 w-2 rounded-full shrink-0', p.dot)} />
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-xs font-medium truncate leading-tight',
+          selected ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-800 dark:text-zinc-200')}>
+          {item.cliente_label}
+        </p>
+        <p className="text-[10px] text-zinc-400 truncate">{estadoLabel(item)}</p>
+      </div>
+      <span className={cn('text-[10px] tabular-nums font-medium shrink-0',
+        activityColor(days, sinMovimientoDias))}>
+        {days}d
+      </span>
+    </button>
+  )
+}
 
-  // Swipe
-  const [swipeX, setSwipeX] = useState(0)
-  const [isTouching, setIsTouching] = useState(false)
-  const [isRevealed, setIsRevealed] = useState(false)
-  const [showDoneFlash, setShowDoneFlash] = useState(false)
+// ─────────────────────────────────────────────────────────────────────────────
+// AsuntoDetailPanel — panel combinado de edición + actividad
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const isVertical = useRef(false)
-  const didSwipe = useRef(false)
-
-  const REVEAL_W = 128
-  const SWIPE_THRESH = 68
-
+function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
+  item: AsuntoItem
+  onClose: () => void
+  onUpdate: (field: AsuntoField, value: string | null) => void
+  sinMovimientoDias: number
+}) {
+  const { data: entries = [], isLoading: loadingEntries } = useAsuntoActividad(item)
   const addActividad = useAddActividad()
 
-  function marcarRevisado() {
-    setShowDoneFlash(true)
+  const tipos = item.tipo === 'consulta' ? [...TIPOS_CONSULTA] : [...TIPOS_EXPEDIENTE]
+  const [notaTipo, setNotaTipo] = useState<string>(tipos[0])
+  const [notaText, setNotaText] = useState('')
+
+  // Editable field states — se sincronizan cuando cambia el ítem
+  const [nextAction, setNextAction] = useState(item.next_action ?? '')
+  const [blocker, setBlocker] = useState(item.blocker ?? '')
+  const [folderUrl, setFolderUrl] = useState(item.folder_url ?? '')
+
+  useEffect(() => {
+    setNextAction(item.next_action ?? '')
+    setBlocker(item.blocker ?? '')
+    setFolderUrl(item.folder_url ?? '')
+  }, [item.id, item.next_action, item.blocker, item.folder_url])
+
+  const days = daysSince(item.last_activity_at)
+  const { date: naDate } = parseNextAction(item.next_action)
+  const naStatus = nextActionStatus(naDate)
+
+  function commitField(field: AsuntoField, raw: string) {
+    onUpdate(field, raw.trim() || null)
+  }
+
+  function submitNota() {
+    const trimmed = notaText.trim()
+    if (!trimmed || addActividad.isPending) return
     addActividad.mutate(
-      { item, tipo: 'nota', descripcion: '✓ Revisado' },
-      { onSuccess: () => setTimeout(() => setShowDoneFlash(false), 900) },
+      { item, tipo: notaTipo, descripcion: trimmed },
+      { onSuccess: () => setNotaText('') },
     )
   }
 
-  function closeReveal() { setSwipeX(0); setIsRevealed(false) }
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    isVertical.current = false
-    didSwipe.current = false
-    setIsTouching(true)
-  }
-
-  function onTouchMove(e: React.TouchEvent) {
-    const dx = e.touches[0].clientX - touchStartX.current
-    const dy = e.touches[0].clientY - touchStartY.current
-    if (!isVertical.current && !didSwipe.current) {
-      if (Math.abs(dy) > Math.abs(dx) + 8) { isVertical.current = true; return }
-      if (Math.abs(dx) > 8) didSwipe.current = true
-    }
-    if (isVertical.current) return
-    if (isRevealed) setSwipeX(Math.min(0, dx - REVEAL_W))
-    else if (dx < 0) setSwipeX(Math.max(-REVEAL_W, dx))
-    else setSwipeX(Math.min(50, dx * 0.3))
-  }
-
-  function onTouchEnd(e: React.TouchEvent) {
-    setIsTouching(false)
-    if (isVertical.current || !didSwipe.current) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    if (!isRevealed) {
-      if (dx < -SWIPE_THRESH) { setSwipeX(-REVEAL_W); setIsRevealed(true) }
-      else if (dx > SWIPE_THRESH) { marcarRevisado(); setSwipeX(0) }
-      else setSwipeX(0)
-    } else {
-      if (dx > SWIPE_THRESH / 2) closeReveal()
-      else setSwipeX(-REVEAL_W)
-    }
-  }
-
   return (
-    <>
-      {editField && (
-        <EditTextSheet
-          label={editField === 'next_action' ? 'Próxima acción' : editField === 'blocker' ? 'Bloqueo' : 'Carpeta Drive'}
-          value={item[editField] ?? null}
-          placeholder={editField === 'next_action' ? 'Ej: 2026-09-10: Enviar TCL' : editField === 'blocker' ? 'Ej: Esperando peritos' : 'https://drive.google.com/…'}
-          onSave={v => { onUpdate(editField, v); setEditField(null) }}
-          onClose={() => setEditField(null)}
-        />
-      )}
-      {showNote && <NoteSheet item={item} onClose={() => setShowNote(false)} />}
+    <div className="flex flex-col h-full bg-white dark:bg-zinc-900">
 
-      <div className={cn('relative overflow-hidden border-b border-zinc-100 dark:border-white/5 last:border-0',
-        showDoneFlash && 'bg-green-50 dark:bg-green-900/10 transition-colors')}>
+      {/* Drag handle (mobile) */}
+      <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+        <div className="h-1 w-12 rounded-full bg-zinc-200 dark:bg-zinc-700" />
+      </div>
 
-        {/* Botones revelados al deslizar izquierda */}
-        <div className="absolute inset-y-0 right-0 flex items-stretch" style={{ width: REVEAL_W }}>
-          <button type="button"
-            onClick={() => { closeReveal(); setShowNote(true) }}
-            className="flex-1 flex flex-col items-center justify-center gap-1.5 bg-teal-500 active:bg-teal-600 text-white text-xs font-medium">
-            <PenLine className="h-4 w-4" />
-            Nota
-          </button>
-          <button type="button"
-            onClick={() => { closeReveal(); onOpenActividad() }}
-            className="flex-1 flex flex-col items-center justify-center gap-1.5 bg-indigo-500 active:bg-indigo-600 text-white text-xs font-medium">
-            <History className="h-4 w-4" />
-            Historial
-          </button>
-        </div>
-
-        {/* Contenido deslizable */}
-        <div
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          style={{
-            transform: `translateX(${swipeX}px)`,
-            transition: isTouching ? 'none' : 'transform 0.25s ease',
-            touchAction: 'pan-y',
-          }}
-          className={cn('px-4 py-3.5 border-l-4 bg-white dark:bg-zinc-900',
-            PRIO_BORDER[item.prioridad] ?? 'border-l-transparent',
-            item.blocker && 'bg-amber-50/30 dark:bg-amber-900/5',
-            !item.blocker && days >= sinMovimientoDias && 'bg-red-50/20 dark:bg-red-900/5'
+      {/* Header */}
+      <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-white/5 flex items-start gap-3 shrink-0">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className={cn('text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
+              item.tipo === 'consulta'
+                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400')}>
+              {item.tipo === 'consulta' ? 'Consulta' : 'Expediente'}
+            </span>
+            <Link to={item.href} title="Abrir detalle completo"
+              className="text-zinc-400 hover:text-blue-500 transition-colors">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-tight truncate">
+            {item.cliente_label}
+          </h2>
+          {item.titulo && item.titulo !== item.cliente_label && (
+            <p className="text-xs text-zinc-400 truncate mt-0.5">{item.titulo}</p>
           )}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className={cn('shrink-0 text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded',
-                item.tipo === 'consulta'
-                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                  : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400')}>
-                {item.tipo === 'consulta' ? 'Cta' : 'Exp'}
-              </span>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm truncate">{item.cliente_label}</span>
-            </div>
-            {/* Prioridad: tap para cambiar */}
+        </div>
+        <button type="button" onClick={onClose} aria-label="Cerrar"
+          className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Body scrollable */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+        {/* Stats rápidas */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <p className="text-[9px] text-zinc-400 uppercase tracking-wide mb-1.5">Prioridad</p>
             <PrioCell value={item.prioridad} onChange={v => onUpdate('prioridad', v)} />
           </div>
-
-          {/* Subtitle */}
-          <p className="text-xs text-zinc-400 truncate mb-2">{item.titulo}</p>
-
-          {/* Estado + materia */}
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className={cn('inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap',
+          <div>
+            <p className="text-[9px] text-zinc-400 uppercase tracking-wide mb-1.5">Estado</p>
+            <span className={cn('inline-block px-2 py-0.5 rounded-full text-xs font-medium',
               ESTADO_BADGE[item.estado] ?? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
               {estadoLabel(item)}
             </span>
-            <span className="text-[10px] text-zinc-400">{materiaLabel(item)}</span>
-            {item.tipo === 'consulta' && item.convertida_expediente_id && (
-              <Link to={`/expedientes/${item.convertida_expediente_id}`}
-                className="text-[10px] text-teal-600 dark:text-teal-400 hover:underline">
-                → Ver caso
-              </Link>
-            )}
           </div>
-
-          {/* Próxima acción — tap para editar */}
-          <button type="button" onClick={() => setEditField('next_action')}
-            className="w-full text-left mb-1.5">
-            {naText ? (
-              <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                {naStatus && (
-                  <span className={cn('text-[9px] font-semibold uppercase tracking-wide shrink-0', naStatus.cls)}>
-                    {naStatus.label}
-                  </span>
-                )}
-                <span className="truncate">{naText}</span>
-              </div>
-            ) : (
-              <span className="text-xs text-zinc-300 dark:text-zinc-600 italic">Agregar próxima acción…</span>
-            )}
-          </button>
-
-          {/* Bloqueo — ✕ siempre visible, tap para editar */}
-          {item.blocker ? (
-            <div className="flex items-center gap-1 mb-1.5">
-              <button type="button" onClick={() => setEditField('blocker')}
-                className="flex items-center gap-1 flex-1 min-w-0 text-xs text-amber-600 dark:text-amber-400 text-left">
-                <Lock className="h-3 w-3 shrink-0" />
-                <span className="truncate">{item.blocker}</span>
-              </button>
-              <button type="button" onClick={() => onUpdate('blocker', null)} title="Limpiar bloqueo"
-                className="shrink-0 p-1 rounded-full text-zinc-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setEditField('blocker')}
-              className="w-full text-left mb-1.5 text-xs text-zinc-300 dark:text-zinc-600 italic">
-              Agregar bloqueo…
-            </button>
-          )}
-
-          {/* Footer */}
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-50 dark:border-white/5">
-            <span className={cn('text-xs', activityColor(days, sinMovimientoDias))}>
+          <div>
+            <p className="text-[9px] text-zinc-400 uppercase tracking-wide mb-1.5">Última act.</p>
+            <span className={cn('text-xs font-medium', activityColor(days, sinMovimientoDias))}>
               {relativeTime(item.last_activity_at)}
             </span>
-            <div className="flex items-center gap-0.5">
-              {item.folder_url ? (
-                <a href={item.folder_url} target="_blank" rel="noopener noreferrer" title="Carpeta Drive"
-                  className="p-1.5 rounded text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-                  <FolderOpen className="h-4 w-4" />
-                </a>
-              ) : (
-                <button type="button" onClick={() => setEditField('folder_url')} title="Agregar carpeta"
-                  className="p-1.5 rounded text-zinc-200 dark:text-zinc-700 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-                  <FolderPlus className="h-4 w-4" />
-                </button>
-              )}
-              {item.tipo === 'consulta' && !item.convertida_expediente_id && (
-                <Link to={`/expedientes/nuevo?desde_consulta=${item.id}`} title="Crear caso"
-                  className="p-1.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-colors">
-                  <PlusCircle className="h-4 w-4" />
-                </Link>
-              )}
-              <button type="button" onClick={onOpenActividad} title="Historial"
-                className="relative p-1.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
-                <History className="h-4 w-4" />
-                {item.activity_count > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 flex items-center justify-center text-[8px] font-bold bg-indigo-500 text-white rounded-full leading-none">
-                    {item.activity_count > 9 ? '9+' : item.activity_count}
-                  </span>
-                )}
-              </button>
-              <Link to={item.href} title="Abrir detalle"
-                className="p-1.5 rounded text-zinc-300 dark:text-zinc-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
+          </div>
+          <div>
+            <p className="text-[9px] text-zinc-400 uppercase tracking-wide mb-1.5">Materia</p>
+            <span className="text-xs text-zinc-500">{materiaLabel(item)}</span>
           </div>
         </div>
+
+        <div className="h-px bg-zinc-100 dark:bg-white/5" />
+
+        {/* Campos editables */}
+        <div className="space-y-4">
+
+          {/* Próxima acción */}
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">
+              Próxima acción
+              {naStatus && (
+                <span className={cn('lowercase normal-case tracking-normal font-medium text-[10px]', naStatus.cls)}>
+                  — {naStatus.label}
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              value={nextAction}
+              onChange={e => setNextAction(e.target.value)}
+              onBlur={() => commitField('next_action', nextAction)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { commitField('next_action', nextAction); e.currentTarget.blur() }
+              }}
+              placeholder="Ej: 2026-09-15: Enviar TCL al juzgado"
+              className="w-full text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400 transition-colors"
+            />
+          </div>
+
+          {/* Bloqueo */}
+          <div>
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">
+              Bloqueo
+              {blocker && (
+                <button type="button"
+                  onClick={() => { setBlocker(''); onUpdate('blocker', null) }}
+                  className="text-red-400 hover:text-red-500 text-[10px] normal-case tracking-normal font-medium transition-colors">
+                  — limpiar
+                </button>
+              )}
+            </label>
+            <input
+              type="text"
+              value={blocker}
+              onChange={e => setBlocker(e.target.value)}
+              onBlur={() => commitField('blocker', blocker)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { commitField('blocker', blocker); e.currentTarget.blur() }
+              }}
+              placeholder="¿Qué frena el avance?"
+              className={cn(
+                'w-full text-sm rounded-xl border px-3 py-2.5 focus:outline-none focus:ring-2 placeholder:text-zinc-400 transition-colors',
+                blocker
+                  ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 focus:ring-amber-400'
+                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:ring-blue-400',
+              )}
+            />
+          </div>
+
+          {/* Carpeta Drive */}
+          <div>
+            <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-1.5">
+              Carpeta Drive
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={folderUrl}
+                onChange={e => setFolderUrl(e.target.value)}
+                onBlur={() => commitField('folder_url', folderUrl)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { commitField('folder_url', folderUrl); e.currentTarget.blur() }
+                }}
+                placeholder="https://drive.google.com/…"
+                className="flex-1 text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400 transition-colors"
+              />
+              {folderUrl.trim() && (
+                <a href={folderUrl.trim()} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 shrink-0 rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-400 hover:text-blue-500 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+                  <FolderOpen className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Crear/ver expediente (consultas) */}
+          {item.tipo === 'consulta' && !item.convertida_expediente_id && (
+            <Link to={`/expedientes/nuevo?desde_consulta=${item.id}`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-200 dark:border-teal-800/40 bg-teal-50 dark:bg-teal-900/10 text-teal-700 dark:text-teal-300 text-sm hover:bg-teal-100 dark:hover:bg-teal-900/20 transition-colors font-medium">
+              <PlusCircle className="h-4 w-4 shrink-0" />
+              Convertir en expediente
+            </Link>
+          )}
+          {item.tipo === 'consulta' && item.convertida_expediente_id && (
+            <Link to={`/expedientes/${item.convertida_expediente_id}`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-teal-200 dark:border-teal-800/40 bg-teal-50 dark:bg-teal-900/10 text-teal-700 dark:text-teal-300 text-sm hover:bg-teal-100 dark:hover:bg-teal-900/20 transition-colors">
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              Ver expediente vinculado
+            </Link>
+          )}
+        </div>
+
+        <div className="h-px bg-zinc-100 dark:bg-white/5" />
+
+        {/* Timeline de actividad */}
+        <div>
+          <h4 className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+            Actividad
+            {item.activity_count > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-zinc-200 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 rounded-full text-[9px] font-bold">
+                {item.activity_count}
+              </span>
+            )}
+          </h4>
+
+          {loadingEntries ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-4 w-4 animate-spin text-zinc-300" />
+            </div>
+          ) : entries.length === 0 ? (
+            <p className="text-xs text-zinc-400 italic text-center py-6">Sin actividad registrada.</p>
+          ) : (
+            <div className="relative space-y-4">
+              <div className="absolute left-[5px] top-1.5 bottom-1.5 w-px bg-zinc-100 dark:bg-white/6" />
+              {entries.map(entry => (
+                <div key={entry.id} className="relative pl-5">
+                  <div className={cn('absolute left-0 top-[5px] h-2.5 w-2.5 rounded-full border-2 border-white dark:border-zinc-900',
+                    TIPO_DOT[entry.tipo] ?? 'bg-zinc-300 dark:bg-zinc-600')} />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                      <span className={cn('text-[9px] font-semibold uppercase tracking-wide px-1 py-0.5 rounded',
+                        TIPO_BADGE[entry.tipo] ?? TIPO_BADGE.otro)}>
+                        {TIPO_LABELS[entry.tipo] ?? entry.tipo}
+                      </span>
+                      <span className="text-[10px] text-zinc-400">{formatDateTime(entry.created_at)}</span>
+                      {entry.autor && entry.autor !== 'Sistema' && entry.autor !== 'SAE' && (
+                        <span className="text-[10px] text-zinc-400">· {entry.autor}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-line">
+                      {entry.descripcion}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </>
+
+      {/* Nota rápida — sticky al pie */}
+      <div className="border-t border-zinc-100 dark:border-white/5 px-4 py-3 shrink-0 bg-zinc-50/90 dark:bg-zinc-900/90 backdrop-blur-sm">
+        <div className="flex gap-2 items-center">
+          <select
+            value={notaTipo}
+            onChange={e => setNotaTipo(e.target.value)}
+            className="shrink-0 text-xs rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-2 focus:outline-none cursor-pointer">
+            {tipos.map(t => <option key={t} value={t}>{TIPO_LABELS[t] ?? t}</option>)}
+          </select>
+          <input
+            type="text"
+            value={notaText}
+            onChange={e => setNotaText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') submitNota() }}
+            placeholder="Nota rápida — Enter para guardar"
+            className="flex-1 min-w-0 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400"
+          />
+          <button
+            type="button"
+            onClick={submitNota}
+            disabled={!notaText.trim() || addActividad.isPending}
+            className="shrink-0 flex items-center justify-center h-9 w-9 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors">
+            {addActividad.isPending
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Plus className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -918,9 +609,9 @@ function AsuntoCard({ item, sinMovimientoDias, onUpdate, onOpenActividad }: {
 // FocoCard + FocoDia — strip horizontal con los 3 asuntos más urgentes
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FocoCard({ item, sinMovimientoDias, onOpenActividad, onUpdate }: {
+function FocoCard({ item, sinMovimientoDias, onOpenDetail, onUpdate }: {
   item: AsuntoItem; sinMovimientoDias: number
-  onOpenActividad: () => void
+  onOpenDetail: () => void
   onUpdate: (field: AsuntoField, value: string | null) => void
 }) {
   const days = daysSince(item.last_activity_at)
@@ -928,7 +619,7 @@ function FocoCard({ item, sinMovimientoDias, onOpenActividad, onUpdate }: {
 
   return (
     <div className={cn(
-      'shrink-0 w-[196px] rounded-2xl border p-3 flex flex-col gap-2 border-l-4',
+      'shrink-0 w-[192px] rounded-2xl border p-3 flex flex-col gap-2 border-l-4',
       'border-zinc-200 dark:border-white/8 bg-white dark:bg-zinc-900',
       PRIO_BORDER[item.prioridad] ?? 'border-l-transparent',
     )}>
@@ -969,10 +660,10 @@ function FocoCard({ item, sinMovimientoDias, onOpenActividad, onUpdate }: {
       )}
 
       <div className="flex items-center gap-1 mt-auto pt-2 border-t border-zinc-50 dark:border-white/5">
-        <button type="button" onClick={onOpenActividad}
+        <button type="button" onClick={onOpenDetail}
           className="flex-1 text-[10px] text-zinc-400 hover:text-indigo-500 flex items-center justify-center gap-1 py-1 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
           <History className="h-3 w-3" />
-          Historial
+          Detalle
         </button>
         <Link to={item.href}
           className="flex-1 text-[10px] text-zinc-400 hover:text-blue-500 flex items-center justify-center gap-1 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors">
@@ -984,9 +675,9 @@ function FocoCard({ item, sinMovimientoDias, onOpenActividad, onUpdate }: {
   )
 }
 
-function FocoDia({ items, sinMovimientoDias, onOpenActividad, onUpdate }: {
+function FocoDia({ items, sinMovimientoDias, onOpenDetail, onUpdate }: {
   items: AsuntoItem[]; sinMovimientoDias: number
-  onOpenActividad: (item: AsuntoItem) => void
+  onOpenDetail: (item: AsuntoItem) => void
   onUpdate: (item: AsuntoItem, field: AsuntoField, value: string | null) => void
 }) {
   if (items.length < 4) return null
@@ -1006,7 +697,7 @@ function FocoDia({ items, sinMovimientoDias, onOpenActividad, onUpdate }: {
             key={`${item.tipo}-${item.id}`}
             item={item}
             sinMovimientoDias={sinMovimientoDias}
-            onOpenActividad={() => onOpenActividad(item)}
+            onOpenDetail={() => onOpenDetail(item)}
             onUpdate={(field, value) => onUpdate(item, field, value)}
           />
         ))}
@@ -1072,6 +763,8 @@ function TeamMemberCard({ member, summary, isLoading, onSelect }: {
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
+type SortField = 'urgencia' | 'sin_movimiento' | 'cliente' | 'estado'
+
 export default function MiTrabajoPage() {
   const profile = useAuthStore(s => s.profile)
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
@@ -1085,46 +778,44 @@ export default function MiTrabajoPage() {
 
   const { data: items = [], isLoading } = useMiTrabajoBoard(selectedId)
   const updateField = useUpdateAsuntoField()
-  const [actividadAsunto, setActividadAsunto] = useState<AsuntoItem | null>(null)
 
-  // Compact mode toggle
-  const [compact, setCompact] = useState(false)
+  // Panel de detalle — almacena la clave, el ítem se deriva de `items`
+  const [panelKey, setPanelKey] = useState<{ id: string; tipo: AsuntoItem['tipo'] } | null>(null)
+  const panelItem = panelKey
+    ? (items.find(i => i.id === panelKey.id && i.tipo === panelKey.tipo) ?? null)
+    : null
+
+  // Si el ítem del panel desaparece (ej: cambia a estado excluido), cierra el panel
+  useEffect(() => {
+    if (panelKey && !panelItem) setPanelKey(null)
+  }, [panelKey, panelItem])
+
+  function openPanel(item: AsuntoItem) {
+    setPanelKey({ id: item.id, tipo: item.tipo })
+  }
 
   // Filters
   const [search,              setSearch]              = useState('')
   const [filterPrioridad,     setFilterPrioridad]     = useState<string | null>(null)
   const [filterTipo,          setFilterTipo]          = useState<'consulta' | 'expediente' | null>(null)
-  const [filterEstado,        setFilterEstado]        = useState<string | null>(null)
   const [filterBloqueados,    setFilterBloqueados]    = useState(false)
   const [filterSinMovimiento, setFilterSinMovimiento] = useState(false)
-  const [filterSinCarpeta,    setFilterSinCarpeta]    = useState(false)
   const [sinMovimientoDias,   setSinMovimientoDias]   = useState(SIN_MOVIMIENTO_DEFAULT)
-
-  // Sorting
-  const [sortField, setSortField] = useState<SortField>('prioridad')
-  const [sortDir,   setSortDir]   = useState<'asc' | 'desc'>('asc')
-
-  function handleSort(field: SortField) {
-    if (field === sortField) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('asc') }
-  }
+  const [sortField,           setSortField]           = useState<SortField>('urgencia')
 
   // Team summary
   const teamIds = isAdmin && tab === 'equipo' ? team.map(m => m.id) : []
   const { data: teamSummary = {}, isLoading: loadingTeamSummary } = useTeamWorkloadSummary(teamIds)
 
   // KPIs
-  const nUrgente     = items.filter(i => i.prioridad === 'URGENTE').length
-  const nAlta        = items.filter(i => i.prioridad === 'ALTA').length
-  const nBloqueados  = items.filter(i => !!i.blocker).length
-  const nSinMov      = items.filter(i => daysSince(i.last_activity_at) >= sinMovimientoDias).length
-  const nSinCarpeta  = items.filter(i => !i.folder_url).length
-  const nConsultas   = items.filter(i => i.tipo === 'consulta').length
-  const nExpedientes = items.filter(i => i.tipo === 'expediente').length
+  const nUrgente    = items.filter(i => i.prioridad === 'URGENTE').length
+  const nAlta       = items.filter(i => i.prioridad === 'ALTA').length
+  const nBloqueados = items.filter(i => !!i.blocker).length
+  const nSinMov     = items.filter(i => daysSince(i.last_activity_at) >= sinMovimientoDias).length
+  const nConsultas  = items.filter(i => i.tipo === 'consulta').length
+  const nExp        = items.filter(i => i.tipo === 'expediente').length
 
-  const estadosDisponibles = [...new Set(items.map(i => i.estado))].sort()
-
-  // Filter
+  // Filter + sort
   const filtered = items.filter(item => {
     if (search) {
       const q = search.toLowerCase()
@@ -1132,28 +823,24 @@ export default function MiTrabajoPage() {
     }
     if (filterPrioridad && item.prioridad !== filterPrioridad) return false
     if (filterTipo && item.tipo !== filterTipo) return false
-    if (filterEstado && item.estado !== filterEstado) return false
     if (filterBloqueados && !item.blocker) return false
     if (filterSinMovimiento && daysSince(item.last_activity_at) < sinMovimientoDias) return false
-    if (filterSinCarpeta && item.folder_url) return false
     return true
   })
 
-  // Sort — "prioridad" usa urgency score compuesto (prioridad + días + blocker)
   const sorted = [...filtered].sort((a, b) => {
-    let cmp = 0
-    if (sortField === 'prioridad')      cmp = urgencyScore(b) - urgencyScore(a)
-    else if (sortField === 'last_activity') cmp = new Date(a.last_activity_at).getTime() - new Date(b.last_activity_at).getTime()
-    else if (sortField === 'cliente')   cmp = a.cliente_label.localeCompare(b.cliente_label, 'es')
-    else if (sortField === 'estado')    cmp = estadoLabel(a).localeCompare(estadoLabel(b), 'es')
-    return sortDir === 'asc' ? cmp : -cmp
+    if (sortField === 'urgencia')       return urgencyScore(b) - urgencyScore(a)
+    if (sortField === 'sin_movimiento') return daysSince(b.last_activity_at) - daysSince(a.last_activity_at)
+    if (sortField === 'cliente')        return a.cliente_label.localeCompare(b.cliente_label, 'es')
+    if (sortField === 'estado')         return estadoLabel(a).localeCompare(estadoLabel(b), 'es')
+    return 0
   })
 
-  const hasFilters = !!(search || filterPrioridad || filterTipo || filterEstado || filterBloqueados || filterSinMovimiento || filterSinCarpeta)
+  const hasFilters = !!(search || filterPrioridad || filterTipo || filterBloqueados || filterSinMovimiento)
 
   function clearFilters() {
-    setSearch(''); setFilterPrioridad(null); setFilterTipo(null); setFilterEstado(null)
-    setFilterBloqueados(false); setFilterSinMovimiento(false); setFilterSinCarpeta(false)
+    setSearch(''); setFilterPrioridad(null); setFilterTipo(null)
+    setFilterBloqueados(false); setFilterSinMovimiento(false)
   }
 
   function toggleKpi(field: string, value?: string) {
@@ -1161,7 +848,6 @@ export default function MiTrabajoPage() {
     if (field === 'tipo')          setFilterTipo(t => t === value ? null : (value as 'consulta' | 'expediente' | null))
     if (field === 'bloqueados')    setFilterBloqueados(v => !v)
     if (field === 'sinMovimiento') setFilterSinMovimiento(v => !v)
-    if (field === 'sinCarpeta')    setFilterSinCarpeta(v => !v)
   }
 
   function handleUpdate(item: AsuntoItem, field: AsuntoField, value: string | null) {
@@ -1174,10 +860,6 @@ export default function MiTrabajoPage() {
 
   return (
     <div className="space-y-4">
-
-      {actividadAsunto && (
-        <ActividadDrawer item={actividadAsunto} onClose={() => setActividadAsunto(null)} />
-      )}
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1235,7 +917,7 @@ export default function MiTrabajoPage() {
             <FocoDia
               items={items}
               sinMovimientoDias={sinMovimientoDias}
-              onOpenActividad={setActividadAsunto}
+              onOpenDetail={openPanel}
               onUpdate={handleUpdate}
             />
           )}
@@ -1246,13 +928,12 @@ export default function MiTrabajoPage() {
             <KpiChip count={nAlta}       label="Alta"       icon={AlertCircle} variant="amber" active={filterPrioridad === 'ALTA'}    onClick={() => toggleKpi('prioridad', 'ALTA')} />
             <KpiChip count={nBloqueados} label="Bloqueados" icon={Lock}        variant="amber" active={filterBloqueados}              onClick={() => toggleKpi('bloqueados')} />
             <KpiChip count={nSinMov}     label={`Sin mov. +${sinMovimientoDias}d`} icon={Clock} variant="red" active={filterSinMovimiento} onClick={() => toggleKpi('sinMovimiento')} />
-            <KpiChip count={nSinCarpeta} label="Sin carpeta" icon={FolderPlus} variant="zinc"  active={filterSinCarpeta}              onClick={() => toggleKpi('sinCarpeta')} />
             <div className="flex-1" />
-            <KpiChip count={nConsultas}   label="Consultas"   variant="zinc"   active={filterTipo === 'consulta'}   onClick={() => toggleKpi('tipo', 'consulta')} />
-            <KpiChip count={nExpedientes} label="Expedientes" variant="indigo" active={filterTipo === 'expediente'} onClick={() => toggleKpi('tipo', 'expediente')} />
+            <KpiChip count={nConsultas} label="Consultas"   variant="zinc"   active={filterTipo === 'consulta'}   onClick={() => toggleKpi('tipo', 'consulta')} />
+            <KpiChip count={nExp}       label="Expedientes" variant="indigo" active={filterTipo === 'expediente'} onClick={() => toggleKpi('tipo', 'expediente')} />
           </div>
 
-          {/* Filtros */}
+          {/* Barra de filtros */}
           <div className="flex flex-wrap gap-2 items-center">
             <div className="relative flex-1 min-w-[160px] max-w-sm">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
@@ -1261,22 +942,21 @@ export default function MiTrabajoPage() {
                 className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400" />
             </div>
 
-            <select value={filterEstado ?? ''} onChange={e => setFilterEstado(e.target.value || null)}
-              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
-              <option value="">Todos los estados</option>
-              {estadosDisponibles.map(est => (
-                <option key={est} value={est}>{ESTADO_CONSULTA[est] ?? ESTADO_EXPEDIENTE[est] ?? est}</option>
-              ))}
-            </select>
-
             <div className="flex items-center gap-1.5 text-xs text-zinc-500">
               <Clock className="h-3 w-3" />
-              <span>Sin mov.</span>
               <input type="number" min={7} max={365} value={sinMovimientoDias}
                 onChange={e => setSinMovimientoDias(Number(e.target.value) || 30)}
-                className="w-14 text-center rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                className="w-12 text-center rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-xs" />
               <span>días</span>
             </div>
+
+            <select value={sortField} onChange={e => setSortField(e.target.value as SortField)}
+              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
+              <option value="urgencia">Ordenar: Urgencia</option>
+              <option value="sin_movimiento">Sin movimiento</option>
+              <option value="cliente">A-Z</option>
+              <option value="estado">Estado</option>
+            </select>
 
             {hasFilters && (
               <button type="button" onClick={clearFilters}
@@ -1285,79 +965,106 @@ export default function MiTrabajoPage() {
                 Limpiar
               </button>
             )}
-
-            {/* Compact toggle — solo visible en desktop */}
-            <button type="button" onClick={() => setCompact(c => !c)}
-              title={compact ? 'Vista expandida' : 'Vista compacta'}
-              className="hidden md:flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors ml-auto">
-              {compact ? <LayoutList className="h-3.5 w-3.5" /> : <AlignJustify className="h-3.5 w-3.5" />}
-              {compact ? 'Expandida' : 'Compacta'}
-            </button>
           </div>
 
-          {/* Tabla + cards */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/8 bg-white dark:bg-zinc-900 overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center items-center py-16">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-300" />
-              </div>
-            ) : sorted.length === 0 ? (
-              <p className="text-center text-sm text-zinc-400 italic py-12">
-                {hasFilters ? 'Ningún asunto coincide con los filtros activos.' : 'Sin asuntos activos asignados.'}
-              </p>
-            ) : (
-              <>
-                {/* Tabla — desktop (sticky header dentro del scroll container) */}
-                <div className="hidden md:block overflow-auto" style={{ maxHeight: 'calc(100vh - 360px)' }}>
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-white/5 text-xs text-zinc-400 uppercase tracking-wide shadow-[0_1px_0_0_theme(colors.zinc.100)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
-                      <tr>
-                        <SortHeader field="cliente"       label="Cliente / Asunto" current={sortField} dir={sortDir} onSort={handleSort} />
-                        <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap">Materia</th>
-                        <SortHeader field="prioridad"     label="Prioridad"        current={sortField} dir={sortDir} onSort={handleSort} />
-                        <SortHeader field="estado"        label="Estado"           current={sortField} dir={sortDir} onSort={handleSort} />
-                        <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap">Próxima acción</th>
-                        <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap">Bloqueo</th>
-                        <SortHeader field="last_activity" label="Última act."      current={sortField} dir={sortDir} onSort={handleSort} />
-                        <th className="px-3 py-2.5 text-left font-medium whitespace-nowrap">Carpeta</th>
-                        <th className="px-3 py-2.5" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50 dark:divide-white/[0.03]">
-                      {sorted.map(item => (
-                        <AsuntoRow key={`${item.tipo}-${item.id}`} item={item}
-                          sinMovimientoDias={sinMovimientoDias}
-                          compact={compact}
-                          onUpdate={(field, value) => handleUpdate(item, field, value)}
-                          onOpenActividad={() => setActividadAsunto(item)} />
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+          {/* Contenido principal */}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="h-5 w-5 animate-spin text-zinc-300" />
+            </div>
+          ) : sorted.length === 0 ? (
+            <p className="text-center text-sm text-zinc-400 italic py-16">
+              {hasFilters ? 'Ningún asunto coincide con los filtros.' : 'Sin asuntos activos asignados.'}
+            </p>
+          ) : (
+            <>
+              {/* Mobile: grid completo + bottom sheet al seleccionar */}
+              <div className="md:hidden space-y-2">
+                {sorted.map(item => (
+                  <AsuntoGridCard
+                    key={`${item.tipo}-${item.id}`}
+                    item={item}
+                    selected={panelItem?.id === item.id && panelItem?.tipo === item.tipo}
+                    sinMovimientoDias={sinMovimientoDias}
+                    onSelect={() => openPanel(item)}
+                  />
+                ))}
 
-                {/* Cards — mobile */}
-                <div className="md:hidden">
+                {panelItem && (
+                  <>
+                    <div className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40"
+                      onClick={() => setPanelKey(null)} aria-hidden="true" />
+                    <div className="fixed inset-x-0 bottom-0 top-[5%] z-50 rounded-t-2xl overflow-hidden shadow-2xl">
+                      <AsuntoDetailPanel
+                        item={panelItem}
+                        onClose={() => setPanelKey(null)}
+                        onUpdate={(field, value) => handleUpdate(panelItem, field, value)}
+                        sinMovimientoDias={sinMovimientoDias}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Desktop: grid (sin selección) o split pane (con selección) */}
+              {!panelItem ? (
+                <div className="hidden md:grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                   {sorted.map(item => (
-                    <AsuntoCard key={`${item.tipo}-${item.id}`} item={item}
+                    <AsuntoGridCard
+                      key={`${item.tipo}-${item.id}`}
+                      item={item}
+                      selected={false}
                       sinMovimientoDias={sinMovimientoDias}
-                      onUpdate={(field, value) => handleUpdate(item, field, value)}
-                      onOpenActividad={() => setActividadAsunto(item)} />
+                      onSelect={() => openPanel(item)}
+                    />
                   ))}
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="hidden md:flex rounded-xl border border-zinc-200 dark:border-white/8 overflow-hidden bg-white dark:bg-zinc-900"
+                  style={{ height: 'calc(100svh - 310px)', minHeight: '500px' }}>
 
-            {sorted.length > 0 && (
-              <div className="px-4 py-2 border-t border-zinc-50 dark:border-white/3 flex items-center justify-between">
+                  {/* Lista compacta izquierda */}
+                  <div className="w-[240px] shrink-0 border-r border-zinc-100 dark:border-white/5 overflow-y-auto">
+                    {sorted.map(item => (
+                      <CompactListRow
+                        key={`${item.tipo}-${item.id}`}
+                        item={item}
+                        selected={panelItem.id === item.id && panelItem.tipo === item.tipo}
+                        sinMovimientoDias={sinMovimientoDias}
+                        onSelect={() => openPanel(item)}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Panel de detalle derecho */}
+                  <div className="flex-1 overflow-hidden">
+                    <AsuntoDetailPanel
+                      item={panelItem}
+                      onClose={() => setPanelKey(null)}
+                      onUpdate={(field, value) => handleUpdate(panelItem, field, value)}
+                      sinMovimientoDias={sinMovimientoDias}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-between px-1">
                 <span className="text-xs text-zinc-400">
-                  {sorted.length === items.length ? `${items.length} asuntos` : `${sorted.length} de ${items.length} asuntos`}
+                  {sorted.length === items.length
+                    ? `${items.length} asuntos`
+                    : `${sorted.length} de ${items.length} asuntos`}
                 </span>
-                <span className="hidden md:block text-xs text-zinc-300 dark:text-zinc-600">
-                  Click en prioridad, próxima acción, bloqueo o carpeta para editar · PenLine para nota rápida
-                </span>
+                {panelItem && (
+                  <button type="button" onClick={() => setPanelKey(null)}
+                    className="hidden md:flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors">
+                    <X className="h-3 w-3" />
+                    Cerrar panel
+                  </button>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </>
       )}
     </div>
