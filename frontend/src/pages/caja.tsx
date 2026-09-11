@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
   Loader2, Trash2, Lock, Users, Repeat, Pencil, ChevronLeft, ChevronRight,
-  DollarSign,
+  DollarSign, Search, RotateCcw, CheckCircle2,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
   usePagosPendientes, useCreateGasto, useCreateIngreso,
   useToggleAbono, useDeleteGasto, useDeleteIngreso,
-  useGastosFijosPendientes,
+  useGastosFijosPendientes, useGastosRecuperablesPendientes, useMarcarGastoRecuperado,
   GASTO_CATEGORIAS, INGRESO_TIPOS,
   type GastoFilter, type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
   type GastoFijo,
@@ -184,6 +184,66 @@ export default function CajaPage() {
   )
 }
 
+// ─── Gastos recuperables pendientes ──────────────────────────────────────────
+
+function GastosRecuperablesPanel() {
+  const { data: items = [], isLoading } = useGastosRecuperablesPendientes()
+  const marcar = useMarcarGastoRecuperado()
+
+  if (isLoading || items.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <RotateCcw className="h-4 w-4 text-amber-400" />
+        <h3 className="text-sm font-semibold text-zinc-100">Gastos a recuperar</h3>
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+          {items.length}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {items.map((g) => (
+          <div
+            key={g.id}
+            className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-zinc-100 truncate">
+                {g.descripcion || CATEGORIA_GASTO_LABEL[g.categoria] || g.categoria}
+              </p>
+              <p className="text-[10px] text-zinc-500">
+                {formatDate(g.fecha)} · {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-semibold text-amber-300 tabular-nums">
+              {fmt(Number(g.monto), g.moneda)}
+            </span>
+            <button
+              onClick={async () => {
+                try {
+                  await marcar.mutateAsync(g.id)
+                  toast.success('Marcado como recuperado')
+                } catch {
+                  toast.error('No se pudo actualizar')
+                }
+              }}
+              disabled={marcar.isPending}
+              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+            >
+              {marcar.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3 w-3" />
+              )}
+              Recuperado
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Resumen ────────────────────────────────────────────────────────────────
 
 function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
@@ -229,6 +289,9 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
 
       {/* Gastos fijos del mes */}
       {gastosFijos.length > 0 && <GastosFijosCard gastosFijos={gastosFijos} />}
+
+      {/* Gastos recuperables pendientes */}
+      <GastosRecuperablesPanel />
 
       {/* Pagos pendientes */}
       <PagosPendientesCard pendientes={pendientes} />
@@ -715,11 +778,22 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const [modo, setModo] = useState<ModoPeriodo>('mes')
   const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [anioNav, setAnioNav] = useState(now.getFullYear())
+  const [search, setSearch] = useState('')
   const deleteGasto = useDeleteGasto()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const filter: GastoFilter = modo === 'mes' ? mes : modo === 'anio' ? { year: anioNav } : undefined
-  const { data: gastos = [], isLoading } = useGastos(filter)
+  const { data: gastosRaw = [], isLoading } = useGastos(filter)
+
+  const gastos = search.trim()
+    ? gastosRaw.filter((g) => {
+        const q = search.toLowerCase()
+        return (
+          (g.descripcion ?? '').toLowerCase().includes(q) ||
+          (CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria).toLowerCase().includes(q)
+        )
+      })
+    : gastosRaw
 
   const countNoun = gastos.length === 1 ? 'gasto' : 'gastos'
 
@@ -787,6 +861,26 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
         {modo === 'mes' && <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={countNoun} />}
         {modo === 'anio' && <YearNav anio={anioNav} setAnio={setAnioNav} count={gastos.length} noun={countNoun} />}
         {modo === 'todo' && <span className="text-xs text-zinc-500">{gastos.length} {countNoun}</span>}
+      </div>
+
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por descripción o categoría..."
+          className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       <TotalesMes items={gastos} tipo="gasto" label={totalLabel} />

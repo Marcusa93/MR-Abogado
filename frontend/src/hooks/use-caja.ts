@@ -523,3 +523,46 @@ export function useDeleteGastoFijo() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// Gastos recuperables pendientes
+// ---------------------------------------------------------------------------
+
+export function useGastosRecuperablesPendientes() {
+  const supabase = createClient()
+  return useQuery<Gasto[]>({
+    queryKey: ['gastos-recuperables-pendientes'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from as any)('gastos')
+        .select('*')
+        .is('deleted_at', null)
+        .eq('recuperable', true)
+        .is('recuperado_at', null)
+        .order('fecha', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Gasto[]
+    },
+  })
+}
+
+export function useMarcarGastoRecuperado() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('gastos')
+        .update({ recuperado_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gastos'] })
+      qc.invalidateQueries({ queryKey: ['gastos-recuperables-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['caja-resumen'] })
+      qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+    },
+  })
+}

@@ -1,17 +1,19 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useTareas, useCompletarTarea } from '@/hooks/use-tareas'
 import { useAlertas, useResolverAlerta } from '@/hooks/use-alertas'
 import { useCreateSeguimiento, type CreateSeguimientoInput } from '@/hooks/use-seguimientos'
+import { useUpdateTurno } from '@/hooks/use-turnos'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { formatDateWithWeekday } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
+import { toast } from '@/stores/toast-store'
 import {
   Loader2,
   CheckCircle,
@@ -28,9 +30,11 @@ import {
   CheckSquare,
   Plus,
   Calendar,
-  ListChecks,
   MapPin,
   Users,
+  X,
+  Pencil,
+  Video,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -73,6 +77,16 @@ interface AgendaTurno {
   } | null
 }
 
+interface Reunion {
+  id: string
+  nombre: string
+  apellido: string | null
+  canal: string
+  tipo_asunto: string
+  fecha_turno: string
+  estado: string
+}
+
 // ---------------------------------------------------------------------------
 // Custom hook: agenda data
 // ---------------------------------------------------------------------------
@@ -80,7 +94,7 @@ interface AgendaTurno {
 function useAgendaSecretaria() {
   const supabase = createClient()
 
-  return useQuery<{ expedientes: AgendaExpediente[]; turnos: AgendaTurno[] }>({
+  return useQuery<{ expedientes: AgendaExpediente[]; turnos: AgendaTurno[]; reuniones: Reunion[] }>({
     queryKey: ['agenda'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0]
@@ -150,11 +164,22 @@ function useAgendaSecretaria() {
         .order('fecha', { ascending: true })
         .limit(200)
 
+      const { data: reunionesData } = await supabase
+        .from('consultas' as any)
+        .select('id, nombre, apellido, canal, tipo_asunto, fecha_turno, estado')
+        .not('fecha_turno', 'is', null)
+        .gte('fecha_turno', today + 'T00:00:00')
+        .lte('fecha_turno', next90 + 'T23:59:59')
+        .not('estado', 'in', '(convertida,resuelta,descartada)')
+        .order('fecha_turno', { ascending: true })
+        .limit(50)
+
       return {
         expedientes: expedientes
           .sort((a, b) => b.dias_sin_control - a.dias_sin_control)
           .slice(0, 30),
         turnos: (turnosData ?? []) as AgendaTurno[],
+        reuniones: (reunionesData ?? []) as unknown as Reunion[],
       }
     },
     staleTime: 60_000,
@@ -301,10 +326,12 @@ function SemanaAudienciasView({
   turnos,
   onNuevaAudiencia,
   onExpedienteClick,
+  onEditAudiencia,
 }: {
   turnos: AgendaTurno[]
   onNuevaAudiencia: () => void
   onExpedienteClick: (expId: string) => void
+  onEditAudiencia: (turno: AgendaTurno) => void
 }) {
   const [weekOffset, setWeekOffset] = useState(0)
 
@@ -466,15 +493,18 @@ function SemanaAudienciasView({
                     </div>
                   ) : (
                     dayTurnos.map((turno) => (
-                      <button
+                      <div
                         key={turno.id}
-                        onClick={() => turno.expediente && onExpedienteClick(turno.expediente.id)}
                         className={cn(
-                          'w-full rounded-lg p-2 text-left transition-colors group',
+                          'w-full rounded-lg p-2 text-left transition-colors group relative',
                           turno.estado === 'CONFIRMADA'
-                            ? 'bg-sky-900/40 hover:bg-sky-900/60 border border-sky-700/30'
-                            : 'bg-white/5 hover:bg-white/10 border border-white/5'
+                            ? 'bg-sky-900/40 border border-sky-700/30'
+                            : 'bg-white/5 border border-white/5'
                         )}
+                      >
+                      <button
+                        onClick={() => turno.expediente && onExpedienteClick(turno.expediente.id)}
+                        className="w-full text-left"
                       >
                         {/* Hora — dato más importante */}
                         <div className="flex items-center gap-1 mb-1">
@@ -513,6 +543,14 @@ function SemanaAudienciasView({
                           </div>
                         )}
                       </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEditAudiencia(turno) }}
+                          className="absolute top-1 right-1 rounded p-0.5 text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-sky-400 transition-all"
+                          title="Editar audiencia"
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
                     ))
                   )}
                 </div>
@@ -715,6 +753,293 @@ function MiniCalendar({
 }
 
 // ---------------------------------------------------------------------------
+// Editar audiencia (modal inline)
+// ---------------------------------------------------------------------------
+
+const ESTADO_AUDIENCIA_OPTS = [
+  { value: 'PENDIENTE', label: 'Pendiente' },
+  { value: 'CONFIRMADA', label: 'Confirmada' },
+  { value: 'REALIZADA', label: 'Realizada' },
+  { value: 'CANCELADA', label: 'Cancelada' },
+  { value: 'POSTERGADA', label: 'Postergada' },
+]
+
+interface AudienciaEditable extends AgendaTurno {}
+
+function EditarAudienciaDialog({
+  audiencia,
+  onClose,
+}: {
+  audiencia: AudienciaEditable | null
+  onClose: () => void
+}) {
+  const updateTurno = useUpdateTurno()
+  const [fecha, setFecha] = useState(audiencia?.fecha ?? '')
+  const [hora, setHora] = useState(audiencia?.hora?.slice(0, 5) ?? '')
+  const [estado, setEstado] = useState(audiencia?.estado ?? 'PENDIENTE')
+  const [notas, setNotas] = useState(audiencia?.notas ?? '')
+
+  if (!audiencia) return null
+
+  const expedienteId = audiencia.expediente?.id
+
+  const handleSave = async () => {
+    if (!expedienteId) return
+    try {
+      await updateTurno.mutateAsync({
+        id: audiencia.id,
+        expediente_id: expedienteId,
+        fecha,
+        hora: hora || null,
+        estado,
+        notas: notas.trim() || null,
+      })
+      toast.success('Audiencia actualizada')
+      onClose()
+    } catch (err) {
+      toast.error('No se pudo actualizar', err instanceof Error ? err.message : '')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-zinc-100">Editar audiencia</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {audiencia.expediente && (
+          <p className="text-xs text-amber-400 mb-4 truncate">
+            {audiencia.expediente.clientes
+              ? `${audiencia.expediente.clientes.apellido}, ${audiencia.expediente.clientes.nombre}`
+              : audiencia.expediente.caratula}
+          </p>
+        )}
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">Fecha</label>
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">Hora</label>
+              <input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Estado</label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className="h-8 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+            >
+              {ESTADO_AUDIENCIA_OPTS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Notas</label>
+            <textarea
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!fecha || updateTurno.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            {updateTurno.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Editar fecha_turno de reunión
+// ---------------------------------------------------------------------------
+
+function useActualizarFechaTurno() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, fecha_turno }: { id: string; fecha_turno: string }) => {
+      const { error } = await (supabase.from as any)('consultas')
+        .update({ fecha_turno })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agenda'] })
+      qc.invalidateQueries({ queryKey: ['consultas'] })
+    },
+  })
+}
+
+const TIPO_ASUNTO_SHORT: Record<string, string> = {
+  laboral_trabajador: 'Laboral (trab.)',
+  laboral_empleador: 'Laboral (empl.)',
+  civil: 'Civil',
+  familia: 'Familia',
+  previsional: 'Previsional',
+  penal: 'Penal',
+  otro: 'Otro',
+}
+
+function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
+  const navigate = useNavigate()
+  const actualizarFecha = useActualizarFechaTurno()
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [nuevaFecha, setNuevaFecha] = useState('')
+
+  if (reuniones.length === 0) return null
+
+  const hoy = new Date().toISOString().split('T')[0]
+
+  return (
+    <div className="rounded-xl border border-white/10 glass-card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Video className="h-4 w-4 text-teal-400" />
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Reuniones próximas</h2>
+        <span className="ml-auto rounded-full bg-teal-900/30 px-2 py-0.5 text-xs font-medium text-teal-400">
+          {reuniones.length}
+        </span>
+      </div>
+
+      <div className="space-y-1.5">
+        {reuniones.map((r) => {
+          const dt = new Date(r.fecha_turno)
+          const fechaStr = dt.toISOString().split('T')[0]
+          const horaStr = dt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+          const esHoy = fechaStr === hoy
+
+          return (
+            <div
+              key={r.id}
+              className={cn(
+                'rounded-lg border px-3 py-2.5',
+                esHoy ? 'border-amber-500/30 bg-amber-500/[0.06]' : 'border-white/5 bg-white/[0.02]'
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-zinc-100">
+                      {r.apellido ? `${r.apellido}, ${r.nombre}` : r.nombre}
+                    </p>
+                    {esHoy && (
+                      <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                        Hoy
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    {TIPO_ASUNTO_SHORT[r.tipo_asunto] ?? r.tipo_asunto} · {r.canal}
+                  </p>
+
+                  {editandoId === r.id ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="datetime-local"
+                        value={nuevaFecha}
+                        onChange={(e) => setNuevaFecha(e.target.value)}
+                        className="h-7 flex-1 rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!nuevaFecha) return
+                          try {
+                            await actualizarFecha.mutateAsync({
+                              id: r.id,
+                              fecha_turno: new Date(nuevaFecha).toISOString(),
+                            })
+                            toast.success('Reunión reprogramada')
+                            setEditandoId(null)
+                          } catch {
+                            toast.error('No se pudo actualizar')
+                          }
+                        }}
+                        disabled={!nuevaFecha || actualizarFecha.isPending}
+                        className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                      >
+                        {actualizarFecha.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'OK'}
+                      </button>
+                      <button
+                        onClick={() => setEditandoId(null)}
+                        className="text-zinc-500 hover:text-zinc-300"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="text-[11px] font-medium text-teal-300 tabular-nums">
+                    {dt.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {horaStr}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setEditandoId(r.id)
+                        setNuevaFecha(r.fecha_turno.slice(0, 16))
+                      }}
+                      className="rounded p-1 text-zinc-500 hover:text-teal-400"
+                      title="Reprogramar"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => navigate(`/consultas/${r.id}`)}
+                      className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-white/10"
+                    >
+                      Ver
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -735,6 +1060,7 @@ export default function AgendaSecretariaPage() {
   const [crearTareaOpen, setCrearTareaOpen] = useState(false)
   const [crearAudienciaOpen, setCrearAudienciaOpen] = useState(false)
   const [reunionOpen, setReunionOpen] = useState(false)
+  const [editandoAudiencia, setEditandoAudiencia] = useState<AgendaTurno | null>(null)
   const [completedExps, setCompletedExps] = useState<Set<string>>(new Set())
   const [mostrarTodosExps, setMostrarTodosExps] = useState(false)
 
@@ -757,6 +1083,7 @@ export default function AgendaSecretariaPage() {
 
   const expedientes = agenda?.expedientes ?? []
   const turnos = agenda?.turnos ?? []
+  const reuniones = agenda?.reuniones ?? []
   const tareasVencidas = tareasData?.data ?? []
   const alertasList = alertas ?? []
 
@@ -805,6 +1132,7 @@ export default function AgendaSecretariaPage() {
         turnos={turnos}
         onNuevaAudiencia={() => setCrearAudienciaOpen(true)}
         onExpedienteClick={(expId) => navigate(`/expedientes/${expId}`)}
+        onEditAudiencia={(turno) => setEditandoAudiencia(turno)}
       />
 
       {/* ── Grid principal ── */}
@@ -1050,9 +1378,16 @@ export default function AgendaSecretariaPage() {
         </div>
       </div>
 
+      {/* ── Reuniones próximas ── */}
+      {reuniones.length > 0 && <ReunionesPanelSecretaria reuniones={reuniones} />}
+
       <CrearTareaDialog open={crearTareaOpen} onClose={() => setCrearTareaOpen(false)} />
       <CrearTurnoDialog open={crearAudienciaOpen} onClose={() => setCrearAudienciaOpen(false)} />
       <AgendarReuniónModal open={reunionOpen} onClose={() => setReunionOpen(false)} />
+      <EditarAudienciaDialog
+        audiencia={editandoAudiencia}
+        onClose={() => setEditandoAudiencia(null)}
+      />
     </div>
   )
 }
