@@ -57,7 +57,8 @@ function useExpedientesActivos(enabled: boolean) {
       }))
     },
     enabled,
-    staleTime: 2 * 60_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 

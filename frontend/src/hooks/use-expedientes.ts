@@ -350,6 +350,7 @@ export function useCreateExpediente() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: expedientesKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['expedientes-activos-lista'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['kanban'] })
     },

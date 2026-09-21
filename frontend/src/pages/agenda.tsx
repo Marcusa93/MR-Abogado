@@ -1,16 +1,18 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CalendarDays, CheckSquare, Scale, Clock,
-  ChevronLeft, ChevronRight, List, X, CalendarPlus, Users,
+  ChevronLeft, ChevronRight, List, X, CalendarPlus, Users, Pencil, Loader2,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { AppSplash } from '@/components/shared/app-splash'
 import { cn } from '@/lib/utils'
+import { toast } from '@/stores/toast-store'
 import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
+import { useUpdateTurno } from '@/hooks/use-turnos'
 
 // Secretaria usa su vista específica (lazy)
 const AgendaSecretaria = lazy(() => import('./agenda-secretaria'))
@@ -31,6 +33,10 @@ interface AgendaItem {
   prioridad?: string | null
   estadoLabel?: string | null
   consultaId?: string | null
+  // para edición
+  audienciaEstado?: string | null
+  audienciaNotas?: string | null
+  reunionFechaTurno?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +115,7 @@ function useAgendaUnificada() {
       const { data } = await supabase
         .from('audiencias')
         .select(`
-          id, fecha, hora, estado,
+          id, fecha, hora, estado, notas,
           expedientes!inner(id, caratula, numero),
           catalogo_tipos_audiencia(nombre),
           organismos(nombre)
@@ -181,6 +187,8 @@ function useAgendaUnificada() {
         subtitulo: org?.nombre ?? null,
         expedienteId: exp?.id ?? null,
         expedienteCaratula: exp?.caratula ?? exp?.numero ?? null,
+        audienciaEstado: a.estado ?? null,
+        audienciaNotas: (a as any).notas ?? null,
       })
     }
 
@@ -218,6 +226,7 @@ function useAgendaUnificada() {
         titulo: nombre || 'Reunión',
         subtitulo: CANAL_LABEL[r.canal] ?? r.canal,
         consultaId: r.id,
+        reunionFechaTurno: r.fecha_turno,
       })
     }
 
@@ -252,11 +261,243 @@ function useAgendaUnificada() {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// EditarAudienciaDialog
+// ---------------------------------------------------------------------------
+
+const ESTADO_AUDIENCIA_OPTS = [
+  { value: 'PENDIENTE', label: 'Pendiente' },
+  { value: 'CONFIRMADA', label: 'Confirmada' },
+  { value: 'REALIZADA', label: 'Realizada' },
+  { value: 'CANCELADA', label: 'Cancelada' },
+  { value: 'POSTERGADA', label: 'Postergada' },
+]
+
+function EditarAudienciaDialog({
+  item,
+  onClose,
+}: {
+  item: AgendaItem | null
+  onClose: () => void
+}) {
+  const updateTurno = useUpdateTurno()
+  const [fecha, setFecha] = useState(item?.fecha ?? '')
+  const [hora, setHora] = useState(item?.hora?.slice(0, 5) ?? '')
+  const [estado, setEstado] = useState(item?.audienciaEstado ?? 'PENDIENTE')
+  const [notas, setNotas] = useState(item?.audienciaNotas ?? '')
+
+  if (!item || !item.expedienteId) return null
+
+  const handleSave = async () => {
+    try {
+      await updateTurno.mutateAsync({
+        id: item.id,
+        expediente_id: item.expedienteId!,
+        fecha,
+        hora: hora || null,
+        estado,
+        notas: notas.trim() || null,
+      })
+      toast.success('Audiencia actualizada')
+      onClose()
+    } catch (err) {
+      toast.error('No se pudo guardar', err instanceof Error ? err.message : '')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-100">{item.titulo}</h2>
+            {item.expedienteCaratula && (
+              <p className="text-xs text-amber-400 mt-0.5 truncate">{item.expedienteCaratula}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">Fecha</label>
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-300">Hora</label>
+              <input
+                type="time"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Estado</label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className="h-8 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+            >
+              {ESTADO_AUDIENCIA_OPTS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Notas</label>
+            <textarea
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!fecha || updateTurno.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            {updateTurno.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// EditarReunionDialog
+// ---------------------------------------------------------------------------
+
+function useActualizarFechaTurnoAgenda() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, fecha_turno }: { id: string; fecha_turno: string }) => {
+      const { error } = await (supabase.from as any)('consultas')
+        .update({ fecha_turno })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      const hoy = new Date().toISOString().slice(0, 10)
+      qc.invalidateQueries({ queryKey: ['agenda', 'turnos', hoy] })
+    },
+  })
+}
+
+function EditarReunionDialog({
+  item,
+  onClose,
+}: {
+  item: AgendaItem | null
+  onClose: () => void
+}) {
+  const actualizar = useActualizarFechaTurnoAgenda()
+  const [fechaHora, setFechaHora] = useState(
+    item?.reunionFechaTurno ? item.reunionFechaTurno.slice(0, 16) : ''
+  )
+
+  if (!item) return null
+
+  const handleSave = async () => {
+    if (!fechaHora) return
+    try {
+      await actualizar.mutateAsync({
+        id: item.id,
+        fecha_turno: new Date(fechaHora).toISOString(),
+      })
+      toast.success('Reunión reprogramada')
+      onClose()
+    } catch {
+      toast.error('No se pudo actualizar')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-zinc-100">Reprogramar reunión</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-amber-400 mb-4 truncate">{item.titulo}</p>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-300">Nueva fecha y hora</label>
+          <input
+            type="datetime-local"
+            value={fechaHora}
+            onChange={(e) => setFechaHora(e.target.value)}
+            className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!fechaHora || actualizar.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+          >
+            {actualizar.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // AgendaItemCard
 // ---------------------------------------------------------------------------
 
-function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
+function AgendaItemCard({
+  item,
+  hoy,
+  onEdit,
+}: {
+  item: AgendaItem
+  hoy: string
+  onEdit?: (item: AgendaItem) => void
+}) {
   const vencida  = isVencida(item.fecha, hoy)
+  const canEdit = item.kind === 'audiencia' || item.kind === 'reunion'
 
   const iconColor =
     item.kind === 'audiencia' ? 'text-sky-500' :
@@ -272,7 +513,7 @@ function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
 
   const inner = (
     <div className={cn(
-      'flex items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors',
+      'group relative flex items-start gap-3 rounded-lg border px-3.5 py-3 transition-colors',
       vencida && item.kind !== 'audiencia' && item.kind !== 'reunion'
         ? 'border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10'
         : item.kind === 'reunion'
@@ -303,6 +544,16 @@ function AgendaItemCard({ item, hoy }: { item: AgendaItem; hoy: string }) {
           </p>
         )}
       </div>
+      {canEdit && onEdit && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item) }}
+          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 rounded p-1 text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-opacity"
+          title="Editar"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
     </div>
   )
 
@@ -527,6 +778,7 @@ function DiaSeleccionadoPanel({
   onClose,
   onAgendarReunion,
   onAgendarAudiencia,
+  onEdit,
 }: {
   fecha: string
   items: AgendaItem[]
@@ -534,6 +786,7 @@ function DiaSeleccionadoPanel({
   onClose: () => void
   onAgendarReunion: (fecha: string) => void
   onAgendarAudiencia: (fecha: string) => void
+  onEdit?: (item: AgendaItem) => void
 }) {
   return (
     <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden animate-fade-in">
@@ -580,7 +833,7 @@ function DiaSeleccionadoPanel({
         ) : (
           <div className="space-y-2">
             {items.map(item => (
-              <AgendaItemCard key={`${item.kind}-${item.id}`} item={item} hoy={hoy} />
+              <AgendaItemCard key={`${item.kind}-${item.id}`} item={item} hoy={hoy} onEdit={onEdit} />
             ))}
           </div>
         )}
@@ -618,6 +871,7 @@ function AgendaUnificada() {
   const [defaultFechaReunion, setDefaultFechaReunion] = useState<string | undefined>(undefined)
   const [modalAudiencia, setModalAudiencia] = useState(false)
   const [defaultFechaAudiencia, setDefaultFechaAudiencia] = useState<string | undefined>(undefined)
+  const [editandoItem, setEditandoItem] = useState<AgendaItem | null>(null)
 
   // Vista: lista o calendario
   const [vista, setVista] = useState<'lista' | 'calendario'>(() => {
@@ -778,7 +1032,7 @@ function AgendaUnificada() {
                 </div>
                 <div className="space-y-2 ml-4">
                   {items.map(item => (
-                    <AgendaItemCard key={`${item.kind}-${item.id}`} item={item} hoy={hoy} />
+                    <AgendaItemCard key={`${item.kind}-${item.id}`} item={item} hoy={hoy} onEdit={setEditandoItem} />
                   ))}
                 </div>
               </div>
@@ -813,9 +1067,23 @@ function AgendaUnificada() {
               onClose={() => setDiaSeleccionado(null)}
               onAgendarReunion={(f) => { setDefaultFechaReunion(f); setModalReunion(true) }}
               onAgendarAudiencia={(f) => { setDefaultFechaAudiencia(f); setModalAudiencia(true) }}
+              onEdit={setEditandoItem}
             />
           )}
         </div>
+      )}
+
+      {editandoItem?.kind === 'audiencia' && (
+        <EditarAudienciaDialog
+          item={editandoItem}
+          onClose={() => setEditandoItem(null)}
+        />
+      )}
+      {editandoItem?.kind === 'reunion' && (
+        <EditarReunionDialog
+          item={editandoItem}
+          onClose={() => setEditandoItem(null)}
+        />
       )}
 
     </div>

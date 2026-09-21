@@ -164,8 +164,8 @@ export const HONORARIO_LABEL: Record<TipoHonorario, string> = {
   honorario_fijo: 'Honorario fijo',
 }
 
-export const ARANCEL_VERBAL = 335500
-export const ARANCEL_ESCRITO = 675000
+export const ARANCEL_VERBAL = 365000
+export const ARANCEL_ESCRITO = 730000
 
 export function calcularHonorarios(
   tipo: TipoHonorario,
