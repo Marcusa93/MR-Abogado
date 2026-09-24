@@ -127,6 +127,11 @@ Deno.serve(async (req) => {
               .eq('id', m.id)
             fetched++
           } else {
+            // SAE no devolvió texto — marcar con '' para no reintentar en cada sync
+            await serviceClient
+              .from('sae_movements')
+              .update({ cuerpo: '' })
+              .eq('id', m.id)
             skipped++
           }
         } catch (err) {

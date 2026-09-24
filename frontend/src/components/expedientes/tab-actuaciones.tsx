@@ -210,9 +210,10 @@ function ActuacionRow({
   const cuerpoLen = movement.cuerpo?.trim().length ?? 0
   const esLargo = cuerpoLen > 1200
   const attachments = extractAttachments(movement)
-  // cuerpo === null (no undefined) significa que aún no fue descargado por sae-fetch-bodies
+  // cuerpo === null → no intentado aún; cuerpo === '' → intentado, SAE no devolvió texto
   const cuerpoNoCargado = movement.cuerpo === null && movement.fuente !== 'manual'
-  const canExpand = hasCuerpo || attachments.length > 0 || cuerpoNoCargado
+  const cuerpoSinTexto = movement.cuerpo === '' && movement.fuente !== 'manual'
+  const canExpand = hasCuerpo || attachments.length > 0 || cuerpoNoCargado || cuerpoSinTexto
   const fetchBodies = useFetchBodies()
 
   const aiSummary = movement.ai_summary?.trim() || null
@@ -487,7 +488,7 @@ function ActuacionRow({
         <div className="border-t border-white/5 px-4 py-3 space-y-3">
           {cuerpoNoCargado && !hasCuerpo && (
             <div className="flex items-center justify-between gap-3 rounded-md border border-white/8 bg-white/[0.02] px-3 py-2.5">
-              <span className="text-xs text-zinc-500">Texto del decreto no descargado aún</span>
+              <span className="text-xs text-zinc-500">Texto no descargado aún</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -503,6 +504,11 @@ function ActuacionRow({
                 }
                 Cargar texto
               </button>
+            </div>
+          )}
+          {cuerpoSinTexto && !hasCuerpo && (
+            <div className="rounded-md border border-white/8 bg-white/[0.02] px-3 py-2.5">
+              <span className="text-xs text-zinc-500">Sin texto disponible en SAE para esta actuación</span>
             </div>
           )}
           {hasCuerpo && (
