@@ -586,7 +586,7 @@ function PresentarSaeDialog({
     presentar.mutate(
       {
         escrito_id: escrito.id,
-        expediente_id: escrito.expediente_id,
+        expediente_id: escrito.expediente_id!,
         categoria: categoria.trim(),
         descripcion: descripcion.trim(),
         presenta_documentacion: presentaDoc,

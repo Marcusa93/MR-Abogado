@@ -51,6 +51,7 @@ const ConfiguracionPage = lazyWithRetry(() => import('@/pages/configuracion'))
 const ActividadPage = lazyWithRetry(() => import('@/pages/actividad'))
 const ImportarExcelPage = lazyWithRetry(() => import('@/pages/importar-excel'))
 const ImportarSaePage = lazyWithRetry(() => import('@/pages/importar-sae'))
+const EscritosPage = lazyWithRetry(() => import('@/pages/escritos'))
 const NormativaPage = lazyWithRetry(() => import('@/pages/normativa'))
 const NormativaDetailPage = lazyWithRetry(() => import('@/pages/normativa-detail'))
 const JurisprudenciaPage = lazyWithRetry(() => import('@/pages/jurisprudencia'))
@@ -142,6 +143,7 @@ export const router = createBrowserRouter([
       { path: 'configuracion', element: <SuspenseWrapper><ConfiguracionPage /></SuspenseWrapper> },
       { path: 'importar', element: <SuspenseWrapper><ImportarExcelPage /></SuspenseWrapper> },
       { path: 'importar-sae', element: <SuspenseWrapper><ImportarSaePage /></SuspenseWrapper> },
+      { path: 'escritos', element: <SuspenseWrapper><EscritosPage /></SuspenseWrapper> },
       { path: 'normativa', element: <SuspenseWrapper><NormativaPage /></SuspenseWrapper> },
       { path: 'normativa/:id', element: <SuspenseWrapper><NormativaDetailPage /></SuspenseWrapper> },
       { path: 'jurisprudencia', element: <SuspenseWrapper><JurisprudenciaPage /></SuspenseWrapper> },

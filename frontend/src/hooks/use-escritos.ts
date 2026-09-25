@@ -16,7 +16,7 @@ export interface EscritoContenido {
 
 export interface Escrito {
   id: string
-  expediente_id: string
+  expediente_id: string | null
   user_id: string
   template_id: string | null
   titulo: string
@@ -101,9 +101,13 @@ export function useEscritoTiposPrevios() {
 
 export interface EscritoTemplate {
   id: string
+  user_id: string
   nombre: string
   tipo: string
   descripcion: string | null
+  categoria: 'estilo' | 'modelo'
+  contenido_modelo: EscritoContenido | null
+  compartido: boolean
   created_at: string
 }
 
@@ -114,7 +118,7 @@ export function useEscritoTemplates() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('escrito_templates' as never)
-        .select('id, nombre, tipo, descripcion, created_at')
+        .select('id, user_id, nombre, tipo, descripcion, categoria, contenido_modelo, compartido, created_at')
         .eq('is_active', true as never)
         .order('nombre', { ascending: true })
       if (error) throw error
@@ -123,14 +127,59 @@ export function useEscritoTemplates() {
   })
 }
 
+// Modelos estructurales compartidos del estudio + propios del usuario
+export function useEscritoModelos() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['escrito-modelos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('escrito_templates' as never)
+        .select('id, user_id, nombre, tipo, descripcion, categoria, contenido_modelo, compartido, created_at')
+        .eq('categoria', 'modelo' as never)
+        .eq('is_active', true as never)
+        .order('nombre', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as unknown as EscritoTemplate[]
+    },
+  })
+}
+
+// Todos los escritos del usuario (independientes + vinculados a expedientes)
+export interface EscritoConExpediente extends Escrito {
+  expediente?: { numero: string; caratula: string | null } | null
+}
+
+export function useAllEscritos(filtros?: { expedienteId?: string; search?: string }) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['escritos-all', filtros],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('escritos')
+        .select('*, expediente:expedientes(numero, caratula)')
+        .order('updated_at', { ascending: false })
+        .limit(200)
+      if (filtros?.expedienteId) q = q.eq('expediente_id', filtros.expedienteId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as unknown as EscritoConExpediente[]
+    },
+  })
+}
+
 // ─── Generar escrito (invoca edge function) ──────────────────────────────────
 
-interface GenerateInput {
-  expediente_id: string
+export interface GenerateInput {
+  expediente_id?: string | null
   tipo: string
   titulo?: string
   instrucciones?: string
   template_id?: string | null
+  /** ID del modelo estructural (escrito_templates con categoria='modelo') */
+  modelo_id?: string | null
+  /** Contenido del modelo a usar como borrador base. */
+  borrador_previo?: EscritoContenido
   /** Texto de un modelo de ejemplo pegado por el usuario para imitar el estilo. */
   estilo_texto?: string | null
   /** Si viene, el modelo pegado se guarda como template reutilizable con este nombre. */
@@ -190,13 +239,88 @@ export function useGenerateEscrito() {
       return data as GenerateResult
     },
     onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
       queryClient.invalidateQueries({ queryKey: ['escrito-tipos-previos'] })
       queryClient.invalidateQueries({ queryKey: ['escrito-templates'] })
-      // Si respondió a una providencia, refrescar actuaciones para mostrar el badge.
-      if (vars.responde_a_movimiento_id) {
+      if (vars.responde_a_movimiento_id && vars.expediente_id) {
         queryClient.invalidateQueries({ queryKey: ['sae-movements', vars.expediente_id] })
       }
+    },
+  })
+}
+
+// ─── Crear modelo estructural (guarda en escrito_templates) ─────────────────
+
+export function useCrearModelo() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      nombre: string
+      tipo: string
+      descripcion?: string
+      contenido_modelo: EscritoContenido
+      compartido?: boolean
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+      const { data, error } = await (supabase as any)
+        .from('escrito_templates')
+        .insert({
+          user_id: user.id,
+          nombre: input.nombre,
+          tipo: input.tipo,
+          descripcion: input.descripcion ?? null,
+          categoria: 'modelo',
+          contenido_modelo: input.contenido_modelo,
+          compartido: input.compartido ?? true,
+          is_active: true,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data as EscritoTemplate
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escrito-modelos'] })
+      queryClient.invalidateQueries({ queryKey: ['escrito-templates'] })
+    },
+  })
+}
+
+// ─── Extraer modelo desde texto (invoca edge function) ──────────────────────
+
+export function useExtraerModelo() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (input: { texto: string; nombre?: string; tipo?: string }) => {
+      const { data, error } = await supabase.functions.invoke('escrito-extraer-modelo', {
+        body: input,
+      })
+      if (error) throw await extractFnError(error)
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      return data as { contenido: EscritoContenido; nombre: string; tipo: string }
+    },
+  })
+}
+
+// ─── Vincular escrito a expediente (retroactivo) ────────────────────────────
+
+export function useVincularEscritoAExpediente() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: { escrito_id: string; expediente_id: string }) => {
+      const { error } = await (supabase as any)
+        .from('escritos')
+        .update({ expediente_id: input.expediente_id })
+        .eq('id', input.escrito_id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
+      queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
     },
   })
 }
@@ -209,7 +333,7 @@ export function useUpdateEscrito() {
   return useMutation({
     mutationFn: async (input: {
       id: string
-      expediente_id: string
+      expediente_id: string | null
       patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>
     }) => {
       const { error } = await supabase
@@ -219,9 +343,8 @@ export function useUpdateEscrito() {
       if (error) throw error
     },
     onSuccess: (_d, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
-      // Si el abogado editó el cuerpo, aprender de sus correcciones (fire-and-forget).
-      // La function se auto-saltea si no hay original o el diff es chico.
+      if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
       if (vars.patch.contenido !== undefined) {
         supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.id } }).catch(() => {})
       }
@@ -233,7 +356,7 @@ export function useDeleteEscrito() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { id: string; expediente_id: string }) => {
+    mutationFn: async (input: { id: string; expediente_id: string | null }) => {
       const { error } = await supabase
         .from('escritos' as never)
         .delete()
@@ -241,7 +364,8 @@ export function useDeleteEscrito() {
       if (error) throw error
     },
     onSuccess: (_d, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
     },
   })
 }
@@ -276,7 +400,7 @@ export function useAttachSignedPdf() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { escrito_id: string; expediente_id: string; file: File }) => {
+    mutationFn: async (input: { escrito_id: string; expediente_id: string | null; file: File }) => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No autenticado')
       if (input.file.type !== 'application/pdf') throw new Error('El archivo debe ser PDF')
@@ -308,8 +432,8 @@ export function useAttachSignedPdf() {
       return { hasSignature }
     },
     onSuccess: (_d, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
-      // El firmado es la versión final: aprender de las correcciones (fire-and-forget).
+      if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
       supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.escrito_id, trigger: 'firmar' } }).catch(() => {})
     },
   })

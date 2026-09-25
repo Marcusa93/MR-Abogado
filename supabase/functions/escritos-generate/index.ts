@@ -304,16 +304,18 @@ interface RagBundle {
 
 async function getRelevantNormativa(
   serviceClient: ReturnType<typeof createClient>,
-  expedienteId: string,
+  expedienteId: string | null,
   userId: string,
   query: string,
   apiKey: string,
 ): Promise<RagBundle> {
-  // 1) Documentos fijados al expediente
-  const { data: pinned, error: pinnedErr } = await serviceClient
-    .from('expediente_normativa')
-    .select('documento_id')
-    .eq('expediente_id', expedienteId)
+  // 1) Documentos fijados al expediente (solo si hay expediente)
+  const { data: pinned, error: pinnedErr } = expedienteId
+    ? await serviceClient
+        .from('expediente_normativa')
+        .select('documento_id')
+        .eq('expediente_id', expedienteId)
+    : { data: [], error: null }
   if (pinnedErr) {
     console.error('[escritos-generate] pinned docs error', pinnedErr)
   }
@@ -395,16 +397,18 @@ interface JurisRagBundle {
 
 async function getRelevantJurisprudencia(
   serviceClient: ReturnType<typeof createClient>,
-  expedienteId: string,
+  expedienteId: string | null,
   userId: string,
   query: string,
   apiKey: string,
 ): Promise<JurisRagBundle> {
-  // 1) Fallos fijados al expediente
-  const { data: pinned, error: pinnedErr } = await serviceClient
-    .from('expediente_jurisprudencia')
-    .select('documento_id')
-    .eq('expediente_id', expedienteId)
+  // 1) Fallos fijados al expediente (solo si hay expediente)
+  const { data: pinned, error: pinnedErr } = expedienteId
+    ? await serviceClient
+        .from('expediente_jurisprudencia')
+        .select('documento_id')
+        .eq('expediente_id', expedienteId)
+    : { data: [], error: null }
   if (pinnedErr) console.error('[escritos-generate] pinned jurisprudencia error', pinnedErr)
   const pinnedDocIds = (pinned ?? []).map(p => (p as { documento_id: string }).documento_id)
 
@@ -637,7 +641,7 @@ Deno.serve(async (req) => {
       userId = user.id
     }
 
-    if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
+    // expediente_id es opcional: los escritos independientes (sin expediente) son válidos.
     const ideaLibre = body?.idea_libre?.trim() ?? ''
     const tipoInput = body?.tipo?.trim() ?? ''
     if (!tipoInput && !ideaLibre) {
@@ -660,10 +664,8 @@ Deno.serve(async (req) => {
     const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
     if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
-    // 1) Verificar acceso al expediente (RLS-respecting client).
-    // En service-role (bot) se saltea: el firmante es el director y el expediente
-    // ya fue resuelto por el webhook; su existencia se valida al cargarlo abajo.
-    if (!isServiceRole) {
+    // 1) Verificar acceso al expediente (solo si se proporcionó uno)
+    if (body?.expediente_id && !isServiceRole) {
       const { data: expAuth, error: authExpError } = await anonClient
         .from('expedientes')
         .select('id')
@@ -693,24 +695,31 @@ Deno.serve(async (req) => {
       }, 412)
     }
 
-    // 3) Cargar expediente
-    const { data: expRaw, error: expError } = await serviceClient
-      .from('expedientes')
-      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
-      .eq('id', body.expediente_id)
-      .single()
-    if (expError || !expRaw) return json(req, { error: 'Expediente no encontrado' }, 404)
-    const exp = expRaw as unknown as ExpedienteRow
+    // 3) Cargar expediente (si se proporcionó)
+    let exp: ExpedienteRow | null = null
+    if (body?.expediente_id) {
+      const { data: expRaw, error: expError } = await serviceClient
+        .from('expedientes')
+        .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
+        .eq('id', body.expediente_id)
+        .single()
+      if (expError || !expRaw) return json(req, { error: 'Expediente no encontrado' }, 404)
+      exp = expRaw as unknown as ExpedienteRow
+    }
 
-    // 4) Cargar movimientos y filtrar a SOLO claves
-    const { data: movsRaw, error: movError } = await serviceClient
-      .from('sae_movements')
-      .select('id, fecha, titulo, tipo_movimiento, is_key, ai_summary, ai_suggested_action, ai_extracted')
-      .eq('expediente_id', body.expediente_id)
-      .order('fecha', { ascending: false })
-    if (movError) throw movError
-
-    const claves = filterClaves((movsRaw ?? []) as MovementRow[])
+    // 4) Cargar movimientos y filtrar a SOLO claves (solo si hay expediente)
+    let claves: MovementRow[] = []
+    let movsRaw: MovementRow[] | null = null
+    if (exp) {
+      const { data: movsData, error: movError } = await serviceClient
+        .from('sae_movements')
+        .select('id, fecha, titulo, tipo_movimiento, is_key, ai_summary, ai_suggested_action, ai_extracted')
+        .eq('expediente_id', body!.expediente_id)
+        .order('fecha', { ascending: false })
+      if (movError) throw movError
+      movsRaw = (movsData ?? []) as MovementRow[]
+      claves = filterClaves(movsRaw)
+    }
 
     // 4.5) Providencia / escrito de contraparte al que se responde (foco principal, si se eligió uno)
     let providenciaCtx = ''
@@ -760,13 +769,16 @@ ${body.escrito_contraparte_texto.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.e
     // 5) Determinar registro tonal según tipo (o la idea libre)
     const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
 
-    // 6) Armar contexto del expediente
-    const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
-    const clienteNombre = cliente
-      ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim()
-      : 'Sin cliente registrado'
+    // 6) Armar contexto del expediente (si existe)
+    let expedienteCtx = ''
+    let clavesCtx = ''
+    if (exp) {
+      const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
+      const clienteNombre = cliente
+        ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim()
+        : 'Sin cliente registrado'
 
-    const expedienteCtx = `## Expediente
+      expedienteCtx = `## Expediente
 - Número interno: ${exp.numero ?? 's/n'}
 - Número SAE: ${exp.numero_sae ?? 's/n'}
 - Carátula: ${exp.caratula ?? 's/n'}
@@ -776,16 +788,16 @@ ${body.escrito_contraparte_texto.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.e
 - Observaciones internas: ${exp.observaciones ?? '(ninguna)'}
 ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
-    const movsRecientes = claves.length === 0
-      ? ((movsRaw ?? []) as MovementRow[]).slice(0, 8)
-      : []
-    const clavesCtx = claves.length === 0
-      ? `\n## Actuaciones recientes (no hay claves marcadas — contexto general)\n${
-          movsRecientes.length === 0
-            ? '(Sin actuaciones registradas.)'
-            : movsRecientes.map(m => `- ${m.fecha} · ${m.tipo_movimiento}: ${m.titulo}${m.ai_summary ? ` — ${m.ai_summary.slice(0, 120)}` : ''}`).join('\n')
-        }`
-      : `\n## Actuaciones claves (las únicas que considerás como contexto)\n${claves.map((m, i) => {
+      const movsRecientes = claves.length === 0
+        ? (movsRaw ?? []).slice(0, 8)
+        : []
+      clavesCtx = claves.length === 0
+        ? `\n## Actuaciones recientes (no hay claves marcadas — contexto general)\n${
+            movsRecientes.length === 0
+              ? '(Sin actuaciones registradas.)'
+              : movsRecientes.map(m => `- ${m.fecha} · ${m.tipo_movimiento}: ${m.titulo}${m.ai_summary ? ` — ${m.ai_summary.slice(0, 120)}` : ''}`).join('\n')
+          }`
+        : `\n## Actuaciones claves (las únicas que considerás como contexto)\n${claves.map((m, i) => {
         const partes = m.ai_extracted?.partes?.join(', ')
         const fechas = m.ai_extracted?.fechas?.map(f => `${f.tipo} ${f.fecha_iso}: ${f.descripcion}`).join('; ')
         const plazos = m.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
@@ -796,6 +808,8 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 - Título: ${m.titulo}
 - Resumen: ${m.ai_summary ?? '(sin resumen IA)'}${partes ? `\n- Partes: ${partes}` : ''}${fechas ? `\n- Fechas: ${fechas}` : ''}${plazos ? `\n- Plazos: ${plazos}` : ''}${accion ? `\n- ${accion}` : ''}`
       }).join('\n\n')}`
+      // Cierre del bloque if (exp) para expedienteCtx + clavesCtx
+    }
 
     const abogadoCtx = `## Datos del abogado firmante (NO incluyas en "secciones", solo te los doy para que sepas quién firma)
 - Nombre: ${profile.nombre ?? ''} ${profile.apellido ?? ''}
@@ -805,27 +819,29 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 - Teléfono: ${profile.telefono ?? ''}
 - Email: ${profile.email ?? ''}`
 
-    // 6.5) Retrieval de normativa: fijadas al expediente + top-k por similarity
+    // 6.5) Retrieval de normativa: fijadas al expediente (si aplica) + top-k por similarity
     const ragQuery = [
-      ideaLibre || tipoEfectivo,  // idea libre como contexto primario para RAG
-      exp.caratula ?? '',
-      exp.fuero ?? '',
-      body.instrucciones ?? '',
+      ideaLibre || tipoEfectivo,
+      exp?.caratula ?? '',
+      exp?.fuero ?? '',
+      body?.instrucciones ?? '',
       claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
     ].filter(Boolean).join(' — ')
 
-    // En paralelo: normativa + jurisprudencia + aprendizajes + novedades
+    // En paralelo: normativa + jurisprudencia + aprendizajes + novedades (novedades solo si hay exp)
     const [rag, jurisRag, aprendizajes, novedadesRows] = await Promise.all([
-      getRelevantNormativa(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
-      getRelevantJurisprudencia(serviceClient, body.expediente_id, userId, ragQuery, apiKey),
-      getAprendizajesAplicables(serviceClient, userId, exp.fuero ?? null, (exp as { tipo_proceso_id?: string | null }).tipo_proceso_id ?? null),
-      (serviceClient as any)
-        .from('expediente_novedades')
-        .select('nota, created_at')
-        .eq('expediente_id', body.expediente_id)
-        .order('created_at', { ascending: false })
-        .limit(8)
-        .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? []),
+      getRelevantNormativa(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
+      getRelevantJurisprudencia(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
+      getAprendizajesAplicables(serviceClient, userId, exp?.fuero ?? null, (exp as { tipo_proceso_id?: string | null } | null)?.tipo_proceso_id ?? null),
+      exp
+        ? (serviceClient as any)
+            .from('expediente_novedades')
+            .select('nota, created_at')
+            .eq('expediente_id', body!.expediente_id)
+            .order('created_at', { ascending: false })
+            .limit(8)
+            .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? [])
+        : Promise.resolve([]),
     ])
 
     const novedadesCtx = novedadesRows.length > 0
@@ -888,10 +904,12 @@ ${estiloModelo}
       : ''
 
     // 7) Armar system prompt
-    const fueroCtx = getFueroCtx(exp.fuero ?? null)
+    const fueroCtx = getFueroCtx(exp?.fuero ?? null)
     const systemPrompt = [
       'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
-      'Trabajás exclusivamente con el material que se te entrega (perfil del abogado, expediente y actuaciones claves). NUNCA inventes hechos, partes, fechas ni citas legales.',
+      exp
+        ? 'Trabajás exclusivamente con el material que se te entrega (perfil del abogado, expediente y actuaciones claves). NUNCA inventes hechos, partes, fechas ni citas legales.'
+        : 'Trabajás sobre la base de las instrucciones del abogado y la normativa/jurisprudencia disponible. No tenés expediente asignado — redactá con fórmulas de uso general, marcando los datos que el abogado deberá completar (ej: [NÚMERO DE EXPEDIENTE], [JUZGADO], [NOMBRE DEL CLIENTE]).',
       '',
       SKILL_LEGAL,
       '',
@@ -1107,9 +1125,9 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
     const { data: escrito, error: insertError } = await serviceClient
       .from('escritos')
       .insert({
-        expediente_id: body.expediente_id,
+        expediente_id: body?.expediente_id ?? null,
         user_id: userId,
-        template_id: body.template_id ?? null,
+        template_id: body?.template_id ?? null,
         titulo: String(tituloFinal),
         tipo: tipoEfectivo,
         contenido,
@@ -1118,7 +1136,7 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
         // aprendizajes al firmar (ver escrito-extraer-aprendizajes).
         contenido_original: contenido,
         contexto_movement_ids: claves.map(c => c.id),
-        instrucciones_usuario: body.instrucciones ?? null,
+        instrucciones_usuario: body?.instrucciones ?? null,
         registro_tonal: registro.nombre,
         modelo_ia: DEFAULT_MODEL,
       } as never)

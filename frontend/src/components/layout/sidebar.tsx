@@ -32,6 +32,7 @@ import {
   Scale,
   Search,
   Briefcase,
+  PenLine,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
@@ -90,6 +91,7 @@ const navItems: readonly NavItem[] = [
   { href: '/consultas', label: 'Consultas', icon: ClipboardList, group: 'casos' },
   { href: '/clientes', label: 'Clientes', icon: Users, group: 'casos' },
   { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'casos' },
+  { href: '/escritos', label: 'Escritos', icon: PenLine, group: 'casos', hideForSecretaria: true },
   { href: '/contactos-profesionales', label: 'Profesionales', icon: UserCog, group: 'casos', hideForSecretaria: true },
   // Tablero queda disponible vía URL /kanban pero oculto del menú (vista alternativa de Expedientes)
 
