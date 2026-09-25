@@ -5,22 +5,23 @@ import {
   Sparkles, Pencil, Check, ChevronDown, ChevronUp, FolderOpen,
   Save, Upload, Wand2, Mic, Square, Layers, BookOpen, Gavel,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  ArrowLeft, Link2, ExternalLink, Copy, ClipboardCheck,
+  ArrowLeft, Link2, ExternalLink, Copy, ClipboardCheck, Clock,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
   useAllEscritos, useEscritoModelos, useGenerateEscrito, useUpdateEscrito,
   useDeleteEscrito, useRefinarEscrito, useAttachSignedPdf,
   useCrearModelo, useExtraerModelo, useTranscribirAudio, useEscritoTemplates,
-  useFetchReferencia,
+  useFetchReferencia, useEscritoHistorial,
   type Escrito, type EscritoContenido, type EscritoConExpediente,
-  type EscritoTemplate, type ReferenciaExterna,
+  type EscritoTemplate, type ReferenciaExterna, type EscritoSnapshot,
 } from '@/hooks/use-escritos'
 import { useSearchNormativaByText, type NormativaDocumento } from '@/hooks/use-normativa'
 import {
   useSearchJurisprudenciaByText, useBuscarJurisprudenciaAfin,
   type JurisprudenciaDocumento,
 } from '@/hooks/use-jurisprudencia'
+import { useSaeMovements } from '@/hooks/use-sae'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from '@/components/expedientes/escrito-preview'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -76,6 +77,11 @@ const PORTALES_EXTERNOS = [
 
 // ─── NuevoEscritoDialog ───────────────────────────────────────────────────────
 
+const RESPONDIBLE_TYPES_FRONTEND = new Set([
+  'decreto', 'traslado', 'intimacion', 'cedula', 'sentencia',
+  'providencia', 'resolucion', 'auto', 'despacho',
+])
+
 function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const [tipo, setTipo] = useState('')
   const [ideaLibre, setIdeaLibre] = useState('')
@@ -86,9 +92,12 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   const [templateId, setTemplateId] = useState('')
   const [grabando, setGrabando] = useState(false)
   const [mediaRec, setMediaRec] = useState<MediaRecorder | null>(null)
+  const [respondeA, setRespondeA] = useState('')
+  const [actuacionesExtra, setActuacionesExtra] = useState<string[]>([])
   const { data: modelos = [] } = useEscritoModelos()
   const { data: templates = [] } = useEscritoTemplates()
-  const generate = useGenerateEscrito()
+  const { data: movimientos = [] } = useSaeMovements(expedienteId)
+  const { progressMsg, ...generate } = useGenerateEscrito()
   const transcribir = useTranscribirAudio()
   const [expedientes, setExpedientes] = useState<Array<{ id: string; label: string }>>([])
   const supabase = createClient()
@@ -101,6 +110,16 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
       id: e.id, label: e.caratula ? `${e.caratula} (${e.numero})` : e.numero,
     })))
   }, [supabase])
+
+  const onSelectActuacion = (id: string) => {
+    setRespondeA(id)
+    const m = movimientos.find(mv => mv.id === id)
+    const acc = m?.ai_suggested_action
+    if (!acc) return
+    if (!tipo.trim() && acc.titulo) setTipo(acc.titulo)
+    const desc = [acc.titulo, acc.descripcion].filter(Boolean).join(' — ')
+    if (!instrucciones.trim() && desc) setInstrucciones(desc)
+  }
 
   const toggleGrabar = async () => {
     if (grabando && mediaRec) { mediaRec.stop(); setGrabando(false); return }
@@ -131,10 +150,12 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
         expediente_id: expedienteId || null,
         tipo: tipo || '',
         idea_libre: ideaLibre.trim() || null,
+        responde_a_movimiento_id: respondeA || undefined,
         instrucciones: instrucciones.trim() || undefined,
         template_id: templateId || null,
         modelo_id: modeloId || null,
         borrador_previo: selectedModelo?.contenido_modelo ?? undefined,
+        actuaciones_extra_ids: actuacionesExtra.length > 0 ? actuacionesExtra : null,
       })
       onCreated(result.escrito_id)
     } catch (err) {
@@ -198,23 +219,125 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">Expediente <span className="text-zinc-500 font-normal">(opcional)</span></label>
-            <input
-              type="text" list="escritos-expedientes" value={expedienteQuery}
-              onChange={e => {
-                const val = e.target.value
-                setExpedienteQuery(val)
-                const match = expedientes.find(ex => ex.label === val)
-                setExpedienteId(match?.id ?? '')
-                buscarExpedientes(val)
-              }}
-              placeholder="Buscar por carátula..."
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none"
-            />
-            <datalist id="escritos-expedientes">
-              {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
-            </datalist>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+              Expediente <span className="text-zinc-500 font-normal">(opcional)</span>
+            </label>
+            {expedienteId ? (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                <span className="flex-1 text-sm text-amber-300 truncate">{expedienteQuery}</span>
+                <button
+                  type="button"
+                  onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
+                  className="text-amber-500 hover:text-amber-300"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text" list="escritos-expedientes" value={expedienteQuery}
+                  onChange={e => {
+                    const val = e.target.value
+                    setExpedienteQuery(val)
+                    const match = expedientes.find(ex => ex.label === val)
+                    setExpedienteId(match?.id ?? '')
+                    setRespondeA('')
+                    setActuacionesExtra([])
+                    buscarExpedientes(val)
+                  }}
+                  placeholder="Buscar por carátula..."
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none"
+                />
+                <datalist id="escritos-expedientes">
+                  {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
+                </datalist>
+              </>
+            )}
           </div>
+
+          {expedienteId && movimientos.length > 0 && (() => {
+            const respondibles = movimientos.filter(m =>
+              m.is_key === true || RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
+            ).slice(0, 40)
+            const otrasActuaciones = movimientos.filter(m =>
+              m.is_key !== true && !RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
+            ).slice(0, 20)
+            return (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+                  Responde a actuación <span className="text-zinc-500 font-normal">(opcional)</span>
+                </label>
+                <select
+                  value={respondeA}
+                  onChange={e => onSelectActuacion(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none"
+                >
+                  <option value="">Sin actuación específica</option>
+                  {respondibles.length > 0 && (
+                    <optgroup label="Respondibles / Clave">
+                      {respondibles.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.is_key === true ? '★ ' : ''}{m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {otrasActuaciones.length > 0 && (
+                    <optgroup label="Otras actuaciones">
+                      {otrasActuaciones.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                {respondeA && (() => {
+                  const m = movimientos.find(mv => mv.id === respondeA)
+                  return m?.ai_suggested_action ? (
+                    <p className="mt-1 text-[11px] text-amber-400/70">
+                      Acción sugerida: {m.ai_suggested_action.titulo}
+                    </p>
+                  ) : null
+                })()}
+              </div>
+            )
+          })()}
+
+          {expedienteId && movimientos.length > 1 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+                Incluir actuaciones adicionales en el contexto <span className="text-zinc-500 font-normal">(opcional)</span>
+              </label>
+              <div className="max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-zinc-800 p-1 space-y-0.5">
+                {movimientos.slice(0, 60).map(m => {
+                  const checked = actuacionesExtra.includes(m.id)
+                  if (m.id === respondeA) return null
+                  return (
+                    <label key={m.id} className="flex items-start gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          if (e.target.checked) setActuacionesExtra(prev => [...prev, m.id])
+                          else setActuacionesExtra(prev => prev.filter(id => id !== m.id))
+                        }}
+                        className="mt-0.5 accent-amber-500 shrink-0"
+                      />
+                      <span className="text-xs text-zinc-300 leading-tight">
+                        {m.is_key === true ? '★ ' : ''}{m.fecha?.slice(0, 10)} — {m.tipo_movimiento}{m.titulo ? ` — ${m.titulo.slice(0, 50)}` : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+              {actuacionesExtra.length > 0 && (
+                <p className="mt-1 text-[11px] text-zinc-500">{actuacionesExtra.length} actuación{actuacionesExtra.length !== 1 ? 'es' : ''} adicional{actuacionesExtra.length !== 1 ? 'es' : ''} incluida{actuacionesExtra.length !== 1 ? 's' : ''}</p>
+              )}
+            </div>
+          )}
 
           {modelos.length > 0 && (
             <div>
@@ -243,8 +366,17 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
           <button onClick={onClose} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">Cancelar</button>
           <button onClick={handleGenerar} disabled={generate.isPending || transcribir.isPending}
             className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
-            {generate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {generate.isPending ? 'Generando...' : 'Generar con IA'}
+            {generate.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {progressMsg ?? 'Generando...'}
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Generar con IA
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -870,7 +1002,7 @@ function EscritoEditor({
 }: {
   escrito: EscritoConExpediente
   abogado: EscritoEncabezadoAbogado | null
-  onUpdate: (patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>) => Promise<void>
+  onUpdate: (patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>, snapshotAntes?: EscritoContenido) => Promise<void>
   onDelete: () => void
   onBack?: () => void
   refsOpen: boolean
@@ -884,12 +1016,16 @@ function EscritoEditor({
   const [guardando, setGuardando] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [confirmarEliminar, setConfirmarEliminar] = useState(false)
+  const [showHistorial, setShowHistorial] = useState(false)
   const [refinarTarget, setRefinarTarget] = useState<{ si: number; pi?: number } | null>(null)
   const [refinarInstr, setRefinarInstr] = useState('')
   const refinarEscrito = useRefinarEscrito()
   const attachPdf = useAttachSignedPdf()
+  const historialMutation = useEscritoHistorial()
   const printRef = useRef<HTMLDivElement>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Capture snapshot of contenido at the start of each save cycle
+  const contenidoBeforeSaveRef = useRef<EscritoContenido>(escrito.contenido)
 
   // Sincronizar si cambia el escrito desde fuera (otra sesión, etc.)
   useEffect(() => {
@@ -898,10 +1034,10 @@ function EscritoEditor({
     setDirty(false)
   }, [escrito.id])
 
-  const doGuardar = useCallback(async (c: EscritoContenido, t: string) => {
+  const doGuardar = useCallback(async (c: EscritoContenido, t: string, snapshotAntes?: EscritoContenido) => {
     setGuardando(true)
     try {
-      await onUpdate({ contenido: c, titulo: t })
+      await onUpdate({ contenido: c, titulo: t }, snapshotAntes)
       setDirty(false)
       setSavedAt(new Date())
     } catch (err) {
@@ -913,7 +1049,11 @@ function EscritoEditor({
     setContenido(c)
     setDirty(true)
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => doGuardar(c, tituloLocal), 2500)
+    const snapshot = contenidoBeforeSaveRef.current
+    saveTimerRef.current = setTimeout(() => {
+      contenidoBeforeSaveRef.current = c
+      doGuardar(c, tituloLocal, snapshot)
+    }, 2500)
   }
 
   // Ctrl+S / Cmd+S para guardar
@@ -921,7 +1061,11 @@ function EscritoEditor({
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
-        if (dirty) doGuardar(contenido, tituloLocal)
+        if (dirty) {
+          const snapshot = contenidoBeforeSaveRef.current
+          contenidoBeforeSaveRef.current = contenido
+          doGuardar(contenido, tituloLocal, snapshot)
+        }
       }
     }
     window.addEventListener('keydown', handler)
@@ -1037,7 +1181,11 @@ function EscritoEditor({
           {/* Autosave indicator */}
           {guardando && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500 shrink-0" />}
           {!guardando && dirty && (
-            <button onClick={() => doGuardar(contenido, tituloLocal)}
+            <button onClick={() => {
+              const snapshot = contenidoBeforeSaveRef.current
+              contenidoBeforeSaveRef.current = contenido
+              doGuardar(contenido, tituloLocal, snapshot)
+            }}
               className="inline-flex items-center gap-1 rounded-lg bg-sky-600/80 px-2 py-1 text-xs font-medium text-white hover:bg-sky-600">
               <Save className="h-3 w-3" /> Guardar
             </button>
@@ -1046,6 +1194,21 @@ function EscritoEditor({
             <span className="hidden sm:inline text-[10px] text-zinc-600">
               Guardado {savedAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
             </span>
+          )}
+
+          {escrito.historial && escrito.historial.length > 0 && (
+            <button
+              onClick={() => setShowHistorial(v => !v)}
+              className={cn('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border',
+                showHistorial
+                  ? 'border-amber-500/30 bg-amber-500/15 text-amber-300'
+                  : 'border-white/10 text-zinc-400 hover:text-zinc-200'
+              )}
+              title="Ver versiones anteriores"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              {escrito.historial.length}
+            </button>
           )}
 
           <button onClick={handleImprimir} title="Imprimir" className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
@@ -1141,6 +1304,38 @@ function EscritoEditor({
           {vista === 'preview' && !abogado && (
             <div className="flex items-center justify-center h-full text-zinc-500 text-sm p-4 text-center">
               Completá tus datos profesionales en Configuración para ver la vista previa A4
+            </div>
+          )}
+
+          {showHistorial && escrito.historial && (
+            <div className="border-t border-white/10 bg-zinc-900/80 p-3 space-y-1">
+              <p className="text-xs font-medium text-zinc-400 mb-2">Versiones anteriores</p>
+              {[...escrito.historial].reverse().map((snap: EscritoSnapshot, i: number) => {
+                const fecha = new Date(snap.saved_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
+                const secciones = snap.contenido.secciones?.length ?? 0
+                return (
+                  <div key={i} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5">
+                    <div>
+                      <p className="text-xs text-zinc-300">{snap.contenido.titulo || 'Sin título'}</p>
+                      <p className="text-[11px] text-zinc-500">{fecha} · {secciones} sección{secciones !== 1 ? 'es' : ''}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await historialMutation.restore.mutateAsync({
+                          id: escrito.id,
+                          expediente_id: escrito.expediente_id,
+                          contenido: snap.contenido,
+                          current_snapshot: escrito.contenido,
+                        })
+                        setShowHistorial(false)
+                      }}
+                      className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded"
+                    >
+                      Restaurar
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -1327,9 +1522,9 @@ export default function EscritosPage() {
     setSelectedId(escritoId)
   }
 
-  const handleUpdate = async (patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>) => {
+  const handleUpdate = async (patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>, snapshotAntes?: EscritoContenido) => {
     if (!escritoActual) return
-    await updateEscrito.mutateAsync({ id: escritoActual.id, expediente_id: escritoActual.expediente_id, patch })
+    await updateEscrito.mutateAsync({ id: escritoActual.id, expediente_id: escritoActual.expediente_id, patch, snapshotAntes })
   }
 
   const handleDelete = async () => {

@@ -60,6 +60,15 @@ function isTipoRetorico(tipo: string): boolean {
   return /alegato|recurso|contesta|agravios|memorial|apela|nulidad/i.test(tipo)
 }
 
+function getMaxTokens(tipo: string, esIdea: boolean): number {
+  if (esIdea) return 4500
+  const t = tipo.toLowerCase()
+  if (/demanda|contestaci[oó]n\s+(de\s+)?demanda|alegato|recurso\s+de\s+apelaci[oó]n|expresi[oó]n\s+de\s+agravios|memorial/.test(t)) return 6000
+  if (/contestaci[oó]n|recurso|ofrecimiento\s+de\s+prueba|ofrece\s+prueba/.test(t)) return 4000
+  if (/pronto\s+despacho|oficio|libramiento|adjunta|acompa[ñn]a|constituye|denuncia|toma\s+vista|bono\s+de\s+movilidad|solicita/.test(t)) return 1200
+  return 3500
+}
+
 // ── Skill legal (adaptado de anthropics/skills, traducido y filtrado) ──
 // Aporta disciplina de redacción jurídica, sin anglocentrismos.
 const SKILL_LEGAL = `# Disciplina de redacción jurídica
@@ -592,193 +601,227 @@ function decodeJwtRole(token: string): string | null {
   } catch { return null }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+// ── Error tipado para el handler ──────────────────────────────────────────────
+class HandlerError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message)
+    this.name = 'HandlerError'
+  }
+}
 
-  try {
-    const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
+// ── Tipo compartido del body ───────────────────────────────────────────────────
+type RequestBody = {
+  expediente_id?: string
+  tipo?: string
+  titulo?: string
+  instrucciones?: string
+  template_id?: string | null
+  /** Texto de un modelo/escrito de ejemplo que el usuario pega para que la IA imite el estilo. */
+  estilo_texto?: string | null
+  /** Si viene, se guarda estilo_texto como template reutilizable con este nombre. */
+  guardar_como?: string | null
+  /** Modo idea libre: el abogado describe en sus palabras qué presentar; la IA infiere el tipo. */
+  idea_libre?: string | null
+  /** Providencia (movimiento SAE) a la que este escrito responde/da cumplimiento. */
+  responde_a_movimiento_id?: string | null
+  /** Cuando lo llama service-role (ej. bot de Telegram): perfil firmante. */
+  on_behalf_of_user_id?: string | null
+  /** Borrador anterior que el abogado quiere mejorar (en lugar de generar desde cero). */
+  borrador_previo?: unknown
+  /** Texto del escrito de la contraparte que se quiere contestar (pegado desde el PDF). */
+  escrito_contraparte_texto?: string | null
+  /** Actuaciones adicionales a incluir explícitamente en el contexto (por ID). */
+  actuaciones_extra_ids?: string[] | null
+  /** Si true, la respuesta se envía como SSE (text/event-stream). */
+  stream?: boolean
+}
 
-    const authHeader = req.headers.get('Authorization') ?? ''
-    const anonClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
+// ── Core handler (extractable, no referencia req para respuestas) ──────────────
+async function handleGenerate(
+  req: Request,
+  body: RequestBody | null,
+  apiKey: string,
+  onProgress: (step: string, message: string) => void,
+): Promise<Record<string, unknown>> {
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const anonClient = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
+
+  // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
+  const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const isServiceRole = rawToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || decodeJwtRole(rawToken) === 'service_role'
+  let userId: string
+  if (isServiceRole) {
+    if (!body?.on_behalf_of_user_id) throw new HandlerError('service_role requiere on_behalf_of_user_id', 400)
+    userId = body.on_behalf_of_user_id
+  } else {
+    const { data: { user }, error: authError } = await anonClient.auth.getUser()
+    if (authError || !user) throw new HandlerError('No autorizado', 401)
+    userId = user.id
+  }
+
+  onProgress('context', 'Cargando expediente...')
+
+  // expediente_id es opcional: los escritos independientes (sin expediente) son válidos.
+  const ideaLibre = body?.idea_libre?.trim() ?? ''
+  const tipoInput = body?.tipo?.trim() ?? ''
+  if (!tipoInput && !ideaLibre) {
+    throw new HandlerError('Indicá el tipo de escrito, o describí la idea a redactar', 400)
+  }
+  // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo determina libremente.
+  // No anclar con "Escrito de trámite" — sesga a defaultear en pronto despacho.
+  const tipoEfectivo = tipoInput || (ideaLibre
+    ? 'A determinar por vos según la indicación del abogado — identificá el tipo ESPECÍFICO (ej: embargo preventivo, recurso, demanda, contestación, etc.), nunca uses "escrito de trámite" genérico salvo que eso sea realmente lo pedido'
+    : 'Escrito de trámite')
+
+  // LLM guard: tamaño de input + rate limit por usuario.
+  // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que
+  // limita acá es el body del user (instrucciones libres).
+  const inputBytes = new TextEncoder().encode(JSON.stringify(body)).length
+  const guardClient = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+  const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
+  if (!guard.ok) throw new HandlerError(guard.error ?? 'Rate limit', guard.status ?? 429)
+
+  // 1) Verificar acceso al expediente (solo si se proporcionó uno)
+  if (body?.expediente_id && !isServiceRole) {
+    const { data: expAuth, error: authExpError } = await anonClient
+      .from('expedientes')
+      .select('id')
+      .eq('id', body.expediente_id)
+      .maybeSingle()
+    if (authExpError || !expAuth) throw new HandlerError('Expediente no encontrado o sin permisos', 404)
+  }
+
+  const serviceClient = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+
+  // 2) Cargar perfil del abogado (datos profesionales requeridos)
+  const { data: profileRaw, error: profileError } = await serviceClient
+    .from('profiles')
+    .select('nombre, apellido, matricula, matricula_libro, matricula_folio, domicilio_legal, telefono, email, casillero_notif, cuit')
+    .eq('id', userId)
+    .single()
+  if (profileError || !profileRaw) throw new HandlerError('Perfil del abogado no encontrado', 404)
+
+  const profile = profileRaw as Profile
+  if (!profile.matricula || !profile.domicilio_legal || !profile.cuit) {
+    throw new HandlerError(
+      'Completá tus datos profesionales en Configuración antes de generar escritos (matrícula, domicilio legal, CUIT).',
+      412,
     )
+  }
 
-    const body = await req.json().catch(() => null) as {
-      expediente_id?: string
-      tipo?: string
-      titulo?: string
-      instrucciones?: string
-      template_id?: string | null
-      /** Texto de un modelo/escrito de ejemplo que el usuario pega para que la IA imite el estilo. */
-      estilo_texto?: string | null
-      /** Si viene, se guarda estilo_texto como template reutilizable con este nombre. */
-      guardar_como?: string | null
-      /** Modo idea libre: el abogado describe en sus palabras qué presentar; la IA infiere el tipo. */
-      idea_libre?: string | null
-      /** Providencia (movimiento SAE) a la que este escrito responde/da cumplimiento. */
-      responde_a_movimiento_id?: string | null
-      /** Cuando lo llama service-role (ej. bot de Telegram): perfil firmante. */
-      on_behalf_of_user_id?: string | null
-      /** Borrador anterior que el abogado quiere mejorar (en lugar de generar desde cero). */
-      borrador_previo?: unknown
-      /** Texto del escrito de la contraparte que se quiere contestar (pegado desde el PDF). */
-      escrito_contraparte_texto?: string | null
-    } | null
-
-    // Auth: JWT de usuario, o service-role en nombre de un perfil (bot de Telegram).
-    const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim()
-    const isServiceRole = rawToken === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || decodeJwtRole(rawToken) === 'service_role'
-    let userId: string
-    if (isServiceRole) {
-      if (!body?.on_behalf_of_user_id) return json(req, { error: 'service_role requiere on_behalf_of_user_id' }, 400)
-      userId = body.on_behalf_of_user_id
-    } else {
-      const { data: { user }, error: authError } = await anonClient.auth.getUser()
-      if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
-      userId = user.id
-    }
-
-    // expediente_id es opcional: los escritos independientes (sin expediente) son válidos.
-    const ideaLibre = body?.idea_libre?.trim() ?? ''
-    const tipoInput = body?.tipo?.trim() ?? ''
-    if (!tipoInput && !ideaLibre) {
-      return json(req, { error: 'Indicá el tipo de escrito, o describí la idea a redactar' }, 400)
-    }
-    // Tipo "efectivo": si no hay tipo pero hay idea libre, la IA lo determina libremente.
-    // No anclar con "Escrito de trámite" — sesga a defaultear en pronto despacho.
-    const tipoEfectivo = tipoInput || (ideaLibre
-      ? 'A determinar por vos según la indicación del abogado — identificá el tipo ESPECÍFICO (ej: embargo preventivo, recurso, demanda, contestación, etc.), nunca uses "escrito de trámite" genérico salvo que eso sea realmente lo pedido'
-      : 'Escrito de trámite')
-
-    // LLM guard: tamaño de input + rate limit por usuario.
-    // Tope alto porque escritos-generate hidrata RAG + skill prompt; lo que
-    // limita acá es el body del user (instrucciones libres).
-    const inputBytes = new TextEncoder().encode(JSON.stringify(body)).length
-    const guardClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
-    const guard = await checkLlmGuard(guardClient, userId, FUNCTION_NAME, inputBytes)
-    if (!guard.ok) return json(req, { error: guard.error }, guard.status)
-
-    // 1) Verificar acceso al expediente (solo si se proporcionó uno)
-    if (body?.expediente_id && !isServiceRole) {
-      const { data: expAuth, error: authExpError } = await anonClient
-        .from('expedientes')
-        .select('id')
-        .eq('id', body.expediente_id)
-        .maybeSingle()
-      if (authExpError || !expAuth) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
-    }
-
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
-
-    // 2) Cargar perfil del abogado (datos profesionales requeridos)
-    const { data: profileRaw, error: profileError } = await serviceClient
-      .from('profiles')
-      .select('nombre, apellido, matricula, matricula_libro, matricula_folio, domicilio_legal, telefono, email, casillero_notif, cuit')
-      .eq('id', userId)
+  // 3) Cargar expediente (si se proporcionó)
+  let exp: ExpedienteRow | null = null
+  if (body?.expediente_id) {
+    const { data: expRaw, error: expError } = await serviceClient
+      .from('expedientes')
+      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
+      .eq('id', body.expediente_id)
       .single()
-    if (profileError || !profileRaw) return json(req, { error: 'Perfil del abogado no encontrado' }, 404)
+    if (expError || !expRaw) throw new HandlerError('Expediente no encontrado', 404)
+    exp = expRaw as unknown as ExpedienteRow
+  }
 
-    const profile = profileRaw as Profile
-    if (!profile.matricula || !profile.domicilio_legal || !profile.cuit) {
-      return json(req, {
-        error: 'Completá tus datos profesionales en Configuración antes de generar escritos (matrícula, domicilio legal, CUIT).',
-        code: 'PROFILE_INCOMPLETE',
-      }, 412)
+  // 4) Cargar movimientos y filtrar a SOLO claves (solo si hay expediente)
+  let claves: MovementRow[] = []
+  let movsRaw: MovementRow[] | null = null
+  if (exp) {
+    const { data: movsData, error: movError } = await serviceClient
+      .from('sae_movements')
+      .select('id, fecha, titulo, tipo_movimiento, is_key, ai_summary, ai_suggested_action, ai_extracted')
+      .eq('expediente_id', body!.expediente_id)
+      .order('fecha', { ascending: false })
+    if (movError) throw movError
+    movsRaw = (movsData ?? []) as MovementRow[]
+    claves = filterClaves(movsRaw)
+
+    // Actuaciones extra: el usuario seleccionó explícitamente incluir estas en el contexto
+    if (body.actuaciones_extra_ids?.length) {
+      const extraIds = body.actuaciones_extra_ids.filter(id => id && typeof id === 'string')
+      if (extraIds.length > 0) {
+        const existingIds = new Set(claves.map(c => c.id))
+        const extraNew = extraIds.filter(id => !existingIds.has(id))
+        if (extraNew.length > 0) {
+          const { data: extraData } = await serviceClient
+            .from('sae_movements')
+            .select('id, fecha, titulo, tipo_movimiento, is_key, ai_summary, ai_suggested_action, ai_extracted')
+            .in('id', extraNew)
+          if (extraData) {
+            const extraMovs = (extraData as MovementRow[]).map(m => ({ ...m, _extra: true }))
+            claves = [...claves, ...extraMovs as MovementRow[]]
+          }
+        }
+      }
     }
+  }
 
-    // 3) Cargar expediente (si se proporcionó)
-    let exp: ExpedienteRow | null = null
-    if (body?.expediente_id) {
-      const { data: expRaw, error: expError } = await serviceClient
-        .from('expedientes')
-        .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
-        .eq('id', body.expediente_id)
-        .single()
-      if (expError || !expRaw) return json(req, { error: 'Expediente no encontrado' }, 404)
-      exp = expRaw as unknown as ExpedienteRow
-    }
-
-    // 4) Cargar movimientos y filtrar a SOLO claves (solo si hay expediente)
-    let claves: MovementRow[] = []
-    let movsRaw: MovementRow[] | null = null
-    if (exp) {
-      const { data: movsData, error: movError } = await serviceClient
-        .from('sae_movements')
-        .select('id, fecha, titulo, tipo_movimiento, is_key, ai_summary, ai_suggested_action, ai_extracted')
-        .eq('expediente_id', body!.expediente_id)
-        .order('fecha', { ascending: false })
-      if (movError) throw movError
-      movsRaw = (movsData ?? []) as MovementRow[]
-      claves = filterClaves(movsRaw)
-    }
-
-    // 4.5) Providencia / escrito de contraparte al que se responde (foco principal, si se eligió uno)
-    let providenciaCtx = ''
-    if (body.responde_a_movimiento_id) {
-      // Fetch full movement with cuerpo (body text from SAE, not in the initial load)
-      const { data: provFull } = await serviceClient
-        .from('sae_movements')
-        .select('id, fecha, titulo, tipo_movimiento, cuerpo, ai_summary, ai_suggested_action, ai_extracted')
-        .eq('id', body.responde_a_movimiento_id)
-        .maybeSingle()
-      const prov = provFull as (MovementRow & { cuerpo?: string | null }) | null
-      if (prov) {
-        const plazos = prov.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
-        const acc = prov.ai_suggested_action
-          ? `\n- Acción sugerida por el análisis: ${prov.ai_suggested_action.titulo}${prov.ai_suggested_action.descripcion ? ` — ${prov.ai_suggested_action.descripcion}` : ''}`
-          : ''
-        const esEscritoContraparte = !RESPONDIBLE_TYPES_EDGE.has(prov.tipo_movimiento ?? '')
-        const cuerpoTruncado = prov.cuerpo ? prov.cuerpo.slice(0, 3000) : null
-        if (esEscritoContraparte) {
-          // Es un escrito de la contraparte — el prompt debe orientarse a rebatirlo
-          providenciaCtx = `\n## Escrito de la CONTRAPARTE al que respondés (foco principal)
+  // 4.5) Providencia / escrito de contraparte al que se responde (foco principal, si se eligió uno)
+  let providenciaCtx = ''
+  if (body?.responde_a_movimiento_id) {
+    // Fetch full movement with cuerpo (body text from SAE, not in the initial load)
+    const { data: provFull } = await serviceClient
+      .from('sae_movements')
+      .select('id, fecha, titulo, tipo_movimiento, cuerpo, ai_summary, ai_suggested_action, ai_extracted')
+      .eq('id', body.responde_a_movimiento_id)
+      .maybeSingle()
+    const prov = provFull as (MovementRow & { cuerpo?: string | null }) | null
+    if (prov) {
+      const plazos = prov.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
+      const acc = prov.ai_suggested_action
+        ? `\n- Acción sugerida por el análisis: ${prov.ai_suggested_action.titulo}${prov.ai_suggested_action.descripcion ? ` — ${prov.ai_suggested_action.descripcion}` : ''}`
+        : ''
+      const esEscritoContraparte = !RESPONDIBLE_TYPES_EDGE.has(prov.tipo_movimiento ?? '')
+      const cuerpoTruncado = prov.cuerpo ? prov.cuerpo.slice(0, 3000) : null
+      if (esEscritoContraparte) {
+        // Es un escrito de la contraparte — el prompt debe orientarse a rebatirlo
+        providenciaCtx = `\n## Escrito de la CONTRAPARTE al que respondés (foco principal)
 El abogado indica que este escrito CONTESTA el siguiente escrito de la parte contraria. Estructurá tu respuesta para REBATIR sus argumentos con los hechos del expediente y la normativa aplicable.
 - Fecha: ${prov.fecha}
 - Tipo: ${prov.tipo_movimiento}
 - Título: ${prov.titulo}
 - Resumen IA: ${prov.ai_summary ?? '(sin resumen IA)'}${cuerpoTruncado ? `\n- Texto original (SAE):\n${cuerpoTruncado}` : ''}${acc}`
-        } else {
-          providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
+      } else {
+        providenciaCtx = `\n## Providencia a la que este escrito RESPONDE (foco principal)
 El abogado indica que este escrito CONTESTA o DA CUMPLIMIENTO a esta providencia. El escrito debe responder o cumplir con lo que ella ordena, con coherencia procesal y lógica jurídica.
 - Fecha: ${prov.fecha}
 - Tipo: ${prov.tipo_movimiento}
 - Título: ${prov.titulo}
 - Resumen: ${prov.ai_summary ?? '(sin resumen IA)'}${plazos ? `\n- Plazos: ${plazos}` : ''}${acc}`
-        }
       }
     }
+  }
 
-    // 4.6) Texto del escrito de la contraparte pegado manualmente (PDF de SAE)
-    const MAX_CONTRAPARTE_CHARS = 8000
-    const contraparteCtx = body.escrito_contraparte_texto?.trim()
-      ? `\n## Texto del escrito de la contraparte (pegado por el abogado desde el PDF)
+  // 4.6) Texto del escrito de la contraparte pegado manualmente (PDF de SAE)
+  const MAX_CONTRAPARTE_CHARS = 8000
+  const contraparteCtx = body?.escrito_contraparte_texto?.trim()
+    ? `\n## Texto del escrito de la contraparte (pegado por el abogado desde el PDF)
 El abogado pegó fragmentos del escrito de la parte contraria que quiere REBATIR. Identificá sus argumentos principales y estructurá tu respuesta para contestarlos punto por punto, con base en los hechos del expediente. No cites ni avales estos argumentos — tu trabajo es contrarrestarlos.
 
-${body.escrito_contraparte_texto.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.escrito_contraparte_texto.trim().length > MAX_CONTRAPARTE_CHARS ? '\n[… texto truncado …]' : ''}`
-      : ''
+${body.escrito_contraparte_texto!.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.escrito_contraparte_texto!.trim().length > MAX_CONTRAPARTE_CHARS ? '\n[… texto truncado …]' : ''}`
+    : ''
 
-    // 5) Determinar registro tonal según tipo (o la idea libre)
-    const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
+  // 5) Determinar registro tonal según tipo (o la idea libre)
+  const registro = isTipoRetorico(tipoInput || ideaLibre) ? REGISTRO_RETORICO : REGISTRO_PROCESAL
 
-    // 6) Armar contexto del expediente (si existe)
-    let expedienteCtx = ''
-    let clavesCtx = ''
-    if (exp) {
-      const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
-      const clienteNombre = cliente
-        ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim()
-        : 'Sin cliente registrado'
+  // 6) Armar contexto del expediente (si existe)
+  let expedienteCtx = ''
+  let clavesCtx = ''
+  if (exp) {
+    const cliente = Array.isArray(exp.cliente) ? exp.cliente[0] : exp.cliente
+    const clienteNombre = cliente
+      ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim()
+      : 'Sin cliente registrado'
 
-      expedienteCtx = `## Expediente
+    expedienteCtx = `## Expediente
 - Número interno: ${exp.numero ?? 's/n'}
 - Número SAE: ${exp.numero_sae ?? 's/n'}
 - Carátula: ${exp.caratula ?? 's/n'}
@@ -788,30 +831,32 @@ ${body.escrito_contraparte_texto.trim().slice(0, MAX_CONTRAPARTE_CHARS)}${body.e
 - Observaciones internas: ${exp.observaciones ?? '(ninguna)'}
 ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 
-      const movsRecientes = claves.length === 0
-        ? (movsRaw ?? []).slice(0, 8)
-        : []
-      clavesCtx = claves.length === 0
-        ? `\n## Actuaciones recientes (no hay claves marcadas — contexto general)\n${
-            movsRecientes.length === 0
-              ? '(Sin actuaciones registradas.)'
-              : movsRecientes.map(m => `- ${m.fecha} · ${m.tipo_movimiento}: ${m.titulo}${m.ai_summary ? ` — ${m.ai_summary.slice(0, 120)}` : ''}`).join('\n')
-          }`
-        : `\n## Actuaciones claves (las únicas que considerás como contexto)\n${claves.map((m, i) => {
-        const partes = m.ai_extracted?.partes?.join(', ')
-        const fechas = m.ai_extracted?.fechas?.map(f => `${f.tipo} ${f.fecha_iso}: ${f.descripcion}`).join('; ')
-        const plazos = m.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
-        // "Próxima acción": es un recordatorio de agenda para el abogado, NO determina el tipo de escrito.
-        // Se rotula explícitamente para que el LLM no lo tome como instrucción al generar el escrito.
-        const accion = m.ai_suggested_action ? `Próxima acción de agenda (solo referencia — NO usés esto para elegir el tipo de escrito): ${m.ai_suggested_action.titulo}${m.ai_suggested_action.descripcion ? ` — ${m.ai_suggested_action.descripcion}` : ''}` : ''
-        return `### Clave ${i + 1} (${m.fecha} · ${m.tipo_movimiento})
+    const movsRecientes = claves.length === 0
+      ? (movsRaw ?? []).slice(0, 8)
+      : []
+    clavesCtx = claves.length === 0
+      ? `\n## Actuaciones recientes (no hay claves marcadas — contexto general)\n${
+          movsRecientes.length === 0
+            ? '(Sin actuaciones registradas.)'
+            : movsRecientes.map(m => `- ${m.fecha} · ${m.tipo_movimiento}: ${m.titulo}${m.ai_summary ? ` — ${m.ai_summary.slice(0, 120)}` : ''}`).join('\n')
+        }`
+      : `\n## Actuaciones claves (las únicas que considerás como contexto)\n${claves.map((m, i) => {
+      const partes = m.ai_extracted?.partes?.join(', ')
+      const fechas = m.ai_extracted?.fechas?.map(f => `${f.tipo} ${f.fecha_iso}: ${f.descripcion}`).join('; ')
+      const plazos = m.ai_extracted?.plazos?.map(p => `${p.dias} ${p.habiles ? 'días háb.' : 'días'}${p.vence_aprox ? ` (vence ${p.vence_aprox})` : ''}: ${p.descripcion}`).join('; ')
+      // "Próxima acción": es un recordatorio de agenda para el abogado, NO determina el tipo de escrito.
+      // Se rotula explícitamente para que el LLM no lo tome como instrucción al generar el escrito.
+      const accion = m.ai_suggested_action ? `Próxima acción de agenda (solo referencia — NO usés esto para elegir el tipo de escrito): ${m.ai_suggested_action.titulo}${m.ai_suggested_action.descripcion ? ` — ${m.ai_suggested_action.descripcion}` : ''}` : ''
+      const esExtra = '_extra' in m && (m as MovementRow & { _extra?: boolean })._extra
+      const labelExtra = esExtra ? ' [INCLUIDA EXPLÍCITAMENTE POR EL ABOGADO]' : ''
+      return `### Clave ${i + 1} (${m.fecha} · ${m.tipo_movimiento}${labelExtra})
 - Título: ${m.titulo}
 - Resumen: ${m.ai_summary ?? '(sin resumen IA)'}${partes ? `\n- Partes: ${partes}` : ''}${fechas ? `\n- Fechas: ${fechas}` : ''}${plazos ? `\n- Plazos: ${plazos}` : ''}${accion ? `\n- ${accion}` : ''}`
-      }).join('\n\n')}`
-      // Cierre del bloque if (exp) para expedienteCtx + clavesCtx
-    }
+    }).join('\n\n')}`
+    // Cierre del bloque if (exp) para expedienteCtx + clavesCtx
+  }
 
-    const abogadoCtx = `## Datos del abogado firmante (NO incluyas en "secciones", solo te los doy para que sepas quién firma)
+  const abogadoCtx = `## Datos del abogado firmante (NO incluyas en "secciones", solo te los doy para que sepas quién firma)
 - Nombre: ${profile.nombre ?? ''} ${profile.apellido ?? ''}
 - Matrícula: ${profile.matricula}${profile.matricula_libro ? ` Libro ${profile.matricula_libro}` : ''}${profile.matricula_folio ? ` Folio ${profile.matricula_folio}` : ''}
 - Domicilio: ${profile.domicilio_legal}
@@ -819,124 +864,126 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
 - Teléfono: ${profile.telefono ?? ''}
 - Email: ${profile.email ?? ''}`
 
-    // 6.5) Retrieval de normativa: fijadas al expediente (si aplica) + top-k por similarity
-    const ragQuery = [
-      ideaLibre || tipoEfectivo,
-      exp?.caratula ?? '',
-      exp?.fuero ?? '',
-      body?.instrucciones ?? '',
-      claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
-    ].filter(Boolean).join(' — ')
+  onProgress('rag', 'Recuperando normativa aplicable...')
 
-    // En paralelo: normativa + jurisprudencia + aprendizajes + novedades (novedades solo si hay exp)
-    const [rag, jurisRag, aprendizajes, novedadesRows] = await Promise.all([
-      getRelevantNormativa(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
-      getRelevantJurisprudencia(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
-      getAprendizajesAplicables(serviceClient, userId, exp?.fuero ?? null, (exp as { tipo_proceso_id?: string | null } | null)?.tipo_proceso_id ?? null),
-      exp
-        ? (serviceClient as any)
-            .from('expediente_novedades')
-            .select('nota, created_at')
-            .eq('expediente_id', body!.expediente_id)
-            .order('created_at', { ascending: false })
-            .limit(8)
-            .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? [])
-        : Promise.resolve([]),
-    ])
+  // 6.5) Retrieval de normativa: fijadas al expediente (si aplica) + top-k por similarity
+  const ragQuery = [
+    ideaLibre || tipoEfectivo,
+    exp?.caratula ?? '',
+    exp?.fuero ?? '',
+    body?.instrucciones ?? '',
+    claves.slice(0, 5).map(c => c.ai_summary ?? c.titulo).join(' ').slice(0, 600),
+  ].filter(Boolean).join(' — ')
 
-    const novedadesCtx = novedadesRows.length > 0
-      ? `\n## Novedades del abogado (actualizaciones manuales del estado real del caso)\n${
-          novedadesRows.map((n: { nota: string; created_at: string }) => {
-            const f = new Date(n.created_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Tucuman' })
-            return `- [${f}] ${n.nota}`
-          }).join('\n')
-        }`
-      : ''
-    const validChunkIds = new Set<number>([
-      ...rag.pinned, ...rag.retrieved,
-      ...jurisRag.pinned, ...jurisRag.retrieved,
-    ].map(c => c.chunk_id))
-    const normativaCtx = formatNormativaForPrompt(rag)
-    const jurisprudenciaCtx = formatJurisprudenciaForPrompt(jurisRag)
-    const aprendizajesCtx = formatAprendizajesForPrompt(aprendizajes)
+  // En paralelo: normativa + jurisprudencia + aprendizajes + novedades (novedades solo si hay exp)
+  const [rag, jurisRag, aprendizajes, novedadesRows] = await Promise.all([
+    getRelevantNormativa(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
+    getRelevantJurisprudencia(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
+    getAprendizajesAplicables(serviceClient, userId, exp?.fuero ?? null, (exp as { tipo_proceso_id?: string | null } | null)?.tipo_proceso_id ?? null),
+    exp
+      ? (serviceClient as any)
+          .from('expediente_novedades')
+          .select('nota, created_at')
+          .eq('expediente_id', body!.expediente_id)
+          .order('created_at', { ascending: false })
+          .limit(8)
+          .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? [])
+      : Promise.resolve([]),
+  ])
 
-    // 6.6) Resolver modelo de estilo: template guardado (template_id) o texto
-    // pegado por el usuario (estilo_texto). Si pide guardarlo, lo persistimos.
-    const MAX_ESTILO_CHARS = 30_000
-    let estiloModelo: string | null = null
-    let estiloNombre: string | null = null
-    if (body.template_id) {
-      const { data: tpl } = await serviceClient
-        .from('escrito_templates')
-        .select('nombre, source_text, analysis')
-        .eq('id', body.template_id)
-        .eq('user_id', userId)
-        .maybeSingle()
-      if (tpl?.source_text) {
-        estiloModelo = String(tpl.source_text).slice(0, MAX_ESTILO_CHARS)
-        estiloNombre = tpl.nombre ?? null
-      }
-    } else if (body.estilo_texto?.trim()) {
-      estiloModelo = body.estilo_texto.trim().slice(0, MAX_ESTILO_CHARS)
-      // Guardado opcional como template reutilizable.
-      if (body.guardar_como?.trim()) {
-        estiloNombre = body.guardar_como.trim().slice(0, 120)
-        await serviceClient.from('escrito_templates').insert({
-          user_id: userId,
-          nombre: estiloNombre,
-          tipo: tipoInput || 'idea libre',
-          descripcion: 'Modelo cargado desde el generador de escritos.',
-          source_text: estiloModelo,
-          is_active: true,
-        }).then(({ error }) => {
-          if (error) console.warn('[escritos-generate] no se pudo guardar el template', error.message)
-        })
-      }
+  const novedadesCtx = novedadesRows.length > 0
+    ? `\n## Novedades del abogado (actualizaciones manuales del estado real del caso)\n${
+        novedadesRows.map((n: { nota: string; created_at: string }) => {
+          const f = new Date(n.created_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Tucuman' })
+          return `- [${f}] ${n.nota}`
+        }).join('\n')
+      }`
+    : ''
+  const validChunkIds = new Set<number>([
+    ...rag.pinned, ...rag.retrieved,
+    ...jurisRag.pinned, ...jurisRag.retrieved,
+  ].map(c => c.chunk_id))
+  const normativaCtx = formatNormativaForPrompt(rag)
+  const jurisprudenciaCtx = formatJurisprudenciaForPrompt(jurisRag)
+  const aprendizajesCtx = formatAprendizajesForPrompt(aprendizajes)
+
+  // 6.6) Resolver modelo de estilo: template guardado (template_id) o texto
+  // pegado por el usuario (estilo_texto). Si pide guardarlo, lo persistimos.
+  const MAX_ESTILO_CHARS = 30_000
+  let estiloModelo: string | null = null
+  let estiloNombre: string | null = null
+  if (body?.template_id) {
+    const { data: tpl } = await serviceClient
+      .from('escrito_templates')
+      .select('nombre, source_text, analysis')
+      .eq('id', body.template_id)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (tpl?.source_text) {
+      estiloModelo = String(tpl.source_text).slice(0, MAX_ESTILO_CHARS)
+      estiloNombre = tpl.nombre ?? null
     }
+  } else if (body?.estilo_texto?.trim()) {
+    estiloModelo = body.estilo_texto.trim().slice(0, MAX_ESTILO_CHARS)
+    // Guardado opcional como template reutilizable.
+    if (body.guardar_como?.trim()) {
+      estiloNombre = body.guardar_como.trim().slice(0, 120)
+      await serviceClient.from('escrito_templates').insert({
+        user_id: userId,
+        nombre: estiloNombre,
+        tipo: tipoInput || 'idea libre',
+        descripcion: 'Modelo cargado desde el generador de escritos.',
+        source_text: estiloModelo,
+        is_active: true,
+      }).then(({ error }) => {
+        if (error) console.warn('[escritos-generate] no se pudo guardar el template', error.message)
+      })
+    }
+  }
 
-    const estiloCtx = estiloModelo
-      ? `\n## Modelo de estilo a IMITAR${estiloNombre ? ` ("${estiloNombre}")` : ''}
+  const estiloCtx = estiloModelo
+    ? `\n## Modelo de estilo a IMITAR${estiloNombre ? ` ("${estiloNombre}")` : ''}
 El abogado te entrega un escrito de ejemplo. Imitá su ESTRUCTURA, TONO, fórmulas de apertura/cierre y la disposición de las secciones, pero NO copies sus hechos, partes, fechas ni datos concretos: esos salen del expediente y las claves. Adaptá el estilo del modelo al contenido real de este expediente.
 
 --- INICIO DEL MODELO ---
 ${estiloModelo}
 --- FIN DEL MODELO ---`
-      : ''
+    : ''
 
-    // 7) Armar system prompt
-    const fueroCtx = getFueroCtx(exp?.fuero ?? null)
-    const systemPrompt = [
-      'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
-      exp
-        ? 'Trabajás exclusivamente con el material que se te entrega (perfil del abogado, expediente y actuaciones claves). NUNCA inventes hechos, partes, fechas ni citas legales.'
-        : 'Trabajás sobre la base de las instrucciones del abogado y la normativa/jurisprudencia disponible. No tenés expediente asignado — redactá con fórmulas de uso general, marcando los datos que el abogado deberá completar (ej: [NÚMERO DE EXPEDIENTE], [JUZGADO], [NOMBRE DEL CLIENTE]).',
-      '',
-      SKILL_LEGAL,
-      '',
-      ARGENTINA_OVERRIDE,
-      fueroCtx,
-      '',
-      registro.instrucciones,
-      estiloCtx ? `\n${estiloCtx}` : '',
-      '',
-      OUTPUT_SCHEMA,
-    ].join('\n')
+  // 7) Armar system prompt
+  const fueroCtx = getFueroCtx(exp?.fuero ?? null)
+  const systemPrompt = [
+    'Sos un asistente jurídico que redacta escritos judiciales para el fuero argentino.',
+    exp
+      ? 'Trabajás exclusivamente con el material que se te entrega (perfil del abogado, expediente y actuaciones claves). NUNCA inventes hechos, partes, fechas ni citas legales.'
+      : 'Trabajás sobre la base de las instrucciones del abogado y la normativa/jurisprudencia disponible. No tenés expediente asignado — redactá con fórmulas de uso general, marcando los datos que el abogado deberá completar (ej: [NÚMERO DE EXPEDIENTE], [JUZGADO], [NOMBRE DEL CLIENTE]).',
+    '',
+    SKILL_LEGAL,
+    '',
+    ARGENTINA_OVERRIDE,
+    fueroCtx,
+    '',
+    registro.instrucciones,
+    estiloCtx ? `\n${estiloCtx}` : '',
+    '',
+    OUTPUT_SCHEMA,
+  ].join('\n')
 
-    const borradorPrevioCtx = body.borrador_previo
-      ? `\n## Borrador anterior (el abogado quiere mejorarlo, no rehacerlo desde cero)
+  const borradorPrevioCtx = body?.borrador_previo
+    ? `\n## Borrador anterior (el abogado quiere mejorarlo, no rehacerlo desde cero)
 Conservá la estructura que funciona. Aplicá los cambios que indica el abogado en las instrucciones.
 ${JSON.stringify(body.borrador_previo, null, 2).slice(0, 3500)}`
-      : ''
+    : ''
 
-    const userMessage = ideaLibre
-      ? `## Indicación del abogado (verbatim — puede ser informal o de WhatsApp)
+  const userMessage = ideaLibre
+    ? `## Indicación del abogado (verbatim — puede ser informal o de WhatsApp)
 "${ideaLibre}"
 
 ## Tu tarea
 - Identificá el tipo EXACTO de escrito que corresponde a esta indicación. Ejemplos posibles: EMBARGO PREVENTIVO POR HONORARIOS, RECURSO DE APELACIÓN, CONTESTACIÓN DE TRASLADO, REGULACIÓN DE HONORARIOS, LEVANTAMIENTO DE EMBARGO, APERTURA A PRUEBA, etc.
 - NO defaultees a "PRONTO DESPACHO" ni a un escrito de trámite genérico salvo que eso sea literalmente lo que el abogado pidió. Las "Próximas acciones de agenda" que puedas ver en las actuaciones son recordatorios para el abogado, no instrucciones para vos — ignoralas al elegir el tipo.
 - Redactá el escrito COMPLETO y formal, respetando fielmente el tipo pedido, el contenido y todas las instrucciones del abogado.
-${body.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en MAYÚSCULAS según el tipo identificado.'}
+${body?.titulo ? `- Título sugerido: "${body.titulo}"` : '- Elegí el título en MAYÚSCULAS según el tipo identificado.'}
 
 ${providenciaCtx}
 
@@ -954,14 +1001,14 @@ ${aprendizajesCtx}
 
 ${abogadoCtx}
 
-${body.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
+${body?.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
 
 ${borradorPrevioCtx}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
-      : `## TIPO DE ESCRITO (determinado por el abogado — seguí esto sin excepción)
+    : `## TIPO DE ESCRITO (determinado por el abogado — seguí esto sin excepción)
 **${tipoEfectivo}**
-${body.titulo ? `Título sugerido: "${body.titulo}"` : `Determiná el título en MAYÚSCULAS para un escrito de tipo "${tipoEfectivo}".`}
+${body?.titulo ? `Título sugerido: "${body.titulo}"` : `Determiná el título en MAYÚSCULAS para un escrito de tipo "${tipoEfectivo}".`}
 ⚠️ Las "Próximas acciones de agenda" que aparezcan en las actuaciones son recordatorios del sistema de gestión para el abogado. NO determinan el tipo de escrito. El abogado ya te indicó el tipo arriba — respetalo sin excepción.
 ${providenciaCtx}
 
@@ -979,239 +1026,297 @@ ${aprendizajesCtx}
 
 ${abogadoCtx}
 
-${body.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.instrucciones.trim()}` : ''}
+${body?.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.instrucciones.trim()}` : ''}
 
 ${borradorPrevioCtx}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
 
-    // 8) Llamar al LLM — timeout de 22s para que la edge function no quede colgada
-    const llmAc = new AbortController()
-    const llmTid = setTimeout(() => llmAc.abort(), 22_000)
-    let aiRes: Response
+  onProgress('generating', 'Generando escrito...')
+
+  // 8) Llamar al LLM — timeout de 55s para acomodar escritos complejos de gran extensión
+  const llmAc = new AbortController()
+  const llmTid = setTimeout(() => llmAc.abort(), 55_000)
+  let aiRes: Response
+  try {
+    aiRes = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
+        'X-Title': 'MR Abogado Escritos',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
+        max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
+        response_format: { type: 'json_object' },
+      }),
+      signal: llmAc.signal,
+    })
+  } catch (e) {
+    clearTimeout(llmTid)
+    if ((e as Error)?.name === 'AbortError') {
+      throw new HandlerError('El modelo tardó demasiado en responder. Intentá de nuevo.', 504)
+    }
+    throw e
+  } finally {
+    clearTimeout(llmTid)
+  }
+
+  if (!aiRes.ok) {
+    const txt = await aiRes.text()
+    throw new HandlerError(`OpenRouter ${aiRes.status}: ${txt.slice(0, 300)}`, 502)
+  }
+
+  const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
+  const raw = payload.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new HandlerError('El modelo no devolvió contenido', 502)
+
+  let contenido: unknown
+  try {
+    contenido = JSON.parse(raw)
+  } catch (_e) {
+    // Algunos modelos meten ```json ... ```. Limpiamos por si acaso.
+    const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
     try {
-      aiRes = await fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://app.marcorossi.com.ar',
-          'X-Title': 'MR Abogado Escritos',
-        },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-          temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
-          max_tokens: 3500,
-          response_format: { type: 'json_object' },
-        }),
-        signal: llmAc.signal,
-      })
-    } catch (e) {
-      clearTimeout(llmTid)
-      if ((e as Error)?.name === 'AbortError') {
-        return json(req, { error: 'El modelo tardó demasiado en responder. Intentá de nuevo.' }, 504)
-      }
-      throw e
-    } finally {
-      clearTimeout(llmTid)
+      contenido = JSON.parse(stripped)
+    } catch {
+      throw new HandlerError('El modelo devolvió JSON inválido', 502)
     }
+  }
 
-    if (!aiRes.ok) {
-      const txt = await aiRes.text()
-      return json(req, { error: `OpenRouter ${aiRes.status}: ${txt.slice(0, 300)}` }, 502)
-    }
-
-    const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
-    const raw = payload.choices?.[0]?.message?.content?.trim()
-    if (!raw) return json(req, { error: 'El modelo no devolvió contenido' }, 502)
-
-    let contenido: unknown
-    try {
-      contenido = JSON.parse(raw)
-    } catch (_e) {
-      // Algunos modelos meten ```json ... ```. Limpiamos por si acaso.
-      const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
-      try {
-        contenido = JSON.parse(stripped)
-      } catch {
-        return json(req, { error: 'El modelo devolvió JSON inválido', raw: raw.slice(0, 500) }, 502)
+  // 8.4) Validar estructura mínima del JSON. Si falla, un reintento con corrección.
+  function validarContenidoEscrito(c: unknown): string[] {
+    const errs: string[] = []
+    if (!c || typeof c !== 'object') return ['no es un objeto JSON']
+    const o = c as Record<string, unknown>
+    if (!o.presentacion || typeof o.presentacion !== 'string' || !o.presentacion.trim())
+      errs.push('falta "presentacion" con la fórmula de apertura')
+    if (!Array.isArray(o.secciones) || o.secciones.length === 0) {
+      errs.push('"secciones" vacías o ausentes')
+    } else {
+      const secs = o.secciones as Array<{ titulo?: string; parrafos?: unknown[] }>
+      if (!secs.some(s => s.titulo?.toUpperCase().includes('OBJETO')))
+        errs.push('falta sección OBJETO')
+      if (!secs.some(s => s.titulo?.toUpperCase().includes('PETITORIO')))
+        errs.push('falta sección PETITORIO')
+      for (const sec of secs) {
+        if (!Array.isArray(sec.parrafos) || sec.parrafos.filter(Boolean).length === 0)
+          errs.push(`sección "${sec.titulo}" sin párrafos`)
       }
     }
+    return errs
+  }
 
-    // 8.4) Validar estructura mínima del JSON. Si falla, un reintento con corrección.
-    function validarContenidoEscrito(c: unknown): string[] {
-      const errs: string[] = []
-      if (!c || typeof c !== 'object') return ['no es un objeto JSON']
-      const o = c as Record<string, unknown>
-      if (!o.presentacion || typeof o.presentacion !== 'string' || !o.presentacion.trim())
-        errs.push('falta "presentacion" con la fórmula de apertura')
-      if (!Array.isArray(o.secciones) || o.secciones.length === 0) {
-        errs.push('"secciones" vacías o ausentes')
-      } else {
-        const secs = o.secciones as Array<{ titulo?: string; parrafos?: unknown[] }>
-        if (!secs.some(s => s.titulo?.toUpperCase().includes('OBJETO')))
-          errs.push('falta sección OBJETO')
-        if (!secs.some(s => s.titulo?.toUpperCase().includes('PETITORIO')))
-          errs.push('falta sección PETITORIO')
-        for (const sec of secs) {
-          if (!Array.isArray(sec.parrafos) || sec.parrafos.filter(Boolean).length === 0)
-            errs.push(`sección "${sec.titulo}" sin párrafos`)
-        }
-      }
-      return errs
-    }
-
-    const erroresEstructura = validarContenidoEscrito(contenido)
-    if (erroresEstructura.length > 0) {
-      console.warn('[escritos-generate] estructura inválida, reintentando:', erroresEstructura)
-      const retryMsg = `${userMessage}
+  const erroresEstructura = validarContenidoEscrito(contenido)
+  if (erroresEstructura.length > 0) {
+    console.warn('[escritos-generate] estructura inválida, reintentando:', erroresEstructura)
+    const retryMsg = `${userMessage}
 
 ⚠️ CORRECCIÓN NECESARIA: tu respuesta anterior tiene problemas estructurales:
 ${erroresEstructura.map(e => `- ${e}`).join('\n')}
 
 Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "presentacion", una sección "OBJETO" y una sección "PETITORIO" con párrafos numerados en romano.`
-      const retryAc = new AbortController()
-      const retryTid = setTimeout(() => retryAc.abort(), 18_000)
-      const retryRes = await fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://app.marcorossi.com.ar',
-          'X-Title': 'MR Abogado Escritos',
-        },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: retryMsg },
-          ],
-          temperature: 0,
-          max_tokens: 3500,
-          response_format: { type: 'json_object' },
-        }),
-        signal: retryAc.signal,
-      }).catch(e => { clearTimeout(retryTid); console.warn('[escritos-generate] retry aborted', e); return null })
-      clearTimeout(retryTid)
-      if (retryRes?.ok) {
-        const retryPayload = await retryRes.json() as { choices?: { message?: { content?: string } }[] }
-        const retryRaw = retryPayload.choices?.[0]?.message?.content?.trim()
-        if (retryRaw) {
-          try { contenido = JSON.parse(retryRaw) } catch { /* mantener el original */ }
-        }
+    const retryAc = new AbortController()
+    const retryTid = setTimeout(() => retryAc.abort(), 18_000)
+    const retryRes = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
+        'X-Title': 'MR Abogado Escritos',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: retryMsg },
+        ],
+        temperature: 0,
+        max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
+        response_format: { type: 'json_object' },
+      }),
+      signal: retryAc.signal,
+    }).catch(e => { clearTimeout(retryTid); console.warn('[escritos-generate] retry aborted', e); return null })
+    clearTimeout(retryTid)
+    if (retryRes?.ok) {
+      const retryPayload = await retryRes.json() as { choices?: { message?: { content?: string } }[] }
+      const retryRaw = retryPayload.choices?.[0]?.message?.content?.trim()
+      if (retryRaw) {
+        try { contenido = JSON.parse(retryRaw) } catch { /* mantener el original */ }
       }
     }
+  }
 
-    // 8.5) Detectar mismatch tipo solicitado ↔ título generado.
-    // Si el tipo pedido no aparece en el título, loguear como warning.
-    // La corrección del prompt ya debería evitarlo; esto es para auditoría.
-    if (tipoInput) {
-      const tituloGen = ((contenido as { titulo?: string })?.titulo ?? '').toLowerCase()
-      const tipoKeywords = tipoInput.toLowerCase()
-        .split(/[\s\/\-]+/)
-        .filter(w => w.length > 3 && !['para', 'por', 'del', 'los', 'las', 'una', 'con', 'que'].includes(w))
-      const matchesTitulo = tipoKeywords.some(w => tituloGen.includes(w))
-      if (!matchesTitulo) {
-        console.warn(`[escritos-generate] ⚠️ tipo/titulo mismatch — tipo="${tipoInput}" titulo="${tituloGen}"`)
-      }
+  // 8.5) Detectar mismatch tipo solicitado ↔ título generado.
+  // Si el tipo pedido no aparece en el título, loguear como warning.
+  // La corrección del prompt ya debería evitarlo; esto es para auditoría.
+  if (tipoInput) {
+    const tituloGen = ((contenido as { titulo?: string })?.titulo ?? '').toLowerCase()
+    const tipoKeywords = tipoInput.toLowerCase()
+      .split(/[\s\/\-]+/)
+      .filter(w => w.length > 3 && !['para', 'por', 'del', 'los', 'las', 'una', 'con', 'que'].includes(w))
+    const matchesTitulo = tipoKeywords.some(w => tituloGen.includes(w))
+    if (!matchesTitulo) {
+      console.warn(`[escritos-generate] ⚠️ tipo/titulo mismatch — tipo="${tipoInput}" titulo="${tituloGen}"`)
     }
+  }
 
-    // 9) Guardar en DB
-    const tituloFinal = (contenido as { titulo?: string })?.titulo ?? body.titulo ?? body.tipo
-    const { data: escrito, error: insertError } = await serviceClient
-      .from('escritos')
-      .insert({
-        expediente_id: body?.expediente_id ?? null,
-        user_id: userId,
-        template_id: body?.template_id ?? null,
-        titulo: String(tituloFinal),
-        tipo: tipoEfectivo,
-        contenido,
-        // Snapshot inmutable de lo que generó la IA. Sirve para diffear
-        // contra la versión final con correcciones del abogado y extraer
-        // aprendizajes al firmar (ver escrito-extraer-aprendizajes).
-        contenido_original: contenido,
-        contexto_movement_ids: claves.map(c => c.id),
-        instrucciones_usuario: body?.instrucciones ?? null,
-        registro_tonal: registro.nombre,
-        modelo_ia: DEFAULT_MODEL,
-      } as never)
-      .select()
-      .single()
+  onProgress('saving', 'Guardando...')
 
-    if (insertError) {
-      console.error('[escritos-generate] insert error', insertError)
-      return json(req, { error: `No se pudo guardar el escrito: ${insertError.message}` }, 500)
-    }
-
-    const escritoId = (escrito as { id: string }).id
-
-    // 9.5) Marcar la providencia como respondida (si el escrito responde a una)
-    if (body.responde_a_movimiento_id) {
-      await serviceClient
-        .from('sae_movements')
-        .update({ respondida_at: new Date().toISOString() })
-        .eq('id', body.responde_a_movimiento_id)
-        .then(({ error }) => { if (error) console.warn('[escritos-generate] no se pudo marcar respondida', error.message) })
-    }
-
-    // 10) Validar y persistir citas (descarta chunk_ids inventados)
-    const rawCitas = (contenido as { citas?: unknown }).citas
-    const citas: { chunk_id: number; cita_texto: string }[] = Array.isArray(rawCitas)
-      ? rawCitas.filter((c): c is { chunk_id: number; cita_texto: string } => {
-          if (typeof c !== 'object' || c === null) return false
-          const obj = c as { chunk_id?: unknown; cita_texto?: unknown }
-          return typeof obj.chunk_id === 'number' && typeof obj.cita_texto === 'string'
-        })
-      : []
-
-    const chunksByPinned = new Map<number, boolean>(
-      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.was_pinned]),
-    )
-    const chunksByDoc = new Map<number, string>(
-      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.documento_id]),
-    )
-    const chunksByScore = new Map<number, number>(
-      [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.score]),
-    )
-
-    const validCitas = citas
-      .filter(c => validChunkIds.has(c.chunk_id))
-      .slice(0, 30) // sanity cap
-
-    if (validCitas.length > 0) {
-      const citaRows = validCitas.map((c, i) => ({
-        escrito_id: escritoId,
-        chunk_id: c.chunk_id,
-        documento_id: chunksByDoc.get(c.chunk_id) ?? null,
-        cita_texto: c.cita_texto.slice(0, 1000),
-        score: chunksByScore.get(c.chunk_id) ?? null,
-        was_pinned: chunksByPinned.get(c.chunk_id) ?? false,
-        orden: i + 1,
-      }))
-      const { error: citaErr } = await serviceClient.from('escrito_citas').insert(citaRows)
-      if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
-    }
-
-    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
-    return json(req, {
-      escrito_id: escritoId,
+  // 9) Guardar en DB
+  const tituloFinal = (contenido as { titulo?: string })?.titulo ?? body?.titulo ?? body?.tipo
+  const { data: escrito, error: insertError } = await serviceClient
+    .from('escritos')
+    .insert({
+      expediente_id: body?.expediente_id ?? null,
+      user_id: userId,
+      template_id: body?.template_id ?? null,
+      titulo: String(tituloFinal),
+      tipo: tipoEfectivo,
       contenido,
-      modelo: DEFAULT_MODEL,
+      // Snapshot inmutable de lo que generó la IA. Sirve para diffear
+      // contra la versión final con correcciones del abogado y extraer
+      // aprendizajes al firmar (ver escrito-extraer-aprendizajes).
+      contenido_original: contenido,
+      contexto_movement_ids: claves.map(c => c.id),
+      instrucciones_usuario: body?.instrucciones ?? null,
       registro_tonal: registro.nombre,
-      claves_usadas: claves.length,
-      normativa_disponible: rag.pinned.length + rag.retrieved.length,
-      normativa_fijada: rag.pinned.length,
-      citas_persistidas: validCitas.length,
-      citas_descartadas: citas.length - validCitas.length,
-    })
+      modelo_ia: DEFAULT_MODEL,
+    } as never)
+    .select()
+    .single()
+
+  if (insertError) {
+    console.error('[escritos-generate] insert error', insertError)
+    throw new HandlerError(`No se pudo guardar el escrito: ${insertError.message}`, 500)
+  }
+
+  const escritoId = (escrito as { id: string }).id
+
+  // 9.5) Marcar la providencia como respondida (si el escrito responde a una)
+  if (body?.responde_a_movimiento_id) {
+    await serviceClient
+      .from('sae_movements')
+      .update({ respondida_at: new Date().toISOString() })
+      .eq('id', body.responde_a_movimiento_id)
+      .then(({ error }) => { if (error) console.warn('[escritos-generate] no se pudo marcar respondida', error.message) })
+  }
+
+  // 10) Validar y persistir citas (descarta chunk_ids inventados)
+  const rawCitas = (contenido as { citas?: unknown }).citas
+  const citas: { chunk_id: number; cita_texto: string }[] = Array.isArray(rawCitas)
+    ? rawCitas.filter((c): c is { chunk_id: number; cita_texto: string } => {
+        if (typeof c !== 'object' || c === null) return false
+        const obj = c as { chunk_id?: unknown; cita_texto?: unknown }
+        return typeof obj.chunk_id === 'number' && typeof obj.cita_texto === 'string'
+      })
+    : []
+
+  const chunksByPinned = new Map<number, boolean>(
+    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.was_pinned]),
+  )
+  const chunksByDoc = new Map<number, string>(
+    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.documento_id]),
+  )
+  const chunksByScore = new Map<number, number>(
+    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.score]),
+  )
+
+  const validCitas = citas
+    .filter(c => validChunkIds.has(c.chunk_id))
+    .slice(0, 30) // sanity cap
+
+  if (validCitas.length > 0) {
+    const citaRows = validCitas.map((c, i) => ({
+      escrito_id: escritoId,
+      chunk_id: c.chunk_id,
+      documento_id: chunksByDoc.get(c.chunk_id) ?? null,
+      cita_texto: c.cita_texto.slice(0, 1000),
+      score: chunksByScore.get(c.chunk_id) ?? null,
+      was_pinned: chunksByPinned.get(c.chunk_id) ?? false,
+      orden: i + 1,
+    }))
+    const { error: citaErr } = await serviceClient.from('escrito_citas').insert(citaRows)
+    if (citaErr) console.error('[escritos-generate] citas insert error', citaErr)
+  }
+
+  logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
+  return {
+    escrito_id: escritoId,
+    contenido,
+    modelo: DEFAULT_MODEL,
+    registro_tonal: registro.nombre,
+    claves_usadas: claves.length,
+    normativa_disponible: rag.pinned.length + rag.retrieved.length,
+    normativa_fijada: rag.pinned.length,
+    citas_persistidas: validCitas.length,
+    citas_descartadas: citas.length - validCitas.length,
+  }
+}
+
+// ── Entry point ────────────────────────────────────────────────────────────────
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
+
+  try {
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY')
+    if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
+
+    const body = await req.json().catch(() => null) as RequestBody | null
+
+    const wantsStream = body?.stream === true
+
+    if (wantsStream) {
+      const encoder = new TextEncoder()
+      const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+      const writer = writable.getWriter()
+
+      const sendSSE = (event: string, data: unknown) => {
+        const chunk = encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        writer.write(chunk).catch(() => {})
+      }
+
+      // Run main logic in background — response is returned immediately
+      ;(async () => {
+        try {
+          sendSSE('progress', { step: 'preparing', message: 'Preparando...' })
+          const result = await handleGenerate(req, body, apiKey, (step, message) => {
+            sendSSE('progress', { step, message })
+          })
+          sendSSE('done', result)
+        } catch (e: unknown) {
+          const err = e as Error & { status?: number }
+          sendSSE('error', { error: err.message ?? 'Error interno', status: err.status ?? 500 })
+        } finally {
+          writer.close().catch(() => {})
+        }
+      })()
+
+      return new Response(readable, {
+        headers: {
+          ...corsHeaders(req),
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no',
+        },
+      })
+    }
+
+    // Non-stream: JSON response (backward compat para bot de Telegram y otros callers)
+    const result = await handleGenerate(req, body, apiKey, () => {})
+    return json(req, result)
 
   } catch (err) {
     console.error('[escritos-generate]', err)
+    if (err instanceof HandlerError) return json(req, { error: err.message }, err.status)
     return json(req, { error: err instanceof Error ? err.message : 'Error interno' }, 500)
   }
 })

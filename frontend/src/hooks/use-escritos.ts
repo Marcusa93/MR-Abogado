@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +13,11 @@ export interface EscritoContenido {
   caratula: string
   presentacion?: string
   secciones: EscritoSeccion[]
+}
+
+export interface EscritoSnapshot {
+  contenido: EscritoContenido
+  saved_at: string
 }
 
 export interface Escrito {
@@ -40,6 +46,7 @@ export interface Escrito {
     fuero?: string
     submit_url?: string
   } | null
+  historial?: EscritoSnapshot[] | null
   created_at: string
   updated_at: string
 }
@@ -190,6 +197,8 @@ export interface GenerateInput {
   responde_a_movimiento_id?: string | null
   /** Texto del escrito de la contraparte que se quiere contestar (pegado desde el PDF). */
   escrito_contraparte_texto?: string | null
+  /** Actuaciones adicionales a incluir explícitamente en el contexto (por ID). */
+  actuaciones_extra_ids?: string[] | null
 }
 
 interface GenerateResult {
@@ -229,15 +238,74 @@ export function useTranscribirAudio() {
 export function useGenerateEscrito() {
   const supabase = createClient()
   const queryClient = useQueryClient()
-  return useMutation({
+  const [progressMsg, setProgressMsg] = useState<string | null>(null)
+  const progressRef = useRef(setProgressMsg)
+  progressRef.current = setProgressMsg
+
+  const mutation = useMutation({
     mutationFn: async (input: GenerateInput): Promise<GenerateResult> => {
-      const { data, error } = await supabase.functions.invoke('escritos-generate', {
-        body: input,
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No autenticado')
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/escritos-generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...input, stream: true }),
       })
-      if (error) throw await extractFnError(error)
-      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
-      return data as GenerateResult
+
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => '')
+        throw new Error(`Error ${res.status}: ${text.slice(0, 200)}`)
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let result: GenerateResult | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process complete SSE messages (double-newline separated)
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          const lines = part.split('\n')
+          const eventLine = lines.find(l => l.startsWith('event: '))
+          const dataLine = lines.find(l => l.startsWith('data: '))
+          if (!dataLine) continue
+
+          const event = eventLine?.slice(7).trim() ?? 'message'
+          let data: unknown
+          try { data = JSON.parse(dataLine.slice(6)) } catch { continue }
+
+          if (event === 'progress') {
+            const d = data as { step: string; message: string }
+            progressRef.current(d.message)
+          } else if (event === 'done') {
+            result = data as GenerateResult
+          } else if (event === 'error') {
+            const d = data as { error: string }
+            throw new Error(d.error)
+          }
+        }
+      }
+
+      if (!result) throw new Error('No se recibió resultado del servidor')
+      return result
     },
+    onMutate: () => { setProgressMsg('Iniciando...') },
+    onSettled: () => { setProgressMsg(null) },
     onSuccess: (_data, vars) => {
       if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
       queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
@@ -248,6 +316,8 @@ export function useGenerateEscrito() {
       }
     },
   })
+
+  return { ...mutation, progressMsg }
 }
 
 // ─── Crear modelo estructural (guarda en escrito_templates) ─────────────────
@@ -335,7 +405,18 @@ export function useUpdateEscrito() {
       id: string
       expediente_id: string | null
       patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>
+      snapshotAntes?: EscritoContenido
     }) => {
+      if (input.snapshotAntes && input.patch.contenido !== undefined) {
+        const snap: EscritoSnapshot = {
+          contenido: input.snapshotAntes,
+          saved_at: new Date().toISOString(),
+        }
+        await (supabase as any).rpc('push_escrito_snapshot', {
+          p_escrito_id: input.id,
+          p_snapshot: snap,
+        }).catch(() => {}) // non-blocking
+      }
       const { error } = await supabase
         .from('escritos' as never)
         .update(input.patch as never)
@@ -368,6 +449,57 @@ export function useDeleteEscrito() {
       queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
     },
   })
+}
+
+// ─── Historial de versiones ──────────────────────────────────────────────────
+
+export function useEscritoHistorial() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  const pushSnapshot = useMutation({
+    mutationFn: async (input: { id: string; snapshot: EscritoContenido }) => {
+      const snap: EscritoSnapshot = {
+        contenido: input.snapshot,
+        saved_at: new Date().toISOString(),
+      }
+      await (supabase as any).rpc('push_escrito_snapshot', {
+        p_escrito_id: input.id,
+        p_snapshot: snap,
+      })
+    },
+  })
+
+  const restore = useMutation({
+    mutationFn: async (input: {
+      id: string
+      expediente_id: string | null
+      contenido: EscritoContenido
+      current_snapshot: EscritoContenido
+    }) => {
+      // Save current as snapshot first
+      const snap: EscritoSnapshot = {
+        contenido: input.current_snapshot,
+        saved_at: new Date().toISOString(),
+      }
+      await (supabase as any).rpc('push_escrito_snapshot', {
+        p_escrito_id: input.id,
+        p_snapshot: snap,
+      })
+      // Then restore
+      const { error } = await (supabase as any)
+        .from('escritos')
+        .update({ contenido: input.contenido })
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
+    },
+  })
+
+  return { pushSnapshot, restore }
 }
 
 // ─── Refinar párrafo o sección con IA ───────────────────────────────────────
