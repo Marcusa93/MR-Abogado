@@ -500,3 +500,30 @@ export function useFetchPortalCategorias() {
     },
   })
 }
+
+// ─── Extraer cita jurídica desde URL externa ─────────────────────────────────
+
+export interface ReferenciaExterna {
+  tipo: 'fallo' | 'normativa' | 'doctrina' | 'otro'
+  tribunal: string | null
+  fecha: string | null
+  caratula: string | null
+  numero: string | null
+  extracto: string | null
+  cita_formal: string
+  fuente_url: string
+}
+
+export function useFetchReferencia() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (url: string): Promise<ReferenciaExterna> => {
+      const { data, error } = await supabase.functions.invoke('escrito-fetch-referencia', {
+        body: { url },
+      })
+      if (error) throw await extractFnError(error)
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      return data as ReferenciaExterna
+    },
+  })
+}
