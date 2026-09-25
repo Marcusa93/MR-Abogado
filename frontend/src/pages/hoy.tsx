@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { createClient } from '@/lib/supabase/client'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
+import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -879,7 +880,10 @@ export default function HoyPage() {
       {/* 4. Mis consultas asignadas */}
       {profile?.id && <MisConsultasAsignadas userId={profile.id} />}
 
-      {/* 5. Secciones de SECRETARIA (audiencias, tareas y contenidos) */}
+      {/* 5. Próximos 30 días — visible para todos */}
+      <ProximosEventosPanel days={30} />
+
+      {/* 6. Secciones de SECRETARIA (audiencias hoy, tareas y contenidos) */}
       {isSecretaria && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -891,7 +895,7 @@ export default function HoyPage() {
         </>
       )}
 
-      {/* Para roles que no son SECRETARIA, audiencias igual son útiles */}
+      {/* Para roles que no son SECRETARIA, audiencias de hoy igual son útiles */}
       {!isSecretaria && data.audiencias_hoy.length > 0 && (
         <AudienciasHoy items={data.audiencias_hoy} />
       )}

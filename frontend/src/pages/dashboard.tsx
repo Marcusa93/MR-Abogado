@@ -21,6 +21,7 @@ import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
 import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
 import { ConsultasWidget } from '@/components/dashboard/consultas-widget'
 import { ActividadRecienteDashboardPanel } from '@/components/dashboard/actividad-reciente-dashboard-panel'
+import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
 import { ErrorState } from '@/components/shared/error-state'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import type { ExpedienteWithRelations } from '@/hooks/use-expedientes'
@@ -189,6 +190,9 @@ export function DashboardView({
 
       {/* 2. Strip hoy */}
       {hayHoy && <HoyStrip turnosHoy={turnosHoy} tareasHoy={tareasHoy} />}
+
+      {/* 2.5. Próximos 30 días */}
+      <ProximosEventosPanel days={30} />
 
       {/* 3. Tareas y plazos — arriba para toma de decisión rápida */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
