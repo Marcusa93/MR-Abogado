@@ -60,19 +60,50 @@ Deno.serve(async (req) => {
   if (credsErr) return json(req, { error: credsErr.message }, 500)
   if (!activeCreds?.length) return json(req, { ok: true, message: 'Sin credenciales activas', synced: 0 })
 
-  const activeProfileIds = new Set((activeCreds as { profile_id: string }[]).map(c => c.profile_id))
+  // Descubrir todos los (perfil, expediente) sincronizables:
+  // - perfil con credenciales activas
+  // - expediente con numero_sae, no eliminado
+  // - perfil tiene acceso: es creador, responsable, o miembro activo
+  // LEFT JOIN con expediente_sae_links para saber cuándo fue el último sync
+  const { data: candidates, error: candErr } = await serviceClient.rpc(
+    'sae_sync_candidates' as never,
+  ) as { data: { profile_id: string; expediente_id: string; last_sync_at: string | null }[] | null; error: unknown }
 
-  // Todos los vínculos SAE
-  const { data: links, error: linksErr } = await serviceClient
-    .from('expediente_sae_links')
-    .select('profile_id, expediente_id, last_sync_at')
-    .eq('provider', 'justucuman')
-  if (linksErr) return json(req, { error: linksErr.message }, 500)
+  if (candErr) {
+    // Si la función no existe aún, caer al método anterior con los links existentes
+    console.warn('[sae-sync-all] sae_sync_candidates no disponible, usando links existentes')
+    const { data: links, error: linksErr } = await serviceClient
+      .from('expediente_sae_links')
+      .select('profile_id, expediente_id, last_sync_at')
+      .eq('provider', 'justucuman')
+    if (linksErr) return json(req, { error: linksErr.message }, 500)
+    const activeProfileIds = new Set((activeCreds as { profile_id: string }[]).map(c => c.profile_id))
+    const cutoff20h = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
+    const toSyncFallback = ((links ?? []) as { profile_id: string; expediente_id: string; last_sync_at: string | null }[])
+      .filter(l => activeProfileIds.has(l.profile_id) && (!l.last_sync_at || l.last_sync_at < cutoff20h))
+    if (!toSyncFallback.length) return json(req, { ok: true, message: 'Ningún expediente requiere sync', synced: 0 })
+    const byProfileFallback = new Map<string, typeof toSyncFallback>()
+    for (const link of toSyncFallback) {
+      const list = byProfileFallback.get(link.profile_id) ?? []
+      list.push(link)
+      byProfileFallback.set(link.profile_id, list)
+    }
+    const resultsFallback: { expediente_id: string; ok: boolean; nuevas?: number; error?: string }[] = []
+    for (const [profileId, pLinks] of byProfileFallback) {
+      for (const link of pLinks) {
+        const r = await syncOne(profileId, link.expediente_id).catch(e => ({ ok: false as const, error: e instanceof Error ? e.message : 'Error' }))
+        resultsFallback.push({ expediente_id: link.expediente_id, ...r })
+      }
+    }
+    const exitososF = resultsFallback.filter(r => r.ok).length
+    const erroresF = resultsFallback.filter(r => !r.ok)
+    const nuevasF = resultsFallback.reduce((acc, r) => acc + (r.nuevas ?? 0), 0)
+    return json(req, { ok: true, total: toSyncFallback.length, exitosos: exitososF, errores: erroresF.length > 0 ? erroresF : undefined, nuevas_actuaciones: nuevasF })
+  }
 
-  // Filtrar: solo perfiles con credencial activa + no sincronizados en las últimas 20h
+  // Filtrar: no sincronizados en las últimas 20h
   const cutoff = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString()
-  const toSync = ((links ?? []) as { profile_id: string; expediente_id: string; last_sync_at: string | null }[])
-    .filter(l => activeProfileIds.has(l.profile_id) && (!l.last_sync_at || l.last_sync_at < cutoff))
+  const toSync = (candidates ?? []).filter(l => !l.last_sync_at || l.last_sync_at < cutoff)
 
   if (!toSync.length) {
     return json(req, { ok: true, message: 'Ningún expediente requiere sync', synced: 0 })
