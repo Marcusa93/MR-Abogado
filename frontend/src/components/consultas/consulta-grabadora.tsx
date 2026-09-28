@@ -8,10 +8,19 @@ interface Props {
 
 type Estado = 'idle' | 'grabando' | 'sin_soporte'
 
+const ERROR_MSG: Record<string, string> = {
+  'not-allowed': 'Permiso de micrófono denegado. Habilitalo en el candado de la barra de dirección del navegador.',
+  'audio-capture': 'No se detectó micrófono. Verificá que esté conectado.',
+  'network': 'Error de red. El reconocimiento de voz requiere conexión.',
+  'no-speech': 'No se detectó voz. Intentá hablar más cerca del micrófono.',
+  'language-not-supported': 'El idioma es-AR no está disponible en este navegador.',
+}
+
 export function ConsultaGrabadora({ onTranscript }: Props) {
   const [estado, setEstado] = useState<Estado>('idle')
   const [transcriptParcial, setTranscriptParcial] = useState('')
   const [transcriptFinal, setTranscriptFinal] = useState('')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const recognitionRef = useRef<any>(null)
   const grabandoRef = useRef(false)
 
@@ -38,7 +47,12 @@ export function ConsultaGrabadora({ onTranscript }: Props) {
       setTranscriptParcial(interino)
     }
 
-    r.onerror = () => { grabandoRef.current = false; setEstado('idle') }
+    r.onerror = (event: any) => {
+      grabandoRef.current = false
+      setEstado('idle')
+      const msg = ERROR_MSG[event.error] ?? `Error al grabar (${event.error}). Intentá de nuevo.`
+      setErrorMsg(msg)
+    }
     r.onend = () => {
       if (grabandoRef.current) { grabandoRef.current = false; setEstado('idle') }
     }
@@ -49,6 +63,7 @@ export function ConsultaGrabadora({ onTranscript }: Props) {
   const iniciar = useCallback(() => {
     setTranscriptFinal('')
     setTranscriptParcial('')
+    setErrorMsg(null)
     grabandoRef.current = true
     recognitionRef.current?.start()
     setEstado('grabando')
@@ -82,6 +97,12 @@ export function ConsultaGrabadora({ onTranscript }: Props) {
 
   return (
     <div className="space-y-3">
+      {errorMsg && (
+        <div className="flex items-start gap-2 text-xs text-red-700 dark:text-red-400 p-3 rounded-lg border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         {estado === 'idle' ? (
           <button
