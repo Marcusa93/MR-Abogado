@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useActuacionesRecientes, type ActuacionReciente } from '@/hooks/use-sae-dashboard'
-import { Database, ArrowRight, Sparkles, Gavel, Calendar, FileText } from 'lucide-react'
+import { Database, ArrowRight, Sparkles, Gavel, Calendar, FileText, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -36,6 +36,22 @@ const TIPO_COLORS: Record<string, string> = {
   otro: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300',
 }
 
+// 1 = más urgente
+const TIPO_PRIORIDAD: Record<string, number> = {
+  sentencia: 1, embargo: 1, intimacion: 1,
+  traslado: 2, cedula: 2, audiencia: 2,
+  prueba: 3, oficio: 3,
+  decreto: 4, informe: 4, planilla: 4, escrito_parte: 4, otro: 4,
+}
+
+function tipoPrioridad(tipo: string): number {
+  return TIPO_PRIORIDAD[tipo] ?? 4
+}
+
+function isUrgente(tipo: string): boolean {
+  return tipoPrioridad(tipo) === 1
+}
+
 function TipoIcon({ tipo, className }: { tipo: string; className?: string }) {
   if (tipo === 'sentencia' || tipo === 'decreto') return <Gavel className={className} />
   if (tipo === 'audiencia') return <Calendar className={className} />
@@ -43,18 +59,28 @@ function TipoIcon({ tipo, className }: { tipo: string; className?: string }) {
 }
 
 function ActuacionRow({ act }: { act: ActuacionReciente }) {
+  const urgente = isUrgente(act.tipo_movimiento)
   return (
     <Link
       to={`/expedientes/${act.expediente_id}`}
-      className="group flex items-start gap-3 rounded-xl border border-[rgb(87_124_142_/_10%)] bg-white/65 px-3.5 py-3 transition-colors hover:bg-[rgb(87_124_142_/_7%)] dark:border-white/6 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]"
+      className={cn(
+        'group flex items-start gap-3 rounded-xl border px-3.5 py-3 transition-colors',
+        urgente
+          ? 'border-rose-500/30 bg-rose-500/[0.04] hover:bg-rose-500/[0.07] dark:border-rose-500/25 dark:bg-rose-500/[0.05]'
+          : 'border-[rgb(87_124_142_/_10%)] bg-white/65 hover:bg-[rgb(87_124_142_/_7%)] dark:border-white/6 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]',
+      )}
     >
+      {urgente && (
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500 dark:text-rose-400" />
+      )}
+
       <span className={cn('shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium mt-0.5', TIPO_COLORS[act.tipo_movimiento] ?? TIPO_COLORS.otro)}>
         <TipoIcon tipo={act.tipo_movimiento} className="h-3 w-3" />
         {TIPO_LABELS[act.tipo_movimiento] ?? act.tipo_movimiento}
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium leading-snug text-zinc-800 dark:text-zinc-100 line-clamp-1 dark:text-zinc-100">
+        <p className="text-xs font-medium leading-snug text-zinc-800 dark:text-zinc-100 line-clamp-1">
           {act.titulo}
         </p>
         {act.ai_summary && (
@@ -84,6 +110,12 @@ function ActuacionesRecientesPanelView({
   actuaciones: ActuacionReciente[]
   isLoading: boolean
 }) {
+  // Ordenar: urgentes primero, luego por prioridad de tipo
+  const sorted = [...actuaciones].sort(
+    (a, b) => tipoPrioridad(a.tipo_movimiento) - tipoPrioridad(b.tipo_movimiento),
+  )
+  const urgentesCount = sorted.filter((a) => isUrgente(a.tipo_movimiento)).length
+
   return (
     <div className="dashboard-panel rounded-[1.5rem] p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -91,15 +123,21 @@ function ActuacionesRecientesPanelView({
           <p className="dashboard-eyebrow text-[10px]">movimiento judicial</p>
           <div className="mt-1 flex items-center gap-2">
             <Database className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Actuaciones SAE recientes</h3>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Actuaciones SAE hoy</h3>
             {actuaciones.length > 0 && (
               <span className="dashboard-chip dashboard-chip-accent">
                 {actuaciones.length}
               </span>
             )}
+            {urgentesCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                {urgentesCount} urgente{urgentesCount > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
-        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">48h</span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Hoy</span>
       </div>
 
       {isLoading ? (
@@ -108,17 +146,16 @@ function ActuacionesRecientesPanelView({
             <div key={i} className="h-16 rounded-xl bg-zinc-100 dark:bg-white/[0.03] animate-pulse" />
           ))}
         </div>
-      ) : actuaciones.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="dashboard-stat-orb mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
             <Database className="h-6 w-6" />
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Sin actuaciones nuevas en las últimas 48h.</p>
-          <p className="text-[10px] text-zinc-600 dark:text-zinc-300 mt-1">Sincronizá tus expedientes desde el tab SAE.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Sin actuaciones nuevas hoy.</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-          {actuaciones.map((a) => (
+          {sorted.map((a) => (
             <ActuacionRow key={a.id} act={a} />
           ))}
         </div>

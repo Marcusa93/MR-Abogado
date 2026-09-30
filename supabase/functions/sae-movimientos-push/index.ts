@@ -1,6 +1,8 @@
 // Cron: 30 9 * * * (09:30 UTC = 06:30 Argentina, UTC-3 fijo)
-// Envía un push por expediente al abogado responsable con los movimientos
-// SAE importados en las últimas 24 horas.
+// Mejoras:
+//   1. Un solo push por usuario (digest) en vez de uno por expediente
+//   2. Ordena por urgencia: sentencia/embargo/intimacion primero
+//   3. Notifica al abogado responsable + todos los miembros activos del expediente
 
 import { corsHeaders } from '../_shared/cors.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -11,6 +13,26 @@ function json(req: Request, body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
+}
+
+// 1 = más urgente, mayor número = menos urgente
+const PRIORIDAD: Record<string, number> = {
+  sentencia: 1, embargo: 1, intimacion: 1,
+  traslado: 2, cedula: 2, audiencia: 2,
+  prueba: 3, oficio: 3,
+  decreto: 4, informe: 4, planilla: 4, escrito_parte: 4, otro: 4,
+}
+
+function prio(tipo: string): number {
+  return PRIORIDAD[tipo] ?? 4
+}
+
+const TIPO_LABEL: Record<string, string> = {
+  sentencia: 'Sentencia', embargo: 'Embargo', intimacion: 'Intimación',
+  traslado: 'Traslado', cedula: 'Cédula', audiencia: 'Audiencia',
+  prueba: 'Prueba', oficio: 'Oficio',
+  decreto: 'Decreto', informe: 'Informe', planilla: 'Planilla',
+  escrito_parte: 'Escrito', otro: 'Otro',
 }
 
 Deno.serve(async (req) => {
@@ -38,28 +60,11 @@ Deno.serve(async (req) => {
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    // Movimientos SAE de las últimas 24 h con expediente y abogado responsable
-    const { data: movements, error: movErr } = await admin
-      .from('sae_movements')
-      .select(`
-        id, titulo, tipo_movimiento,
-        expediente_id,
-        expedientes!inner(caratula, numero, abogado_responsable_id, deleted_at)
-      `)
-      .gte('created_at', since)
-      .order('expediente_id')
-
-    if (movErr) return json(req, { error: movErr.message }, 500)
-    if (!movements?.length) {
-      return json(req, { ok: true, movimientos: 0, expedientes: 0, pushSent: 0 })
-    }
-
-    // Agrupar por expediente, filtrar los eliminados
+    // ── Movimientos de las últimas 24h ────────────────────────────────────────
     type MovRow = {
-      id: string
+      expediente_id: string
       titulo: string
       tipo_movimiento: string
-      expediente_id: string
       expedientes: {
         caratula: string | null
         numero: string | null
@@ -68,36 +73,91 @@ Deno.serve(async (req) => {
       } | null
     }
 
-    const byExp = new Map<string, { caratula: string; responsableId: string; titulos: string[] }>()
+    const { data: movements, error: movErr } = await admin
+      .from('sae_movements')
+      .select(`
+        expediente_id, titulo, tipo_movimiento,
+        expedientes!inner(caratula, numero, abogado_responsable_id, deleted_at)
+      `)
+      .gte('created_at', since)
+      .order('expediente_id')
+
+    if (movErr) return json(req, { error: movErr.message }, 500)
+    if (!movements?.length) {
+      return json(req, { ok: true, movimientos: 0, usuarios: 0, pushSent: 0 })
+    }
+
+    // ── Agrupar por expediente ────────────────────────────────────────────────
+    type ExpEntry = {
+      caratula: string
+      responsableId: string | null
+      movs: { titulo: string; tipo: string }[]
+      topPrio: number
+    }
+    const byExp = new Map<string, ExpEntry>()
 
     for (const m of movements as MovRow[]) {
       const exp = m.expedientes
-      if (!exp || exp.deleted_at || !exp.abogado_responsable_id) continue
+      if (!exp || exp.deleted_at) continue
       const entry = byExp.get(m.expediente_id)
+      const mov = { titulo: m.titulo, tipo: m.tipo_movimiento }
       if (entry) {
-        entry.titulos.push(m.titulo)
+        entry.movs.push(mov)
+        entry.topPrio = Math.min(entry.topPrio, prio(m.tipo_movimiento))
       } else {
         byExp.set(m.expediente_id, {
           caratula: exp.caratula ?? exp.numero ?? 'Expediente',
           responsableId: exp.abogado_responsable_id,
-          titulos: [m.titulo],
+          movs: [mov],
+          topPrio: prio(m.tipo_movimiento),
         })
       }
     }
 
     if (!byExp.size) {
-      return json(req, { ok: true, movimientos: movements.length, expedientes: 0, pushSent: 0, message: 'Ningún expediente tiene abogado responsable asignado' })
+      return json(req, { ok: true, movimientos: movements.length, usuarios: 0, pushSent: 0 })
     }
 
-    // Obtener suscripciones push de todos los responsables involucrados
-    const responsableIds = [...new Set([...byExp.values()].map((e) => e.responsableId))]
+    // ── Miembros activos de cada expediente (mejora 3) ────────────────────────
+    const expIds = [...byExp.keys()]
+    const { data: membros } = await admin
+      .from('expediente_miembros')
+      .select('expediente_id, profile_id')
+      .in('expediente_id', expIds)
+      .eq('activo', true)
+
+    // ── Construir mapa usuario → expedientes (mejora 1 + 3) ──────────────────
+    type UserEntry = { expId: string; caratula: string; movs: { titulo: string; tipo: string }[]; topPrio: number }[]
+    const byUser = new Map<string, UserEntry>()
+
+    function addToUser(uid: string, expId: string, entry: ExpEntry) {
+      const list = byUser.get(uid) ?? []
+      if (!list.find((e) => e.expId === expId)) {
+        list.push({ expId, caratula: entry.caratula, movs: entry.movs, topPrio: entry.topPrio })
+        byUser.set(uid, list)
+      }
+    }
+
+    for (const [expId, entry] of byExp) {
+      if (entry.responsableId) addToUser(entry.responsableId, expId, entry)
+    }
+    for (const m of (membros ?? [])) {
+      const entry = byExp.get(m.expediente_id)
+      if (entry) addToUser(m.profile_id, m.expediente_id, entry)
+    }
+
+    if (!byUser.size) {
+      return json(req, { ok: true, movimientos: movements.length, usuarios: 0, pushSent: 0 })
+    }
+
+    // ── Suscripciones push ────────────────────────────────────────────────────
     const { data: subs } = await admin
       .from('push_subscriptions')
       .select('user_id, endpoint, p256dh_key, auth_key')
-      .in('user_id', responsableIds)
+      .in('user_id', [...byUser.keys()])
 
     if (!subs?.length) {
-      return json(req, { ok: true, movimientos: movements.length, expedientes: byExp.size, pushSent: 0, message: 'Sin suscripciones push activas' })
+      return json(req, { ok: true, movimientos: movements.length, usuarios: byUser.size, pushSent: 0 })
     }
 
     const subsByUser = new Map<string, typeof subs>()
@@ -110,21 +170,41 @@ Deno.serve(async (req) => {
     const toRemove: string[] = []
     let pushSent = 0
 
-    for (const [expId, { caratula, responsableId, titulos }] of byExp) {
-      const userSubs = subsByUser.get(responsableId)
+    // ── Un push por usuario (mejoras 1 + 2) ──────────────────────────────────
+    for (const [uid, exps] of byUser) {
+      const userSubs = subsByUser.get(uid)
       if (!userSubs?.length) continue
 
-      const n = titulos.length
-      const title = n === 1
-        ? `Movimiento SAE — ${caratula.slice(0, 55)}`
-        : `${n} movimientos SAE — ${caratula.slice(0, 50)}`
-      const body = titulos.slice(0, 5).join('\n') + (n > 5 ? `\n… y ${n - 5} más` : '')
+      // Ordenar expedientes por urgencia (mejora 2)
+      const sorted = [...exps].sort((a, b) => a.topPrio - b.topPrio)
+
+      const totalMovs = sorted.reduce((s, e) => s + e.movs.length, 0)
+      const nExps = sorted.length
+
+      // Título del push
+      const title = nExps === 1
+        ? `${totalMovs} movimiento${totalMovs > 1 ? 's' : ''} SAE — ${sorted[0].caratula.slice(0, 50)}`
+        : `${totalMovs} movimientos SAE en ${nExps} expedientes`
+
+      // Cuerpo: listar expedientes ordenados por urgencia, marcando los urgentes
+      const bodyLines = sorted.slice(0, 6).map((e) => {
+        const urgente = e.topPrio === 1
+        const topMov = [...e.movs].sort((a, b) => prio(a.tipo) - prio(b.tipo))[0]
+        const tipoLabel = TIPO_LABEL[topMov.tipo] ?? topMov.tipo
+        const prefix = urgente ? '⚠ ' : '· '
+        const extra = e.movs.length > 1 ? ` (+${e.movs.length - 1})` : ''
+        return `${prefix}${tipoLabel}: ${e.caratula.slice(0, 45)}${extra}`
+      })
+      if (sorted.length > 6) bodyLines.push(`… y ${sorted.length - 6} expedientes más`)
+
+      // URL: expediente directo si es uno solo, inicio si son varios
+      const url = nExps === 1 ? `/expedientes/${sorted[0].expId}` : '/hoy'
 
       const payload = JSON.stringify({
         title,
-        body,
-        url: `/expedientes/${expId}`,
-        tag: `sae-mov-${expId}`,
+        body: bodyLines.join('\n'),
+        url,
+        tag: 'sae-movimientos-diarios',
       })
 
       for (const s of userSubs) {
@@ -145,12 +225,13 @@ Deno.serve(async (req) => {
       await admin.from('push_subscriptions').delete().in('endpoint', toRemove)
     }
 
-    console.log(`[sae-movimientos-push] ${movements.length} movs, ${byExp.size} expedientes, ${pushSent} push enviados`)
+    console.log(`[sae-movimientos-push] ${movements.length} movs, ${byUser.size} usuarios, ${pushSent} push enviados`)
 
     return json(req, {
       ok: true,
       movimientos: movements.length,
       expedientes: byExp.size,
+      usuarios: byUser.size,
       pushSent,
       removed: toRemove.length,
     })
