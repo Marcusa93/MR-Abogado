@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
+import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -884,6 +885,8 @@ export default function HoyPage() {
       <ProximosEventosPanel days={30} />
 
       {/* 6. Secciones de SECRETARIA (audiencias hoy, tareas y contenidos) */}
+      <ActuacionesRecientesPanel />
+
       {isSecretaria && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

@@ -124,7 +124,12 @@ export function useActuacionesRecientes() {
   return useQuery({
     queryKey: ['sae-actuaciones-recientes'],
     queryFn: async () => {
-      const since = new Date(Date.now() - 2 * 86400000).toISOString()
+      // Desde medianoche hora Argentina (UTC-3 fijo = UTC-3h)
+      const now = new Date()
+      const midnightAR = new Date(now)
+      midnightAR.setUTCHours(3, 0, 0, 0) // 03:00 UTC = 00:00 AR
+      if (midnightAR > now) midnightAR.setUTCDate(midnightAR.getUTCDate() - 1)
+      const since = midnightAR.toISOString()
 
       const { data, error } = await supabase
         .from('sae_movements')
@@ -135,7 +140,7 @@ export function useActuacionesRecientes() {
         `)
         .gte('created_at', since)
         .order('created_at', { ascending: false })
-        .limit(15)
+        .limit(100)
       if (error) throw error
 
       const result: ActuacionReciente[] = []
