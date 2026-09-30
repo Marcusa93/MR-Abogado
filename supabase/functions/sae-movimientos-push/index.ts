@@ -146,6 +146,19 @@ Deno.serve(async (req) => {
       if (entry) addToUser(m.profile_id, m.expediente_id, entry)
     }
 
+    // ── Supervisores: ADMIN y DIRECTOR reciben todos los expedientes ──────────
+    const { data: supervisores } = await admin
+      .from('profiles')
+      .select('id')
+      .in('rol', ['ADMIN', 'DIRECTOR'])
+      .eq('activo', true)
+
+    for (const sup of (supervisores ?? [])) {
+      for (const [expId, entry] of byExp) {
+        addToUser(sup.id, expId, entry)
+      }
+    }
+
     if (!byUser.size) {
       return json(req, { ok: true, movimientos: movements.length, usuarios: 0, pushSent: 0 })
     }

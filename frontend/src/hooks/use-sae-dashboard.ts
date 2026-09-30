@@ -110,6 +110,7 @@ export interface ActuacionReciente {
   expediente_id: string
   expediente_numero: string | null
   expediente_caratula: string | null
+  responsable_nombre: string | null
   titulo: string
   tipo_movimiento: string
   fecha: string
@@ -136,7 +137,7 @@ export function useActuacionesRecientes() {
         .select(`
           id, expediente_id, titulo, tipo_movimiento, fecha, created_at,
           ai_summary, ai_suggested_action,
-          expedientes!inner(numero, caratula, numero_sae, deleted_at)
+          expedientes!inner(numero, caratula, numero_sae, deleted_at, abogado_responsable_id, profiles:abogado_responsable_id(nombre, apellido))
         `)
         .gte('created_at', since)
         .order('created_at', { ascending: false })
@@ -153,16 +154,29 @@ export function useActuacionesRecientes() {
         created_at: string
         ai_summary: string | null
         ai_suggested_action: { tipo: string; titulo: string; prioridad: string } | null
-        expedientes: { numero: string | null; caratula: string | null; numero_sae: string | null; deleted_at: string | null } | { numero: string | null; caratula: string | null; numero_sae: string | null; deleted_at: string | null }[]
+        expedientes: {
+          numero: string | null; caratula: string | null; numero_sae: string | null
+          deleted_at: string | null; abogado_responsable_id: string | null
+          profiles: { nombre: string | null; apellido: string | null } | null
+        } | {
+          numero: string | null; caratula: string | null; numero_sae: string | null
+          deleted_at: string | null; abogado_responsable_id: string | null
+          profiles: { nombre: string | null; apellido: string | null } | null
+        }[]
       }>
       for (const m of rows) {
         const exp = Array.isArray(m.expedientes) ? m.expedientes[0] : m.expedientes
         if (!exp || exp.deleted_at) continue
+        const prof = exp.profiles
+        const responsable_nombre = prof
+          ? [prof.nombre, prof.apellido].filter(Boolean).join(' ') || null
+          : null
         result.push({
           id: m.id,
           expediente_id: m.expediente_id,
           expediente_numero: exp.numero,
           expediente_caratula: exp.caratula,
+          responsable_nombre,
           titulo: m.titulo,
           tipo_movimiento: m.tipo_movimiento,
           fecha: m.fecha,

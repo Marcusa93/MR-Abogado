@@ -93,6 +93,11 @@ function ActuacionRow({ act }: { act: ActuacionReciente }) {
           {act.expediente_numero ? `${act.expediente_numero} · ` : ''}
           {act.expediente_caratula ?? 'Sin carátula'}
         </p>
+        {act.responsable_nombre && (
+          <p className="text-[10px] text-zinc-500 dark:text-zinc-500 truncate">
+            Resp.: {act.responsable_nombre}
+          </p>
+        )}
         <p className="text-[10px] text-zinc-600 dark:text-zinc-300 mt-0.5">
           Llegó {timeAgo(act.created_at)}
         </p>
