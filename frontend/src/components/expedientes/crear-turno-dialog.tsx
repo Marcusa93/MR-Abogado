@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTurno, useAssignAudienciaUsers } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
-import { X, Loader2, UserCheck } from 'lucide-react'
+import { X, Loader2, UserCheck, ChevronDown } from 'lucide-react'
 
 function useOrganismos() {
   const supabase = createClient()
@@ -121,9 +121,20 @@ export function CrearTurnoDialog({
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([])
   const [touched, setTouched] = useState(false)
 
-  // For expediente selector
+  // Expediente combobox
   const [expedienteQuery, setExpedienteQuery] = useState('')
   const [selectedExpedienteId, setSelectedExpedienteId] = useState('')
+  const [showExpDrop, setShowExpDrop] = useState(false)
+  const expInputRef = useRef<HTMLInputElement>(null)
+  const expDropRef = useRef<HTMLDivElement>(null)
+
+  const filteredExpedientes = expedientes
+    ? expedientes.filter((ex) =>
+        ex.label.toLowerCase().includes(expedienteQuery.toLowerCase()),
+      )
+    : []
+
+  const selectedExpLabel = expedientes?.find((ex) => ex.id === selectedExpedienteId)?.label ?? ''
 
   useEffect(() => {
     if (!open || !initialValues) return
@@ -183,6 +194,7 @@ export function CrearTurnoDialog({
     setTouched(false)
     setExpedienteQuery('')
     setSelectedExpedienteId('')
+    setShowExpDrop(false)
     ;(createTurno as any).reset?.()
     onClose()
   }
@@ -224,28 +236,71 @@ export function CrearTurnoDialog({
         <div className="space-y-4 px-5 py-4">
           {/* Selector de expediente (solo cuando no se pasa expedienteId) */}
           {needsExpediente && (
-            <div>
+            <div className="relative">
               <label className={labelClass}>Expediente *</label>
-              <input
-                type="text"
-                list="expedientes-datalist"
-                value={expedienteQuery}
-                onChange={(e) => {
-                  const val = e.target.value
-                  setExpedienteQuery(val)
-                  const match = expedientes?.find((ex) => ex.label === val)
-                  setSelectedExpedienteId(match?.id ?? '')
-                }}
-                placeholder="Buscar por caratula o número..."
-                className={`${inputClass} ${touched && !selectedExpedienteId ? 'border-rose-500/50' : ''}`}
-              />
-              <datalist id="expedientes-datalist">
-                {expedientes?.map((ex) => (
-                  <option key={ex.id} value={ex.label} />
-                ))}
-              </datalist>
-              {touched && !selectedExpedienteId && (
-                <p className="mt-1 text-xs text-rose-400">Seleccioná un expediente</p>
+
+              {/* Mostrar expediente seleccionado */}
+              {selectedExpedienteId ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2">
+                  <span className="flex-1 text-sm text-zinc-900 dark:text-zinc-100 truncate">{selectedExpLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedExpedienteId(''); setExpedienteQuery(''); setShowExpDrop(true); setTimeout(() => expInputRef.current?.focus(), 50) }}
+                    className="shrink-0 rounded p-0.5 text-zinc-500 hover:text-zinc-300"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <input
+                      ref={expInputRef}
+                      type="text"
+                      value={expedienteQuery}
+                      onChange={(e) => { setExpedienteQuery(e.target.value); setShowExpDrop(true) }}
+                      onFocus={() => setShowExpDrop(true)}
+                      onBlur={() => setTimeout(() => setShowExpDrop(false), 150)}
+                      placeholder="Escribí para buscar por carátula o número..."
+                      autoComplete="off"
+                      className={`${inputClass} pr-8 ${touched && !selectedExpedienteId ? 'border-rose-500/50' : ''}`}
+                    />
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                  </div>
+
+                  {showExpDrop && (
+                    <div
+                      ref={expDropRef}
+                      className="absolute z-10 mt-1 w-full max-h-52 overflow-y-auto rounded-lg border border-white/10 bg-zinc-900 shadow-xl"
+                    >
+                      {filteredExpedientes.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-zinc-500">
+                          {expedientes ? 'Sin resultados' : 'Cargando...'}
+                        </p>
+                      ) : (
+                        filteredExpedientes.slice(0, 60).map((ex) => (
+                          <button
+                            key={ex.id}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setSelectedExpedienteId(ex.id)
+                              setExpedienteQuery('')
+                              setShowExpDrop(false)
+                            }}
+                            className="block w-full px-3 py-2 text-left text-xs text-zinc-200 hover:bg-white/10 truncate"
+                          >
+                            {ex.label}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {touched && !selectedExpedienteId && (
+                    <p className="mt-1 text-xs text-rose-400">Seleccioná un expediente</p>
+                  )}
+                </>
               )}
             </div>
           )}

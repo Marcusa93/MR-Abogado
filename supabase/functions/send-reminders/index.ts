@@ -125,20 +125,46 @@ Deno.serve(async (req) => {
     // ── Audiencias mañana ──────────────────────────────────────────────
     const { data: audiencias } = await admin
       .from('audiencias')
-      .select('id, fecha, hora, expediente_id, created_by, last_reminder_at, estado')
+      .select(`
+        id, hora, expediente_id, created_by, last_reminder_at, profesional_asistente_id,
+        expedientes(caratula, numero, abogado_responsable_id),
+        audiencia_asignados(profile_id)
+      `)
       .eq('fecha', tomorrow)
       .not('estado', 'in', '(CANCELADA,POSTERGADA,REALIZADA)')
       .or(`last_reminder_at.is.null,last_reminder_at.lt.${last24h}`)
 
-    for (const a of (audiencias ?? []) as { id: string; fecha: string; hora: string | null; expediente_id: string; created_by: string; last_reminder_at: string | null }[]) {
-      reminders.push({
-        user_id: a.created_by,
-        kind: 'turno',
-        title: `Audiencia mañana${a.hora ? ` a las ${a.hora.slice(0, 5)}` : ''}`,
-        url: `/expedientes/${a.expediente_id}`,
-        itemId: a.id,
-        itemTable: 'audiencias',
-      })
+    for (const a of (audiencias ?? []) as {
+      id: string; hora: string | null; expediente_id: string; created_by: string
+      last_reminder_at: string | null; profesional_asistente_id: string | null
+      expedientes: { caratula: string | null; numero: string | null; abogado_responsable_id: string | null } | null
+      audiencia_asignados: { profile_id: string }[]
+    }[]) {
+      const exp = a.expedientes
+      const caratula = exp?.caratula ?? exp?.numero ?? 'Expediente'
+      const horaStr = a.hora ? ` a las ${String(a.hora).slice(0, 5)}` : ''
+      const title = `Audiencia mañana${horaStr} — ${caratula.slice(0, 55)}`
+
+      // Notificar a todos los abogados asignados explícitamente y al asistente
+      const usersToNotify = new Set<string>()
+      for (const asig of (a.audiencia_asignados ?? [])) usersToNotify.add(asig.profile_id)
+      if (a.profesional_asistente_id) usersToNotify.add(a.profesional_asistente_id)
+      // Si nadie asignado, fallback a creador y responsable del expediente
+      if (usersToNotify.size === 0) {
+        usersToNotify.add(a.created_by)
+        if (exp?.abogado_responsable_id) usersToNotify.add(exp.abogado_responsable_id)
+      }
+
+      for (const uid of usersToNotify) {
+        reminders.push({
+          user_id: uid,
+          kind: 'turno',
+          title,
+          url: `/expedientes/${a.expediente_id}`,
+          itemId: a.id,
+          itemTable: 'audiencias',
+        })
+      }
     }
 
     // ── Plazos judiciales confirmados con vencimiento en 3 días ───────
