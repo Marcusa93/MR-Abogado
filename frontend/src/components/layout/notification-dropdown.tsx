@@ -30,6 +30,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Sparkles,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -176,6 +177,7 @@ function SaeNotifItem({
   onNavigate: (path: string) => void
 }) {
   const fueroLabel = getFueroLabel(notif.raw_payload?.fuero)
+  const isUrgente = notif.prioridad === 'urgente'
 
   const handleClick = () => {
     onMarkRead(notif.id)
@@ -188,17 +190,24 @@ function SaeNotifItem({
       onClick={handleClick}
       className={cn(
         'flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors border-b border-white/5 last:border-0',
-        isNew ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.1]' : 'hover:bg-cyan-500/10',
+        isUrgente
+          ? 'bg-rose-500/[0.05] hover:bg-rose-500/[0.09] border-l-2 border-l-rose-500/50'
+          : isNew ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.1]' : 'hover:bg-cyan-500/10',
       )}
     >
-      <div className="mt-0.5 shrink-0 rounded-lg bg-cyan-500/15 p-1 text-cyan-300 relative">
-        <Bell className="h-3.5 w-3.5" />
+      <div className={cn('mt-0.5 shrink-0 rounded-lg p-1 relative', isUrgente ? 'bg-rose-500/15 text-rose-400' : 'bg-cyan-500/15 text-cyan-300')}>
+        {isUrgente ? <AlertTriangle className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
         {isNew && (
           <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-900" />
         )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[10px] mb-0.5 flex-wrap">
+          {isUrgente && (
+            <span className="rounded bg-rose-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wider text-rose-400">
+              Urgente
+            </span>
+          )}
           {notif.tipo && (
             <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-semibold uppercase tracking-wider text-violet-300">
               {notif.tipo}
@@ -207,11 +216,29 @@ function SaeNotifItem({
           {notif.numero_expediente && (
             <span className="font-mono text-zinc-300">Exp. {notif.numero_expediente}</span>
           )}
+          {notif.plazo_estimado_dias != null && notif.plazo_estimado_dias > 0 && (
+            <span className={cn(
+              'rounded px-1.5 py-0.5 font-medium',
+              notif.plazo_estimado_dias <= 3
+                ? 'bg-rose-500/15 text-rose-400'
+                : notif.plazo_estimado_dias <= 7
+                  ? 'bg-amber-500/15 text-amber-400'
+                  : 'bg-zinc-500/15 text-zinc-400',
+            )}>
+              Plazo: {notif.plazo_estimado_dias}d
+            </span>
+          )}
         </div>
         <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
           {notif.titulo || notif.caratula || 'Notificación SAE'}
         </p>
-        {fueroLabel && (
+        {notif.ia_resumen && (
+          <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400 line-clamp-2">
+            <Sparkles className="mt-[2px] h-2.5 w-2.5 shrink-0 text-violet-400" />
+            <span>{notif.ia_resumen}</span>
+          </p>
+        )}
+        {!notif.ia_resumen && fueroLabel && (
           <p className="mt-0.5 text-[10px] text-zinc-600 dark:text-zinc-500 truncate">
             {fueroLabel}
             {notif.oficina && ` · ${notif.oficina}`}
@@ -416,6 +443,18 @@ export function NotificationDropdown() {
   const totalCount = alertCount + saeUnread
   const displayAlerts = (alertas ?? []).slice(0, 8)
 
+  // Ordenar SAE: urgentes primero, luego por fecha
+  const prioSae = (n: SaeNotificacion) => n.prioridad === 'urgente' ? 0 : n.prioridad === 'normal' ? 1 : 2
+  const sortedSaeNotifs = [...saeNotifs].sort((a, b) => {
+    const dp = prioSae(a) - prioSae(b)
+    if (dp !== 0) return dp
+    const ta = a.fecha_emision ?? a.created_at
+    const tb = b.fecha_emision ?? b.created_at
+    return tb.localeCompare(ta)
+  })
+
+  const urgenteSaeCount = saeNotifs.filter(n => n.prioridad === 'urgente').length
+
   // Split en "nuevas" vs "anteriores" según seenSnapshot
   const isNewAlert = (a: AlertaWithExpediente) =>
     seenSnapshot ? a.created_at > seenSnapshot : false
@@ -426,8 +465,8 @@ export function NotificationDropdown() {
   }
   const newAlerts = displayAlerts.filter(isNewAlert)
   const oldAlerts = displayAlerts.filter((a) => !isNewAlert(a))
-  const newSae = saeNotifs.filter(isNewSae)
-  const oldSae = saeNotifs.filter((n) => !isNewSae(n))
+  const newSae = sortedSaeNotifs.filter(isNewSae)
+  const oldSae = sortedSaeNotifs.filter((n) => !isNewSae(n))
   const newCount = newAlerts.length + newSae.length
 
   const handleMarkAllAll = () => {
@@ -484,7 +523,10 @@ export function NotificationDropdown() {
       >
         <Bell className="h-5 w-5" />
         {totalCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-zinc-950 animate-pulse-subtle">
+          <span className={cn(
+            'absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-zinc-950 animate-pulse-subtle',
+            urgenteSaeCount > 0 ? 'bg-rose-500' : 'bg-amber-500',
+          )}>
             {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
@@ -557,12 +599,20 @@ export function NotificationDropdown() {
               ) : (
                 <>
                   {/* SAE notifications section */}
-                  {saeNotifs.length > 0 && (
+                  {sortedSaeNotifs.length > 0 && (
                     <div className="border-b border-white/10">
                       <div className="flex items-center justify-between px-4 py-2 bg-cyan-500/5">
-                        <span className="text-[10px] uppercase tracking-wider font-semibold text-cyan-300">
-                          SAE · Casillero digital
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] uppercase tracking-wider font-semibold text-cyan-300">
+                            SAE · Casillero digital
+                          </span>
+                          {urgenteSaeCount > 0 && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-rose-400">
+                              <AlertTriangle className="h-2 w-2" />
+                              {urgenteSaeCount} urgente{urgenteSaeCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                         {saeUnread > saeNotifs.length && (
                           <button
                             onClick={() => handleNavigate('/notificaciones-sae')}

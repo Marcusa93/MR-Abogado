@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
   Loader2, Trash2, Lock, Users, Repeat, Pencil, ChevronLeft, ChevronRight,
-  DollarSign, Search, RotateCcw, CheckCircle2,
+  DollarSign, Search, RotateCcw, CheckCircle2, Sparkles,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
@@ -18,6 +18,8 @@ import {
   DialogGasto, DialogIngreso, DialogAbono, DialogGastoFijo, Loader,
 } from '@/components/caja/caja-dialogs'
 import { GastosFijosCard, TabGastosFijos } from '@/components/caja/tab-gastos-fijos'
+import { TabCajaIA } from '@/components/caja/tab-caja-ia'
+import { useCajaIaObservaciones } from '@/hooks/use-caja-ia'
 import { useClientes } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
@@ -28,7 +30,7 @@ import { formatDate } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import { useUsdRate, type CotizacionUSD } from '@/hooks/use-cotizacion'
 
-type Tab = 'resumen' | 'ingresos' | 'gastos' | 'abonos' | 'gastos_fijos'
+type Tab = 'resumen' | 'ingresos' | 'gastos' | 'abonos' | 'gastos_fijos' | 'ia'
 
 const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
   const formatter = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
@@ -47,6 +49,9 @@ export default function CajaPage() {
   const [editingIngreso, setEditingIngreso] = useState<Ingreso | null>(null)
   const [editingGastoFijo, setEditingGastoFijo] = useState<GastoFijo | null>(null)
   const { data: tieneAcceso, isLoading: loadingAcceso } = useTieneAccesoCaja()
+  const { profile } = useAuth()
+  const isDirector = profile?.rol === 'DIRECTOR'
+  const { data: iaObs = [] } = useCajaIaObservaciones()
 
   if (loadingAcceso) {
     return (
@@ -133,6 +138,7 @@ export default function CajaPage() {
             { id: 'gastos' as const, label: 'Gastos', icon: TrendingDown },
             { id: 'abonos' as const, label: 'Abonos mensuales', icon: Repeat },
             { id: 'gastos_fijos' as const, label: 'Gastos fijos', icon: TrendingDown },
+          ...(isDirector ? [{ id: 'ia' as const, label: 'Análisis IA', icon: Sparkles }] : []),
           ].map((t) => {
             const Icon = t.icon
             const isActive = activeTab === t.id
@@ -149,6 +155,16 @@ export default function CajaPage() {
               >
                 <Icon className="h-3.5 w-3.5" />
                 {t.label}
+                {t.id === 'ia' && iaObs.length > 0 && (
+                  <span className={cn(
+                    'inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[9px] font-bold',
+                    iaObs.some(o => o.nivel === 'error')
+                      ? 'bg-rose-500/20 text-rose-500'
+                      : 'bg-amber-500/20 text-amber-500',
+                  )}>
+                    {iaObs.length}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -160,6 +176,7 @@ export default function CajaPage() {
       {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
       {activeTab === 'abonos' && <TabAbonos />}
       {activeTab === 'gastos_fijos' && <TabGastosFijos onEdit={(gf) => setEditingGastoFijo(gf)} />}
+      {activeTab === 'ia' && isDirector && <TabCajaIA />}
 
       {(dialogOpen === 'gasto' || editingGasto) && (
         <DialogGasto
