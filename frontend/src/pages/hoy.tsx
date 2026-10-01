@@ -23,6 +23,7 @@ import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
+import { NotificacionesHoyPanel } from '@/components/dashboard/notificaciones-hoy-panel'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -826,82 +827,80 @@ export default function HoyPage() {
   const dateLabel = hoyDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-5 animate-fade-in pb-12">
       <Breadcrumb items={[{ label: 'Hoy' }]} />
 
-      {/* 1. Greeting + fecha */}
-      <div className="flex items-start justify-between gap-3">
+      {/* ── Saludo compacto ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Sun className="h-6 w-6 text-amber-400" />
+          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+            <Sun className="h-5 w-5 text-amber-400" />
             {greeting()}, {nombre}
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400 capitalize">{dateLabel}</p>
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 capitalize">{dateLabel}</p>
         </div>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
           title="Actualizar"
-          className="mt-1 rounded-lg border border-white/10 bg-white/5 p-2 text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors disabled:opacity-40"
+          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors disabled:opacity-40"
         >
           <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
         </button>
       </div>
 
-      {/* Stat strip */}
+      {/* ── Stats strip compacto ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatChip label="Audiencias hoy" value={data.audiencias_hoy.length} icon={Calendar} color="cyan" to="/agenda" />
-        <StatChip label="Tareas para hoy" value={data.tareas_hoy_count} icon={CheckSquare} color="emerald" to="/tareas" />
+        <StatChip label="Tareas pendientes" value={data.tareas_hoy_count} icon={CheckSquare} color="emerald" to="/tareas" />
         <StatChip label="Tareas vencidas" value={data.tareas_vencidas_count} icon={AlertTriangle} color={data.tareas_vencidas_count > 0 ? 'rose' : 'muted'} to="/tareas?vencidas=1" />
         <StatChip label="Consultas últ. 7d" value={data.consultas_nuevas_count} icon={Users} color="amber" to="/consultas" />
       </div>
 
-      {/* Quick actions */}
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-3">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-500 mb-2 px-1">Acciones rápidas</p>
-        <div className="flex flex-wrap gap-2">
-          <QuickAction to="/consultas?nueva=1" icon={Plus} label="Nueva consulta" color="emerald" />
-          <QuickAction to="/expedientes/nuevo" icon={FolderPlus} label="Nuevo expediente" color="cyan" />
-          <QuickAction to="/agenda" icon={Calendar} label="Agendar turno" color="violet" />
-          <QuickAction to="/contenidos" icon={Sparkles} label="Nuevo contenido" color="rose" />
+      {/* ── NOTIFICACIONES — siempre primera sección de contenido ───────── */}
+      <NotificacionesHoyPanel />
+
+      {/* ── Audiencias del día — para todos los roles ───────────────────── */}
+      {(isSecretaria || data.audiencias_hoy.length > 0) && (
+        <AudienciasHoy items={data.audiencias_hoy} />
+      )}
+
+      {/* ── Actuaciones SAE del día ─────────────────────────────────────── */}
+      <ActuacionesRecientesPanel />
+
+      {/* ── Cuerpo: 2 columnas en desktop ───────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Columna izquierda: tareas + rutina */}
+        <div className="space-y-4">
+          {profile?.id && <MisTareasActivas userId={profile.id} />}
+          {profile?.id && (
+            <div>
+              <ChecklistHoy perfilId={profile.id} />
+              {isAdmin && <ColapsableAdminChecklist />}
+            </div>
+          )}
+          {isSecretaria && <TareasPendientes items={data.tareas_pendientes} />}
+        </div>
+
+        {/* Columna derecha: consultas + próximos */}
+        <div className="space-y-4">
+          {profile?.id && <MisConsultasAsignadas userId={profile.id} />}
+          {isSecretaria && <ConsultasPendientes />}
+          <ProximosEventosPanel days={30} />
         </div>
       </div>
 
-      {/* 2. Checklist de rutina diaria */}
-      {profile?.id && (
-        <div>
-          <ChecklistHoy perfilId={profile.id} />
-          {isAdmin && <ColapsableAdminChecklist />}
-        </div>
-      )}
+      {/* ── Contenidos en curso (SECRETARIA) ────────────────────────────── */}
+      {isSecretaria && <ContenidosPendientes items={data.contenidos_pendientes} />}
 
-      {/* 3. Mis tareas activas */}
-      {profile?.id && <MisTareasActivas userId={profile.id} />}
-
-      {/* 4. Mis consultas asignadas */}
-      {profile?.id && <MisConsultasAsignadas userId={profile.id} />}
-
-      {/* 5. Próximos 30 días — visible para todos */}
-      <ProximosEventosPanel days={30} />
-
-      {/* 6. Secciones de SECRETARIA (audiencias hoy, tareas y contenidos) */}
-      <ActuacionesRecientesPanel />
-
-      {isSecretaria && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <AudienciasHoy items={data.audiencias_hoy} />
-            <TareasPendientes items={data.tareas_pendientes} />
-          </div>
-          <ConsultasPendientes />
-          <ContenidosPendientes items={data.contenidos_pendientes} />
-        </>
-      )}
-
-      {/* Para roles que no son SECRETARIA, audiencias de hoy igual son útiles */}
-      {!isSecretaria && data.audiencias_hoy.length > 0 && (
-        <AudienciasHoy items={data.audiencias_hoy} />
-      )}
+      {/* ── Acciones rápidas — al final como barra compacta ─────────────── */}
+      <div className="flex flex-wrap gap-2 pt-1">
+        <p className="w-full text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Acciones rápidas</p>
+        <QuickAction to="/consultas?nueva=1" icon={Plus} label="Nueva consulta" color="emerald" />
+        <QuickAction to="/expedientes/nuevo" icon={FolderPlus} label="Nuevo expediente" color="cyan" />
+        <QuickAction to="/agenda" icon={Calendar} label="Agendar turno" color="violet" />
+        <QuickAction to="/contenidos" icon={Sparkles} label="Nuevo contenido" color="rose" />
+      </div>
     </div>
   )
 }
