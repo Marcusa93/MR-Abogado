@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCreateTurno, useAssignAudienciaUsers } from '@/hooks/use-turnos'
 import { toast } from '@/stores/toast-store'
@@ -39,17 +39,25 @@ function useTiposAudiencia() {
   })
 }
 
-function useExpedientesActivos(enabled: boolean) {
+// Sin búsqueda: los 60 más recientes. Con búsqueda: filtra en la base por
+// carátula o número, así aparecen también los expedientes viejos.
+function useExpedientesActivos(enabled: boolean, search: string) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['expedientes-activos-lista'],
+    queryKey: ['expedientes-activos-lista', search],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('expedientes')
         .select('id, numero, caratula')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
-        .limit(150)
+        .limit(60)
+      // Coma y paréntesis rompen la sintaxis de .or() de PostgREST
+      const term = search.replace(/[,()%*]/g, ' ').trim()
+      if (term) {
+        query = query.or(`caratula.ilike.%${term}%,numero.ilike.%${term}%`)
+      }
+      const { data, error } = await query
       if (error) throw error
       return (data ?? []).map((e) => ({
         id: e.id,
@@ -57,9 +65,15 @@ function useExpedientesActivos(enabled: boolean) {
       }))
     },
     enabled,
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   })
+}
+
+function describirError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? '')
+  if (/row-level security/i.test(msg)) return 'Tu usuario no tiene permiso para esta acción. Avisale a un administrador.'
+  return msg || 'Error desconocido'
 }
 
 type ProfileOption = { id: string; label: string }
@@ -111,9 +125,9 @@ export function CrearTurnoDialog({
   const { data: tiposAudiencia } = useTiposAudiencia()
   const { data: profiles = [] } = useActiveProfiles()
   const needsExpediente = !expedienteId
-  const { data: expedientes } = useExpedientesActivos(open && needsExpediente)
 
   const [tipoAudienciaId, setTipoAudienciaId] = useState('')
+  const [tipoTexto, setTipoTexto] = useState('')
   const [organismoId, setOrganismoId] = useState('')
   const [fecha, setFecha] = useState('')
   const [hora, setHora] = useState('')
@@ -124,17 +138,22 @@ export function CrearTurnoDialog({
   // Expediente combobox
   const [expedienteQuery, setExpedienteQuery] = useState('')
   const [selectedExpedienteId, setSelectedExpedienteId] = useState('')
+  const [selectedExpLabel, setSelectedExpLabel] = useState('')
   const [showExpDrop, setShowExpDrop] = useState(false)
   const expInputRef = useRef<HTMLInputElement>(null)
   const expDropRef = useRef<HTMLDivElement>(null)
 
-  const filteredExpedientes = expedientes
-    ? expedientes.filter((ex) =>
-        ex.label.toLowerCase().includes(expedienteQuery.toLowerCase()),
-      )
-    : []
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(expedienteQuery.trim()), 250)
+    return () => clearTimeout(t)
+  }, [expedienteQuery])
 
-  const selectedExpLabel = expedientes?.find((ex) => ex.id === selectedExpedienteId)?.label ?? ''
+  const { data: expedientes, isFetching: buscandoExpedientes } = useExpedientesActivos(
+    open && needsExpediente,
+    debouncedQuery,
+  )
+  const filteredExpedientes = expedientes ?? []
 
   useEffect(() => {
     if (!open || !initialValues) return
@@ -158,34 +177,54 @@ export function CrearTurnoDialog({
     setTouched(true)
     if (!isValid) return
 
+    // Sin catálogo de tipos, el tipo se escribe a mano: va a las notas, no a
+    // tipo_audiencia_id (que es uuid y haría fallar el insert).
+    const notasFinal = [tipoTexto.trim() && `Tipo: ${tipoTexto.trim()}`, notas.trim()]
+      .filter(Boolean)
+      .join('\n')
+
+    let audiencia: { id?: string } | null
     try {
-      const audiencia = await (createTurno as any).mutateAsync({
+      audiencia = await (createTurno as any).mutateAsync({
         expediente_id: resolvedExpedienteId,
         tipo_audiencia_id: tipoAudienciaId || null,
         organismo_id: organismoId || null,
         fecha,
         hora: hora || null,
         estado: 'PENDIENTE',
-        notas: notas.trim() || null,
+        notas: notasFinal || null,
         sae_movement_id: saeMovementId ?? null,
       })
+    } catch (err) {
+      toast.error('No se pudo crear la audiencia', describirError(err))
+      return
+    }
 
-      if (selectedProfileIds.length > 0 && audiencia?.id) {
+    // La audiencia ya está guardada: si falla la asignación, se avisa pero no
+    // se deja el diálogo abierto (reintentar duplicaría la audiencia).
+    if (selectedProfileIds.length > 0 && audiencia?.id) {
+      try {
         await assignUsers.mutateAsync({
           audienciaId: audiencia.id,
           profileIds: selectedProfileIds,
         })
+      } catch (err) {
+        toast.warning(
+          'Audiencia creada, pero no se pudo asignar a los usuarios',
+          describirError(err),
+        )
+        resetAndClose()
+        return
       }
-
-      toast.success('Audiencia creada')
-      resetAndClose()
-    } catch (err) {
-      toast.error('Error al guardar', err instanceof Error ? err.message : 'Error desconocido')
     }
+
+    toast.success('Audiencia creada')
+    resetAndClose()
   }
 
   const resetAndClose = () => {
     setTipoAudienciaId('')
+    setTipoTexto('')
     setOrganismoId('')
     setFecha('')
     setHora('')
@@ -194,6 +233,7 @@ export function CrearTurnoDialog({
     setTouched(false)
     setExpedienteQuery('')
     setSelectedExpedienteId('')
+    setSelectedExpLabel('')
     setShowExpDrop(false)
     ;(createTurno as any).reset?.()
     onClose()
@@ -245,7 +285,7 @@ export function CrearTurnoDialog({
                   <span className="flex-1 text-sm text-zinc-900 dark:text-zinc-100 truncate">{selectedExpLabel}</span>
                   <button
                     type="button"
-                    onClick={() => { setSelectedExpedienteId(''); setExpedienteQuery(''); setShowExpDrop(true); setTimeout(() => expInputRef.current?.focus(), 50) }}
+                    onClick={() => { setSelectedExpedienteId(''); setSelectedExpLabel(''); setExpedienteQuery(''); setShowExpDrop(true); setTimeout(() => expInputRef.current?.focus(), 50) }}
                     className="shrink-0 rounded p-0.5 text-zinc-500 hover:text-zinc-300"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -275,16 +315,17 @@ export function CrearTurnoDialog({
                     >
                       {filteredExpedientes.length === 0 ? (
                         <p className="px-3 py-2 text-xs text-zinc-500">
-                          {expedientes ? 'Sin resultados' : 'Cargando...'}
+                          {!expedientes || buscandoExpedientes ? 'Buscando...' : 'Sin resultados'}
                         </p>
                       ) : (
-                        filteredExpedientes.slice(0, 60).map((ex) => (
+                        filteredExpedientes.map((ex) => (
                           <button
                             key={ex.id}
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
                               setSelectedExpedienteId(ex.id)
+                              setSelectedExpLabel(ex.label)
                               setExpedienteQuery('')
                               setShowExpDrop(false)
                             }}
@@ -324,8 +365,8 @@ export function CrearTurnoDialog({
             ) : (
               <input
                 type="text"
-                value={tipoAudienciaId}
-                onChange={(e) => setTipoAudienciaId(e.target.value)}
+                value={tipoTexto}
+                onChange={(e) => setTipoTexto(e.target.value)}
                 placeholder="Ej: Audiencia inicial, Pericial..."
                 className={inputClass}
               />
