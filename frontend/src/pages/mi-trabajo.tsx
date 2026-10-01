@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth-store'
 import { useTeamMembers } from '@/hooks/use-team-members'
@@ -26,8 +26,9 @@ import { formatDateTime } from '@/lib/utils/date-helpers'
 import {
   Loader2, ExternalLink, FolderOpen, FolderPlus, Users,
   Briefcase, AlertCircle, Lock, Clock, Search, X, History,
-  PlusCircle, Plus,
+  PlusCircle, Plus, Calendar,
 } from 'lucide-react'
+import { NotificacionesHoyPanel } from '@/components/dashboard/notificaciones-hoy-panel'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -858,18 +859,41 @@ export default function MiTrabajoPage() {
     ? 'Panorama del equipo'
     : isViewingSelf ? 'Mi trabajo' : `Trabajo de ${selectedMember?.apellido ?? ''} ${selectedMember?.nombre ?? ''}`
 
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const todayLabel = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+
   return (
     <div className="space-y-4">
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{pageTitle}</h1>
-          {tab === 'personal' && (
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              {isLoading ? 'Cargando…'
-                : `${items.length} ${items.length === 1 ? 'asunto activo' : 'asuntos activos'}${!isViewingSelf ? ' — vista de administrador' : ''}`}
-            </p>
+          {tab === 'personal' && isViewingSelf ? (
+            <>
+              <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">
+                <Calendar className="h-3 w-3" />
+                {todayLabel}
+              </div>
+              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                {greeting}, {profile?.nombre ?? profile?.apellido ?? 'Doctor'}
+              </h1>
+              {!isLoading && (
+                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                  {items.length === 0 ? 'Sin asuntos activos' : `${items.length} ${items.length === 1 ? 'asunto activo' : 'asuntos activos'}`}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{pageTitle}</h1>
+              {tab === 'personal' && (
+                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                  {isLoading ? 'Cargando…'
+                    : `${items.length} ${items.length === 1 ? 'asunto activo' : 'asuntos activos'}${!isViewingSelf ? ' — vista de administrador' : ''}`}
+                </p>
+              )}
+            </>
           )}
         </div>
         {isAdmin && team.length > 1 && tab === 'personal' && (
@@ -912,6 +936,9 @@ export default function MiTrabajoPage() {
       {/* TAB: PERSONAL */}
       {tab === 'personal' && (
         <>
+          {/* Notificaciones del día */}
+          <NotificacionesHoyPanel />
+
           {/* Foco del día */}
           {!isLoading && items.length >= 4 && (
             <FocoDia
