@@ -210,8 +210,8 @@ Deno.serve(async (req) => {
       })
       if (sorted.length > 6) bodyLines.push(`… y ${sorted.length - 6} expedientes más`)
 
-      // URL: expediente directo si es uno solo, inicio si son varios
-      const url = nExps === 1 ? `/expedientes/${sorted[0].expId}` : '/hoy'
+      // URL: expediente directo si es uno solo, notificaciones SAE si son varios
+      const url = nExps === 1 ? `/expedientes/${sorted[0].expId}` : '/notificaciones-sae'
 
       const payload = JSON.stringify({
         title,
