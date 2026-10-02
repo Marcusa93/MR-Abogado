@@ -404,6 +404,7 @@ export default function NotificacionesSaePage() {
   // Default 'unread' para que marcar como leído oculte de la lista.
   const [filter, setFilter] = useState<'all' | 'unread'>('unread')
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'prioridad' | 'fecha'>('prioridad')
   const { data: notifs = [], isLoading } = useSaeNotificaciones({ unreadOnly: filter === 'unread' })
   const { data: prefs } = useSaeNotifPreferences()
   const markAll = useMarkAllSaeNotifAsRead()
@@ -412,22 +413,35 @@ export default function NotificacionesSaePage() {
   const [lastResult, setLastResult] = useState<PollResult | null>(null)
   const [debugOpen, setDebugOpen] = useState(false)
 
-  // Filtro client-side por texto (case-insensitive, sin acentos)
   const filtered = useMemo(() => {
+    const PRIO_ORDER: Record<string, number> = { urgente: 0, normal: 1, info: 2 }
     const q = search.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    if (!q) return notifs
     const norm = (s: string | null | undefined) =>
       (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    return notifs.filter(n =>
-      norm(n.tipo).includes(q)
-      || norm(n.titulo).includes(q)
-      || norm(n.numero_expediente).includes(q)
-      || norm(n.oficina).includes(q)
-      || norm(n.caratula).includes(q)
-      || norm(n.expediente?.caratula).includes(q)
-      || norm(n.raw_payload?.destinatario).includes(q)
-    )
-  }, [notifs, search])
+    let items = notifs
+    if (q) {
+      items = items.filter(n =>
+        norm(n.tipo).includes(q)
+        || norm(n.titulo).includes(q)
+        || norm(n.numero_expediente).includes(q)
+        || norm(n.oficina).includes(q)
+        || norm(n.caratula).includes(q)
+        || norm(n.expediente?.caratula).includes(q)
+        || norm(n.raw_payload?.destinatario).includes(q)
+      )
+    }
+    if (sortBy === 'prioridad') {
+      items = [...items].sort((a, b) => {
+        const pa = PRIO_ORDER[a.prioridad ?? 'normal'] ?? 1
+        const pb = PRIO_ORDER[b.prioridad ?? 'normal'] ?? 1
+        if (pa !== pb) return pa - pb
+        const da = new Date(a.fecha_emision ?? a.fecha_captura).getTime()
+        const db = new Date(b.fecha_emision ?? b.fecha_captura).getTime()
+        return db - da
+      })
+    }
+    return items
+  }, [notifs, search, sortBy])
 
   const handleSyncNow = () => {
     trigger.mutate(undefined, {
@@ -592,6 +606,15 @@ export default function NotificacionesSaePage() {
         >
           Todas (historial)
         </button>
+        <div className="flex rounded-lg border border-white/10 overflow-hidden text-[11px]">
+          {(['prioridad', 'fecha'] as const).map(s => (
+            <button key={s} onClick={() => setSortBy(s)}
+              className={cn('h-7 px-2.5 transition-colors',
+                sortBy === s ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-zinc-400 hover:bg-white/10')}>
+              {s === 'prioridad' ? 'Prioridad' : 'Fecha'}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         {search && (
           <span className="text-[10px] text-zinc-500 dark:text-zinc-400">

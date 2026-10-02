@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useAlertas,
@@ -30,6 +30,8 @@ import {
   CheckCheck,
   Eye,
   AtSign,
+  Search,
+  X,
 } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -83,6 +85,15 @@ const DEFAULT_ICON = {
   icon: Bell,
   bg: 'bg-white/5',
   text: 'text-zinc-600 dark:text-zinc-300',
+}
+
+const TIPO_URGENCY: Record<string, number> = {
+  TAREA_VENCIDA: 0, VENCIMIENTO_TAREA: 0,
+  SEGUIMIENTO_PENDIENTE: 1,
+  AUDIENCIA_PROXIMA: 2, TURNO_PROXIMO: 2,
+  COBRO_PENDIENTE: 3, DOCUMENTO_FALTANTE: 3,
+  ESTADO_CAMBIO: 4, TAREA_ASIGNADA: 4,
+  MENCION: 5, SISTEMA: 6,
 }
 
 // ---------------------------------------------------------------------------
@@ -258,30 +269,79 @@ export default function AlertasPage() {
   const marcarTodasLeidas = useMarcarTodasLeidas()
 
   const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterTipo, setFilterTipo] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'prioridad' | 'fecha'>('prioridad')
 
   const handleResolve = (alertaId: string) => {
     setResolvingId(alertaId)
     resolverAlerta.mutate(alertaId, { onSettled: () => setResolvingId(null) })
   }
-
   const handlePostpone = (alertaId: string, fecha: string) => {
     posponerAlerta.mutate({ alerta_id: alertaId, nueva_fecha: fecha })
   }
-
   const handleMarkRead = (alertaId: string) => {
     marcarLeida.mutate(alertaId)
   }
 
+  const tiposPresentes = useMemo(() => {
+    if (!alertas?.length) return []
+    return [...new Set(alertas.map(a => a.tipo))].sort(
+      (a, b) => (TIPO_URGENCY[a] ?? 5) - (TIPO_URGENCY[b] ?? 5)
+    )
+  }, [alertas])
+
+  const filteredSorted = useMemo(() => {
+    if (!alertas) return []
+    const q = search.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    const norm = (s: string | null | undefined) =>
+      (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    let items = alertas
+    if (q) {
+      items = items.filter(a =>
+        norm(a.titulo).includes(q)
+        || norm(a.mensaje).includes(q)
+        || norm(a.expediente?.caratula).includes(q)
+        || norm(a.expediente?.numero).includes(q)
+        || norm(TIPO_ALERTA_LABELS[a.tipo as TipoAlerta]).includes(q)
+      )
+    }
+    if (filterTipo) items = items.filter(a => a.tipo === filterTipo)
+    if (sortBy === 'prioridad') {
+      items = [...items].sort((a, b) => {
+        const pa = TIPO_URGENCY[a.tipo] ?? 5
+        const pb = TIPO_URGENCY[b.tipo] ?? 5
+        if (pa !== pb) return pa - pb
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+    }
+    return items
+  }, [alertas, search, filterTipo, sortBy])
+
+  const hasFilters = !!(search || filterTipo)
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Alertas
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          Notificaciones y alertas pendientes de tus expedientes.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Alertas
+          </h1>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            Notificaciones y alertas pendientes de tus expedientes.
+          </p>
+        </div>
+        {alertas && alertas.length > 0 && (
+          <button
+            onClick={() => marcarTodasLeidas.mutate()}
+            disabled={marcarTodasLeidas.isPending}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10"
+          >
+            <CheckCheck className="h-3 w-3" />
+            Marcar todas leídas
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -291,9 +351,7 @@ export default function AlertasPage() {
         </div>
       ) : isError ? (
         <div className="rounded-xl border border-rose-900 bg-rose-950/30 p-6 text-center">
-          <p className="text-sm text-rose-400">
-            Error al cargar alertas.
-          </p>
+          <p className="text-sm text-rose-400">Error al cargar alertas.</p>
         </div>
       ) : !alertas || alertas.length === 0 ? (
         <div className="space-y-6">
@@ -330,84 +388,133 @@ export default function AlertasPage() {
         </div>
       ) : (
         <>
-          {/* Count badge + Mark all read */}
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-400">
-              <Bell className="h-3 w-3" />
-              {alertas.length} alerta{alertas.length > 1 ? 's' : ''} activa{alertas.length > 1 ? 's' : ''}
-            </span>
-            <button
-              onClick={() => marcarTodasLeidas.mutate()}
-              disabled={marcarTodasLeidas.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10"
-            >
-              <CheckCheck className="h-3 w-3" />
-              Marcar todas leídas
-            </button>
+          {/* Búsqueda + filtros */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por título, expediente, tipo…"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-400">
+                <Bell className="h-3 w-3" />
+                {alertas.length} alerta{alertas.length > 1 ? 's' : ''}
+              </span>
+              {tiposPresentes.map(tipo => {
+                const cfg = TIPO_ICON_MAP[tipo] ?? DEFAULT_ICON
+                return (
+                  <button key={tipo}
+                    onClick={() => setFilterTipo(f => f === tipo ? null : tipo)}
+                    className={cn(
+                      'h-7 rounded-full border px-2.5 text-[11px] transition-colors',
+                      filterTipo === tipo
+                        ? cn('border-transparent', cfg.bg, cfg.text)
+                        : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
+                    )}>
+                    {TIPO_ALERTA_LABELS[tipo as TipoAlerta] ?? tipo}
+                  </button>
+                )
+              })}
+              <div className="flex-1" />
+              <div className="flex rounded-lg border border-white/10 overflow-hidden text-[11px]">
+                {(['prioridad', 'fecha'] as const).map(s => (
+                  <button key={s} onClick={() => setSortBy(s)}
+                    className={cn('h-7 px-2.5 transition-colors',
+                      sortBy === s ? 'bg-amber-500/20 text-amber-300' : 'bg-white/5 text-zinc-400 hover:bg-white/10')}>
+                    {s === 'prioridad' ? 'Prioridad' : 'Fecha'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {hasFilters && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">{filteredSorted.length} de {alertas.length}</span>
+                <button onClick={() => { setSearch(''); setFilterTipo(null) }}
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  <X className="h-3 w-3" />
+                  Limpiar
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Alert list grouped by expediente */}
-          <div className="space-y-4">
-            {(() => {
-              // Group alerts by expediente_id (null = "sin expediente")
-              const groups = new Map<string, { label: string; expId: string | null; items: typeof alertas }>()
-              for (const a of alertas) {
-                const key = a.expediente?.id ?? '__none__'
-                if (!groups.has(key)) {
-                  const label = a.expediente
-                    ? (a.expediente.caratula || a.expediente.numero || 'Expediente')
-                    : 'Alertas generales'
-                  groups.set(key, { label, expId: a.expediente?.id ?? null, items: [] })
+          {/* Lista */}
+          {filteredSorted.length === 0 ? (
+            <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
+              <Search className="h-8 w-8 mx-auto text-zinc-600 mb-2" />
+              <p className="text-sm text-zinc-300">Ninguna alerta coincide con los filtros.</p>
+              <button onClick={() => { setSearch(''); setFilterTipo(null) }}
+                className="mt-3 text-xs text-amber-400 hover:underline">
+                Limpiar filtros
+              </button>
+            </div>
+          ) : sortBy === 'prioridad' ? (
+            <div className="space-y-2">
+              {filteredSorted.map(alerta => (
+                <AlertaCard
+                  key={alerta.id}
+                  alerta={alerta}
+                  onResolve={handleResolve}
+                  onPostpone={handlePostpone}
+                  onMarkRead={handleMarkRead}
+                  isResolving={resolvingId === alerta.id}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {(() => {
+                const groups = new Map<string, { label: string; expId: string | null; items: typeof alertas }>()
+                for (const a of filteredSorted) {
+                  const key = a.expediente?.id ?? '__none__'
+                  if (!groups.has(key)) {
+                    const label = a.expediente
+                      ? (a.expediente.caratula || a.expediente.numero || 'Expediente')
+                      : 'Alertas generales'
+                    groups.set(key, { label, expId: a.expediente?.id ?? null, items: [] })
+                  }
+                  groups.get(key)!.items.push(a)
                 }
-                groups.get(key)!.items.push(a)
-              }
-
-              // Single-item groups don't need a header
-              const groupEntries = Array.from(groups.values())
-              const needsGrouping = groupEntries.some((g) => g.items.length > 1)
-
-              if (!needsGrouping) {
-                return alertas.map((alerta) => (
-                  <AlertaCard
-                    key={alerta.id}
-                    alerta={alerta}
-                    onResolve={handleResolve}
-                    onPostpone={handlePostpone}
-                    onMarkRead={handleMarkRead}
-                    isResolving={resolvingId === alerta.id}
-                  />
-                ))
-              }
-
-              return groupEntries.map((group) => (
-                <div key={group.expId ?? '__none__'}>
-                  {group.items.length > 1 && (
-                    <div className="flex items-center gap-2 mb-2 px-1">
-                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                        {group.label}
-                      </span>
-                      <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
-                        {group.items.length}
-                      </span>
-                      <div className="flex-1 border-t border-white/5" />
+                const groupEntries = Array.from(groups.values())
+                const needsGrouping = groupEntries.some(g => g.items.length > 1)
+                if (!needsGrouping) {
+                  return filteredSorted.map(a => (
+                    <AlertaCard key={a.id} alerta={a}
+                      onResolve={handleResolve} onPostpone={handlePostpone} onMarkRead={handleMarkRead}
+                      isResolving={resolvingId === a.id} />
+                  ))
+                }
+                return groupEntries.map(group => (
+                  <div key={group.expId ?? '__none__'}>
+                    {group.items.length > 1 && (
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{group.label}</span>
+                        <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">{group.items.length}</span>
+                        <div className="flex-1 border-t border-white/5" />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      {group.items.map(a => (
+                        <AlertaCard key={a.id} alerta={a}
+                          onResolve={handleResolve} onPostpone={handlePostpone} onMarkRead={handleMarkRead}
+                          isResolving={resolvingId === a.id} />
+                      ))}
                     </div>
-                  )}
-                  <div className="space-y-2">
-                    {group.items.map((alerta) => (
-                      <AlertaCard
-                        key={alerta.id}
-                        alerta={alerta}
-                        onResolve={handleResolve}
-                        onPostpone={handlePostpone}
-                        onMarkRead={handleMarkRead}
-                        isResolving={resolvingId === alerta.id}
-                      />
-                    ))}
                   </div>
-                </div>
-              ))
-            })()}
-          </div>
+                ))
+              })()}
+            </div>
+          )}
         </>
       )}
     </div>
