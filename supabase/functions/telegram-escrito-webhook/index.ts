@@ -184,6 +184,235 @@ function isPendingValid(session: TelegramSession | null): session is TelegramSes
 // Palabras clave de "reintentá" — sin número de expediente en el texto
 const REINTENTAR_RE = /\b(reintent[aá]|de\s+nuevo|regenera[rl]?|hacé?\s+otro|volvé?\s+a\s+hacer|repetí?)\b/i
 
+// ── GESTIÓN: comandos /tareas /tarea /audiencias /sae /ayuda ──────────────
+
+const APP_URL = 'https://app.marcorossi.com.ar'
+const PRIORIDAD_RE = /\b(urgente|alta|media|baja)\b/i
+const PARA_RE = /\bpara\s+([a-záéíóúñ]{2,}(?:\s+[a-záéíóúñ]{2,})?)/i
+const PRIO_ORDER: Record<string, number> = { URGENTE: 3, ALTA: 2, MEDIA: 1, BAJA: 0 }
+const PRIO_BADGE: Record<string, string> = { URGENTE: '🔴 Urgente', ALTA: '🟠 Alta', MEDIA: '🟡 Media', BAJA: '⚪ Baja' }
+
+async function findPerfilByNombre(
+  admin: ReturnType<typeof createClient>,
+  nombre: string,
+): Promise<{ id: string; nombre: string | null; apellido: string | null }[]> {
+  const q = nombre.trim()
+  const { data } = await admin.from('profiles')
+    .select('id, nombre, apellido')
+    .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,nombre_completo.ilike.%${q}%`)
+    .eq('activo', true)
+    .limit(5)
+  return (data ?? []) as { id: string; nombre: string | null; apellido: string | null }[]
+}
+
+async function handleGestion(
+  admin: ReturnType<typeof createClient>,
+  token: string,
+  chatId: number,
+  texto: string,
+): Promise<void> {
+  const raw = texto.slice(1).trimStart()
+  const spaceIdx = raw.indexOf(' ')
+  const cmd = (spaceIdx === -1 ? raw : raw.slice(0, spaceIdx)).toLowerCase()
+  const args = spaceIdx === -1 ? '' : raw.slice(spaceIdx + 1).trim()
+
+  // /ayuda /help /start
+  if (cmd === 'ayuda' || cmd === 'help' || cmd === 'start') {
+    await tgSend(token, chatId,
+      'Comandos de gestión:\n\n' +
+      '/tareas [nombre] — pendientes de un colaborador\n' +
+      '/tarea [texto] — crear tarea rápida\n' +
+      '  Ej: /tarea redactar demanda Valdez para Claudio alta\n' +
+      '/audiencias — próximas 7 días\n' +
+      '/sae — notificaciones SAE recientes\n\n' +
+      'Sin / → generás un escrito por expediente.',
+    )
+    return
+  }
+
+  // /tareas [nombre]
+  if (cmd === 'tareas' || cmd === 'pendientes') {
+    type TareaRow = {
+      id: string; titulo: string; prioridad: string | null; fecha_vencimiento: string | null
+      asignado: { nombre: string | null; apellido: string | null } | null
+      expediente: { caratula: string | null; numero: string | null } | null
+    }
+    let query = admin.from('tareas')
+      .select('id, titulo, prioridad, fecha_vencimiento, asignado:profiles!asignado_a(nombre, apellido), expediente:expedientes(caratula, numero)')
+      .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+
+    let headerName = 'todos'
+    if (args) {
+      const perfiles = await findPerfilByNombre(admin, args)
+      if (perfiles.length === 0) {
+        await tgSend(token, chatId, `No encontré colaborador "${args}".`)
+        return
+      }
+      if (perfiles.length > 1) {
+        const lista = perfiles.map(p => `• ${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()).join('\n')
+        await tgSend(token, chatId, `Varios con "${args}":\n${lista}\n\nUsá el apellido.`)
+        return
+      }
+      query = query.eq('asignado_a', perfiles[0].id)
+      headerName = `${perfiles[0].nombre ?? ''} ${perfiles[0].apellido ?? ''}`.trim()
+    }
+
+    const { data: tareas } = await query.limit(20)
+    if (!tareas?.length) {
+      await tgSend(token, chatId, `Sin tareas pendientes${args ? ` para ${args}` : ''}.`)
+      return
+    }
+
+    const sorted = [...(tareas as TareaRow[])].sort((a, b) =>
+      (PRIO_ORDER[b.prioridad ?? 'BAJA'] ?? 0) - (PRIO_ORDER[a.prioridad ?? 'BAJA'] ?? 0)
+    )
+
+    const lines = sorted.map(t => {
+      const badge = PRIO_BADGE[t.prioridad ?? 'BAJA'] ?? '⚪'
+      const exp = t.expediente?.caratula ?? t.expediente?.numero ?? ''
+      const venc = t.fecha_vencimiento ? ` · ${t.fecha_vencimiento.slice(0, 10)}` : ''
+      const quien = t.asignado ? ` (${(`${t.asignado.nombre ?? ''} ${t.asignado.apellido ?? ''}`).trim()})` : ''
+      return `${badge} — ${t.titulo}${exp ? `\n   ${exp.slice(0, 50)}` : ''}${quien}${venc}`
+    })
+
+    await tgSend(token, chatId, `Pendientes — ${headerName} (${sorted.length}):\n\n${lines.join('\n\n')}`)
+    return
+  }
+
+  // /tarea [texto]
+  if (cmd === 'tarea' || cmd === 'nueva') {
+    if (!args) {
+      await tgSend(token, chatId, 'Usá: /tarea [descripción] para [nombre] [urgente|alta|media|baja]\nEj: /tarea redactar demanda Valdez para Claudio alta')
+      return
+    }
+
+    let resto = args
+    let asignadoId: string | null = null
+    let asignadoNombre = ''
+
+    const paraMatch = PARA_RE.exec(resto)
+    if (paraMatch) {
+      const nombreBuscado = paraMatch[1]
+      resto = resto.replace(paraMatch[0], '').trim()
+      const perfiles = await findPerfilByNombre(admin, nombreBuscado)
+      if (perfiles.length === 0) {
+        await tgSend(token, chatId, `No encontré colaborador "${nombreBuscado}".\n/tareas para ver el equipo.`)
+        return
+      }
+      if (perfiles.length > 1) {
+        const lista = perfiles.map(p => `• ${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()).join('\n')
+        await tgSend(token, chatId, `Varios con "${nombreBuscado}":\n${lista}\n\nUsá el apellido.`)
+        return
+      }
+      asignadoId = perfiles[0].id
+      asignadoNombre = `${perfiles[0].nombre ?? ''} ${perfiles[0].apellido ?? ''}`.trim()
+    }
+
+    let prioridad = 'MEDIA'
+    const prioMatch = PRIORIDAD_RE.exec(resto)
+    if (prioMatch) {
+      prioridad = prioMatch[1].toUpperCase()
+      resto = resto.replace(prioMatch[0], '').trim()
+    }
+
+    const titulo = resto.replace(/^[,.\s]+|[,.\s]+$/, '').trim()
+    if (!titulo) {
+      await tgSend(token, chatId, 'El título no puede estar vacío.')
+      return
+    }
+
+    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+    const createdBy = (dir as { id?: string } | null)?.id
+    if (!createdBy) {
+      await tgSend(token, chatId, 'No encontré perfil del director.')
+      return
+    }
+
+    const finalAsignado = asignadoId ?? createdBy
+    const { error } = await admin.from('tareas').insert({
+      titulo,
+      prioridad,
+      asignado_a: finalAsignado,
+      asignados: [finalAsignado],
+      created_by: createdBy,
+      estado: 'PENDIENTE',
+    })
+
+    if (error) {
+      await tgSend(token, chatId, `Error al crear: ${error.message}`)
+      return
+    }
+
+    const prioLabel = { URGENTE: 'urgente', ALTA: 'alta', MEDIA: 'media', BAJA: 'baja' }[prioridad] ?? 'media'
+    await tgSend(token, chatId,
+      asignadoNombre
+        ? `Tarea creada (${prioLabel}) para ${asignadoNombre}:\n"${titulo}"\n\n${APP_URL}/tareas`
+        : `Tarea creada (${prioLabel}):\n"${titulo}"\n\n${APP_URL}/tareas`,
+    )
+    return
+  }
+
+  // /audiencias
+  if (cmd === 'audiencias') {
+    const today = new Date().toISOString().split('T')[0]
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+    type AudRow = { fecha: string; hora: string | null; expediente: { caratula: string | null; numero: string | null } | null }
+    const { data: auds } = await admin.from('audiencias')
+      .select('fecha, hora, expediente:expedientes!inner(caratula, numero)')
+      .gte('fecha', today)
+      .lte('fecha', nextWeek)
+      .neq('estado', 'CANCELADA')
+      .order('fecha', { ascending: true })
+      .order('hora', { ascending: true })
+      .limit(10)
+
+    if (!auds?.length) {
+      await tgSend(token, chatId, 'Sin audiencias en los próximos 7 días.')
+      return
+    }
+
+    const lines = (auds as AudRow[]).map(a => {
+      const hora = a.hora ? ` ${a.hora.slice(0, 5)}hs` : ''
+      const exp = a.expediente?.caratula ?? a.expediente?.numero ?? 'Expediente'
+      return `📅 ${a.fecha}${hora} — ${exp.slice(0, 60)}`
+    })
+
+    await tgSend(token, chatId, `Audiencias próximas:\n\n${lines.join('\n')}`)
+    return
+  }
+
+  // /sae
+  if (cmd === 'sae') {
+    const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+    type SaeRow = { titulo: string | null; prioridad: string | null; fecha_emision: string | null; expediente: { caratula: string | null; numero: string | null } | null }
+    const { data: notifs } = await admin.from('sae_notificaciones')
+      .select('titulo, prioridad, fecha_emision, expediente:expedientes(caratula, numero)')
+      .gte('fecha_captura', since)
+      .in('prioridad', ['urgente', 'normal'])
+      .order('prioridad', { ascending: true })
+      .order('fecha_emision', { ascending: false })
+      .limit(10)
+
+    if (!notifs?.length) {
+      await tgSend(token, chatId, 'Sin notificaciones SAE en las últimas 48hs.')
+      return
+    }
+
+    const lines = (notifs as SaeRow[]).map(n => {
+      const badge = n.prioridad === 'urgente' ? '⚠️' : '·'
+      const exp = n.expediente?.caratula ?? n.expediente?.numero ?? ''
+      return `${badge} ${(n.titulo ?? 'Sin título').slice(0, 60)}${exp ? `\n   ${exp.slice(0, 50)}` : ''}`
+    })
+
+    await tgSend(token, chatId, `SAE (últimas 48hs):\n\n${lines.join('\n\n')}`)
+    return
+  }
+
+  // Comando desconocido
+  await tgSend(token, chatId, `Comando desconocido "/${cmd}".\n\n/ayuda para ver los disponibles.`)
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok')
 
@@ -226,6 +455,12 @@ Deno.serve(async (req) => {
     }
     if (!texto) {
       await tgSend(token, chatId, 'Mandame una nota de voz o un texto diciendo el expediente (por actor/demandado o número) y qué hay que presentar.')
+      return new Response('ok')
+    }
+
+    // Comandos de gestión (/tareas, /tarea, /audiencias, /sae, /ayuda)
+    if (texto.startsWith('/')) {
+      await handleGestion(admin, token, chatId, texto)
       return new Response('ok')
     }
 

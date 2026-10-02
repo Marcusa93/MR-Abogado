@@ -240,6 +240,29 @@ Deno.serve(async (req) => {
 
     console.log(`[sae-movimientos-push] ${movements.length} movs, ${byUser.size} usuarios, ${pushSent} push enviados`)
 
+    // Notificación Telegram a Marco (siempre, independiente del push)
+    const marcoChat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID'))
+    const tgToken = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
+    if (marcoChat && tgToken && byExp.size > 0) {
+      const sorted = [...byExp.entries()]
+        .sort(([, a], [, b]) => a.topPrio - b.topPrio)
+        .slice(0, 8)
+      const lines = sorted.map(([, e]) => {
+        const badge = e.topPrio === 1 ? '⚠️' : '·'
+        const topMov = [...e.movs].sort((a, b) => prio(a.tipo) - prio(b.tipo))[0]
+        const tipoLabel = TIPO_LABEL[topMov.tipo] ?? topMov.tipo
+        const extra = e.movs.length > 1 ? ` (+${e.movs.length - 1})` : ''
+        return `${badge} ${tipoLabel}: ${e.caratula.slice(0, 50)}${extra}`
+      })
+      if (byExp.size > 8) lines.push(`... y ${byExp.size - 8} más`)
+      const msg = `SAE — ${movements.length} movimiento${movements.length > 1 ? 's' : ''} en ${byExp.size} expediente${byExp.size > 1 ? 's' : ''}:\n\n${lines.join('\n')}`
+      await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: marcoChat, text: msg, disable_web_page_preview: true }),
+      }).catch(e => console.warn('[sae-push] telegram error:', e))
+    }
+
     return json(req, {
       ok: true,
       movimientos: movements.length,
