@@ -240,27 +240,69 @@ Deno.serve(async (req) => {
 
     console.log(`[sae-movimientos-push] ${movements.length} movs, ${byUser.size} usuarios, ${pushSent} push enviados`)
 
-    // Notificación Telegram a Marco (siempre, independiente del push)
+    // Notificación Telegram a Marco — informe por notificación SAE con resumen IA
     const marcoChat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID'))
     const tgToken = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
-    if (marcoChat && tgToken && byExp.size > 0) {
-      const sorted = [...byExp.entries()]
-        .sort(([, a], [, b]) => a.topPrio - b.topPrio)
-        .slice(0, 8)
-      const lines = sorted.map(([, e]) => {
-        const badge = e.topPrio === 1 ? '⚠️' : '·'
-        const topMov = [...e.movs].sort((a, b) => prio(a.tipo) - prio(b.tipo))[0]
-        const tipoLabel = TIPO_LABEL[topMov.tipo] ?? topMov.tipo
-        const extra = e.movs.length > 1 ? ` (+${e.movs.length - 1})` : ''
-        return `${badge} ${tipoLabel}: ${e.caratula.slice(0, 50)}${extra}`
-      })
-      if (byExp.size > 8) lines.push(`... y ${byExp.size - 8} más`)
-      const msg = `SAE — ${movements.length} movimiento${movements.length > 1 ? 's' : ''} en ${byExp.size} expediente${byExp.size > 1 ? 's' : ''}:\n\n${lines.join('\n')}`
-      await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: marcoChat, text: msg, disable_web_page_preview: true }),
-      }).catch(e => console.warn('[sae-push] telegram error:', e))
+    if (marcoChat && tgToken && expIds.length > 0) {
+      type SaeNotif = {
+        titulo: string | null
+        ia_resumen: string | null
+        prioridad: string | null
+        fecha_emision: string | null
+        expediente: { caratula: string | null; numero: string | null } | null
+      }
+      const { data: saeNotifs } = await admin
+        .from('sae_notificaciones')
+        .select('titulo, ia_resumen, prioridad, fecha_emision, expediente:expedientes(caratula, numero)')
+        .in('expediente_id', expIds)
+        .gte('fecha_captura', since)
+        .order('fecha_emision', { ascending: false })
+        .limit(30)
+
+      if (saeNotifs?.length) {
+        const PRIO_ORDER_TG: Record<string, number> = { urgente: 0, normal: 1, info: 2 }
+        const notifsSorted = [...(saeNotifs as SaeNotif[])].sort(
+          (a, b) =>
+            (PRIO_ORDER_TG[a.prioridad ?? 'normal'] ?? 1) -
+            (PRIO_ORDER_TG[b.prioridad ?? 'normal'] ?? 1),
+        )
+
+        const fechaHoy = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        const header = `SAE — ${notifsSorted.length} notificación${notifsSorted.length > 1 ? 'es' : ''} · ${fechaHoy}\n`
+
+        const blocks = notifsSorted.map(n => {
+          const badge =
+            n.prioridad === 'urgente' ? '⚠️ URGENTE' :
+            n.prioridad === 'info'    ? 'ℹ️' : '·'
+          const exp = n.expediente?.caratula ?? n.expediente?.numero ?? ''
+          const fecha = n.fecha_emision ? ` · ${n.fecha_emision.slice(0, 10)}` : ''
+          const titulo = n.titulo ?? 'Sin título'
+          const resumen = n.ia_resumen ? `\n${n.ia_resumen}` : ''
+          return `${badge} ${titulo}${fecha}\n${exp}${resumen}`
+        })
+
+        // Telegram: máx 4096 chars por mensaje — partir en chunks si hace falta
+        const chunks: string[] = []
+        let current = header
+        for (const block of blocks) {
+          const sep = current === header ? '\n' : '\n\n'
+          if (current.length + sep.length + block.length > 4000) {
+            chunks.push(current.trimEnd())
+            current = block + '\n\n'
+          } else {
+            current += sep + block
+          }
+        }
+        if (current.trim()) chunks.push(current.trimEnd())
+
+        for (const chunk of chunks) {
+          await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: marcoChat, text: chunk, disable_web_page_preview: true }),
+          }).catch(e => console.warn('[sae-push] telegram error:', e))
+        }
+      }
     }
 
     return json(req, {
