@@ -5,6 +5,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { analyzeAdjuntoWithAI } from '../_shared/adjunto-ai-analyzer.ts'
+import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
+
+const FUNCTION_NAME = 'analyze-adjunto'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -55,6 +58,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
+
+    // Imágenes: estimamos 80 KB; PDFs: usamos longitud real del texto extraído
+    const inputBytes = documentText.length || 80_000
+    const guard = await checkLlmGuard(serviceClient, user.id, FUNCTION_NAME, inputBytes)
+    if (!guard.ok) return json(req, { error: guard.error }, guard.status)
 
     // RLS-aware fetch para autorización (anon client respeta can_view_expediente y consulta branch)
     const { data: ownedRows, error: ownedError } = await anonClient
@@ -135,6 +143,8 @@ Deno.serve(async (req) => {
           ai_error: null,
         })
         .eq('id', adjuntoId)
+
+      logLlmCall(serviceClient, user.id, FUNCTION_NAME, inputBytes)
 
       // Si el adjunto pertenece a una consulta, volcar los hechos extraídos a notas_libres.
       // Se usa RPC atómica para evitar race conditions si hay múltiples adjuntos.

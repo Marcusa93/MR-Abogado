@@ -249,17 +249,22 @@ Deno.serve(async (req) => {
         ia_resumen: string | null
         prioridad: string | null
         fecha_emision: string | null
+        expediente_id: string | null
+        raw_payload: { ver_url?: string } | null
         expediente: { caratula: string | null; numero: string | null } | null
       }
       const { data: saeNotifs } = await admin
         .from('sae_notificaciones')
-        .select('titulo, ia_resumen, prioridad, fecha_emision, expediente:expedientes(caratula, numero)')
+        .select('titulo, ia_resumen, prioridad, fecha_emision, expediente_id, raw_payload, expediente:expedientes(caratula, numero)')
         .in('expediente_id', expIds)
         .gte('fecha_captura', since)
         .order('fecha_emision', { ascending: false })
         .limit(30)
 
       if (saeNotifs?.length) {
+        const esc = (s: string | null | undefined) =>
+          (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
         const PRIO_ORDER_TG: Record<string, number> = { urgente: 0, normal: 1, info: 2 }
         const notifsSorted = [...(saeNotifs as SaeNotif[])].sort(
           (a, b) =>
@@ -268,27 +273,34 @@ Deno.serve(async (req) => {
         )
 
         const fechaHoy = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        const header = `SAE — ${notifsSorted.length} notificación${notifsSorted.length > 1 ? 'es' : ''} · ${fechaHoy}\n`
+        const header = `<b>SAE — ${notifsSorted.length} notificación${notifsSorted.length > 1 ? 'es' : ''} · ${fechaHoy}</b>`
 
+        const APP = 'https://app.marcorossi.com.ar'
         const blocks = notifsSorted.map(n => {
           const badge =
-            n.prioridad === 'urgente' ? '⚠️ URGENTE' :
-            n.prioridad === 'info'    ? 'ℹ️' : '·'
+            n.prioridad === 'urgente' ? '⚠️' :
+            n.prioridad === 'info'    ? 'ℹ️' : '▸'
           const exp = n.expediente?.caratula ?? n.expediente?.numero ?? ''
-          const fecha = n.fecha_emision ? ` · ${n.fecha_emision.slice(0, 10)}` : ''
-          const titulo = n.titulo ?? 'Sin título'
-          const resumen = n.ia_resumen ? `\n${n.ia_resumen}` : ''
-          return `${badge} ${titulo}${fecha}\n${exp}${resumen}`
+          const fecha = n.fecha_emision ? n.fecha_emision.slice(0, 10) : ''
+          const titulo = esc(n.titulo ?? 'Sin título').toUpperCase()
+          const resumen = n.ia_resumen ? `\n<i>${esc(n.ia_resumen)}</i>` : ''
+          const meta = [fecha, exp ? esc(exp) : ''].filter(Boolean).join(' · ')
+          const verUrl = n.raw_payload?.ver_url
+          const appUrl = n.expediente_id ? `${APP}/expedientes/${n.expediente_id}` : `${APP}/notificaciones-sae`
+          const linkParts: string[] = []
+          if (verUrl) linkParts.push(`<a href="${verUrl}">Ver en SAE</a>`)
+          linkParts.push(`<a href="${appUrl}">Ver en app</a>`)
+          return `${badge} <b>${titulo}</b>\n${meta}${resumen}\n${linkParts.join('  ·  ')}`
         })
 
         // Telegram: máx 4096 chars por mensaje — partir en chunks si hace falta
         const chunks: string[] = []
         let current = header
         for (const block of blocks) {
-          const sep = current === header ? '\n' : '\n\n'
+          const sep = current === header ? '\n\n' : '\n\n'
           if (current.length + sep.length + block.length > 4000) {
             chunks.push(current.trimEnd())
-            current = block + '\n\n'
+            current = block
           } else {
             current += sep + block
           }
@@ -299,7 +311,7 @@ Deno.serve(async (req) => {
           await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: marcoChat, text: chunk, disable_web_page_preview: true }),
+            body: JSON.stringify({ chat_id: marcoChat, text: chunk, parse_mode: 'HTML', disable_web_page_preview: true }),
           }).catch(e => console.warn('[sae-push] telegram error:', e))
         }
       }

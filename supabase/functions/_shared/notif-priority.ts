@@ -8,7 +8,6 @@
 // Si falla, devuelve null y el caller deja la notif sin clasificar.
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-haiku-4.5'
 
 export interface PriorityClassification {
   prioridad: 'urgente' | 'normal' | 'info'
@@ -99,7 +98,7 @@ export async function classifyNotifPriority(
         'X-Title': 'MR Abogado System',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-3-haiku-20240307',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },

@@ -8,6 +8,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 const TG_API = 'https://api.telegram.org'
 const OR_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const APP_URL = 'https://app.marcorossi.com.ar'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -105,8 +106,9 @@ type NotifRow = {
   prioridad: string | null
   ia_resumen: string | null
   fecha_emision: string | null
-  raw_payload: { fuero?: string } | null
+  raw_payload: { fuero?: string; ver_url?: string } | null
   expediente: { caratula: string | null; numero: string | null } | null
+  expediente_id: string | null
 }
 
 function formatBlock(n: NotifRow): string {
@@ -132,7 +134,16 @@ function formatBlock(n: NotifRow): string {
 
   const linea4 = n.ia_resumen ? `<i>${e(n.ia_resumen)}</i>` : ''
 
-  return [linea1, linea2, linea3, linea4].filter(Boolean).join('\n')
+  const verUrl = n.raw_payload?.ver_url
+  const appUrl = n.expediente_id
+    ? `${APP_URL}/expedientes/${n.expediente_id}`
+    : `${APP_URL}/notificaciones-sae`
+  const linkParts: string[] = []
+  if (verUrl) linkParts.push(`<a href="${verUrl}">Ver en SAE</a>`)
+  linkParts.push(`<a href="${appUrl}">Ver en app</a>`)
+  const linea5 = linkParts.join('  ·  ')
+
+  return [linea1, linea2, linea3, linea4, linea5].filter(Boolean).join('\n')
 }
 
 async function tgSend(token: string, chatId: number, text: string) {
@@ -183,7 +194,7 @@ Deno.serve(async (req) => {
     .from('sae_notificaciones')
     .select(`
       id, titulo, tipo, caratula, numero_expediente, oficina,
-      prioridad, ia_resumen, fecha_emision, raw_payload,
+      prioridad, ia_resumen, fecha_emision, raw_payload, expediente_id,
       expediente:expedientes(caratula, numero)
     `)
     .in('profile_id', profileIds)
