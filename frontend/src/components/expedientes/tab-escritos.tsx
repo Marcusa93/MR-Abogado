@@ -7,7 +7,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import {
   PenLine, Plus, Loader2, FileText, Trash2, Printer, X, Sparkles, FileSearch,
   AlertCircle, Pencil, Check, Upload, Send, ExternalLink, ShieldCheck, Gavel,
-  Mic, Square, Wand2,
+  Mic, Square, Wand2, BookMarked,
 } from 'lucide-react'
 import { SugerirJurisprudenciaDialog } from './sugerir-jurisprudencia-dialog'
 import { useAuth } from '@/hooks/use-auth'
@@ -15,7 +15,7 @@ import {
   useEscritos, useEscritoTiposPrevios, useGenerateEscrito,
   useDeleteEscrito, useUpdateEscrito, useEscritoTemplates,
   useAttachSignedPdf, usePresentarEscrito, useFetchPortalCategorias,
-  useTranscribirAudio, useRefinarEscrito,
+  useTranscribirAudio, useRefinarEscrito, useExtraerModelo,
   type Escrito, type EscritoContenido, type PortalFormInfo,
 } from '@/hooks/use-escritos'
 import { useSaeMovements } from '@/hooks/use-sae'
@@ -917,6 +917,7 @@ function EscritoEditorModal({
   useModalHistory(onClose)
 
   const update = useUpdateEscrito()
+  const extraerModelo = useExtraerModelo()
   const [contenido, setContenido] = useState<EscritoContenido>(escrito.contenido)
   const [titulo, setTitulo] = useState(escrito.titulo)
   const [estado, setEstado] = useState<Escrito['estado']>(escrito.estado)
@@ -1098,6 +1099,21 @@ function EscritoEditorModal({
     )
   }
 
+  const handleGuardarModelo = () => {
+    const texto = [
+      contenido.encabezado_juez,
+      contenido.caratula,
+      ...(contenido.secciones?.flatMap(s => [s.titulo, ...(s.parrafos ?? [])]) ?? []),
+    ].filter(Boolean).join('\n\n')
+    extraerModelo.mutate(
+      { texto, nombre: titulo || undefined },
+      {
+        onSuccess: () => toast.success('Plantilla guardada'),
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo guardar la plantilla'),
+      }
+    )
+  }
+
   // Cambio de estado: se guarda solo (no requiere apretar "Guardar")
   const handleChangeEstado = (nuevo: Escrito['estado']) => {
     setEstado(nuevo)
@@ -1227,6 +1243,17 @@ function EscritoEditorModal({
             <Gavel className="h-3 w-3" />
             <span className="hidden sm:inline">Jurisprudencia</span>
           </button>
+          {(estado === 'firmado' || estado === 'presentado_sae' || estado === 'presentado') && (
+            <button
+              onClick={handleGuardarModelo}
+              disabled={extraerModelo.isPending}
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-30"
+              title="Extraer como plantilla reutilizable"
+            >
+              {extraerModelo.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookMarked className="h-3 w-3" />}
+              <span className="hidden sm:inline">Plantilla</span>
+            </button>
+          )}
           <button
             onClick={handlePrint}
             className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20"
