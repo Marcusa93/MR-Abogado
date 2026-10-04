@@ -32,7 +32,7 @@ import { authenticateWithSae, SaeError, SAE_PORTAL_BASE as PORTAL_BASE, type Sae
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
 import { classifyNotifPriority, type PriorityClassification } from '../_shared/notif-priority.ts'
-import { calcularVencimiento, type FeriaPeriod } from '../_shared/judicial-calendar.ts'
+import { calcularVencimiento, fetchFeriadosArgentina, getTucumanProvincialFeriados, type FeriaPeriod } from '../_shared/judicial-calendar.ts'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
 const MAX_REDIRECT_HOPS = 20     // SSO puede encadenar 4-6 saltos; 20 da margen ante cambios
@@ -777,6 +777,14 @@ Deno.serve(async (req) => {
       return feriaPeriodsCache
     }
 
+    // Feriados completos: nacionales (API) + provinciales Tucumán
+    const currentYear = new Date().getFullYear()
+    const [fetchedFeriados, tucumanFeriados] = await Promise.all([
+      fetchFeriadosArgentina(currentYear),
+      Promise.resolve(getTucumanProvincialFeriados(currentYear)),
+    ])
+    const extraHolidays = new Set<string>([...fetchedFeriados, ...tucumanFeriados])
+
     await Promise.all(nuevas.map(async (n) => {
       const cls = await classifyNotifPriority({
         tipo: n.tipo,
@@ -796,7 +804,7 @@ Deno.serve(async (req) => {
           ?? new Date().toISOString().slice(0, 10)
         try {
           const ferias = await getFeriasCached()
-          const fechaVencimiento = calcularVencimiento(fechaActuacion, cls.dias, cls.es_habiles ?? true, ferias)
+          const fechaVencimiento = calcularVencimiento(fechaActuacion, cls.dias, cls.es_habiles ?? true, ferias, extraHolidays)
           if (fechaVencimiento) {
             plazoSugerido = {
               tipo_acto: cls.tipo_acto,

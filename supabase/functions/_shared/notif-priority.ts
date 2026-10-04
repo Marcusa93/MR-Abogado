@@ -27,13 +27,21 @@ Reglas de prioridad:
 - "normal": acción esperable pero sin urgencia inmediata (proveídos, decretos de trámite, ofrecimientos de prueba con plazo > 5 días).
 - "info": puro registro, sin acción requerida (constancias, comprobantes, simples notificaciones de pase a despacho).
 
-Plazos procesales comunes (CPCC Tucumán y legislación aplicable):
-- Traslado de demanda: 15 días hábiles (art. 338 CPCC)
-- Traslado de excepción: 5 días hábiles (art. 347 CPCC)
-- Intimación de pago: 5 días hábiles
-- Reposición/oposición: 3 días hábiles (art. 240 CPCC)
-- Apelación: 5 días hábiles (art. 254 CPCC)
-- Ofrecimiento de prueba: 10 días hábiles (variable por fuero)
+Plazos procesales comunes:
+
+CIVIL / FAMILIA (CPCC Tucumán, Ley 6176):
+- Traslado de demanda: 15 días hábiles (art. 362 Ley 6176)
+- Traslado de excepción: 5 días hábiles (art. 392 Ley 6176)
+- Intimación de pago (ejecutivo): 5 días hábiles (art. 553 Ley 6176)
+- Reposición/oposición: 3 días hábiles (art. 273 Ley 6176)
+- Apelación: 5 días hábiles (art. 278 Ley 6176)
+- Ofrecimiento de prueba: 10 días hábiles (art. 442 Ley 6176)
+- Respuesta a cautelar: 5 días hábiles (art. 208 Ley 6176)
+
+LABORAL (Cód. Proc. Laboral Tucumán, Ley 7816):
+- Traslado de demanda: 10 días hábiles (art. 61 Ley 7816)
+- Apelación: 5 días hábiles (art. 105 Ley 7816)
+- Reposición: 3 días hábiles (art. 100 Ley 7816)
 - Respuesta a cautelar: 5 días hábiles
 
 Devolvé EXACTAMENTE este JSON, sin texto adicional:

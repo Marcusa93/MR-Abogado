@@ -220,6 +220,7 @@ async function handleGestion(
   if (cmd === 'ayuda' || cmd === 'help' || cmd === 'start') {
     await tgSend(token, chatId,
       'Comandos de gestión:\n\n' +
+      '/hoy — resumen diario (audiencias + SAE urgentes + tareas vencidas)\n' +
       '/tareas [nombre] — pendientes de un colaborador\n' +
       '/tarea [texto] — crear tarea rápida\n' +
       '  Ej: /tarea redactar demanda Valdez para Claudio alta\n' +
@@ -349,6 +350,77 @@ async function handleGestion(
         ? `Tarea creada (${prioLabel}) para ${asignadoNombre}:\n"${titulo}"\n\n${APP_URL}/tareas`
         : `Tarea creada (${prioLabel}):\n"${titulo}"\n\n${APP_URL}/tareas`,
     )
+    return
+  }
+
+  // /hoy — resumen diario: audiencias + SAE urgentes + tareas vencidas
+  if (cmd === 'hoy') {
+    const todayAR = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const since48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+    type AudHoyRow = { hora: string | null; expediente: { id: string; caratula: string | null; numero: string | null } | null }
+    type SaeUrgRow = { titulo: string | null; ia_resumen: string | null; expediente_id: string | null; expediente: { caratula: string | null } | null }
+    type TareaVencRow = { titulo: string; prioridad: string | null; fecha_vencimiento: string | null; expediente: { caratula: string | null; numero: string | null } | null }
+
+    const [{ data: auds }, { data: saeUrg }, { data: tareasVenc }] = await Promise.all([
+      admin.from('audiencias')
+        .select('hora, expediente:expedientes!inner(id, caratula, numero)')
+        .eq('fecha', todayAR)
+        .neq('estado', 'CANCELADA')
+        .order('hora', { ascending: true })
+        .limit(5),
+      admin.from('sae_notificaciones')
+        .select('titulo, ia_resumen, expediente_id, expediente:expedientes(caratula)')
+        .eq('prioridad', 'urgente')
+        .gte('fecha_captura', since48h)
+        .order('fecha_captura', { ascending: false })
+        .limit(5),
+      admin.from('tareas')
+        .select('titulo, prioridad, fecha_vencimiento, expediente:expedientes(caratula, numero)')
+        .in('estado', ['PENDIENTE', 'EN_PROGRESO'])
+        .lte('fecha_vencimiento', todayAR)
+        .order('prioridad', { ascending: false })
+        .limit(5),
+    ])
+
+    const parts: string[] = [`Resumen ${todayAR}`]
+
+    if ((auds as AudHoyRow[] | null)?.length) {
+      const lines = (auds as AudHoyRow[]).map(a => {
+        const hora = a.hora ? ` ${a.hora.slice(0, 5)}hs` : ''
+        const exp = (a.expediente?.caratula ?? a.expediente?.numero ?? 'Expediente').slice(0, 55)
+        return `•${hora} ${exp}`
+      })
+      parts.push(`\n\n🏛 Audiencias hoy (${(auds as AudHoyRow[]).length}):\n${lines.join('\n')}`)
+    } else {
+      parts.push('\n\n🏛 Sin audiencias hoy')
+    }
+
+    if ((saeUrg as SaeUrgRow[] | null)?.length) {
+      const lines = (saeUrg as SaeUrgRow[]).map(n => {
+        const exp = n.expediente?.caratula ?? ''
+        const txt = (n.ia_resumen ?? n.titulo ?? 'Sin título').slice(0, 65)
+        return `• ${txt}${exp ? `\n  ${exp.slice(0, 50)}` : ''}`
+      })
+      parts.push(`\n\n⚠️ SAE urgentes (${(saeUrg as SaeUrgRow[]).length}):\n${lines.join('\n')}`)
+    } else {
+      parts.push('\n\n⚠️ Sin SAE urgentes')
+    }
+
+    if ((tareasVenc as TareaVencRow[] | null)?.length) {
+      const lines = (tareasVenc as TareaVencRow[]).map(t => {
+        const badge = t.prioridad === 'URGENTE' ? '🔴' : t.prioridad === 'ALTA' ? '🟠' : '🟡'
+        const exp = (t.expediente?.caratula ?? t.expediente?.numero ?? '').slice(0, 45)
+        const venc = t.fecha_vencimiento ? ` · ${t.fecha_vencimiento.slice(5, 10)}` : ''
+        return `${badge} ${t.titulo.slice(0, 55)}${venc}${exp ? `\n  ${exp}` : ''}`
+      })
+      parts.push(`\n\n📌 Tareas vencidas (${(tareasVenc as TareaVencRow[]).length}):\n${lines.join('\n')}`)
+    } else {
+      parts.push('\n\n📌 Sin tareas vencidas')
+    }
+
+    parts.push(`\n\n${APP_URL}/hoy`)
+    await tgSend(token, chatId, parts.join(''))
     return
   }
 

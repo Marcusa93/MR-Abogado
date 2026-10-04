@@ -114,6 +114,36 @@ function getHolidays(year: number): Set<string> {
   return holidayCache.get(year)!
 }
 
+// ── API de feriados nacionales ────────────────────────────────────────────────
+// Fuente: https://api.argentinadatos.com/v1/feriados/{year}
+// Retorna [] si falla (caída de red, timeout). Los feriados hardcodeados siguen activos.
+
+export async function fetchFeriadosArgentina(year: number, timeoutMs = 4000): Promise<string[]> {
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+    const res = await fetch(`https://api.argentinadatos.com/v1/feriados/${year}`, { signal: ctrl.signal })
+    clearTimeout(timer)
+    if (!res.ok) return []
+    const data = await res.json() as Array<{ fecha?: string }>
+    return Array.isArray(data)
+      ? data.filter(f => typeof f.fecha === 'string').map(f => f.fecha as string)
+      : []
+  } catch {
+    return []
+  }
+}
+
+// ── Feriados provinciales Tucumán ─────────────────────────────────────────────
+// Solo los fijos; los que coinciden con inamovibles nacionales ya están cubiertos.
+
+export function getTucumanProvincialFeriados(year: number): string[] {
+  const y = String(year)
+  return [
+    `${y}-09-24`, // Batalla de Tucumán (Ley prov. 7727)
+  ]
+}
+
 // ── Verificación de feria para una fecha ─────────────────────────────────────
 
 function isInFeria(date: Date, periods: FeriaPeriod[]): boolean {
@@ -123,18 +153,20 @@ function isInFeria(date: Date, periods: FeriaPeriod[]): boolean {
 
 // ── API pública ───────────────────────────────────────────────────────────────
 
-export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[]): boolean {
+export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[], extraHolidays?: Set<string>): boolean {
   const dow = date.getUTCDay()
   if (dow === 0 || dow === 6) return false
   if (isInFeria(date, feriaPeriods)) return false
-  if (getHolidays(date.getUTCFullYear()).has(isoUTC(date))) return false
+  const iso = isoUTC(date)
+  if (getHolidays(date.getUTCFullYear()).has(iso)) return false
+  if (extraHolidays?.has(iso)) return false
   return true
 }
 
-function primerHabilDesde(from: Date, feriaPeriods: FeriaPeriod[]): Date {
+function primerHabilDesde(from: Date, feriaPeriods: FeriaPeriod[], extraHolidays?: Set<string>): Date {
   let d = new Date(from)
   for (let i = 0; i < 400; i++) {
-    if (isHabilDay(d, feriaPeriods)) return d
+    if (isHabilDay(d, feriaPeriods, extraHolidays)) return d
     d = shiftUTC(d, 1)
   }
   return d
@@ -164,6 +196,7 @@ export function calcularVencimiento(
   dias: number,
   habiles: boolean,
   feriaPeriods: FeriaPeriod[],
+  extraHolidays?: Set<string>,
 ): string | null {
   if (!fechaActuacion || !Number.isInteger(dias) || dias <= 0) return null
 
@@ -174,10 +207,10 @@ export function calcularVencimiento(
   if (isNaN(base.getTime())) return null
 
   // Notificación = primer hábil posterior a la firma
-  const notificacion = primerHabilDesde(shiftUTC(base, 1), feriaPeriods)
+  const notificacion = primerHabilDesde(shiftUTC(base, 1), feriaPeriods, extraHolidays)
 
   // Primer día procesal = primer hábil posterior a la notificación
-  const primerDia = primerHabilDesde(shiftUTC(notificacion, 1), feriaPeriods)
+  const primerDia = primerHabilDesde(shiftUTC(notificacion, 1), feriaPeriods, extraHolidays)
 
   if (!habiles) {
     // Días corridos: día 1 = primerDia, día N = primerDia + (N-1) calendarios
@@ -190,7 +223,7 @@ export function calcularVencimiento(
   const maxIter = dias * 5 + 400
 
   for (let i = 0; i < maxIter; i++) {
-    if (isHabilDay(current, feriaPeriods)) {
+    if (isHabilDay(current, feriaPeriods, extraHolidays)) {
       counted++
       if (counted === dias) return isoUTC(current)
     }
