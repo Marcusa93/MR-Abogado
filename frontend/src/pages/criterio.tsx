@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
-  CheckSquare, ClipboardList, AlertTriangle, Clock,
-  FolderOpen, ArrowRight, Loader2, Inbox,
+  CheckSquare, ClipboardList, AlertTriangle,
+  FolderOpen, ArrowRight, Loader2,
 } from 'lucide-react'
 import { useTareas } from '@/hooks/use-tareas'
 import { useAuth } from '@/hooks/use-auth'
@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import type { Consulta, ConsultaTipoAsunto } from '@/hooks/use-consultas'
 import { TIPO_ASUNTO_LABEL } from '@/hooks/use-consultas'
-import type { TareaWithRelations } from '@/hooks/use-tareas'
 import { useWorkloadMiembros } from '@/hooks/use-workload'
+import { TareasAsignadasPanel } from '@/components/dashboard/tareas-asignadas-panel'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,71 +25,10 @@ function greeting() {
   return 'Buenas noches'
 }
 
-function formatFechaVencimiento(fecha: string | null) {
-  if (!fecha) return null
-  const d = new Date(fecha + 'T00:00:00')
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-  const diff = Math.round((d.getTime() - hoy.getTime()) / 86_400_000)
-  if (diff < 0) return { label: `Vencida hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`, clase: 'text-rose-400' }
-  if (diff === 0) return { label: 'Vence hoy', clase: 'text-amber-400 font-semibold' }
-  if (diff === 1) return { label: 'Vence mañana', clase: 'text-amber-300' }
-  return { label: `Vence en ${diff} días`, clase: 'text-zinc-400' }
-}
-
-const PRIORIDAD_COLORS: Record<string, string> = {
-  URGENTE: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
-  ALTA: 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
-  MEDIA: 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20',
-  BAJA: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
-}
-
 const CONSULTA_ESTADO_LABELS: Record<string, string> = {
   pendiente: 'Pendiente',
   en_proceso: 'En proceso',
   presupuestada: 'Presupuestada',
-}
-
-// ---------------------------------------------------------------------------
-// TareaCard
-// ---------------------------------------------------------------------------
-
-function TareaCard({ tarea }: { tarea: TareaWithRelations }) {
-  const vto = formatFechaVencimiento(tarea.fecha_vencimiento)
-  const expediente = tarea.expediente as any
-  return (
-    <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 space-y-1.5">
-      <div className="flex items-start gap-2">
-        <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide', PRIORIDAD_COLORS[tarea.prioridad ?? 'MEDIA'])}>
-          {tarea.prioridad}
-        </span>
-        <p className="flex-1 text-sm font-medium text-zinc-100 leading-snug line-clamp-2">{tarea.titulo}</p>
-      </div>
-      {expediente?.id && (
-        <Link
-          to={`/expedientes/${expediente.id}`}
-          className="flex items-center gap-1 text-[11px] text-amber-300/80 hover:text-amber-300 transition-colors max-w-full truncate"
-        >
-          <FolderOpen className="h-3 w-3 shrink-0" />
-          <span className="truncate">{expediente.caratula || expediente.numero}</span>
-        </Link>
-      )}
-      <div className="flex items-center justify-between gap-2">
-        {vto && (
-          <span className={cn('text-[11px]', vto.clase)}>{vto.label}</span>
-        )}
-        <span className={cn(
-          'text-[10px] px-1.5 py-0.5 rounded',
-          tarea.estado === 'EN_PROGRESO' ? 'bg-blue-500/15 text-blue-300' : 'bg-zinc-500/10 text-zinc-400',
-        )}>
-          {tarea.estado === 'EN_PROGRESO' ? 'En progreso' : 'Pendiente'}
-        </span>
-      </div>
-      {tarea.descripcion && (
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 italic">{tarea.descripcion}</p>
-      )}
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +144,7 @@ export default function CriterioPage() {
   const { profile } = useAuth()
   const profileId = profile?.id
 
-  const { data: tareasPaginadas, isLoading: loadingTareas } = useTareas({
+  const { data: tareasPaginadas } = useTareas({
     asignado_a: profileId,
     pageSize: 50,
     sortBy: 'fecha_vencimiento',
@@ -220,7 +159,6 @@ export default function CriterioPage() {
   )
 
   const urgentesYAltas = tareas.filter((t) => t.prioridad === 'URGENTE' || t.prioridad === 'ALTA')
-  const otras = tareas.filter((t) => t.prioridad !== 'URGENTE' && t.prioridad !== 'ALTA')
 
   const hoy = new Date()
   const fechaHoy = hoy.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -276,54 +214,8 @@ export default function CriterioPage() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
         {/* Tareas — ocupa 3 de 5 columnas en desktop */}
-        <div className="lg:col-span-3 space-y-4">
-
-          {/* Urgentes + Altas */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-rose-400" />
-              <h2 className="text-sm font-semibold text-zinc-200">Prioridad alta</h2>
-              {urgentesYAltas.length > 0 && (
-                <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300">
-                  {urgentesYAltas.length}
-                </span>
-              )}
-            </div>
-            {loadingTareas ? (
-              <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-zinc-500" /></div>
-            ) : urgentesYAltas.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-white/10 px-4 py-5 text-center text-xs text-zinc-500">
-                Sin tareas urgentes o altas
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {urgentesYAltas.map((t) => <TareaCard key={t.id} tarea={t} />)}
-              </div>
-            )}
-          </div>
-
-          {/* Otras tareas */}
-          {otras.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-zinc-400" />
-                <h2 className="text-sm font-semibold text-zinc-200">Otras tareas</h2>
-                <span className="rounded-full bg-zinc-500/15 px-2 py-0.5 text-[10px] font-bold text-zinc-400">
-                  {otras.length}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {otras.map((t) => <TareaCard key={t.id} tarea={t} />)}
-              </div>
-            </div>
-          )}
-
-          {!loadingTareas && tareas.length === 0 && (
-            <div className="rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center py-12 text-center">
-              <Inbox className="h-8 w-8 text-zinc-600 mb-2" />
-              <p className="text-sm text-zinc-400">No tenés tareas pendientes asignadas</p>
-            </div>
-          )}
+        <div className="lg:col-span-3">
+          {profileId && <TareasAsignadasPanel profileId={profileId} isSelf />}
         </div>
 
         {/* Consultas — 2 de 5 columnas en desktop */}
