@@ -29,6 +29,7 @@ import {
   PlusCircle, Plus, Calendar,
 } from 'lucide-react'
 import { NotificacionesHoyPanel } from '@/components/dashboard/notificaciones-hoy-panel'
+import { TareasAsignadasPanel } from '@/components/dashboard/tareas-asignadas-panel'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -936,6 +937,15 @@ export default function MiTrabajoPage() {
       {/* TAB: PERSONAL */}
       {tab === 'personal' && (
         <>
+          {/* Tareas asignadas — lo primero que se ve al entrar */}
+          {selectedId && (
+            <TareasAsignadasPanel
+              profileId={selectedId}
+              isSelf={isViewingSelf}
+              nombre={selectedMember ? `${selectedMember.nombre ?? ''} ${selectedMember.apellido ?? ''}`.trim() : undefined}
+            />
+          )}
+
           {/* Notificaciones del día */}
           <NotificacionesHoyPanel />
 

@@ -13,6 +13,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { transcribeAudio } from '../_shared/guion-reel-core.ts'
+import {
+  type Admin, APP_URL, PRIO_LABEL, completarTarea, formatLista, hoyAR, listarPendientes, nombreCorto,
+  parseFecha, parsePrioridad, tgAnswerCallback, tgSendKb, vencimientoLabel,
+} from '../_shared/tareas-telegram.ts'
 
 const TG_API = 'https://api.telegram.org'
 
@@ -24,6 +28,12 @@ interface TgUpdate {
     caption?: string
     voice?: { file_id: string }
     audio?: { file_id: string }
+  }
+  callback_query?: {
+    id: string
+    from: { id: number }
+    data?: string
+    message?: { chat: { id: number } }
   }
 }
 
@@ -89,7 +99,7 @@ function palabrasSignificativas(texto: string): string[] {
 
 // Resuelve el expediente por número (687/22, dígitos) o por palabras de la
 // carátula (actor/demandado), rankeando por cantidad de coincidencias.
-async function resolverExpediente(admin: ReturnType<typeof createClient>, texto: string): Promise<{ unico?: Exp; candidatos: Exp[] }> {
+async function resolverExpediente(admin: Admin, texto: string): Promise<{ unico?: Exp; candidatos: Exp[] }> {
   const sel = 'id, numero, numero_sae, caratula'
 
   // 1) Por número
@@ -155,7 +165,7 @@ function inferirTipoEscrito(texto: string): string | null {
 }
 
 // Helpers de sesión conversacional
-async function loadSession(admin: ReturnType<typeof createClient>, chatId: number): Promise<TelegramSession | null> {
+async function loadSession(admin: Admin, chatId: number): Promise<TelegramSession | null> {
   const { data } = await admin
     .from('telegram_escrito_sessions')
     .select('*')
@@ -164,7 +174,7 @@ async function loadSession(admin: ReturnType<typeof createClient>, chatId: numbe
   return data as TelegramSession | null
 }
 
-async function saveSession(admin: ReturnType<typeof createClient>, s: Partial<TelegramSession> & { chat_id: number }) {
+async function saveSession(admin: Admin, s: Partial<TelegramSession> & { chat_id: number }) {
   try {
     await admin.from('telegram_escrito_sessions').upsert({
       ...s,
@@ -186,30 +196,222 @@ const REINTENTAR_RE = /\b(reintent[aá]|de\s+nuevo|regenera[rl]?|hacé?\s+otro|v
 
 // ── GESTIÓN: comandos /tareas /tarea /audiencias /sae /ayuda ──────────────
 
-const APP_URL = 'https://app.marcorossi.com.ar'
-const PRIORIDAD_RE = /\b(urgente|alta|media|baja)\b/i
-const PARA_RE = /\bpara\s+([a-záéíóúñ]{2,}(?:\s+[a-záéíóúñ]{2,})?)/i
 const PRIO_ORDER: Record<string, number> = { URGENTE: 3, ALTA: 2, MEDIA: 1, BAJA: 0 }
 const PRIO_BADGE: Record<string, string> = { URGENTE: '🔴 Urgente', ALTA: '🟠 Alta', MEDIA: '🟡 Media', BAJA: '⚪ Baja' }
 
+const AYUDA_TAREA =
+  'Usá: /tarea [qué hacer] para [nombre] [para el viernes | mañana | 15/10] [urgente|alta|media|baja]\n\n' +
+  'Ej: /tarea demanda laboral Medina Vives Luciana para Claudio para el viernes alta\n\n' +
+  'Podés cargar varias, una por línea:\n' +
+  '/tarea demanda laboral Medina Vives Luciana para Claudio alta\n' +
+  'demanda laboral Moreno Paula para el lunes\n\n' +
+  'Si una línea no dice "para [nombre]", va al último nombrado. ' +
+  'El expediente (o la consulta) se vincula solo si el nombre del cliente está en el texto.'
+
+type PerfilBot = { id: string; nombre: string | null; apellido: string | null; telegram_chat_id: number | null }
+
 async function findPerfilByNombre(
-  admin: ReturnType<typeof createClient>,
+  admin: Admin,
   nombre: string,
-): Promise<{ id: string; nombre: string | null; apellido: string | null }[]> {
-  const q = nombre.trim()
+): Promise<PerfilBot[]> {
+  const q = nombre.trim().replace(/[,()%*]/g, '')
+  if (!q) return []
   const { data } = await admin.from('profiles')
-    .select('id, nombre, apellido')
+    .select('id, nombre, apellido, telegram_chat_id')
     .or(`nombre.ilike.%${q}%,apellido.ilike.%${q}%,nombre_completo.ilike.%${q}%`)
     .eq('activo', true)
     .limit(5)
-  return (data ?? []) as { id: string; nombre: string | null; apellido: string | null }[]
+  return (data ?? []) as PerfilBot[]
+}
+
+// ── Parser de /tarea: fecha, prioridad y asignado dentro de una línea ───────
+
+async function parseLineaTarea(
+  admin: Admin,
+  linea: string,
+): Promise<{ titulo: string; prioridad: string; fecha: string | null; asignado: PerfilBot | null } | { error: string }> {
+  let resto = linea
+  const f = parseFecha(resto, hoyAR()); resto = f.resto
+  let p = parsePrioridad(resto); resto = p.resto
+
+  // "para X" / "para X Y": se prueba cada aparición hasta encontrar un perfil.
+  let asignado: PerfilBot | null = null
+  const paraRe = /\bpara\s+([a-záéíóúñ]{2,})(?:\s+([a-záéíóúñ]{2,}))?/gi
+  const matches = [...resto.matchAll(paraRe)].reverse()
+  for (const m of matches) {
+    // Primero "para Nombre Apellido", después solo "para Nombre".
+    const conApellido = m[0]
+    const soloNombre = /^para\s+\S+/i.exec(m[0])![0]
+    const candidatos: [string, string][] = m[2] ? [[`${m[1]} ${m[2]}`, conApellido], [m[1], soloNombre]] : [[m[1], soloNombre]]
+    for (const [nombre, fragmento] of candidatos) {
+      const perfiles = await findPerfilByNombre(admin, nombre)
+      if (perfiles.length > 1) {
+        return { error: `Hay varios "${nombre}": ${perfiles.map(nombreCorto).join(', ')}. Usá el apellido.` }
+      }
+      if (perfiles.length === 1) {
+        asignado = perfiles[0]
+        resto = (resto.slice(0, m.index!) + ' ' + resto.slice(m.index! + fragmento.length)).replace(/\s{2,}/g, ' ').trim()
+        break
+      }
+    }
+    if (asignado) break
+  }
+
+  // La prioridad puede venir después del nombre ("para Claudio alta").
+  if (!p.prioridad) { p = parsePrioridad(resto); resto = p.resto }
+
+  const titulo = resto.replace(/^[,.\s]+|[,.\s]+$/g, '').trim()
+  if (!titulo) return { error: 'Falta qué hay que hacer.' }
+  const tituloFinal = titulo.charAt(0).toUpperCase() + titulo.slice(1)
+  return { titulo: tituloFinal, prioridad: p.prioridad ?? 'MEDIA', fecha: f.fecha, asignado }
+}
+
+// Palabras del título de una tarea que no identifican al cliente.
+const STOP_TAREA = new Set([
+  'laboral', 'civil', 'familia', 'previsional', 'redactar', 'preparar', 'armar', 'revisar', 'llamar',
+  'enviar', 'mandar', 'presentar', 'hacer', 'cobro', 'pesos', 'despido', 'indemnizacion', 'indemnización',
+  'reclamo', 'carta', 'documento', 'telegrama', 'urgente', 'cliente', 'clienta', 'audiencia',
+])
+
+/**
+ * Busca el expediente (por carátula) o la consulta (por nombre/apellido)
+ * mencionado en el título. Solo vincula si hay un único candidato claro:
+ * al menos 2 palabras coincidentes (nombre + apellido), o 1 si el título
+ * tiene una sola palabra significativa.
+ */
+async function buscarAsunto(
+  admin: Admin,
+  titulo: string,
+): Promise<{ tipo: 'expediente' | 'consulta'; id: string; label: string } | null> {
+  const palabras = palabrasSignificativas(titulo).filter(w => !STOP_TAREA.has(w.toLowerCase()))
+  if (palabras.length === 0) return null
+  const minHits = palabras.length === 1 ? 1 : 2
+
+  function mejor<T>(scored: Map<string, { e: T; hits: number }>): T | null {
+    if (scored.size === 0) return null
+    const max = Math.max(...[...scored.values()].map(s => s.hits))
+    const top = [...scored.values()].filter(s => s.hits === max)
+    return max >= minHits && top.length === 1 ? top[0].e : null
+  }
+
+  const exps = new Map<string, { e: Exp; hits: number }>()
+  for (const w of palabras) {
+    const { data } = await admin.from('expedientes').select('id, numero, numero_sae, caratula')
+      .is('deleted_at', null).ilike('caratula', `%${w}%`).limit(20)
+    for (const e of (data ?? []) as Exp[]) {
+      const cur = exps.get(e.id) ?? { e, hits: 0 }
+      cur.hits++; exps.set(e.id, cur)
+    }
+  }
+  const exp = mejor(exps)
+  if (exp) return { tipo: 'expediente', id: exp.id, label: `Expediente: ${(exp.caratula ?? exp.numero_sae ?? exp.numero ?? '').slice(0, 70)}` }
+
+  type Cons = { id: string; nombre: string | null; apellido: string | null }
+  const cons = new Map<string, { e: Cons; hits: number }>()
+  for (const w of palabras) {
+    const { data } = await admin.from('consultas').select('id, nombre, apellido')
+      .or(`nombre.ilike.%${w}%,apellido.ilike.%${w}%`)
+      .not('estado', 'in', '(descartada,convertida)')
+      .limit(20)
+    for (const c of (data ?? []) as Cons[]) {
+      const cur = cons.get(c.id) ?? { e: c, hits: 0 }
+      cur.hits++; cons.set(c.id, cur)
+    }
+  }
+  const c = mejor(cons)
+  if (c) return { tipo: 'consulta', id: c.id, label: `Consulta: ${`${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()}` }
+  return null
+}
+
+/** /hecho N sobre la lista de pendientes de `profileId`. */
+async function responderHecho(
+  admin: Admin,
+  token: string,
+  chatId: number,
+  profileId: string,
+  args: string,
+  esDirector: boolean,
+) {
+  const n = Number(args.trim().match(/^\d+/)?.[0])
+  const tareas = await listarPendientes(admin, profileId)
+  if (!n || n < 1 || n > tareas.length) {
+    const { text, keyboard } = formatLista(tareas, 'Decime el número de la tarea, ej. /hecho 1. Tus pendientes:')
+    await tgSendKb(token, chatId, text, keyboard)
+    return
+  }
+  const res = await completarTarea(admin, tareas[n - 1].id, profileId, esDirector)
+  await tgSend(token, chatId, res.ok ? `Listo, marcada como hecha: "${res.titulo}".` : res.error)
+}
+
+/**
+ * Bot para colaboradores con Telegram vinculado (no están en la allowlist):
+ * solo ven y cierran sus propias tareas. No generan escritos ni ven datos del estudio.
+ */
+async function handleColaborador(
+  admin: Admin,
+  token: string,
+  chatId: number,
+  perfil: PerfilBot,
+  texto: string,
+) {
+  const t = texto.trim()
+  const hecho = /^\/?(?:hecho|listo|terminada?)\s*(.*)$/i.exec(t)
+  if (hecho) {
+    await responderHecho(admin, token, chatId, perfil.id, hecho[1], false)
+    return
+  }
+  if (/^\/(ayuda|help)\b/i.test(t)) {
+    await tgSend(token, chatId,
+      'Acá te aviso cuando tengas una tarea nueva y cada mañana te mando tus pendientes.\n\n' +
+      '/tareas — ver tus pendientes\n' +
+      '/hecho N — marcar como hecha la tarea N de la lista\n\n' +
+      `También las ves en ${APP_URL}/mi-trabajo`)
+    return
+  }
+  const tareas = await listarPendientes(admin, perfil.id)
+  const { text, keyboard } = formatLista(tareas, `Tus tareas pendientes (${tareas.length}):`)
+  await tgSendKb(token, chatId, text, keyboard)
+}
+
+/** "/start <código>": vincula este chat con el perfil que generó el código en la app. */
+async function vincularChat(
+  admin: Admin,
+  token: string,
+  chatId: number,
+  code: string,
+): Promise<boolean> {
+  const { data } = await admin.from('telegram_link_codes')
+    .select('profile_id, expires_at')
+    .eq('code', code)
+    .maybeSingle()
+  const row = data as { profile_id: string; expires_at: string } | null
+  if (!row) return false
+  await admin.from('telegram_link_codes').delete().eq('code', code)
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    await tgSend(token, chatId, 'El enlace venció. Generá uno nuevo desde la app (Mi Trabajo → Vincular Telegram).')
+    return true
+  }
+  // El chat queda vinculado a un solo perfil.
+  await admin.from('profiles').update({ telegram_chat_id: null }).eq('telegram_chat_id', chatId)
+  const { error } = await admin.from('profiles').update({ telegram_chat_id: chatId }).eq('id', row.profile_id)
+  if (error) {
+    await tgSend(token, chatId, `No pude vincular la cuenta: ${error.message}`)
+    return true
+  }
+  const { data: p } = await admin.from('profiles').select('nombre').eq('id', row.profile_id).maybeSingle()
+  const nombre = (p as { nombre?: string | null } | null)?.nombre
+  const tareas = await listarPendientes(admin, row.profile_id)
+  const { text, keyboard } = formatLista(tareas, `Listo${nombre ? `, ${nombre}` : ''}. Tu cuenta quedó vinculada.\n\nDesde ahora te aviso acá cuando tengas una tarea nueva, y cada mañana (lun a vie, 8 hs) te mando tus pendientes.\n\nTus tareas pendientes (${tareas.length}):`)
+  await tgSendKb(token, chatId, text, keyboard)
+  return true
 }
 
 async function handleGestion(
-  admin: ReturnType<typeof createClient>,
+  admin: Admin,
   token: string,
   chatId: number,
   texto: string,
+  directorId: string,
 ): Promise<void> {
   const raw = texto.slice(1).trimStart()
   const spaceIdx = raw.indexOf(' ')
@@ -222,8 +424,9 @@ async function handleGestion(
       'Comandos de gestión:\n\n' +
       '/hoy — resumen diario (audiencias + SAE urgentes + tareas vencidas)\n' +
       '/tareas [nombre] — pendientes de un colaborador\n' +
-      '/tarea [texto] — crear tarea rápida\n' +
-      '  Ej: /tarea redactar demanda Valdez para Claudio alta\n' +
+      '/tarea [texto] — crear tareas (una por línea)\n' +
+      '  Ej: /tarea demanda laboral Medina Vives Luciana para Claudio para el viernes alta\n' +
+      '/hecho N — marcar como hecha tu tarea N\n' +
       '/audiencias — próximas 7 días\n' +
       '/sae — notificaciones SAE recientes\n\n' +
       'Sin / → generás un escrito por expediente.',
@@ -280,45 +483,10 @@ async function handleGestion(
     return
   }
 
-  // /tarea [texto]
+  // /tarea [texto] — una tarea por línea
   if (cmd === 'tarea' || cmd === 'nueva') {
     if (!args) {
-      await tgSend(token, chatId, 'Usá: /tarea [descripción] para [nombre] [urgente|alta|media|baja]\nEj: /tarea redactar demanda Valdez para Claudio alta')
-      return
-    }
-
-    let resto = args
-    let asignadoId: string | null = null
-    let asignadoNombre = ''
-
-    const paraMatch = PARA_RE.exec(resto)
-    if (paraMatch) {
-      const nombreBuscado = paraMatch[1]
-      resto = resto.replace(paraMatch[0], '').trim()
-      const perfiles = await findPerfilByNombre(admin, nombreBuscado)
-      if (perfiles.length === 0) {
-        await tgSend(token, chatId, `No encontré colaborador "${nombreBuscado}".\n/tareas para ver el equipo.`)
-        return
-      }
-      if (perfiles.length > 1) {
-        const lista = perfiles.map(p => `• ${p.nombre ?? ''} ${p.apellido ?? ''}`.trim()).join('\n')
-        await tgSend(token, chatId, `Varios con "${nombreBuscado}":\n${lista}\n\nUsá el apellido.`)
-        return
-      }
-      asignadoId = perfiles[0].id
-      asignadoNombre = `${perfiles[0].nombre ?? ''} ${perfiles[0].apellido ?? ''}`.trim()
-    }
-
-    let prioridad = 'MEDIA'
-    const prioMatch = PRIORIDAD_RE.exec(resto)
-    if (prioMatch) {
-      prioridad = prioMatch[1].toUpperCase()
-      resto = resto.replace(prioMatch[0], '').trim()
-    }
-
-    const titulo = resto.replace(/^[,.\s]+|[,.\s]+$/, '').trim()
-    if (!titulo) {
-      await tgSend(token, chatId, 'El título no puede estar vacío.')
+      await tgSend(token, chatId, AYUDA_TAREA)
       return
     }
 
@@ -329,27 +497,62 @@ async function handleGestion(
       return
     }
 
-    const finalAsignado = asignadoId ?? createdBy
-    const { error } = await admin.from('tareas').insert({
-      titulo,
-      prioridad,
-      asignado_a: finalAsignado,
-      asignados: [finalAsignado],
-      created_by: createdBy,
-      estado: 'PENDIENTE',
-    })
+    const lineas = args.split('\n')
+      .map(l => l.replace(/^\s*(?:\/(?:tarea|nueva)\b|[-•*]|\d+[.)])\s*/i, '').trim())
+      .filter(Boolean)
 
-    if (error) {
-      await tgSend(token, chatId, `Error al crear: ${error.message}`)
-      return
+    // Si una línea no dice "para X", hereda el último asignado mencionado.
+    let ultimoAsignado: PerfilBot | null = null
+    const informe: string[] = []
+    const sinTelegram = new Set<string>()
+
+    for (const linea of lineas) {
+      const parsed = await parseLineaTarea(admin, linea)
+      if ('error' in parsed) {
+        informe.push(`No creada: "${linea.slice(0, 60)}"\n   ${parsed.error}`)
+        continue
+      }
+      const asignado = parsed.asignado ?? ultimoAsignado
+      if (parsed.asignado) ultimoAsignado = parsed.asignado
+      const asignadoId = asignado?.id ?? createdBy
+
+      const asunto = await buscarAsunto(admin, parsed.titulo)
+      const { error } = await admin.from('tareas').insert({
+        titulo: parsed.titulo,
+        prioridad: parsed.prioridad,
+        fecha_vencimiento: parsed.fecha,
+        asignado_a: asignadoId,
+        asignados: [asignadoId],
+        created_by: createdBy,
+        estado: 'PENDIENTE',
+        expediente_id: asunto?.tipo === 'expediente' ? asunto.id : null,
+        consulta_id: asunto?.tipo === 'consulta' ? asunto.id : null,
+      })
+      if (error) {
+        informe.push(`No creada: "${parsed.titulo.slice(0, 60)}"\n   ${error.message}`)
+        continue
+      }
+
+      if (asignado && !asignado.telegram_chat_id) sinTelegram.add(nombreCorto(asignado))
+      const detalle = [
+        asignado ? `Para ${nombreCorto(asignado)}` : 'Para vos',
+        PRIO_LABEL[parsed.prioridad] ?? 'Media',
+        parsed.fecha ? vencimientoLabel(parsed.fecha) : 'sin fecha',
+      ].join(' · ')
+      const vinculo = asunto ? `\n   ${asunto.label}` : '\n   (sin expediente ni consulta vinculada)'
+      informe.push(`Creada: "${parsed.titulo}"\n   ${detalle}${vinculo}`)
     }
 
-    const prioLabel = { URGENTE: 'urgente', ALTA: 'alta', MEDIA: 'media', BAJA: 'baja' }[prioridad] ?? 'media'
-    await tgSend(token, chatId,
-      asignadoNombre
-        ? `Tarea creada (${prioLabel}) para ${asignadoNombre}:\n"${titulo}"\n\n${APP_URL}/tareas`
-        : `Tarea creada (${prioLabel}):\n"${titulo}"\n\n${APP_URL}/tareas`,
-    )
+    const aviso = sinTelegram.size
+      ? `\n\n${[...sinTelegram].join(', ')} todavía no vinculó Telegram: lo va a ver al entrar a la app (Mi Trabajo).`
+      : ''
+    await tgSend(token, chatId, `${informe.join('\n\n')}${aviso}`)
+    return
+  }
+
+  // /hecho N — marca como hecha la N-ésima de tus pendientes
+  if (cmd === 'hecho' || cmd === 'listo') {
+    await responderHecho(admin, token, chatId, directorId, args, true)
     return
   }
 
@@ -498,24 +701,82 @@ Deno.serve(async (req) => {
   if (!token) { console.error('[telegram-escrito] falta TELEGRAM_ESCRITO_BOT_TOKEN'); return new Response('ok') }
 
   const update = await req.json().catch(() => null) as TgUpdate | null
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const admin = createClient(supabaseUrl, serviceKey)
+  const esAutorizado = (id: string) => allowed.length === 0 || allowed.includes(id)
+
+  async function perfilPorChat(id: number): Promise<PerfilBot | null> {
+    const { data } = await admin.from('profiles')
+      .select('id, nombre, apellido, telegram_chat_id')
+      .eq('telegram_chat_id', id)
+      .eq('activo', true)
+      .maybeSingle()
+    return data as PerfilBot | null
+  }
+
+  async function directorId(): Promise<string | null> {
+    const { data } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+    return (data as { id?: string } | null)?.id ?? null
+  }
+
+  // Botón "Hecho" de una tarea
+  const cq = update?.callback_query
+  if (cq) {
+    try {
+      const m = /^hecho:([0-9a-f-]{36})$/.exec(cq.data ?? '')
+      if (!m) { await tgAnswerCallback(token, cq.id, ''); return new Response('ok') }
+      const autorizado = esAutorizado(String(cq.from.id))
+      const perfil = await perfilPorChat(cq.from.id)
+      const profileId = perfil?.id ?? (autorizado ? await directorId() : null)
+      if (!profileId) { await tgAnswerCallback(token, cq.id, 'Tu Telegram no está vinculado.'); return new Response('ok') }
+      const res = await completarTarea(admin, m[1], profileId, autorizado)
+      await tgAnswerCallback(token, cq.id, res.ok ? 'Marcada como hecha' : res.error)
+      if (res.ok && cq.message) await tgSend(token, cq.message.chat.id, `Listo, marcada como hecha: "${res.titulo}".`)
+    } catch (err) {
+      console.error('[telegram-escrito] callback', err)
+      await tgAnswerCallback(token, cq.id, 'Algo falló, probá de nuevo.')
+    }
+    return new Response('ok')
+  }
+
   const msg = update?.message
   if (!msg) return new Response('ok')
   const chatId = msg.chat.id
   const fromId = String(msg.from?.id ?? '')
 
-  if (allowed.length > 0 && !allowed.includes(fromId)) {
-    await tgSend(token, chatId, 'No estás autorizado para generar escritos por este bot.')
+  // "/start <código>" desde el enlace de la app: vincula este chat con el perfil.
+  const start = /^\/start\s+([A-Za-z0-9_-]{8,64})\s*$/.exec((msg.text ?? '').trim())
+  if (start) {
+    try {
+      if (await vincularChat(admin, token, chatId, start[1])) return new Response('ok')
+    } catch (err) {
+      console.error('[telegram-escrito] vincular', err)
+    }
+    await tgSend(token, chatId, 'El enlace no es válido. Generá uno nuevo desde la app (Mi Trabajo → Vincular Telegram).')
+    return new Response('ok')
+  }
+
+  if (!esAutorizado(fromId)) {
+    // Colaborador con Telegram vinculado: solo sus tareas.
+    try {
+      const perfil = await perfilPorChat(chatId)
+      if (perfil) {
+        await handleColaborador(admin, token, chatId, perfil, (msg.text ?? msg.caption ?? '').trim())
+        return new Response('ok')
+      }
+    } catch (err) {
+      console.error('[telegram-escrito] colaborador', err)
+      await tgSend(token, chatId, 'Algo falló, probá de nuevo en un rato.')
+      return new Response('ok')
+    }
+    await tgSend(token, chatId, `Para usar este bot, vinculá tu cuenta desde la app: ${APP_URL}/mi-trabajo → "Vincular Telegram".`)
     return new Response('ok')
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const admin = createClient(supabaseUrl, serviceKey)
-
     // Perfil firmante = DIRECTOR
-    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
-    const targetProfile = (dir as { id?: string } | null)?.id
+    const targetProfile = await directorId()
     if (!targetProfile) { await tgSend(token, chatId, 'No encontré el perfil del director para firmar. Avisale al admin.'); return new Response('ok') }
 
     // Texto base: voz → transcripción, o texto directo
@@ -532,7 +793,7 @@ Deno.serve(async (req) => {
 
     // Comandos de gestión (/tareas, /tarea, /audiencias, /sae, /ayuda)
     if (texto.startsWith('/')) {
-      await handleGestion(admin, token, chatId, texto)
+      await handleGestion(admin, token, chatId, texto, targetProfile)
       return new Response('ok')
     }
 
