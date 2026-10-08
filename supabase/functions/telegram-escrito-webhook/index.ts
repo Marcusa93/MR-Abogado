@@ -401,7 +401,7 @@ async function vincularChat(
   const { data: p } = await admin.from('profiles').select('nombre').eq('id', row.profile_id).maybeSingle()
   const nombre = (p as { nombre?: string | null } | null)?.nombre
   const tareas = await listarPendientes(admin, row.profile_id)
-  const { text, keyboard } = formatLista(tareas, `Listo${nombre ? `, ${nombre}` : ''}. Tu cuenta quedó vinculada.\n\nDesde ahora te aviso acá cuando tengas una tarea nueva, y cada mañana (lun a vie, 8 hs) te mando tus pendientes.\n\nTus tareas pendientes (${tareas.length}):`)
+  const { text, keyboard } = formatLista(tareas, `Listo${nombre ? `, ${nombre}` : ''}. Tu cuenta quedó vinculada.\n\nDesde ahora te aviso acá cuando tengas una tarea nueva, y cada mañana (lun a vie, 6 hs) te mando tus pendientes.\n\nTus tareas pendientes (${tareas.length}):`)
   await tgSendKb(token, chatId, text, keyboard)
   return true
 }

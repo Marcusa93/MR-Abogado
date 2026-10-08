@@ -3,7 +3,7 @@
 // Eventos (body.evento):
 //   asignada   → al asignado/s con Telegram vinculado (trigger tareas_telegram_notify)
 //   completada → al creador de la tarea (trigger tareas_telegram_notify)
-//   diario     → cron 08:00 AR lun-vie: pendientes a cada usuario vinculado
+//   diario     → cron 06:00 AR lun-vie: pendientes a cada usuario vinculado
 //
 // Auth: header x-cron-secret == CRON_SECRET (lo envían el trigger y el cron).
 // Deploy con --no-verify-jwt.
