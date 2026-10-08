@@ -412,10 +412,12 @@ export function useUpdateEscrito() {
           contenido: input.snapshotAntes,
           saved_at: new Date().toISOString(),
         }
-        await (supabase as any).rpc('push_escrito_snapshot', {
-          p_escrito_id: input.id,
-          p_snapshot: snap,
-        }).catch(() => {}) // non-blocking
+        try {
+          await (supabase as any).rpc('push_escrito_snapshot', {
+            p_escrito_id: input.id,
+            p_snapshot: snap,
+          })
+        } catch { /* non-blocking */ }
       }
       const { error } = await supabase
         .from('escritos' as never)
