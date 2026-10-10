@@ -25,7 +25,9 @@ import {
 } from '../_shared/judicial-calendar.ts'
 
 const FUNCTION_NAME = 'procuracion-procesar'
-const MODELO = 'anthropic/claude-haiku-4.5'
+// Mismo modelo que escritos-generate: con haiku la lectura procesal era floja
+// (confundía apertura a prueba con ofrecimiento, accionaba sobre escritos de la contraria).
+const MODELO = 'anthropic/claude-sonnet-4'
 const APP_URL = 'https://app.marcorossi.com.ar'
 
 // Topes por corrida (la function corta a los ~150 s)
@@ -35,7 +37,7 @@ const PRESUPUESTO_MS = 110_000
 // Re-sincronizar con el SAE si el último sync tiene más de esto
 const RESYNC_MIN = 50
 // Actuaciones de hasta N días antes de activar el interruptor también se procesan
-const VENTANA_PREVIA_DIAS = 7
+const VENTANA_PREVIA_DIAS = 15
 // Si el cuerpo no llegó, esperar hasta N horas antes de procesar solo con el título
 const ESPERA_CUERPO_HORAS = 6
 
@@ -60,7 +62,11 @@ interface Expediente {
   abogado_responsable_id: string | null
   created_by: string | null
   ultima_sincronizacion_sae: string | null
+  clientes: { nombre: string | null; apellido: string | null } | null
 }
+
+/** A quién representamos y quiénes son nuestros abogados (para leer las actuaciones). */
+interface Contexto { cliente: string; abogados: string[] }
 
 interface Movimiento {
   id: string
@@ -106,6 +112,7 @@ async function clasificar(
   exp: Expediente,
   m: Movimiento,
   catalogo: Plazo[],
+  ctx: Contexto,
 ): Promise<{ data: Clasificacion; bytes: number }> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada')
@@ -121,7 +128,9 @@ async function clasificar(
 
   const user =
     `Fuero: ${exp.fuero ?? 'sin dato'}\n` +
-    `Carátula: ${exp.caratula ?? exp.numero ?? ''}\n\n` +
+    `Carátula: ${exp.caratula ?? exp.numero ?? ''}\n` +
+    `Representamos a: ${ctx.cliente || 'nuestro cliente (ver carátula)'}\n` +
+    `Abogados del estudio (si un escrito dice "POR: <apellido>" de esta lista, lo presentamos nosotros): ${ctx.abogados.join(', ') || 'sin dato'}\n\n` +
     `Actuación del ${m.fecha} (tipo: ${m.tipo_movimiento ?? 'otro'})\n` +
     `Título: ${m.titulo}\n` +
     `Texto:\n${(m.cuerpo ?? '').slice(0, 12000) || '(sin texto, solo el título)'}\n\n` +
@@ -138,8 +147,23 @@ async function clasificar(
     '  "escrito": { "tipo": "tipo de escrito a presentar", "instrucciones": "qué debe decir, con los datos de la actuación" } o null\n' +
     '}\n\n' +
     'Reglas:\n' +
-    '- Mero trámite sin carga para nuestra parte ("téngase presente", "agréguese", "por presentado", ' +
-    'proveídos de la contraria que no nos corren traslado): requiere_accion=false, escrito=null.\n' +
+    '- Mero trámite sin carga para nuestra parte ("téngase presente", "agréguese", "por presentado"): ' +
+    'requiere_accion=false, escrito=null.\n' +
+    '- Escritos que presentamos nosotros (POR: uno de nuestros abogados): requiere_accion=false, salvo que ' +
+    'quede algo pendiente de nuestro lado.\n' +
+    '- Escritos de la contraria (POR: un abogado que NO es del estudio): requiere_accion=false, aunque sean ' +
+    'ofrecimientos de prueba o contestaciones, salvo que el texto nos corra traslado o nos intime. ' +
+    'Nunca propongas que nosotros hagamos lo mismo que hizo la contraria.\n' +
+    '- Oficios, cédulas y mandamientos librados a pedido de nuestra parte: requiere_accion=true, ' +
+    'accion="Diligenciar el oficio a <destinatario> y controlar la respuesta" (o equivalente), escrito=null, ' +
+    'dias=null salvo que el texto fije plazo. Si los libra el juzgado de oficio o a pedido de la contraria, ' +
+    'requiere_accion=false.\n' +
+    '- Apertura a prueba: leé qué dispone. Si la prueba de las partes YA fue ofrecida o admitida, el plazo ' +
+    'es de PRODUCCIÓN: accion="Producir la prueba admitida (diligenciar oficios propios, controlar ' +
+    'informes)", escrito=null. Solo si el texto abre el período para OFRECER prueba: accion="Ofrecer prueba", ' +
+    'escrito "Ofrecimiento de prueba", con el plazo del catálogo (ofrecimiento_prueba) o el del texto.\n' +
+    '- Basate solo en lo que dice el texto. Si dudás entre dos lecturas, elegí la que no genera un escrito ' +
+    'y explicá la duda en "resumen".\n' +
     '- No inventes plazos: usá el catálogo o el plazo que fija el texto; si no hay ninguno, dias=null.\n' +
     '- "escrito" solo si hay que presentar algo en el expediente. Si la acción es interna ' +
     '(llamar al cliente, controlar, agendar), escrito=null.\n' +
@@ -245,18 +269,18 @@ Deno.serve(async (req) => {
 
     // ── Expedientes a procurar ────────────────────────────────────────────
     let q = admin.from('expedientes')
-      .select('id, caratula, numero, numero_sae, fuero, procuracion_desde, procuracion_responsable_id, abogado_responsable_id, created_by, ultima_sincronizacion_sae')
+      .select('id, caratula, numero, numero_sae, fuero, procuracion_desde, procuracion_responsable_id, abogado_responsable_id, created_by, ultima_sincronizacion_sae, clientes(nombre, apellido)')
       .eq('procuracion_auto', true)
       .is('deleted_at', null)
     if (soloExpediente) q = q.eq('id', soloExpediente)
     const { data: exps, error: expErr } = await q
     if (expErr) throw expErr
-    const expedientes = (exps ?? []) as Expediente[]
+    const expedientes = (exps ?? []) as unknown as Expediente[]
     if (expedientes.length === 0) {
       return json(req, { ok: true, procesadas: 0, mensaje: soloExpediente ? 'La procuración automática no está activa en este expediente.' : 'Sin expedientes con procuración activa.' })
     }
 
-    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').eq('activo', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
     const directorId = (dir as { id?: string } | null)?.id
     if (!directorId) throw new Error('No se encontró el perfil del director')
 
@@ -275,8 +299,14 @@ Deno.serve(async (req) => {
       lista.push(p); catalogoPorFuero.set(p.fuero, lista)
     }
 
+    const { data: equipo } = await admin.from('profiles').select('apellido')
+      .eq('activo', true).in('rol', ['DIRECTOR', 'ABOGADO', 'COLABORADOR', 'CRITERIO'])
+    const abogados = [...new Set(((equipo ?? []) as { apellido: string | null }[])
+      .map(p => (p.apellido ?? '').trim().toUpperCase()).filter(Boolean))]
+
     const resultados: Resultado[] = []
     let escritosGenerados = 0
+    const escritosEnCorrida = new Set<string>()
     let actuacionesProcesadas = 0
     let cortadoPorTope = false
 
@@ -339,7 +369,8 @@ Deno.serve(async (req) => {
           const catalogo = catalogoPorFuero.get(exp.fuero ?? '') ?? []
           const guard = await checkLlmGuard(admin, responsable, FUNCTION_NAME, 20_000)
           if (!guard.ok) throw new Error(guard.error ?? 'Límite de IA alcanzado')
-          const { data: c, bytes } = await clasificar(exp, m, catalogo)
+          const cliente = `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim()
+          const { data: c, bytes } = await clasificar(exp, m, catalogo, { cliente, abogados })
           logLlmCall(admin, responsable, FUNCTION_NAME, bytes)
 
           if (!m.ai_summary && c.resumen) {
@@ -357,11 +388,28 @@ Deno.serve(async (req) => {
           const dias = delCatalogo?.dias ?? c.dias
           const habiles = delCatalogo?.es_habiles ?? c.es_habiles
           const vencimiento = dias ? calcularVencimiento(m.fecha, dias, habiles, ferias, feriados) : null
+          const hoyAR = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
+          const vencido = !!vencimiento && vencimiento < hoyAR
+          if (vencido) c.prioridad = 'URGENTE'
 
           // 4. Borrador del escrito (nunca se presenta solo)
           let escritoId: string | null = null
           let escritoError: string | null = null
-          if (c.escrito && escritosGenerados < MAX_ESCRITOS && Date.now() - inicio < PRESUPUESTO_MS - 60_000) {
+          let escritoRepetido = false
+          if (c.escrito) {
+            const tipoNorm = c.escrito.tipo.trim().toLowerCase()
+            const claveRun = `${exp.id}|${tipoNorm}`
+            if (escritosEnCorrida.has(claveRun)) {
+              escritoRepetido = true
+            } else {
+              const hace15 = new Date(Date.now() - 15 * 86_400_000).toISOString()
+              const { data: previos } = await admin.from('escritos').select('id')
+                .eq('expediente_id', exp.id).ilike('tipo', tipoNorm).gte('created_at', hace15).limit(1)
+              escritoRepetido = (previos ?? []).length > 0
+            }
+            escritosEnCorrida.add(claveRun)
+          }
+          if (c.escrito && !escritoRepetido && escritosGenerados < MAX_ESCRITOS && Date.now() - inicio < PRESUPUESTO_MS - 60_000) {
             const pedido = {
               expediente_id: exp.id,
               tipo: c.escrito.tipo,
@@ -383,11 +431,14 @@ Deno.serve(async (req) => {
 
           // 5. Tarea para el responsable
           const lineas = [
+            vencido ? `ATENCIÓN: según el cálculo, el plazo venció el ${fechaCorta(vencimiento!)}. Verificá si ya se cumplió.` : null,
             c.resumen,
             dias ? `Plazo: ${dias} días ${habiles ? 'hábiles' : 'corridos'}${delCatalogo?.base_legal ? ` (${delCatalogo.base_legal})` : ''}${vencimiento ? `. Vence el ${fechaCorta(vencimiento)}.` : '.'}` : null,
             escritoId
               ? `Borrador del escrito "${c.escrito!.tipo}" listo en la solapa Escritos: revisalo, firmalo y presentalo.`
-              : c.escrito ? `Hay que presentar: ${c.escrito.tipo}.${escritoError ? ' (No se pudo generar el borrador automáticamente.)' : ''}` : null,
+              : c.escrito
+                ? `Hay que presentar: ${c.escrito.tipo}.${escritoRepetido ? ' Ya hay un borrador reciente de ese tipo en Escritos.' : escritoError ? ' (No se pudo generar el borrador automáticamente.)' : ''}`
+                : null,
             `Actuación: "${m.titulo}" del ${fechaCorta(m.fecha)}.`,
             'Creada por la procuración automática. Verificá el plazo antes de confiar en la fecha.',
           ].filter(Boolean)

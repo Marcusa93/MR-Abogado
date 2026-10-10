@@ -490,7 +490,7 @@ async function handleGestion(
       return
     }
 
-    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+    const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').eq('activo', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
     const createdBy = (dir as { id?: string } | null)?.id
     if (!createdBy) {
       await tgSend(token, chatId, 'No encontré perfil del director.')
@@ -716,7 +716,7 @@ Deno.serve(async (req) => {
   }
 
   async function directorId(): Promise<string | null> {
-    const { data } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').limit(1).maybeSingle()
+    const { data } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').eq('activo', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
     return (data as { id?: string } | null)?.id ?? null
   }
 
