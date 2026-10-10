@@ -17,6 +17,7 @@ import {
   type Admin, APP_URL, PRIO_LABEL, completarTarea, formatLista, hoyAR, listarPendientes, nombreCorto,
   parseFecha, parsePrioridad, tgAnswerCallback, tgSendKb, vencimientoLabel,
 } from '../_shared/tareas-telegram.ts'
+import { redactarPropuesta } from '../_shared/procuracion-redactar.ts'
 
 const TG_API = 'https://api.telegram.org'
 
@@ -724,6 +725,21 @@ Deno.serve(async (req) => {
   const cq = update?.callback_query
   if (cq) {
     try {
+      // "Redactar N" del resumen de la procuración: solo usuarios autorizados (Marco).
+      const red = /^redactar:(e|d):([0-9a-f-]{36})$/.exec(cq.data ?? '')
+      if (red) {
+        if (!esAutorizado(String(cq.from.id))) { await tgAnswerCallback(token, cq.id, 'No autorizado.'); return new Response('ok') }
+        const dir = await directorId()
+        if (!dir) { await tgAnswerCallback(token, cq.id, 'No encontré el perfil del director.'); return new Response('ok') }
+        await tgAnswerCallback(token, cq.id, 'Redactando el borrador…')
+        const chat = cq.message?.chat.id ?? cq.from.id
+        const r = await redactarPropuesta(admin, { tipo: red[1] === 'e' ? 'evento' : 'diligencia', id: red[2] }, dir, dir)
+        await tgSend(token, chat, r.ok
+          ? `${r.ya_existia ? 'Ya estaba redactado' : 'Borrador listo'}: "${r.titulo}"${r.caratula ? `\n${r.caratula.slice(0, 80)}` : ''}\n\nRevisalo en ${APP_URL}/expedientes/${r.expediente_id}?tab=escritos`
+          : `No pude redactar el borrador: ${r.error}`)
+        return new Response('ok')
+      }
+
       const m = /^hecho:([0-9a-f-]{36})$/.exec(cq.data ?? '')
       if (!m) { await tgAnswerCallback(token, cq.id, ''); return new Response('ok') }
       const autorizado = esAutorizado(String(cq.from.id))

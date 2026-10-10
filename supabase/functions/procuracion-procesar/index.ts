@@ -6,20 +6,28 @@
 //   2. Toma las actuaciones nuevas que todavía no procesó (procuracion_eventos).
 //   3. Las clasifica con IA contra el catálogo plazos_procesales del fuero.
 //   4. Calcula el vencimiento (días hábiles, feria judicial, feriados).
-//   5. Si hay que presentar un escrito, lo deja en BORRADOR (escritos-generate).
-//      Nunca presenta: el abogado revisa, firma y presenta.
+//   5. Si hay que presentar un escrito, lo PROPONE (tipo + instrucciones) pero no
+//      lo redacta: se redacta solo cuando el abogado lo aprueba (botón en la app o
+//      en Telegram → _shared/procuracion-redactar.ts). Nunca presenta.
 //   6. Crea la tarea para el responsable (el trigger de tareas le avisa por Telegram).
-//   7. Le manda a Marco un resumen por Telegram.
+//   7. Lleva el seguimiento de cada diligencia de prueba (procuracion_diligencias):
+//      oficios, testigos, pericias, cédulas. Controla que tribunales confeccione y
+//      envíe los oficios propios, cuenta el plazo de respuesta y, si vence sin
+//      respuesta, crea la tarea de reiteración/astreintes con su borrador; avisa
+//      si un testigo no está notificado con la audiencia cerca.
+//   8. Le manda a Marco un resumen por Telegram.
 //
 // Auth:
 //   - Cron: header x-cron-secret == CRON_SECRET → todos los expedientes activos.
 //   - Usuario (botón "Procesar ahora"): JWT + body { expediente_id } → solo ese.
+//   - Usuario aprueba una propuesta: JWT + body { accion: 'redactar', evento_id | diligencia_id }.
 // Deploy con --no-verify-jwt (valida el JWT acá adentro).
 // Secrets: CRON_SECRET, OPENROUTER_API_KEY, TELEGRAM_ESCRITO_BOT_TOKEN, TELEGRAM_MARCO_CHAT_ID
 
 import { corsHeaders } from '../_shared/cors.ts'
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
+import { redactarPropuesta } from '../_shared/procuracion-redactar.ts'
 import {
   calcularVencimiento, fetchFeriadosArgentina, getTucumanProvincialFeriados, type FeriaPeriod,
 } from '../_shared/judicial-calendar.ts'
@@ -32,7 +40,6 @@ const APP_URL = 'https://app.marcorossi.com.ar'
 
 // Topes por corrida (la function corta a los ~150 s)
 const MAX_ACTUACIONES = 12
-const MAX_ESCRITOS = 4
 const PRESUPUESTO_MS = 110_000
 // Re-sincronizar con el SAE si el último sync tiene más de esto
 const RESYNC_MIN = 50
@@ -80,8 +87,25 @@ interface Movimiento {
 
 interface Plazo { tipo_acto: string; dias: number; es_habiles: boolean; base_legal: string | null }
 
+type TipoDiligencia = 'oficio' | 'testigo' | 'pericia' | 'cedula' | 'mandamiento' | 'otro'
+type EventoDiligencia = 'confeccionado' | 'enviado' | 'contestado' | 'notificado' | 'diligenciado' | 'fracasado' | 'reiterado'
+
+interface DiligenciaNueva {
+  tipo: TipoDiligencia
+  destinatario: string
+  a_pedido: 'nuestra' | 'contraria' | 'juzgado'
+  plazo_respuesta_dias: number | null
+  fecha_audiencia: string | null
+}
+
+interface DiligenciaUpdate {
+  id: string
+  evento: EventoDiligencia
+}
+
 interface Clasificacion {
   resumen: string
+  etapa: string | null
   requiere_accion: boolean
   tipo_acto: string | null
   dias: number | null
@@ -89,6 +113,25 @@ interface Clasificacion {
   accion: string | null
   prioridad: 'URGENTE' | 'ALTA' | 'MEDIA' | 'BAJA'
   escrito: { tipo: string; instrucciones: string } | null
+  diligencias_nuevas: DiligenciaNueva[]
+  diligencias_actualizadas: DiligenciaUpdate[]
+}
+
+interface DiligenciaAbierta {
+  id: string
+  tipo: TipoDiligencia
+  destinatario: string
+  a_pedido: string
+  estado: string
+  fecha_ordenado: string | null
+  fecha_envio: string | null
+  plazo_respuesta_dias: number | null
+  plazo_es_control: boolean
+  vence_respuesta: string | null
+  fecha_audiencia: string | null
+  tarea_envio_id: string | null
+  tarea_reiteracion_id: string | null
+  tarea_testigo_id: string | null
 }
 
 interface Resultado {
@@ -97,7 +140,10 @@ interface Resultado {
   estado: 'procesado' | 'sin_accion' | 'error'
   accion?: string | null
   vencimiento?: string | null
-  escrito?: boolean
+  /** Escrito propuesto (no redactado) */
+  propuesta?: string | null
+  evento_id?: string
+  diligencia_id?: string
   error?: string
 }
 
@@ -108,11 +154,16 @@ function esTrivial(m: Movimiento): boolean {
   return m.tipo_movimiento === 'planilla' || TRIVIAL_RE.test(m.titulo.trim())
 }
 
+const TIPOS_DILIGENCIA: TipoDiligencia[] = ['oficio', 'testigo', 'pericia', 'cedula', 'mandamiento', 'otro']
+const EVENTOS_DILIGENCIA: EventoDiligencia[] = ['confeccionado', 'enviado', 'contestado', 'notificado', 'diligenciado', 'fracasado', 'reiterado']
+const ETAPAS = ['demanda', 'contestacion', 'apertura_prueba', 'produccion_prueba', 'alegatos', 'sentencia', 'recursos', 'ejecucion']
+
 async function clasificar(
   exp: Expediente,
   m: Movimiento,
   catalogo: Plazo[],
   ctx: Contexto,
+  abiertas: DiligenciaAbierta[],
 ): Promise<{ data: Clasificacion; bytes: number }> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada')
@@ -121,9 +172,15 @@ async function clasificar(
     ? catalogo.map(p => `- ${p.tipo_acto}: ${p.dias} días ${p.es_habiles ? 'hábiles' : 'corridos'}${p.base_legal ? ` (${p.base_legal})` : ''}`).join('\n')
     : '(sin catálogo para este fuero)'
 
+  const abiertasTxt = abiertas.length
+    ? abiertas.map(d => `- id=${d.id} · ${d.tipo} a ${d.destinatario} · a pedido de ${d.a_pedido} · estado ${d.estado}` +
+        `${d.fecha_audiencia ? ` · audiencia ${d.fecha_audiencia}` : ''}`).join('\n')
+    : '(ninguna)'
+
   const system =
     'Sos procurador de un estudio jurídico de Tucumán, Argentina. Leés cada actuación judicial ' +
-    'nueva de un expediente y decidís qué tiene que hacer la parte que representamos. ' +
+    'nueva de un expediente, decidís qué tiene que hacer la parte que representamos y llevás el ' +
+    'control de cada diligencia de prueba (oficios, testigos, pericias, cédulas) hasta que se cumple. ' +
     'Respondé SOLO un objeto JSON válido, sin texto alrededor.'
 
   const user =
@@ -131,45 +188,56 @@ async function clasificar(
     `Carátula: ${exp.caratula ?? exp.numero ?? ''}\n` +
     `Representamos a: ${ctx.cliente || 'nuestro cliente (ver carátula)'}\n` +
     `Abogados del estudio (si un escrito dice "POR: <apellido>" de esta lista, lo presentamos nosotros): ${ctx.abogados.join(', ') || 'sin dato'}\n\n` +
+    `Diligencias abiertas del expediente:\n${abiertasTxt}\n\n` +
     `Actuación del ${m.fecha} (tipo: ${m.tipo_movimiento ?? 'otro'})\n` +
     `Título: ${m.titulo}\n` +
     `Texto:\n${(m.cuerpo ?? '').slice(0, 12000) || '(sin texto, solo el título)'}\n\n` +
     `Catálogo de plazos del fuero:\n${catalogoTxt}\n\n` +
     'Devolvé este JSON:\n' +
     '{\n' +
-    '  "resumen": "1 o 2 oraciones: qué dispuso el juzgado",\n' +
+    '  "resumen": "1 o 2 oraciones: qué dispuso el juzgado o qué presentó quién",\n' +
+    `  "etapa": "${ETAPAS.join('" | "')}" o null,\n` +
     '  "requiere_accion": true | false,\n' +
     '  "tipo_acto": "uno del catálogo (exacto) o null",\n' +
     '  "dias": número de días del plazo si el texto lo fija y no está en el catálogo, o null,\n' +
     '  "es_habiles": true | false,\n' +
-    '  "accion": "qué hay que hacer, en infinitivo y corto (ej. Contestar traslado de la demanda) o null",\n' +
+    '  "accion": "qué hay que hacer, en infinitivo y corto, o null",\n' +
     '  "prioridad": "URGENTE" | "ALTA" | "MEDIA" | "BAJA",\n' +
-    '  "escrito": { "tipo": "tipo de escrito a presentar", "instrucciones": "qué debe decir, con los datos de la actuación" } o null\n' +
+    '  "escrito": { "tipo": "tipo de escrito", "instrucciones": "qué debe decir, con los datos de la actuación" } o null,\n' +
+    '  "diligencias_nuevas": [ { "tipo": "oficio|testigo|pericia|cedula|mandamiento|otro", "destinatario": "a quién (banco, repartición, nombre del testigo, perito)", ' +
+    '"a_pedido": "nuestra|contraria|juzgado", "plazo_respuesta_dias": número o null, "fecha_audiencia": "YYYY-MM-DD" o null } ],\n' +
+    '  "diligencias_actualizadas": [ { "id": "id de una diligencia abierta", "evento": "confeccionado|enviado|contestado|notificado|diligenciado|fracasado|reiterado" } ]\n' +
     '}\n\n' +
-    'Reglas:\n' +
-    '- Mero trámite sin carga para nuestra parte ("téngase presente", "agréguese", "por presentado"): ' +
-    'requiere_accion=false, escrito=null.\n' +
-    '- Escritos que presentamos nosotros (POR: uno de nuestros abogados): requiere_accion=false, salvo que ' +
-    'quede algo pendiente de nuestro lado.\n' +
-    '- Escritos de la contraria (POR: un abogado que NO es del estudio): requiere_accion=false, aunque sean ' +
-    'ofrecimientos de prueba o contestaciones, salvo que el texto nos corra traslado o nos intime. ' +
-    'Nunca propongas que nosotros hagamos lo mismo que hizo la contraria.\n' +
-    '- Oficios, cédulas y mandamientos librados a pedido de nuestra parte: requiere_accion=true, ' +
-    'accion="Diligenciar el oficio a <destinatario> y controlar la respuesta" (o equivalente), escrito=null, ' +
-    'dias=null salvo que el texto fije plazo. Si los libra el juzgado de oficio o a pedido de la contraria, ' +
-    'requiere_accion=false.\n' +
-    '- Apertura a prueba: leé qué dispone. Si la prueba de las partes YA fue ofrecida o admitida, el plazo ' +
-    'es de PRODUCCIÓN: accion="Producir la prueba admitida (diligenciar oficios propios, controlar ' +
-    'informes)", escrito=null. Solo si el texto abre el período para OFRECER prueba: accion="Ofrecer prueba", ' +
-    'escrito "Ofrecimiento de prueba", con el plazo del catálogo (ofrecimiento_prueba) o el del texto.\n' +
-    '- Basate solo en lo que dice el texto. Si dudás entre dos lecturas, elegí la que no genera un escrito ' +
-    'y explicá la duda en "resumen".\n' +
-    '- No inventes plazos: usá el catálogo o el plazo que fija el texto; si no hay ninguno, dias=null.\n' +
-    '- "escrito" solo si hay que presentar algo en el expediente. Si la acción es interna ' +
-    '(llamar al cliente, controlar, agendar), escrito=null.\n' +
-    '- URGENTE si vence en 3 días hábiles o menos o hay riesgo de perder un derecho.'
+    'Reglas generales:\n' +
+    '- Mero trámite sin carga ("téngase presente", "agréguese", "por presentado"): requiere_accion=false.\n' +
+    '- Escritos nuestros (POR: abogado del estudio): requiere_accion=false, salvo que quede algo pendiente nuestro.\n' +
+    '- Nunca propongas que hagamos lo mismo que hizo la contraria.\n' +
+    '- Basate solo en el texto. Si dudás, elegí la lectura que no genera escrito y explicá la duda en "resumen".\n' +
+    '- No inventes plazos: catálogo o plazo del texto; si no hay, dias=null.\n' +
+    '- "escrito" solo si hay que presentar algo. Si la acción es interna (controlar, llamar, urgir en mesa), escrito=null.\n' +
+    '- URGENTE si vence en 3 días hábiles o menos o hay riesgo de perder un derecho.\n\n' +
+    'Reglas por etapa (cada etapa tiene su función):\n' +
+    '- Apertura a prueba que abre el período para OFRECER: accion="Ofrecer prueba", escrito "Ofrecimiento de prueba", ' +
+    'plazo del catálogo (ofrecimiento_prueba) o del texto. Si la prueba ya fue ofrecida/admitida, es PRODUCCIÓN.\n' +
+    '- Ofrecimiento de prueba de la CONTRARIA: requiere_accion=true, accion="Evaluar oposición a la prueba ofrecida por la contraria", ' +
+    'escrito=null, con el plazo de oposición del catálogo o del texto si existe.\n' +
+    '- Producción: por cada medio de prueba que el juzgado ordena, cargá una diligencia nueva (un oficio por destinatario, ' +
+    'un testigo por persona, una pericia por perito). Si son 4 oficios, son 4 diligencias.\n' +
+    '- Oficio ordenado a pedido NUESTRO: requiere_accion=true, accion="Controlar que mesa de entradas confeccione y envíe el oficio a X" ' +
+    '(o "los oficios a X, Y"). plazo_respuesta_dias = el que fija el texto para contestar, o null.\n' +
+    '- Oficio a pedido de la contraria o del juzgado: registralo igual como diligencia (a_pedido contraria/juzgado), requiere_accion=false.\n' +
+    '- Constancia de que el oficio fue confeccionado, firmado, enviado o diligenciado: actualizá la diligencia (evento confeccionado/enviado).\n' +
+    '- Contestación de un oficio / informe incorporado: actualizá la diligencia (contestado). Si contesta un oficio de la CONTRARIA ' +
+    'o se agrega un informe o pericia: requiere_accion=true, accion="Evaluar impugnación del informe/pericia de X", con el plazo de ' +
+    'impugnación del catálogo o del texto.\n' +
+    '- Pericia: diligencia tipo pericia (destinatario = perito o especialidad). Al presentarse el dictamen: evaluar impugnación u observaciones.\n' +
+    '- Testimonial: una diligencia tipo testigo por cada testigo, con fecha_audiencia. Si la audiencia es a pedido nuestro: ' +
+    'requiere_accion=true, accion="Notificar a los testigos <nombres> para la audiencia del <fecha>". Constancia de cédula a un ' +
+    'testigo → evento notificado.\n' +
+    '- Reiteración de oficio ordenada → evento reiterado. Intimación con astreintes → mencionala en resumen.\n' +
+    '- diligencias_actualizadas solo con ids de la lista de abiertas. Si no hay nada, devolvé listas vacías.'
 
-  const body = { model: MODELO, temperature: 0.1, max_tokens: 900, messages: [
+  const body = { model: MODELO, temperature: 0.1, max_tokens: 1500, messages: [
     { role: 'system', content: system }, { role: 'user', content: user },
   ] }
   const bytes = new TextEncoder().encode(JSON.stringify(body)).length
@@ -189,24 +257,124 @@ async function clasificar(
   const raw = out.choices?.[0]?.message?.content ?? ''
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('La IA no devolvió JSON')
-  const p = JSON.parse(match[0]) as Partial<Clasificacion>
+  // deno-lint-ignore no-explicit-any
+  const p = JSON.parse(match[0]) as Record<string, any>
 
   const prioridades = ['URGENTE', 'ALTA', 'MEDIA', 'BAJA'] as const
+  const idsAbiertas = new Set(abiertas.map(d => d.id))
+  const fechaOk = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null
+  const diasOk = (v: unknown) => typeof v === 'number' && v > 0 && v < 365 ? Math.round(v) : null
+
   return {
     bytes,
     data: {
       resumen: String(p.resumen ?? '').slice(0, 600),
+      etapa: ETAPAS.includes(p.etapa) ? p.etapa : null,
       requiere_accion: p.requiere_accion === true,
       tipo_acto: typeof p.tipo_acto === 'string' && p.tipo_acto ? p.tipo_acto : null,
-      dias: typeof p.dias === 'number' && p.dias > 0 && p.dias < 365 ? Math.round(p.dias) : null,
+      dias: diasOk(p.dias),
       es_habiles: p.es_habiles !== false,
       accion: typeof p.accion === 'string' && p.accion.trim() ? p.accion.trim().slice(0, 200) : null,
-      prioridad: prioridades.includes(p.prioridad as typeof prioridades[number]) ? p.prioridad as Clasificacion['prioridad'] : 'MEDIA',
+      prioridad: prioridades.includes(p.prioridad) ? p.prioridad : 'MEDIA',
       escrito: p.escrito && typeof p.escrito.tipo === 'string' && p.escrito.tipo.trim()
         ? { tipo: p.escrito.tipo.trim().slice(0, 120), instrucciones: String(p.escrito.instrucciones ?? '').slice(0, 2000) }
         : null,
+      diligencias_nuevas: (Array.isArray(p.diligencias_nuevas) ? p.diligencias_nuevas : [])
+        // deno-lint-ignore no-explicit-any
+        .filter((d: any) => d && TIPOS_DILIGENCIA.includes(d.tipo) && typeof d.destinatario === 'string' && d.destinatario.trim())
+        .slice(0, 15)
+        // deno-lint-ignore no-explicit-any
+        .map((d: any): DiligenciaNueva => ({
+          tipo: d.tipo,
+          destinatario: d.destinatario.trim().slice(0, 160),
+          a_pedido: ['nuestra', 'contraria', 'juzgado'].includes(d.a_pedido) ? d.a_pedido : 'juzgado',
+          plazo_respuesta_dias: diasOk(d.plazo_respuesta_dias),
+          fecha_audiencia: fechaOk(d.fecha_audiencia),
+        })),
+      diligencias_actualizadas: (Array.isArray(p.diligencias_actualizadas) ? p.diligencias_actualizadas : [])
+        // deno-lint-ignore no-explicit-any
+        .filter((u: any) => u && idsAbiertas.has(u.id) && EVENTOS_DILIGENCIA.includes(u.evento))
+        // deno-lint-ignore no-explicit-any
+        .map((u: any): DiligenciaUpdate => ({ id: u.id, evento: u.evento })),
     },
   }
+}
+
+// Sin plazo en el oficio: fecha de CONTROL (no es un plazo legal) a N días hábiles del envío.
+const CONTROL_RESPUESTA_DIAS = 10
+// Oficio propio ordenado y no enviado después de N días corridos → urgir en mesa
+const URGIR_ENVIO_DIAS = 7
+// Testigo sin notificar con audiencia dentro de N días corridos → tarea urgente
+const AVISO_TESTIGO_DIAS = 7
+
+const ESTADOS_CERRADOS = ['contestado', 'diligenciado', 'desistido', 'fracasado']
+
+async function cargarAbiertas(admin: Admin, expedienteId: string): Promise<DiligenciaAbierta[]> {
+  const { data } = await admin.from('procuracion_diligencias')
+    .select('id, tipo, destinatario, a_pedido, estado, fecha_ordenado, fecha_envio, plazo_respuesta_dias, plazo_es_control, vence_respuesta, fecha_audiencia, tarea_envio_id, tarea_reiteracion_id, tarea_testigo_id')
+    .eq('expediente_id', expedienteId)
+    .not('estado', 'in', `(${ESTADOS_CERRADOS.join(',')})`)
+    .order('created_at', { ascending: true })
+    .limit(60)
+  return (data ?? []) as DiligenciaAbierta[]
+}
+
+/** Registra las diligencias que ordena la actuación y avanza las que ya estaban abiertas. */
+async function aplicarDiligencias(
+  admin: Admin,
+  expedienteId: string,
+  m: Movimiento,
+  c: Clasificacion,
+  abiertas: DiligenciaAbierta[],
+  ferias: FeriaPeriod[],
+  feriados: Set<string>,
+): Promise<{ nuevas: number; actualizadas: number }> {
+  let nuevas = 0
+  let actualizadas = 0
+  const ahora = new Date().toISOString()
+
+  for (const d of c.diligencias_nuevas) {
+    // No duplicar: mismo tipo y destinatario ya abierto
+    const existe = abiertas.some(a => a.tipo === d.tipo && a.destinatario.toLowerCase() === d.destinatario.toLowerCase())
+    if (existe) continue
+    const { error } = await admin.from('procuracion_diligencias').insert({
+      expediente_id: expedienteId,
+      tipo: d.tipo,
+      destinatario: d.destinatario,
+      a_pedido: d.a_pedido,
+      estado: 'ordenado',
+      fecha_ordenado: m.fecha,
+      plazo_respuesta_dias: d.plazo_respuesta_dias,
+      fecha_audiencia: d.fecha_audiencia,
+      origen_movement_id: m.id,
+      ultimo_movement_id: m.id,
+    })
+    if (!error) nuevas++
+  }
+
+  for (const u of c.diligencias_actualizadas) {
+    const d = abiertas.find(a => a.id === u.id)
+    if (!d) continue
+    const cambios: Record<string, unknown> = { estado: u.evento, ultimo_movement_id: m.id, updated_at: ahora }
+    if (u.evento === 'enviado') {
+      const plazo = d.plazo_respuesta_dias ?? CONTROL_RESPUESTA_DIAS
+      cambios.fecha_envio = m.fecha
+      cambios.plazo_es_control = !d.plazo_respuesta_dias
+      cambios.vence_respuesta = calcularVencimiento(m.fecha, plazo, true, ferias, feriados)
+    }
+    if (u.evento === 'contestado' || u.evento === 'diligenciado') cambios.fecha_respuesta = m.fecha
+    if (u.evento === 'reiterado') {
+      // Nuevo ciclo: se vuelve a controlar el envío y la respuesta
+      cambios.fecha_ordenado = m.fecha
+      cambios.fecha_envio = null
+      cambios.vence_respuesta = null
+      cambios.tarea_envio_id = null
+      cambios.tarea_reiteracion_id = null
+    }
+    const { error } = await admin.from('procuracion_diligencias').update(cambios).eq('id', d.id)
+    if (!error) actualizadas++
+  }
+  return { nuevas, actualizadas }
 }
 
 async function llamarFunction(
@@ -246,7 +414,9 @@ Deno.serve(async (req) => {
 
   try {
     const admin: Admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    const body = await req.json().catch(() => ({})) as { expediente_id?: string }
+    const body = await req.json().catch(() => ({})) as {
+      expediente_id?: string; accion?: string; evento_id?: string; diligencia_id?: string
+    }
 
     // ── Auth ──────────────────────────────────────────────────────────────
     const cronSecret = Deno.env.get('CRON_SECRET')
@@ -260,6 +430,23 @@ Deno.serve(async (req) => {
       )
       const { data: { user }, error } = await anonClient.auth.getUser()
       if (error || !user) return json(req, { error: 'No autorizado' }, 401)
+
+      // Aprobación de una propuesta: redactar el borrador a nombre de quien aprueba
+      if (body.accion === 'redactar') {
+        const propuesta = body.evento_id
+          ? { tipo: 'evento' as const, id: body.evento_id }
+          : body.diligencia_id ? { tipo: 'diligencia' as const, id: body.diligencia_id } : null
+        if (!propuesta) return json(req, { error: 'evento_id o diligencia_id requerido' }, 400)
+        // La lectura con el cliente del usuario respeta RLS (can_view_expediente)
+        const tabla = propuesta.tipo === 'evento' ? 'procuracion_eventos' : 'procuracion_diligencias'
+        const { data: visible } = await anonClient.from(tabla).select('id').eq('id', propuesta.id).maybeSingle()
+        if (!visible) return json(req, { error: 'Propuesta no encontrada o sin permisos' }, 404)
+        const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').eq('activo', true)
+          .order('created_at', { ascending: true }).limit(1).maybeSingle()
+        const r = await redactarPropuesta(admin, propuesta, user.id, (dir as { id?: string } | null)?.id ?? user.id)
+        return r.ok ? json(req, r) : json(req, { error: r.error }, 502)
+      }
+
       if (!body.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
       // Respeta RLS: si no lo ve, no lo procesa.
       const { data: visible } = await anonClient.from('expedientes').select('id').eq('id', body.expediente_id).maybeSingle()
@@ -305,8 +492,6 @@ Deno.serve(async (req) => {
       .map(p => (p.apellido ?? '').trim().toUpperCase()).filter(Boolean))]
 
     const resultados: Resultado[] = []
-    let escritosGenerados = 0
-    const escritosEnCorrida = new Set<string>()
     let actuacionesProcesadas = 0
     let cortadoPorTope = false
 
@@ -348,6 +533,7 @@ Deno.serve(async (req) => {
       ])
       const yaHechos = new Set(((hechos ?? []) as { movement_id: string }[]).map(h => h.movement_id))
       const pendientes = ((movs ?? []) as Movimiento[]).filter(m => !yaHechos.has(m.id))
+      let abiertas = await cargarAbiertas(admin, exp.id)
 
       for (const m of pendientes) {
         if (Date.now() - inicio > PRESUPUESTO_MS || actuacionesProcesadas >= MAX_ACTUACIONES) { cortadoPorTope = true; break }
@@ -370,15 +556,21 @@ Deno.serve(async (req) => {
           const guard = await checkLlmGuard(admin, responsable, FUNCTION_NAME, 20_000)
           if (!guard.ok) throw new Error(guard.error ?? 'Límite de IA alcanzado')
           const cliente = `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim()
-          const { data: c, bytes } = await clasificar(exp, m, catalogo, { cliente, abogados })
+          const { data: c, bytes } = await clasificar(exp, m, catalogo, { cliente, abogados }, abiertas)
           logLlmCall(admin, responsable, FUNCTION_NAME, bytes)
+
+          // Seguimiento de diligencias (oficios, testigos, pericias), haya o no acción
+          if (c.diligencias_nuevas.length || c.diligencias_actualizadas.length) {
+            await aplicarDiligencias(admin, exp.id, m, c, abiertas, ferias, feriados)
+            abiertas = await cargarAbiertas(admin, exp.id)
+          }
 
           if (!m.ai_summary && c.resumen) {
             await admin.from('sae_movements').update({ ai_summary: c.resumen }).eq('id', m.id)
           }
 
           if (!c.requiere_accion || !c.accion) {
-            await admin.from('procuracion_eventos').insert({ ...base, estado: 'sin_accion', resumen: c.resumen, tipo_acto: c.tipo_acto })
+            await admin.from('procuracion_eventos').insert({ ...base, estado: 'sin_accion', resumen: c.resumen, tipo_acto: c.tipo_acto, etapa: c.etapa })
             resultados.push({ expediente: nombreExp, actuacion: m.titulo, estado: 'sin_accion' })
             continue
           }
@@ -392,53 +584,17 @@ Deno.serve(async (req) => {
           const vencido = !!vencimiento && vencimiento < hoyAR
           if (vencido) c.prioridad = 'URGENTE'
 
-          // 4. Borrador del escrito (nunca se presenta solo)
-          let escritoId: string | null = null
-          let escritoError: string | null = null
-          let escritoRepetido = false
-          if (c.escrito) {
-            const tipoNorm = c.escrito.tipo.trim().toLowerCase()
-            const claveRun = `${exp.id}|${tipoNorm}`
-            if (escritosEnCorrida.has(claveRun)) {
-              escritoRepetido = true
-            } else {
-              const hace15 = new Date(Date.now() - 15 * 86_400_000).toISOString()
-              const { data: previos } = await admin.from('escritos').select('id')
-                .eq('expediente_id', exp.id).ilike('tipo', tipoNorm).gte('created_at', hace15).limit(1)
-              escritoRepetido = (previos ?? []).length > 0
-            }
-            escritosEnCorrida.add(claveRun)
-          }
-          if (c.escrito && !escritoRepetido && escritosGenerados < MAX_ESCRITOS && Date.now() - inicio < PRESUPUESTO_MS - 60_000) {
-            const pedido = {
-              expediente_id: exp.id,
-              tipo: c.escrito.tipo,
-              instrucciones: c.escrito.instrucciones,
-              responde_a_movimiento_id: m.id,
-            }
-            let r = await llamarFunction('escritos-generate', { ...pedido, on_behalf_of_user_id: responsable }, 90_000)
-            // Perfil del responsable sin matrícula/domicilio/CUIT → firma el director
-            if (!r.ok && r.status === 412 && responsable !== directorId) {
-              r = await llamarFunction('escritos-generate', { ...pedido, on_behalf_of_user_id: directorId }, 90_000)
-            }
-            if (r.ok && typeof r.data?.escrito_id === 'string') {
-              escritoId = r.data.escrito_id
-              escritosGenerados++
-            } else {
-              escritoError = String(r.data?.error ?? `escritos-generate respondió ${r.status}`)
-            }
-          }
+          // 4. El escrito se PROPONE; se redacta solo si el abogado lo aprueba.
 
           // 5. Tarea para el responsable
           const lineas = [
             vencido ? `ATENCIÓN: según el cálculo, el plazo venció el ${fechaCorta(vencimiento!)}. Verificá si ya se cumplió.` : null,
             c.resumen,
             dias ? `Plazo: ${dias} días ${habiles ? 'hábiles' : 'corridos'}${delCatalogo?.base_legal ? ` (${delCatalogo.base_legal})` : ''}${vencimiento ? `. Vence el ${fechaCorta(vencimiento)}.` : '.'}` : null,
-            escritoId
-              ? `Borrador del escrito "${c.escrito!.tipo}" listo en la solapa Escritos: revisalo, firmalo y presentalo.`
-              : c.escrito
-                ? `Hay que presentar: ${c.escrito.tipo}.${escritoRepetido ? ' Ya hay un borrador reciente de ese tipo en Escritos.' : escritoError ? ' (No se pudo generar el borrador automáticamente.)' : ''}`
-                : null,
+            c.escrito
+              ? `Propuesta: redactar "${c.escrito.tipo}". No se redactó todavía: si corresponde, aprobalo con "Redactar borrador" ` +
+                'en la tarjeta de procuración del expediente (solapa SAE) o desde Telegram.'
+              : null,
             `Actuación: "${m.titulo}" del ${fechaCorta(m.fecha)}.`,
             'Creada por la procuración automática. Verificá el plazo antes de confiar en la fecha.',
           ].filter(Boolean)
@@ -460,9 +616,10 @@ Deno.serve(async (req) => {
           const tareaId = (tarea as { id: string }).id
           await admin.from('sae_movements').update({ auto_tarea_id: tareaId }).eq('id', m.id)
 
-          await admin.from('procuracion_eventos').insert({
+          const { data: evento } = await admin.from('procuracion_eventos').insert({
             ...base,
             estado: 'procesado',
+            etapa: c.etapa,
             tipo_acto: c.tipo_acto,
             resumen: c.resumen,
             accion: c.accion,
@@ -471,11 +628,13 @@ Deno.serve(async (req) => {
             base_legal: delCatalogo?.base_legal ?? null,
             vencimiento,
             escrito_tipo: c.escrito?.tipo ?? null,
+            escrito_instrucciones: c.escrito?.instrucciones ?? null,
             tarea_id: tareaId,
-            escrito_id: escritoId,
-            error: escritoError,
+          }).select('id').single()
+          resultados.push({
+            expediente: nombreExp, actuacion: m.titulo, estado: 'procesado', accion: c.accion, vencimiento,
+            propuesta: c.escrito?.tipo ?? null, evento_id: (evento as { id?: string } | null)?.id,
           })
-          resultados.push({ expediente: nombreExp, actuacion: m.titulo, estado: 'procesado', accion: c.accion, vencimiento, escrito: !!escritoId })
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           console.error('[procuracion]', exp.id, m.id, msg)
@@ -487,22 +646,104 @@ Deno.serve(async (req) => {
           resultados.push({ expediente: nombreExp, actuacion: m.titulo, estado: 'error', error: msg.slice(0, 200) })
         }
       }
+
+      // 6. Control de diligencias trabadas (sin IA salvo el borrador de reiteración)
+      try {
+        const hoy = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
+        const sumar = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
+        const propias = (await cargarAbiertas(admin, exp.id)).filter(d => d.a_pedido === 'nuestra')
+
+        const crearTarea = async (titulo: string, descripcion: string, prioridad: string, vence: string | null) => {
+          const { data, error } = await admin.from('tareas').insert({
+            expediente_id: exp.id, titulo, descripcion, prioridad, estado: 'PENDIENTE',
+            fecha_vencimiento: vence, asignado_a: responsable, asignados: [responsable],
+            created_by: directorId, es_plazo_judicial: false,
+          }).select('id').single()
+          if (error) throw new Error(`No se pudo crear la tarea de control: ${error.message}`)
+          return (data as { id: string }).id
+        }
+
+        for (const d of propias) {
+          // a) Ordenado y todavía no enviado → urgir en mesa de entradas
+          if (['oficio', 'cedula', 'mandamiento'].includes(d.tipo) && ['ordenado', 'confeccionado', 'reiterado'].includes(d.estado)
+              && !d.tarea_envio_id && d.fecha_ordenado && d.fecha_ordenado <= sumar(hoy, -URGIR_ENVIO_DIAS)) {
+            const id = await crearTarea(
+              `Urgir confección y envío del ${d.tipo} a ${d.destinatario}`,
+              `El ${d.tipo} a ${d.destinatario} se ordenó el ${fechaCorta(d.fecha_ordenado)} y todavía no hay constancia de que tribunales lo haya ` +
+              `${d.estado === 'confeccionado' ? 'enviado' : 'confeccionado y enviado'}. Controlar en mesa de entradas.\n\nCreada por el control de diligencias de la procuración automática.`,
+              'ALTA', hoy,
+            )
+            await admin.from('procuracion_diligencias').update({ tarea_envio_id: id, updated_at: new Date().toISOString() }).eq('id', d.id)
+            resultados.push({ expediente: nombreExp, actuacion: `Control: ${d.tipo} a ${d.destinatario}`, estado: 'procesado', accion: `Urgir envío del ${d.tipo} a ${d.destinatario}`, vencimiento: hoy })
+          }
+
+          // b) Oficio enviado, vencido y sin respuesta → reiteración / astreintes
+          if (d.tipo === 'oficio' && d.estado === 'enviado' && d.vence_respuesta && d.vence_respuesta < hoy && !d.tarea_reiteracion_id) {
+            const id = await crearTarea(
+              `Pedir reiteración del oficio a ${d.destinatario} (o astreintes)`,
+              `El oficio a ${d.destinatario} se envió el ${fechaCorta(d.fecha_envio ?? '')} y ${d.plazo_es_control ? 'la fecha de control' : 'el plazo para contestar'} ` +
+              `venció el ${fechaCorta(d.vence_respuesta)} sin respuesta en el expediente.` +
+              `${d.plazo_es_control ? ' (El oficio no fijaba plazo: es una fecha de control, verificá el plazo real.)' : ''}\n\n` +
+              'Propuesta: escrito "Solicita reiteración de oficio" bajo apercibimiento de astreintes. No se redactó todavía: ' +
+              'aprobalo con "Redactar" en la tarjeta de procuración (solapa SAE) o desde Telegram.' +
+              '\n\nCreada por el control de diligencias de la procuración automática.',
+              'URGENTE', hoy,
+            )
+            await admin.from('procuracion_diligencias').update({ tarea_reiteracion_id: id, updated_at: new Date().toISOString() }).eq('id', d.id)
+            resultados.push({
+              expediente: nombreExp, actuacion: `Control: oficio a ${d.destinatario}`, estado: 'procesado',
+              accion: `Pedir reiteración del oficio a ${d.destinatario}`, vencimiento: hoy,
+              propuesta: 'Solicita reiteración de oficio', diligencia_id: d.id,
+            })
+          }
+
+          // c) Testigo sin notificar con la audiencia cerca
+          if (d.tipo === 'testigo' && !['notificado'].includes(d.estado) && d.fecha_audiencia && !d.tarea_testigo_id
+              && d.fecha_audiencia >= hoy && d.fecha_audiencia <= sumar(hoy, AVISO_TESTIGO_DIAS)) {
+            const id = await crearTarea(
+              `Controlar notificación del testigo ${d.destinatario}`,
+              `La audiencia testimonial es el ${fechaCorta(d.fecha_audiencia)} y no hay constancia de que ${d.destinatario} haya sido notificado. ` +
+              'Verificar la cédula o notificarlo.\n\nCreada por el control de diligencias de la procuración automática.',
+              'URGENTE', sumar(d.fecha_audiencia, -1),
+            )
+            await admin.from('procuracion_diligencias').update({ tarea_testigo_id: id, updated_at: new Date().toISOString() }).eq('id', d.id)
+            resultados.push({ expediente: nombreExp, actuacion: `Control: testigo ${d.destinatario}`, estado: 'procesado', accion: `Controlar notificación del testigo ${d.destinatario}`, vencimiento: sumar(d.fecha_audiencia, -1) })
+          }
+        }
+      } catch (err) {
+        console.error('[procuracion] control diligencias', exp.id, err)
+      }
     }
 
-    // 6. Resumen a Marco
+    // 7. Resumen a Marco
     const conAccion = resultados.filter(r => r.estado === 'procesado')
     const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
     const marcoChat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null
     if (conAccion.length && token && marcoChat) {
-      const lineas = conAccion.map(r =>
-        `• ${r.expediente}\n   ${r.accion}${r.vencimiento ? ` — vence ${fechaCorta(r.vencimiento)}` : ''}${r.escrito ? '\n   Borrador listo para revisar' : ''}`)
+      // Las propuestas de escrito van numeradas con un botón "Redactar N": se
+      // redacta solo lo que Marco aprueba (callback en telegram-escrito-webhook).
+      let n = 0
+      const botones: { text: string; callback_data: string }[] = []
+      const lineas = conAccion.map(r => {
+        let propuesta = ''
+        if (r.propuesta && (r.evento_id || r.diligencia_id) && botones.length < 12) {
+          n++
+          propuesta = `\n   [${n}] Propone redactar: ${r.propuesta}`
+          botones.push({ text: `Redactar ${n}`, callback_data: r.evento_id ? `redactar:e:${r.evento_id}` : `redactar:d:${r.diligencia_id}` })
+        }
+        return `• ${r.expediente}\n   ${r.accion}${r.vencimiento ? ` — vence ${fechaCorta(r.vencimiento)}` : ''}${propuesta}`
+      })
+      const keyboard: { text: string; callback_data: string }[][] = []
+      for (let i = 0; i < botones.length; i += 3) keyboard.push(botones.slice(i, i + 3))
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: marcoChat,
-          text: `Procuración automática: ${conAccion.length} ${conAccion.length === 1 ? 'novedad' : 'novedades'}\n\n${lineas.join('\n\n')}\n\n${APP_URL}/tareas`,
+          text: `Procuración automática: ${conAccion.length} ${conAccion.length === 1 ? 'novedad' : 'novedades'}\n\n${lineas.join('\n\n')}` +
+            `${botones.length ? '\n\nNo redacté nada: tocá "Redactar N" solo en los que quieras el borrador.' : ''}\n\n${APP_URL}/tareas`,
           disable_web_page_preview: true,
+          ...(keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {}),
         }),
       }).catch(() => {})
     }
@@ -511,7 +752,7 @@ Deno.serve(async (req) => {
       ok: true,
       procesadas: actuacionesProcesadas,
       con_accion: conAccion.length,
-      escritos: escritosGenerados,
+      propuestas: resultados.filter(r => r.propuesta).length,
       cortado_por_tope: cortadoPorTope,
       resultados,
     })
