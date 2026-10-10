@@ -26,6 +26,11 @@ export interface ProcuracionEvento {
   /** Instrucciones del escrito propuesto (se redacta solo si se aprueba) */
   escrito_instrucciones: string | null
   etapa: string | null
+  /** 'casillero' = desde el depósito de la notificación; 'actuacion' = estimado */
+  base_plazo: 'casillero' | 'actuacion' | null
+  fecha_notificacion: string | null
+  feedback: 'correcto' | 'incorrecto' | null
+  feedback_nota: string | null
   tarea_id: string | null
   escrito_id: string | null
   error: string | null
@@ -203,6 +208,26 @@ export function useRedactarPropuesta(expedienteId: string) {
       queryClient.invalidateQueries({ queryKey: procuracionKeys.eventos(expedienteId) })
       queryClient.invalidateQueries({ queryKey: diligenciasKeys.list(expedienteId) })
       queryClient.invalidateQueries({ queryKey: ['tareas'] })
+    },
+  })
+}
+
+/** Feedback sobre una decisión del procurador: las correcciones lo entrenan. */
+export function useFeedbackEvento(expedienteId: string) {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ eventoId, correcto, nota }: { eventoId: string; correcto: boolean; nota?: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).rpc('procuracion_dar_feedback', {
+        p_evento_id: eventoId,
+        p_correcto: correcto,
+        p_nota: nota ?? null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: procuracionKeys.eventos(expedienteId) })
     },
   })
 }

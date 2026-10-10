@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bot, ChevronDown, FileText, Loader2, Play, AlertTriangle, CheckCircle2, MinusCircle, PenLine } from 'lucide-react'
+import { Bot, ChevronDown, FileText, Loader2, Play, AlertTriangle, CheckCircle2, MinusCircle, PenLine, ThumbsUp, ThumbsDown } from 'lucide-react'
 import {
   useProcuracionConfig, useProcuracionEventos, useSetProcuracion, useProcesarAhora, useRedactarPropuesta,
-  useDiligencias, useSetEstadoDiligencia,
+  useDiligencias, useSetEstadoDiligencia, useFeedbackEvento,
   type ProcuracionEvento, type Diligencia, type EstadoDiligencia,
 } from '@/hooks/use-procuracion'
 import { useTeamMembers } from '@/hooks/use-team-members'
@@ -50,6 +50,62 @@ function RedactarBoton({ expedienteId, propuesta, label, onListo }: {
   )
 }
 
+/** "Correcto" / "Corregir": las correcciones se le pasan al procurador como ejemplos. */
+function FeedbackEvento({ ev, expedienteId }: { ev: ProcuracionEvento; expedienteId: string }) {
+  const feedback = useFeedbackEvento(expedienteId)
+  const [corrigiendo, setCorrigiendo] = useState(false)
+  const [nota, setNota] = useState('')
+
+  if (ev.feedback === 'correcto') return <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400">Marcado como correcto.</p>
+  if (ev.feedback === 'incorrecto') {
+    return <p className="mt-1 text-[11px] text-violet-700 dark:text-violet-300">Corrección registrada: {ev.feedback_nota}</p>
+  }
+
+  const enviar = (correcto: boolean) => feedback.mutate(
+    { eventoId: ev.id, correcto, nota: correcto ? undefined : nota },
+    {
+      onSuccess: () => {
+        if (!correcto) toast.success('Corrección guardada', 'El procurador la va a tener en cuenta en las próximas actuaciones.')
+        setCorrigiendo(false)
+      },
+      onError: (err) => toast.error('No se pudo guardar', err instanceof Error ? err.message : undefined),
+    },
+  )
+
+  if (corrigiendo) {
+    return (
+      <div className="mt-1.5 space-y-1.5">
+        <textarea
+          autoFocus
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          rows={2}
+          placeholder="Qué estaba mal y qué correspondía. Ej: era apertura a producción, no a ofrecimiento; correspondía diligenciar los oficios propios."
+          className="w-full rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 placeholder:text-zinc-400 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200"
+        />
+        <div className="flex gap-2">
+          <button type="button" disabled={!nota.trim() || feedback.isPending} onClick={() => enviar(false)}
+            className="rounded-md bg-violet-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-50">
+            {feedback.isPending ? 'Guardando…' : 'Guardar corrección'}
+          </button>
+          <button type="button" onClick={() => setCorrigiendo(false)} className="text-[11px] text-zinc-500 hover:underline">Cancelar</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1 flex items-center gap-3 text-[11px] text-zinc-400">
+      <button type="button" disabled={feedback.isPending} onClick={() => enviar(true)} className="flex items-center gap-1 hover:text-emerald-600" title="La decisión fue correcta">
+        <ThumbsUp className="h-3 w-3" /> Correcto
+      </button>
+      <button type="button" onClick={() => setCorrigiendo(true)} className="flex items-center gap-1 hover:text-violet-600" title="Corregir: el procurador aprende de esto">
+        <ThumbsDown className="h-3 w-3" /> Corregir
+      </button>
+    </div>
+  )
+}
+
 function EventoItem({ ev, expedienteId, onVerEscritos }: {
   ev: ProcuracionEvento
   expedienteId: string
@@ -78,6 +134,17 @@ function EventoItem({ ev, expedienteId, onVerEscritos }: {
                   {ev.dias ? ` (${ev.dias} días ${ev.es_habiles ? 'hábiles' : 'corridos'})` : ''}
                 </span>
               )}
+              {ev.vencimiento && ev.base_plazo && (
+                <span
+                  className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium',
+                    ev.base_plazo === 'casillero' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400')}
+                  title={ev.base_plazo === 'casillero'
+                    ? `Contado desde el depósito en casillero del ${fechaCorta(ev.fecha_notificacion)}`
+                    : 'No se encontró la notificación en el casillero: estimado desde la fecha de la actuación. Se recalcula solo si la notificación aparece.'}
+                >
+                  {ev.base_plazo === 'casillero' ? `Desde casillero ${fechaCorta(ev.fecha_notificacion)}` : 'Estimado'}
+                </span>
+              )}
               {ev.tarea_id && <Link to="/tareas" className="text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">Tarea creada</Link>}
               {ev.escrito_id ? (
                 <button type="button" onClick={onVerEscritos} className="flex items-center gap-1 text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
@@ -92,11 +159,15 @@ function EventoItem({ ev, expedienteId, onVerEscritos }: {
                 </span>
               ) : null}
             </div>
+            <FeedbackEvento ev={ev} expedienteId={expedienteId} />
           </>
         ) : ev.estado === 'error' ? (
           <p className="mt-0.5 text-rose-600 dark:text-rose-400">{ev.error}</p>
         ) : (
-          <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">{ev.resumen ? `${ev.resumen} ` : ''}<span className="text-zinc-400">Sin acción requerida.</span></p>
+          <>
+            <p className="mt-0.5 text-zinc-600 dark:text-zinc-300">{ev.resumen ? `${ev.resumen} ` : ''}<span className="text-zinc-400">Sin acción requerida.</span></p>
+            {ev.resumen !== 'Mero trámite del portal' && <FeedbackEvento ev={ev} expedienteId={expedienteId} />}
+          </>
         )}
       </div>
     </li>

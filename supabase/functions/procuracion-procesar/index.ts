@@ -164,6 +164,7 @@ async function clasificar(
   catalogo: Plazo[],
   ctx: Contexto,
   abiertas: DiligenciaAbierta[],
+  correcciones: Correccion[],
 ): Promise<{ data: Clasificacion; bytes: number }> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada')
@@ -235,7 +236,8 @@ async function clasificar(
     'requiere_accion=true, accion="Notificar a los testigos <nombres> para la audiencia del <fecha>". Constancia de cédula a un ' +
     'testigo → evento notificado.\n' +
     '- Reiteración de oficio ordenada → evento reiterado. Intimación con astreintes → mencionala en resumen.\n' +
-    '- diligencias_actualizadas solo con ids de la lista de abiertas. Si no hay nada, devolvé listas vacías.'
+    '- diligencias_actualizadas solo con ids de la lista de abiertas. Si no hay nada, devolvé listas vacías.' +
+    correccionesTxt(correcciones)
 
   const body = { model: MODELO, temperature: 0.1, max_tokens: 1500, messages: [
     { role: 'system', content: system }, { role: 'user', content: user },
@@ -377,6 +379,76 @@ async function aplicarDiligencias(
   return { nuevas, actualizadas }
 }
 
+// ── Plazo desde el casillero ────────────────────────────────────────────────
+
+function normalizarTitulo(t: string): string {
+  return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+    .replace(/\s+-\s+POR:.*$/, '').replace(/[^A-Z0-9]+/g, ' ').trim()
+}
+
+/**
+ * Notificación del casillero que corresponde a la actuación: mismo expediente
+ * (vinculado o por número SAE), mismo título, depositada entre el día anterior
+ * a la actuación y 30 días después. Devuelve la de depósito más temprano.
+ */
+async function buscarNotificacion(
+  admin: Admin,
+  expedienteId: string,
+  numeroSae: string | null,
+  m: { fecha: string; titulo: string },
+): Promise<{ id: string; fecha: string } | null> {
+  const desde = new Date(Date.parse(`${m.fecha}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+  const hasta = new Date(Date.parse(`${m.fecha}T12:00:00Z`) + 30 * 86_400_000).toISOString().slice(0, 10)
+  let q = admin.from('sae_notificaciones')
+    .select('id, titulo, fecha_emision')
+    .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`)
+    .order('fecha_emision', { ascending: true })
+    .limit(40)
+  q = numeroSae
+    ? q.or(`expediente_id.eq.${expedienteId},numero_expediente.eq.${numeroSae.replace(/[,()]/g, '')}`)
+    : q.eq('expediente_id', expedienteId)
+  const { data } = await q
+  const objetivo = normalizarTitulo(m.titulo)
+  if (objetivo.length < 4) return null
+  for (const n of (data ?? []) as { id: string; titulo: string | null; fecha_emision: string | null }[]) {
+    if (!n.titulo || !n.fecha_emision) continue
+    const t = normalizarTitulo(n.titulo)
+    const coincide = t === objetivo || (Math.min(t.length, objetivo.length) >= 10 && (t.startsWith(objetivo) || objetivo.startsWith(t)))
+    if (coincide) return { id: n.id, fecha: n.fecha_emision.slice(0, 10) }
+  }
+  return null
+}
+
+// ── Aprendizaje: correcciones del estudio ───────────────────────────────────
+
+interface Correccion { titulo: string; tipo: string | null; propuso: string; nota: string }
+
+async function cargarCorrecciones(admin: Admin): Promise<Correccion[]> {
+  const { data } = await admin.from('procuracion_eventos')
+    .select('estado, accion, escrito_tipo, feedback_nota, movimiento:sae_movements(titulo, tipo_movimiento)')
+    .eq('feedback', 'incorrecto')
+    .not('feedback_nota', 'is', null)
+    .order('feedback_at', { ascending: false })
+    .limit(15)
+  return ((data ?? []) as unknown as {
+    estado: string; accion: string | null; escrito_tipo: string | null; feedback_nota: string
+    movimiento: { titulo: string; tipo_movimiento: string | null } | null
+  }[]).filter(r => r.movimiento).map(r => ({
+    titulo: r.movimiento!.titulo.slice(0, 120),
+    tipo: r.movimiento!.tipo_movimiento,
+    propuso: r.estado === 'procesado'
+      ? `${r.accion ?? 'acción'}${r.escrito_tipo ? ` + escrito "${r.escrito_tipo}"` : ''}`
+      : 'sin acción',
+    nota: r.feedback_nota.slice(0, 400),
+  }))
+}
+
+function correccionesTxt(cs: Correccion[]): string {
+  if (!cs.length) return ''
+  return '\n\nCorrecciones del estudio a decisiones anteriores (tienen prioridad sobre las reglas generales):\n' +
+    cs.map(c => `- Actuación "${c.titulo}" (${c.tipo ?? 'otro'}): propusiste ${c.propuso}. Corrección: ${c.nota}`).join('\n')
+}
+
 async function llamarFunction(
   nombre: string,
   body: Record<string, unknown>,
@@ -491,6 +563,8 @@ Deno.serve(async (req) => {
     const abogados = [...new Set(((equipo ?? []) as { apellido: string | null }[])
       .map(p => (p.apellido ?? '').trim().toUpperCase()).filter(Boolean))]
 
+    const correcciones = await cargarCorrecciones(admin)
+
     const resultados: Resultado[] = []
     let actuacionesProcesadas = 0
     let cortadoPorTope = false
@@ -556,7 +630,7 @@ Deno.serve(async (req) => {
           const guard = await checkLlmGuard(admin, responsable, FUNCTION_NAME, 20_000)
           if (!guard.ok) throw new Error(guard.error ?? 'Límite de IA alcanzado')
           const cliente = `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim()
-          const { data: c, bytes } = await clasificar(exp, m, catalogo, { cliente, abogados }, abiertas)
+          const { data: c, bytes } = await clasificar(exp, m, catalogo, { cliente, abogados }, abiertas, correcciones)
           logLlmCall(admin, responsable, FUNCTION_NAME, bytes)
 
           // Seguimiento de diligencias (oficios, testigos, pericias), haya o no acción
@@ -579,7 +653,11 @@ Deno.serve(async (req) => {
           const delCatalogo = c.tipo_acto ? catalogo.find(p => p.tipo_acto === c.tipo_acto) : undefined
           const dias = delCatalogo?.dias ?? c.dias
           const habiles = delCatalogo?.es_habiles ?? c.es_habiles
-          const vencimiento = dias ? calcularVencimiento(m.fecha, dias, habiles, ferias, feriados) : null
+          // El plazo corre desde el depósito en casillero; si la notificación
+          // todavía no está, se estima desde la actuación y se recalcula después.
+          const notif = dias ? await buscarNotificacion(admin, exp.id, exp.numero_sae, m) : null
+          const basePlazo: 'casillero' | 'actuacion' = notif ? 'casillero' : 'actuacion'
+          const vencimiento = dias ? calcularVencimiento(notif?.fecha ?? m.fecha, dias, habiles, ferias, feriados) : null
           const hoyAR = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
           const vencido = !!vencimiento && vencimiento < hoyAR
           if (vencido) c.prioridad = 'URGENTE'
@@ -590,7 +668,11 @@ Deno.serve(async (req) => {
           const lineas = [
             vencido ? `ATENCIÓN: según el cálculo, el plazo venció el ${fechaCorta(vencimiento!)}. Verificá si ya se cumplió.` : null,
             c.resumen,
-            dias ? `Plazo: ${dias} días ${habiles ? 'hábiles' : 'corridos'}${delCatalogo?.base_legal ? ` (${delCatalogo.base_legal})` : ''}${vencimiento ? `. Vence el ${fechaCorta(vencimiento)}.` : '.'}` : null,
+            dias ? `Plazo: ${dias} días ${habiles ? 'hábiles' : 'corridos'}${delCatalogo?.base_legal ? ` (${delCatalogo.base_legal})` : ''}${vencimiento ? `. Vence el ${fechaCorta(vencimiento)}.` : '.'} ` +
+              (notif
+                ? `Contado desde el depósito en casillero del ${fechaCorta(notif.fecha)}.`
+                : 'ESTIMADO desde la fecha de la actuación: no se encontró la notificación en el casillero (se recalcula sola si aparece).')
+              : null,
             c.escrito
               ? `Propuesta: redactar "${c.escrito.tipo}". No se redactó todavía: si corresponde, aprobalo con "Redactar borrador" ` +
                 'en la tarjeta de procuración del expediente (solapa SAE) o desde Telegram.'
@@ -627,6 +709,9 @@ Deno.serve(async (req) => {
             es_habiles: habiles,
             base_legal: delCatalogo?.base_legal ?? null,
             vencimiento,
+            base_plazo: dias ? basePlazo : null,
+            fecha_notificacion: notif?.fecha ?? null,
+            notificacion_id: notif?.id ?? null,
             escrito_tipo: c.escrito?.tipo ?? null,
             escrito_instrucciones: c.escrito?.instrucciones ?? null,
             tarea_id: tareaId,
@@ -647,7 +732,43 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 6. Control de diligencias trabadas (sin IA salvo el borrador de reiteración)
+      // 5b. Plazos estimados: si ya llegó la notificación al casillero, recalcular
+      try {
+        const hace45 = new Date(Date.now() - 45 * 86_400_000).toISOString()
+        const { data: estimados } = await admin.from('procuracion_eventos')
+          .select('id, dias, es_habiles, vencimiento, tarea_id, movimiento:sae_movements(fecha, titulo)')
+          .eq('expediente_id', exp.id).eq('base_plazo', 'actuacion').not('dias', 'is', null)
+          .gte('created_at', hace45).limit(20)
+        for (const ev of (estimados ?? []) as unknown as {
+          id: string; dias: number; es_habiles: boolean | null; vencimiento: string | null; tarea_id: string | null
+          movimiento: { fecha: string; titulo: string } | null
+        }[]) {
+          if (!ev.movimiento) continue
+          const notif = await buscarNotificacion(admin, exp.id, exp.numero_sae, ev.movimiento)
+          if (!notif) continue
+          const nuevo = calcularVencimiento(notif.fecha, ev.dias, ev.es_habiles ?? true, ferias, feriados)
+          await admin.from('procuracion_eventos').update({
+            base_plazo: 'casillero', fecha_notificacion: notif.fecha, notificacion_id: notif.id, vencimiento: nuevo,
+          }).eq('id', ev.id)
+          if (ev.tarea_id && nuevo && nuevo !== ev.vencimiento) {
+            const { data: t } = await admin.from('tareas').select('estado, descripcion').eq('id', ev.tarea_id).maybeSingle()
+            const tarea = t as { estado: string; descripcion: string | null } | null
+            if (tarea && ['PENDIENTE', 'EN_PROGRESO'].includes(tarea.estado)) {
+              await admin.from('tareas').update({
+                fecha_vencimiento: nuevo,
+                descripcion: `Plazo recalculado: la notificación se depositó en casillero el ${fechaCorta(notif.fecha)}. ` +
+                  `Vence el ${fechaCorta(nuevo)} (antes estimado ${ev.vencimiento ? fechaCorta(ev.vencimiento) : 'sin fecha'}).\n\n${tarea.descripcion ?? ''}`,
+                updated_at: new Date().toISOString(),
+              }).eq('id', ev.tarea_id)
+              resultados.push({ expediente: nombreExp, actuacion: ev.movimiento.titulo, estado: 'procesado', accion: 'Plazo recalculado desde el casillero', vencimiento: nuevo })
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[procuracion] recalcular plazos', exp.id, err)
+      }
+
+      // 6. Control de diligencias trabadas (sin IA)
       try {
         const hoy = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
         const sumar = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
