@@ -1,6 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient, useIsMutating } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Tables } from '@/types/database.types'
+import { expedientesKeys } from '@/hooks/use-expedientes'
 
 export type SaeCredential = Omit<Tables<'sae_credentials'>, 'encrypted_secret'>
 
@@ -188,6 +190,7 @@ export function useTriggerSaeSync() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: ['sae-sync'],
     mutationFn: async ({ expedienteId }: { expedienteId: string }) => {
       const { data, error } = await supabase.functions.invoke('sae-sync', {
         body: { expediente_id: expedienteId },
@@ -208,9 +211,58 @@ export function useTriggerSaeSync() {
     },
     onSuccess: (_data, { expedienteId }) => {
       queryClient.invalidateQueries({ queryKey: ['sae-movements', expedienteId] })
-      queryClient.invalidateQueries({ queryKey: ['expediente', expedienteId] })
+      queryClient.invalidateQueries({ queryKey: expedientesKeys.detail(expedienteId) })
     },
   })
+}
+
+/** ¿Hay un sync SAE en curso para este expediente (manual o automático)? */
+export function useSaeSyncEnCurso(expedienteId: string): boolean {
+  return useIsMutating({
+    mutationKey: ['sae-sync'],
+    predicate: (m) => (m.state.variables as { expedienteId?: string } | undefined)?.expedienteId === expedienteId,
+  }) > 0
+}
+
+const AUTO_SYNC_MIN_MINUTOS = 15
+const autoSyncKey = (id: string) => `sae-auto-sync:${id}`
+
+/**
+ * Al abrir un expediente con número SAE, sincroniza en segundo plano si el
+ * último sync tiene más de 15 minutos. Una vez por expediente cada 15 minutos
+ * (también si falla, para no golpear el portal en cada visita). Silencioso:
+ * solo avisa si entraron actuaciones nuevas.
+ */
+export function useAutoSaeSync(
+  expedienteId: string | undefined,
+  numeroSae: string | null | undefined,
+  ultimaSincronizacion: string | null | undefined,
+  onNuevas?: (n: number) => void,
+) {
+  const sync = useTriggerSaeSync()
+  const lanzado = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!expedienteId || !numeroSae || lanzado.current === expedienteId) return
+    const umbral = Date.now() - AUTO_SYNC_MIN_MINUTOS * 60_000
+    if (ultimaSincronizacion && new Date(ultimaSincronizacion).getTime() > umbral) return
+    try {
+      const ultimoIntento = Number(sessionStorage.getItem(autoSyncKey(expedienteId)) ?? 0)
+      if (ultimoIntento > umbral) return
+      sessionStorage.setItem(autoSyncKey(expedienteId), String(Date.now()))
+    } catch { /* sessionStorage no disponible: igual se sincroniza */ }
+
+    lanzado.current = expedienteId
+    sync.mutate(
+      { expedienteId },
+      {
+        onSuccess: (data) => { if (data?.nuevas) onNuevas?.(data.nuevas) },
+        onError: (err) => console.warn('[sae auto-sync]', err),
+      },
+    )
+    // sync/onNuevas cambian en cada render; el ref evita relanzar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expedienteId, numeroSae, ultimaSincronizacion])
 }
 
 // ─── Fetch bodies on-demand ──────────────────────────────────────────────────

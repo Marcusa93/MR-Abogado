@@ -33,6 +33,8 @@ import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
+import { useAutoSaeSync } from '@/hooks/use-sae'
+import { FavoritoStar } from '@/components/expedientes/favorito-star'
 import type { Tables } from '@/types/database.types'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { WhatsAppButtons } from '@/components/shared/whatsapp-button'
@@ -116,6 +118,14 @@ export default function ExpedienteDetailPage() {
   const { data: expediente, isLoading, isError } = useExpediente(id!)
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
+
+  // Actuaciones al día sin apretar "Sincronizar"
+  useAutoSaeSync(
+    id,
+    (expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae,
+    (expediente as { ultima_sincronizacion_sae?: string | null } | null | undefined)?.ultima_sincronizacion_sae,
+    (n) => toast.info(`${n} ${n === 1 ? 'actuación nueva' : 'actuaciones nuevas'} desde el SAE`),
+  )
 
   // Leer tab y movement highlight desde URL (?tab=actuaciones&mid=uuid)
   const searchParams = new URLSearchParams(location.search)
@@ -213,9 +223,12 @@ export default function ExpedienteDetailPage() {
           {/* Línea 1: carátula + badges */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
-                {expediente.caratula || (expediente as any).numero}
-              </h1>
+              <div className="flex items-start gap-1.5">
+                <FavoritoStar expedienteId={id!} size="md" className="-ml-1.5 shrink-0" />
+                <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
+                  {expediente.caratula || (expediente as any).numero}
+                </h1>
+              </div>
               <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
                 <span className="text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (

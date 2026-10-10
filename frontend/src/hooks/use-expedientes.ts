@@ -26,6 +26,8 @@ export interface ExpedientesFilters {
   fuero?: string | null
   tipo_proceso_id?: string | null
   search?: string | null
+  /** Solo los expedientes marcados con estrella por el usuario */
+  favoritos?: boolean | null
   page?: number
   pageSize?: number
   sortBy?: SortField
@@ -146,6 +148,22 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           visibilityIds = ids
         }
 
+        if (visibilityIds.length === 0) {
+          return { data: [], count: 0, page, pageSize, totalPages: 0 }
+        }
+      }
+
+      if (filters.favoritos) {
+        // RLS devuelve solo los favoritos del usuario logueado.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: favs } = await (supabase as any).from('expediente_favoritos').select('expediente_id')
+        const favIds = ((favs ?? []) as { expediente_id: string }[]).map((f) => f.expediente_id)
+        if (visibilityIds) {
+          const visible = new Set(visibilityIds)
+          visibilityIds = favIds.filter((id) => visible.has(id))
+        } else {
+          visibilityIds = favIds
+        }
         if (visibilityIds.length === 0) {
           return { data: [], count: 0, page, pageSize, totalPages: 0 }
         }

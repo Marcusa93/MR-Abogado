@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { Search, X, SlidersHorizontal, ChevronDown, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
@@ -92,6 +92,23 @@ export function ExpedienteFilters({
             className="h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20"
           />
         </div>
+
+        {/* Favoritos — siempre visible */}
+        <button
+          type="button"
+          onClick={() => onChange({ ...filters, favoritos: filters.favoritos ? null : true, page: 1 })}
+          aria-pressed={!!filters.favoritos}
+          className={cn(
+            'flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
+            filters.favoritos
+              ? 'border-amber-400/50 bg-amber-400/10 text-amber-600 dark:text-amber-400'
+              : 'border-zinc-200 bg-white text-zinc-700 hover:text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:text-amber-400',
+          )}
+          title={filters.favoritos ? 'Ver todos los expedientes' : 'Ver solo favoritos'}
+        >
+          <Star className={cn('h-3.5 w-3.5', filters.favoritos && 'fill-current')} />
+          Favoritos
+        </button>
 
         {/* Mobile toggle */}
         <button

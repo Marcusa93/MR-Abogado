@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useModalHistory } from '@/hooks/use-modal-history'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, useFetchBodies, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeSyncEnCurso, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, useFetchBodies, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { ModalNuevaActuacion } from './modal-nueva-actuacion'
 import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -872,6 +872,7 @@ interface TabActuacionesProps {
 export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId }: TabActuacionesProps) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
+  const sincronizando = useSaeSyncEnCurso(expedienteId)
   const saeDocument = useSaeDocument()
   const analyze = useAnalyzeMovements()
   const setMovementKey = useSetMovementKey()
@@ -1259,15 +1260,16 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
           {numeroSae && (
             <button
               onClick={handleSync}
-              disabled={sync.isPending}
+              disabled={sincronizando}
+              title="Las actuaciones se actualizan solas al abrir el expediente. Usalo para forzar una actualización ahora."
               className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
             >
-              {sync.isPending ? (
+              {sincronizando ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              {sync.isPending ? 'Sincronizando...' : 'Sincronizar'}
+              {sincronizando ? 'Actualizando desde SAE…' : 'Actualizar'}
             </button>
           )}
         </div>
@@ -1453,7 +1455,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
           <EmptyState
             icon={AlertCircle}
             title="Sin actuaciones"
-            description={numeroSae ? 'Presioná Sincronizar para importar las actuaciones desde el SAE, o cargá una manualmente con el botón Nueva.' : 'Cargá la primera actuación con el botón Nueva.'}
+            description={numeroSae ? (sincronizando ? 'Trayendo las actuaciones desde el SAE…' : 'No hay actuaciones importadas del SAE. Podés cargar una manualmente con el botón Nueva.') : 'Cargá la primera actuación con el botón Nueva.'}
           />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
