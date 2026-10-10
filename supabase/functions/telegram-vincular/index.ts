@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     if (authErr || !user) return json(req, { error: 'No autenticado' }, 401)
 
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-    const body = await req.json().catch(() => ({})) as { accion?: string }
+    const body = await req.json().catch(() => ({})) as { accion?: string; for_profile_id?: string }
 
     if (body.accion === 'desvincular') {
       const { error } = await admin.from('profiles').update({ telegram_chat_id: null }).eq('id', user.id)
@@ -47,6 +47,17 @@ Deno.serve(async (req) => {
     }
 
     if (body.accion !== 'link') return json(req, { error: 'accion inválida' }, 400)
+
+    // Soporte para DIRECTOR generando link para otro usuario
+    let targetProfileId = user.id
+    if (body.for_profile_id && body.for_profile_id !== user.id) {
+      const { data: caller } = await admin.from('profiles')
+        .select('rol').eq('id', user.id).maybeSingle()
+      if (!caller || !['DIRECTOR', 'ADMIN'].includes(caller.rol ?? '')) {
+        return json(req, { error: 'Sin permisos para generar links para otros usuarios' }, 403)
+      }
+      targetProfileId = body.for_profile_id
+    }
 
     const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
     if (!token) return json(req, { error: 'Bot de Telegram no configurado' }, 500)
@@ -59,11 +70,11 @@ Deno.serve(async (req) => {
     }
 
     // Un código vigente por usuario: se reemplazan los anteriores.
-    await admin.from('telegram_link_codes').delete().eq('profile_id', user.id)
+    await admin.from('telegram_link_codes').delete().eq('profile_id', targetProfileId)
     const code = nuevoCodigo()
     const { error } = await admin.from('telegram_link_codes').insert({
       code,
-      profile_id: user.id,
+      profile_id: targetProfileId,
       expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     })
     if (error) return json(req, { error: error.message }, 500)

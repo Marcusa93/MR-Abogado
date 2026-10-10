@@ -50,6 +50,23 @@ export function useVincularTelegram() {
   })
 }
 
+/** DIRECTOR/ADMIN: genera el link de vinculación para otro usuario.
+ *  Devuelve la URL lista para copiar o compartir. */
+export function useVincularTelegramParaOtro() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (forProfileId: string) => {
+      const { data, error } = await supabase.functions.invoke('telegram-vincular', {
+        body: { accion: 'link', for_profile_id: forProfileId },
+      })
+      if (error) throw error
+      const url = (data as { url?: string; error?: string } | null)?.url
+      if (!url) throw new Error((data as { error?: string } | null)?.error ?? 'No se pudo generar el enlace')
+      return url
+    },
+  })
+}
+
 export function useDesvincularTelegram(profileId: string | undefined) {
   const supabase = createClient()
   const queryClient = useQueryClient()

@@ -19,6 +19,7 @@ import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuacione
 import { SemaforoPanel, SemaforoPanelSkeleton } from '@/components/dashboard/semaforo-panel'
 import { AbogadosPanel } from '@/components/dashboard/abogados-panel'
 import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
+import { ActividadTareasPanel } from '@/components/dashboard/actividad-tareas-panel'
 import { ConsultasWidget } from '@/components/dashboard/consultas-widget'
 import { ActividadRecienteDashboardPanel } from '@/components/dashboard/actividad-reciente-dashboard-panel'
 import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
@@ -205,6 +206,9 @@ export function DashboardView({
 
       {/* 4.5 Carga del equipo (admin/director) */}
       <CargaEquipoPanel />
+
+      {/* 4.55 Actividad de tareas (admin/director) */}
+      <ActividadTareasPanel />
 
       {/* 4.6 Consultas activas */}
       <ConsultasWidget />

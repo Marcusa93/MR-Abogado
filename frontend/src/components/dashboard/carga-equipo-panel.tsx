@@ -1,177 +1,290 @@
-import { useQuery } from '@tanstack/react-query'
-import { Users } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Users, Send, Plus, CheckCircle2, Clock, AlertCircle, Copy, Check, Unlink } from 'lucide-react'
+import { toast } from '@/stores/toast-store'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
+import { useVincularTelegramParaOtro } from '@/hooks/use-telegram-vinculo'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-interface PerfilCarga {
+interface PerfilEquipo {
   id: string
   nombre: string | null
   apellido: string | null
   rol: string | null
-  tareas_abiertas: number
-  consultas_asignadas: number
+  telegram_chat_id: number | null
+  tareas_total: number
+  tareas_urgentes: number
+  tareas_vencidas: number
+  proxima: { id: string; titulo: string; fecha_vencimiento: string | null; prioridad: string | null } | null
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+// ── Hook ─────────────────────────────────────────────────────────────────────
 
-function useCargaEquipo() {
+function useEquipoControl() {
   const supabase = createClient()
-  return useQuery<PerfilCarga[]>({
-    queryKey: ['carga-equipo'],
+  return useQuery<PerfilEquipo[]>({
+    queryKey: ['equipo-control'],
+    staleTime: 90_000,
     queryFn: async () => {
-      const { data: perfiles, error: perfErr } = await supabase
+      const { data: perfiles, error } = await (supabase as any)
         .from('profiles')
-        .select('id, nombre, apellido, rol')
+        .select('id, nombre, apellido, rol, telegram_chat_id')
         .eq('activo', true)
-        .in('rol', ['ABOGADO', 'STAFF', 'SECRETARIA', 'DIRECTOR'])
+        .in('rol', ['DIRECTOR', 'ABOGADO', 'CRITERIO'])
         .order('apellido', { ascending: true })
-      if (perfErr) throw perfErr
+      if (error) throw error
+      if (!perfiles?.length) return []
 
-      if (!perfiles || perfiles.length === 0) return []
+      const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const ids = (perfiles as { id: string }[]).map(p => p.id)
 
-      const [tareasRes, consultasRes] = await Promise.all([
-        (supabase as any)
-          .from('tareas')
-          .select('assigned_to, estado')
-          .not('estado', 'in', '(completada,COMPLETADA)')
-          .not('assigned_to', 'is', null),
+      const { data: tareas } = await supabase
+        .from('tareas' as never)
+        .select('id, titulo, prioridad, fecha_vencimiento, asignado_a')
+        .in('asignado_a' as never, ids)
+        .in('estado' as never, ['PENDIENTE', 'EN_PROGRESO'])
+        .order('fecha_vencimiento' as never, { ascending: true, nullsFirst: false })
 
-        (supabase as any)
-          .from('consultas')
-          .select('assigned_to')
-          .not('estado', 'in', '(convertida,resuelta,descartada)')
-          .not('assigned_to', 'is', null),
-      ])
-
-      const tareasPorPerfil = new Map<string, number>()
-      for (const t of tareasRes.data ?? []) {
-        if (t.assigned_to) {
-          tareasPorPerfil.set(t.assigned_to, (tareasPorPerfil.get(t.assigned_to) ?? 0) + 1)
-        }
+      const map = new Map<string, Array<{ id: string; titulo: string; prioridad: string | null; fecha_vencimiento: string | null }>>()
+      for (const t of (tareas ?? []) as Array<{ id: string; titulo: string; prioridad: string | null; fecha_vencimiento: string | null; asignado_a: string }>) {
+        const list = map.get(t.asignado_a) ?? []
+        list.push({ id: t.id, titulo: t.titulo, prioridad: t.prioridad, fecha_vencimiento: t.fecha_vencimiento })
+        map.set(t.asignado_a, list)
       }
 
-      const consultasPorPerfil = new Map<string, number>()
-      for (const c of consultasRes.data ?? []) {
-        if (c.assigned_to) {
-          consultasPorPerfil.set(c.assigned_to, (consultasPorPerfil.get(c.assigned_to) ?? 0) + 1)
+      return (perfiles as { id: string; nombre: string | null; apellido: string | null; rol: string | null; telegram_chat_id: number | null }[]).map(p => {
+        const ts = map.get(p.id) ?? []
+        const sorted = [...ts].sort((a, b) => {
+          const fa = a.fecha_vencimiento ?? '9999-12-31'
+          const fb = b.fecha_vencimiento ?? '9999-12-31'
+          return fa < fb ? -1 : fa > fb ? 1 : 0
+        })
+        return {
+          ...p,
+          tareas_total: ts.length,
+          tareas_urgentes: ts.filter(t => t.prioridad === 'URGENTE').length,
+          tareas_vencidas: ts.filter(t => t.fecha_vencimiento && t.fecha_vencimiento < hoy).length,
+          proxima: sorted[0] ?? null,
         }
-      }
-
-      return perfiles.map(p => ({
-        id: p.id,
-        nombre: p.nombre,
-        apellido: p.apellido,
-        rol: p.rol,
-        tareas_abiertas: tareasPorPerfil.get(p.id) ?? 0,
-        consultas_asignadas: consultasPorPerfil.get(p.id) ?? 0,
-      }))
+      })
     },
-    staleTime: 2 * 60_000,
   })
 }
 
-// ---------------------------------------------------------------------------
-// Helpers UI
-// ---------------------------------------------------------------------------
+// ── Helpers UI ───────────────────────────────────────────────────────────────
 
 function iniciales(nombre: string | null, apellido: string | null): string {
-  const n = (nombre ?? '').charAt(0).toUpperCase()
-  const a = (apellido ?? '').charAt(0).toUpperCase()
-  return `${a}${n}` || '??'
+  const n = (nombre ?? '').charAt(0)
+  const a = (apellido ?? '').charAt(0)
+  return `${a}${n}`.toUpperCase() || '??'
 }
 
-function tareasColor(n: number): string {
-  if (n === 0) return 'text-emerald-400'
-  if (n <= 3) return 'text-amber-400'
-  return 'text-rose-400'
+function fechaCorta(iso: string | null): string {
+  if (!iso) return ''
+  const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const mañana = new Date(Date.now() - 3 * 60 * 60 * 1000 + 86400000).toISOString().slice(0, 10)
+  if (iso === hoy) return 'HOY'
+  if (iso === mañana) return 'mañana'
+  if (iso < hoy) return `VENCIDA ${iso.slice(5).replace('-', '/')}`
+  return iso.slice(5).replace('-', '/')
 }
 
-function tareasBg(n: number): string {
-  if (n === 0) return 'bg-emerald-500/10'
-  if (n <= 3) return 'bg-amber-500/10'
-  return 'bg-rose-500/10'
+function avatarColor(index: number): string {
+  const colors = [
+    'bg-sky-500/20 text-sky-400',
+    'bg-violet-500/20 text-violet-400',
+    'bg-amber-500/20 text-amber-400',
+    'bg-emerald-500/20 text-emerald-400',
+    'bg-rose-500/20 text-rose-400',
+  ]
+  return colors[index % colors.length]
 }
 
-const ROL_LABEL: Record<string, string> = {
-  ADMIN: 'Admin',
-  DIRECTOR: 'Director',
-  ABOGADO: 'Abogado',
-  SECRETARIA: 'Secretaria',
-  STAFF: 'Staff',
+// ── TelegramBadge ─────────────────────────────────────────────────────────────
+
+function TelegramBadge({ profileId, connected, onLinked }: {
+  profileId: string
+  connected: boolean
+  onLinked: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const generar = useVincularTelegramParaOtro()
+  const queryClient = useQueryClient()
+
+  const desconectar = useMutation({
+    mutationFn: async () => {
+      const supabase = createClient()
+      await (supabase as any).from('profiles').update({ telegram_chat_id: null }).eq('id', profileId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipo-control'] })
+      toast.success('Telegram desvinculado')
+    },
+  })
+
+  if (connected) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 cursor-pointer hover:bg-rose-500/10 hover:text-rose-400 transition-colors group"
+        title="Clic para desvincular"
+        onClick={() => desconectar.mutate()}
+      >
+        <CheckCircle2 className="h-3 w-3 group-hover:hidden" />
+        <Unlink className="h-3 w-3 hidden group-hover:block" />
+        <span className="group-hover:hidden">TG conectado</span>
+        <span className="hidden group-hover:inline">Desvincular</span>
+      </span>
+    )
+  }
+
+  async function handleGenerar() {
+    try {
+      const url = await generar.mutateAsync(profileId)
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      toast.success('Link copiado — mandáselo por WhatsApp o email')
+      onLinked()
+      setTimeout(() => setCopied(false), 3000)
+    } catch {
+      toast.error('No se pudo generar el link')
+    }
+  }
+
+  return (
+    <button
+      onClick={handleGenerar}
+      disabled={generar.isPending}
+      className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 text-[10px] font-medium text-zinc-400 hover:bg-sky-500/15 hover:text-sky-400 transition-colors cursor-pointer"
+    >
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {generar.isPending ? 'Generando…' : copied ? 'Link copiado' : 'Copiar link TG'}
+    </button>
+  )
 }
 
-// ---------------------------------------------------------------------------
-// Componente
-// ---------------------------------------------------------------------------
+// ── Componente ────────────────────────────────────────────────────────────────
 
 export function CargaEquipoPanel() {
   const { profile } = useAuth()
-  const { data: carga = [], isLoading } = useCargaEquipo()
+  const { data: equipo = [], isLoading } = useEquipoControl()
+  const queryClient = useQueryClient()
 
   const isAdminOrDirector = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   if (!isAdminOrDirector) return null
 
   return (
     <div className="dashboard-panel rounded-[1.5rem] p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Users className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-        <div>
-          <p className="dashboard-eyebrow text-[10px]">equipo</p>
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Carga del equipo</h3>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+          <div>
+            <p className="dashboard-eyebrow text-[10px]">dirección</p>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Control de equipo</h3>
+          </div>
         </div>
+        <Link
+          to="/tareas"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Nueva tarea
+        </Link>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[0, 1, 2, 3].map(i => (
-            <div key={i} className="h-24 rounded-xl bg-zinc-100 dark:bg-white/[0.03] animate-pulse" />
+        <div className="space-y-3">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="h-20 rounded-xl bg-zinc-100 dark:bg-white/[0.03] animate-pulse" />
           ))}
         </div>
-      ) : carga.length === 0 ? (
+      ) : equipo.length === 0 ? (
         <p className="text-xs text-zinc-500 py-4 text-center">Sin miembros activos.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {carga.map(p => (
-            <div
-              key={p.id}
-              className="flex flex-col items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] dark:bg-white/[0.03] px-3 py-3 text-center"
-            >
-              {/* Avatar */}
-              <div className={cn(
-                'h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-zinc-700 dark:text-zinc-200',
-                tareasBg(p.tareas_abiertas),
-              )}>
-                {iniciales(p.nombre, p.apellido)}
-              </div>
+        <div className="space-y-2">
+          {equipo.map((p, idx) => {
+            const nombre = [p.apellido, p.nombre].filter(Boolean).join(', ') || '—'
+            const proxFecha = p.proxima?.fecha_vencimiento ? fechaCorta(p.proxima.fecha_vencimiento) : null
+            const proxVencida = p.proxima?.fecha_vencimiento
+              ? p.proxima.fecha_vencimiento < new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)
+              : false
 
-              {/* Nombre */}
-              <div className="min-w-0 w-full">
-                <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 truncate">
-                  {[p.apellido, p.nombre].filter(Boolean).join(', ') || '—'}
-                </p>
-                <p className="text-[10px] text-zinc-500">{ROL_LABEL[p.rol ?? ''] ?? p.rol}</p>
-              </div>
+            return (
+              <div
+                key={p.id}
+                className="flex items-start gap-3 rounded-xl border border-white/6 bg-white/[0.015] dark:bg-white/[0.02] px-4 py-3 transition-colors hover:bg-white/[0.04]"
+              >
+                {/* Avatar */}
+                <div className={cn(
+                  'mt-0.5 h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold',
+                  avatarColor(idx),
+                )}>
+                  {iniciales(p.nombre, p.apellido)}
+                </div>
 
-              {/* Carga */}
-              <div className="w-full space-y-0.5">
-                <p className={cn('text-xs font-bold tabular-nums', tareasColor(p.tareas_abiertas))}>
-                  {p.tareas_abiertas} {p.tareas_abiertas === 1 ? 'tarea' : 'tareas'}
-                </p>
-                {p.consultas_asignadas > 0 && (
-                  <p className="text-[10px] text-zinc-500 tabular-nums">
-                    {p.consultas_asignadas} {p.consultas_asignadas === 1 ? 'consulta' : 'consultas'}
-                  </p>
-                )}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+                    <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">{nombre}</span>
+                    <TelegramBadge
+                      profileId={p.id}
+                      connected={!!p.telegram_chat_id}
+                      onLinked={() => queryClient.invalidateQueries({ queryKey: ['equipo-control'] })}
+                    />
+                  </div>
+
+                  {/* Contadores */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mb-1.5">
+                    {p.tareas_urgentes > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400">
+                        <AlertCircle className="h-3 w-3" />
+                        {p.tareas_urgentes} urgente{p.tareas_urgentes > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {p.tareas_vencidas > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400">
+                        <Clock className="h-3 w-3" />
+                        {p.tareas_vencidas} vencida{p.tareas_vencidas > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-zinc-500">
+                      {p.tareas_total === 0 ? 'Sin tareas pendientes' : `${p.tareas_total} pendiente${p.tareas_total > 1 ? 's' : ''}`}
+                    </span>
+                  </div>
+
+                  {/* Próxima tarea */}
+                  {p.proxima && (
+                    <p className={cn('text-[11px] truncate', proxVencida ? 'text-amber-400' : 'text-zinc-500')}>
+                      <span className="font-medium text-zinc-400 dark:text-zinc-300">
+                        {p.proxima.titulo.slice(0, 52)}
+                        {p.proxima.titulo.length > 52 ? '…' : ''}
+                      </span>
+                      {proxFecha && (
+                        <span className={cn('ml-1.5', proxVencida ? 'text-amber-500 font-semibold' : 'text-zinc-500')}>
+                          · {proxFecha}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+
+                {/* Acciones */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5">
+                  <Link
+                    to={`/tareas?asignado=${encodeURIComponent(`${p.apellido ?? ''} ${p.nombre ?? ''}`.trim())}`}
+                    className="inline-flex items-center gap-1 rounded-lg bg-zinc-100 dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+                  >
+                    <Send className="h-3 w-3" />
+                    Ver tareas
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
