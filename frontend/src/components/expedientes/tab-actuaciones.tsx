@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ProcuracionPanel } from '@/components/expedientes/procuracion-panel'
 import { useModalHistory } from '@/hooks/use-modal-history'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -867,9 +868,11 @@ interface TabActuacionesProps {
   numeroSae: string | null | undefined
   ultimaSincronizacion: string | null | undefined
   highlightMovementId?: string
+  /** Lleva a la solapa Escritos (para abrir un borrador de la procuración) */
+  onVerEscritos?: () => void
 }
 
-export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId }: TabActuacionesProps) {
+export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId, onVerEscritos }: TabActuacionesProps) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
   const sincronizando = useSaeSyncEnCurso(expedienteId)
@@ -1276,6 +1279,8 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
       }
     >
       <div className="space-y-4">
+        <ProcuracionPanel expedienteId={expedienteId} tieneSae={!!numeroSae} onVerEscritos={onVerEscritos} />
+
         {/* ── Stat grid: resumen SAE de un vistazo ── */}
         {movements.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] divide-x divide-y sm:divide-y-0 divide-cyan-500/10 overflow-hidden">

@@ -154,7 +154,15 @@ Deno.serve(async (req) => {
                 .eq('rol', 'abogado')
                 .eq('activo', true)
                 .limit(1)
-              const asignadoA = (miembros?.[0] as any)?.profile_id ?? null
+              // asignado_a y created_by son NOT NULL: sin fallback el insert fallaba siempre.
+              const { data: expResp } = await serviceClient
+                .from('expedientes')
+                .select('abogado_responsable_id')
+                .eq('id', m.expediente_id)
+                .maybeSingle()
+              const asignadoA: string = (miembros?.[0] as any)?.profile_id
+                ?? (expResp as { abogado_responsable_id?: string | null } | null)?.abogado_responsable_id
+                ?? user.id
 
               const descripcionPlazo = plazos.length > 0
                 ? `Plazo: ${plazos[0].descripcion} (${plazos[0].dias} días${plazos[0].habiles ? ' hábiles' : ''})\n\n`
@@ -171,7 +179,9 @@ Deno.serve(async (req) => {
                   estado: 'PENDIENTE',
                   fecha_vencimiento: fechaVencimiento,
                   asignado_a: asignadoA,
-                  asignados: asignadoA ? [asignadoA] : [],
+                  asignados: [asignadoA],
+                  created_by: user.id,
+                  sae_movement_id: m.id,
                   es_plazo_judicial: true,
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),

@@ -533,6 +533,7 @@ export default function ExpedienteDetailPage() {
             numeroSae={(expediente as any).numero_sae ?? null}
             ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
             highlightMovementId={highlightMovementId}
+            onVerEscritos={() => setActiveTab('escritos')}
           />
         )}
         {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
