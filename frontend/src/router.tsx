@@ -68,6 +68,7 @@ const CalculadoraPlazosPage = lazyWithRetry(() => import('@/pages/calculadora-pl
 const CalculadoraDanosPage = lazyWithRetry(() => import('@/pages/calculadora-danos'))
 const CriterioPage = lazyWithRetry(() => import('@/pages/criterio'))
 const MiTrabajoPage = lazyWithRetry(() => import('@/pages/mi-trabajo'))
+const SubirDocumentacionPage = lazyWithRetry(() => import('@/pages/subir-documentacion'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -98,6 +99,15 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <AuthCallbackPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    // Pública: el cliente sube la documentación con el enlace del estudio
+    path: '/subir/:token',
+    element: (
+      <SuspenseWrapper>
+        <SubirDocumentacionPage />
       </SuspenseWrapper>
     ),
   },

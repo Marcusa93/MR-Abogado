@@ -36,6 +36,7 @@ import { toast } from '@/stores/toast-store'
 import { useAutoSaeSync } from '@/hooks/use-sae'
 import { useRegistrarAcceso } from '@/hooks/use-audit-log'
 import { FavoritoStar } from '@/components/expedientes/favorito-star'
+import { DocumentacionRequerida } from '@/components/shared/documentacion-requerida'
 import type { Tables } from '@/types/database.types'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { WhatsAppButtons } from '@/components/shared/whatsapp-button'
@@ -582,7 +583,13 @@ export default function ExpedienteDetailPage() {
           </div>
         )}
         {activeTab === 'escritos' && <EscritosNotasTab expedienteId={id!} />}
-        {activeTab === 'documentos' && <DocumentosJuridicosTab expedienteId={id!} />}
+        {activeTab === 'documentos' && (
+          <DocumentosJuridicosTab
+            expedienteId={id!}
+            clienteNombre={(expediente as { clientes?: { nombre?: string | null } | null }).clientes?.nombre ?? null}
+            clienteTelefono={(expediente as { clientes?: { telefono?: string | null } | null }).clientes?.telefono ?? null}
+          />
+        )}
         {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
         {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
         {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} onBriefNeeded={() => setActiveTab('vision-ia')} />}
@@ -756,10 +763,23 @@ function EscritosNotasTab({ expedienteId }: { expedienteId: string }) {
   )
 }
 
-function DocumentosJuridicosTab({ expedienteId }: { expedienteId: string }) {
+function DocumentosJuridicosTab({ expedienteId, clienteNombre, clienteTelefono }: {
+  expedienteId: string
+  clienteNombre: string | null
+  clienteTelefono: string | null
+}) {
   return (
     <SubTabs
       tabs={[
+        {
+          id: 'cliente',
+          label: 'Documentación del cliente',
+          render: () => (
+            <Card title="Documentación del cliente">
+              <DocumentacionRequerida caso={{ expedienteId }} clienteNombre={clienteNombre} clienteTelefono={clienteTelefono} />
+            </Card>
+          ),
+        },
         { id: 'documentos', label: 'Documentos', render: () => <TabDocumentos expedienteId={expedienteId} /> },
         { id: 'normativa', label: 'Normativa', render: () => <TabNormativa expedienteId={expedienteId} /> },
         { id: 'jurisprudencia', label: 'Jurisprudencia', render: () => <TabJurisprudencia expedienteId={expedienteId} /> },
