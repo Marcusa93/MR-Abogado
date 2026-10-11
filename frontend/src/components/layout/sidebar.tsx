@@ -77,10 +77,10 @@ const DEFAULT_COLLAPSED: GroupKey[] = ['inteligencia']
 
 const navItems: readonly NavItem[] = [
   // OPERACIÓN — lo cotidiano
-  { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
-  { href: '/criterio', label: 'Mi tablero', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
-  { href: '/mi-trabajo', label: 'Mi trabajo', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
+  { href: '/inicio', label: 'Inicio', icon: Sun, group: 'operacion' },
+  { href: '/criterio', label: 'Mis asignaciones', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
+  { href: '/mi-trabajo', label: 'Asuntos', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
+  { href: '/dashboard', label: 'Indicadores', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
@@ -173,7 +173,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <Link
-        to="/dashboard"
+        to="/inicio"
         className={cn(
           'flex h-16 items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
           isCollapsed ? 'justify-center' : 'gap-3'

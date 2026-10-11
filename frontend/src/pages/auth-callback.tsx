@@ -48,7 +48,7 @@ export default function AuthCallbackPage() {
               setPhase('error')
               return
             }
-            navigate('/dashboard', { replace: true })
+            navigate('/', { replace: true })
             return
           }
           if (hashType === 'recovery') {
@@ -76,7 +76,7 @@ export default function AuthCallbackPage() {
           }
           // Magic link: redirect to dashboard; recovery: show password form
           if (urlType === 'magiclink') {
-            navigate('/dashboard', { replace: true })
+            navigate('/', { replace: true })
             return
           }
           setPhase('form')
@@ -119,7 +119,7 @@ export default function AuthCallbackPage() {
       }
 
       setPhase('success')
-      setTimeout(() => navigate('/dashboard', { replace: true }), 2000)
+      setTimeout(() => navigate('/', { replace: true }), 2000)
     } catch {
       setErrorMsg('Error al actualizar la contraseña.')
       setSaving(false)

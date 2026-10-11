@@ -3,14 +3,10 @@ import { AuthGuard } from '@/components/auth/auth-guard'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { AppSplash } from '@/components/shared/app-splash'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
-import { useAuthStore } from '@/stores/auth-store'
 
-// Landing condicional por rol.
+// Una sola pantalla de inicio para todos los roles (los bloques cambian según el rol).
 function HomeRedirect() {
-  const profile = useAuthStore((s) => s.profile)
-  if (profile?.rol === 'SECRETARIA') return <Navigate to="/hoy" replace />
-  if (profile?.rol === 'CRITERIO') return <Navigate to="/criterio" replace />
-  return <Navigate to="/mi-trabajo" replace />
+  return <Navigate to="/inicio" replace />
 }
 
 // Lazy load pages with automatic retry on chunk load failure (after deploys)
@@ -151,7 +147,8 @@ export const router = createBrowserRouter([
       { path: 'aprendizajes', element: <SuspenseWrapper><AprendizajesPage /></SuspenseWrapper> },
       { path: 'buscar-audiencias', element: <SuspenseWrapper><BuscarAudienciasPage /></SuspenseWrapper> },
       { path: 'caja', element: <SuspenseWrapper><CajaPage /></SuspenseWrapper> },
-      { path: 'hoy', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'inicio', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'hoy', element: <Navigate to="/inicio" replace /> },
       { path: 'criterio', element: <SuspenseWrapper><CriterioPage /></SuspenseWrapper> },
       { path: 'mi-trabajo', element: <SuspenseWrapper><MiTrabajoPage /></SuspenseWrapper> },
       { path: 'contenidos', element: <SuspenseWrapper><ContenidosPage /></SuspenseWrapper> },

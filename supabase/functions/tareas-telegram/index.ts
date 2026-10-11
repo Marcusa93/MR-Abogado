@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
           (tarea.descripcion ? `\n\n${tarea.descripcion.slice(0, 600)}` : '')
         const ok = await tgSendKb(token, p.telegram_chat_id!, text, [
           [{ text: 'Marcar como hecha', callback_data: `hecho:${tarea.id}` }],
-          [{ text: 'Ver mis tareas', url: `${APP_URL}/mi-trabajo` }],
+          [{ text: 'Ver mis tareas', url: `${APP_URL}/inicio` }],
         ])
         if (ok) enviados++
       }

@@ -223,7 +223,7 @@ export default function ActividadPage() {
 
   // Solo ADMIN y DIRECTOR ven actividad del sistema
   if (profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/inicio" replace />
   }
 
   return (

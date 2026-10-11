@@ -366,7 +366,7 @@ async function handleColaborador(
       'Acá te aviso cuando tengas una tarea nueva y cada mañana te mando tus pendientes.\n\n' +
       '/tareas — ver tus pendientes\n' +
       '/hecho N — marcar como hecha la tarea N de la lista\n\n' +
-      `También las ves en ${APP_URL}/mi-trabajo`)
+      `También las ves en ${APP_URL}/inicio`)
     return
   }
   const tareas = await listarPendientes(admin, perfil.id)
@@ -389,7 +389,7 @@ async function vincularChat(
   if (!row) return false
   await admin.from('telegram_link_codes').delete().eq('code', code)
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    await tgSend(token, chatId, 'El enlace venció. Generá uno nuevo desde la app (Mi Trabajo → Vincular Telegram).')
+    await tgSend(token, chatId, 'El enlace venció. Generá uno nuevo desde la app (Inicio → Vincular Telegram).')
     return true
   }
   // El chat queda vinculado a un solo perfil.
@@ -545,7 +545,7 @@ async function handleGestion(
     }
 
     const aviso = sinTelegram.size
-      ? `\n\n${[...sinTelegram].join(', ')} todavía no vinculó Telegram: lo va a ver al entrar a la app (Mi Trabajo).`
+      ? `\n\n${[...sinTelegram].join(', ')} todavía no vinculó Telegram: lo va a ver al entrar a la app (Inicio).`
       : ''
     await tgSend(token, chatId, `${informe.join('\n\n')}${aviso}`)
     return
@@ -769,7 +769,7 @@ Deno.serve(async (req) => {
     } catch (err) {
       console.error('[telegram-escrito] vincular', err)
     }
-    await tgSend(token, chatId, 'El enlace no es válido. Generá uno nuevo desde la app (Mi Trabajo → Vincular Telegram).')
+    await tgSend(token, chatId, 'El enlace no es válido. Generá uno nuevo desde la app (Inicio → Vincular Telegram).')
     return new Response('ok')
   }
 
@@ -786,7 +786,7 @@ Deno.serve(async (req) => {
       await tgSend(token, chatId, 'Algo falló, probá de nuevo en un rato.')
       return new Response('ok')
     }
-    await tgSend(token, chatId, `Para usar este bot, vinculá tu cuenta desde la app: ${APP_URL}/mi-trabajo → "Vincular Telegram".`)
+    await tgSend(token, chatId, `Para usar este bot, vinculá tu cuenta desde la app: ${APP_URL}/inicio → "Vincular Telegram".`)
     return new Response('ok')
   }
 

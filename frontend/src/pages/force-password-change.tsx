@@ -60,7 +60,7 @@ export default function ForcePasswordChangePage() {
 
       setDone(true)
       setTimeout(() => {
-        navigate('/dashboard', { replace: true })
+        navigate('/', { replace: true })
         window.location.reload() // Reload to refresh profile in store
       }, 1500)
     } catch {
