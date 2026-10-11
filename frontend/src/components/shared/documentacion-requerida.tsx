@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Check, ClipboardList, Copy, ExternalLink, FileText, Link2, Loader2, MessageCircle, Minus, Plus, Save, Trash2, Undo2, X } from 'lucide-react'
 import {
   useDocumentosRequeridos, usePlantillasDoc, useAgregarDocumentos, useCambiarEstadoDoc, useEliminarDoc,
@@ -32,6 +32,7 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
   const revocar = useRevocarEnlaceDoc(caso)
 
   const [nuevo, setNuevo] = useState('')
+  const inputNuevo = useRef<HTMLInputElement>(null)
   const [plantillaId, setPlantillaId] = useState('')
   const [borrar, setBorrar] = useState<DocumentoRequerido | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -77,8 +78,10 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
   const saludo = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'-]{2,}$/.test(primerNombre) ? ` ${primerNombre}` : ''
   const mensaje = (url: string) =>
     `Hola${saludo}, te escribimos del Estudio Jurídico Dr. Marco Rossi. ` +
-    `Para avanzar con tu caso necesitamos esta documentación:\n\n${pendientesTxt}\n\n` +
-    `Podés subirla desde el celular, sacándole una foto, en este enlace:\n${url}\n\nGracias.`
+    (pendientesTxt
+      ? `Para avanzar con tu caso necesitamos esta documentación:\n\n${pendientesTxt}\n\nPodés subirla desde el celular, sacándole una foto, en este enlace:\n${url}`
+      : `Podés mandarnos la documentación de tu caso desde el celular, sacándole una foto, en este enlace:\n${url}`) +
+    '\n\nGracias.'
 
   const enviarWhatsApp = () => conEnlace((url) => {
     const numero = clienteTelefono ? formatWhatsAppNumber(clienteTelefono) : ''
@@ -113,20 +116,26 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={plantillaId}
-          onChange={(e) => { setPlantillaId(e.target.value); if (e.target.value) aplicarPlantilla(e.target.value) }}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v === '__libre') { setPlantillaId(''); inputNuevo.current?.focus(); return }
+            setPlantillaId(v)
+            if (v) aplicarPlantilla(v)
+          }}
           disabled={agregar.isPending}
           className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200"
         >
-          <option value="">{docs.length ? 'Agregar desde plantilla…' : 'Elegí una plantilla según el caso…'}</option>
+          <option value="">{docs.length ? 'Agregar desde plantilla…' : 'Elegí una plantilla o armá una lista libre…'}</option>
+          <option value="__libre">Lista libre: escribo yo los documentos</option>
           {plantillas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
         </select>
-        {vigentes.some((d) => d.estado === 'pendiente') && (
+        {(
           <>
             <button type="button" onClick={enviarWhatsApp} disabled={crearEnlace.isPending}
               className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               title={clienteTelefono ? 'Abre WhatsApp con el mensaje y el enlace' : 'El cliente no tiene teléfono cargado: elegí el contacto en WhatsApp'}>
               {crearEnlace.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
-              Pedir por WhatsApp
+              {vigentes.some((d) => d.estado === 'pendiente') ? 'Pedir por WhatsApp' : 'Enviar enlace por WhatsApp'}
             </button>
             <button type="button" onClick={copiar}
               className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
@@ -154,7 +163,8 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
         <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-zinc-400" /></div>
       ) : docs.length === 0 ? (
         <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center text-xs text-zinc-500 dark:border-white/10">
-          Todavía no hay documentos pedidos. Elegí una plantilla o agregalos uno por uno.
+          Todavía no hay documentos pedidos. Elegí una plantilla, escribilos uno por uno abajo, o mandá el enlace igual:
+          el cliente puede subir lo que quiera indicando qué es.
         </p>
       ) : (
         <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-white/5 dark:border-white/10">
@@ -205,7 +215,7 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
       )}
 
       <form onSubmit={agregarUno} className="flex gap-2">
-        <input value={nuevo} onChange={(e) => setNuevo(e.target.value)} placeholder="Agregar documento (ej: recibo de sueldo de marzo)"
+        <input ref={inputNuevo} value={nuevo} onChange={(e) => setNuevo(e.target.value)} placeholder="Escribí un documento a pedir (ej: recibo de sueldo de marzo)"
           className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-800 placeholder:text-zinc-400 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200" />
         <button type="submit" disabled={!nuevo.trim() || agregar.isPending}
           className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">

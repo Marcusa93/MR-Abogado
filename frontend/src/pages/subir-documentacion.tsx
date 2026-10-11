@@ -52,6 +52,35 @@ async function llamar(body: Record<string, unknown>) {
   return data
 }
 
+/** Convierte fotos a PDF y sube. destino: documento de la lista o uno libre. */
+async function subirArchivos(
+  token: string,
+  files: FileList,
+  destino: { itemId: string } | { libre: true; nombre: string },
+): Promise<void> {
+  const lista = Array.from(files)
+  const imagenes = lista.filter((f) => f.type.startsWith('image/'))
+  const pdfs = lista.filter((f) => f.type === 'application/pdf')
+  if (imagenes.length + pdfs.length === 0) throw new Error('Subí fotos o archivos PDF.')
+
+  const archivos: { blob: Blob; nombre: string }[] = []
+  if (imagenes.length) archivos.push({ blob: await imagenesAPdf(imagenes), nombre: imagenes.map((f) => f.name).join(', ') })
+  for (const p of pdfs) archivos.push({ blob: p, nombre: p.name })
+
+  const extra = 'itemId' in destino ? { item_id: destino.itemId } : { libre: true }
+  for (const a of archivos) {
+    if (a.blob.size > 25 * 1024 * 1024) throw new Error('El archivo supera los 25 MB. Probá con menos fotos por vez.')
+    const { path, upload_token } = await llamar({ accion: 'subir_url', token, ...extra }) as { path: string; upload_token: string }
+    const { error: upErr } = await createClient().storage.from('adjuntos')
+      .uploadToSignedUrl(path, upload_token, a.blob, { contentType: 'application/pdf' })
+    if (upErr) throw new Error('No se pudo subir el archivo. Revisá la conexión y probá de nuevo.')
+    await llamar({
+      accion: 'confirmar', token, path, nombre_original: a.nombre,
+      ...('itemId' in destino ? { item_id: destino.itemId } : { libre: true, nombre: destino.nombre }),
+    })
+  }
+}
+
 function ItemDoc({ item, token, onSubido }: { item: Item; token: string; onSubido: () => void }) {
   const input = useRef<HTMLInputElement>(null)
   const [estado, setEstado] = useState<'idle' | 'subiendo' | 'ok' | 'error'>(item.estado === 'recibido' ? 'ok' : 'idle')
@@ -62,23 +91,7 @@ function ItemDoc({ item, token, onSubido }: { item: Item; token: string; onSubid
     setEstado('subiendo')
     setError('')
     try {
-      const lista = Array.from(files)
-      const imagenes = lista.filter((f) => f.type.startsWith('image/'))
-      const pdfs = lista.filter((f) => f.type === 'application/pdf')
-      if (imagenes.length + pdfs.length === 0) throw new Error('Subí fotos o archivos PDF.')
-
-      const archivos: { blob: Blob; nombre: string }[] = []
-      if (imagenes.length) archivos.push({ blob: await imagenesAPdf(imagenes), nombre: imagenes.map((f) => f.name).join(', ') })
-      for (const p of pdfs) archivos.push({ blob: p, nombre: p.name })
-
-      for (const a of archivos) {
-        if (a.blob.size > 25 * 1024 * 1024) throw new Error('El archivo supera los 25 MB. Probá con menos fotos por vez.')
-        const { path, upload_token } = await llamar({ accion: 'subir_url', token, item_id: item.id }) as { path: string; upload_token: string }
-        const { error: upErr } = await createClient().storage.from('adjuntos')
-          .uploadToSignedUrl(path, upload_token, a.blob, { contentType: 'application/pdf' })
-        if (upErr) throw new Error('No se pudo subir el archivo. Revisá la conexión y probá de nuevo.')
-        await llamar({ accion: 'confirmar', token, item_id: item.id, path, nombre_original: a.nombre })
-      }
+      await subirArchivos(token, files, { itemId: item.id })
       setEstado('ok')
       onSubido()
     } catch (e) {
@@ -132,6 +145,63 @@ function ItemDoc({ item, token, onSubido }: { item: Item; token: string; onSubid
   )
 }
 
+/** El cliente manda un documento que no estaba en la lista. */
+function OtroDocumento({ token, onSubido }: { token: string; onSubido: (nombre: string) => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [nombre, setNombre] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+  const [error, setError] = useState('')
+  const [enviados, setEnviados] = useState<string[]>([])
+
+  const subir = async (files: FileList | null) => {
+    if (!files?.length) return
+    setSubiendo(true)
+    setError('')
+    try {
+      await subirArchivos(token, files, { libre: true, nombre: nombre.trim() })
+      setEnviados((e) => [...e, nombre.trim()])
+      onSubido(nombre.trim())
+      setNombre('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Algo falló. Probá de nuevo.')
+    } finally {
+      setSubiendo(false)
+      if (input.current) input.current.value = ''
+    }
+  }
+
+  return (
+    <div className="mt-5 rounded-xl border border-dashed border-zinc-300 bg-white p-4">
+      <p className="text-[15px] font-medium text-zinc-900">¿Tenés otro documento para mandarnos?</p>
+      <p className="mt-0.5 text-sm text-zinc-500">Contanos qué es y subilo. Puede ser cualquier cosa que creas útil para tu caso.</p>
+      {enviados.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {enviados.map((n, i) => (
+            <li key={i} className="flex items-center gap-1.5 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" /> {n}</li>
+          ))}
+        </ul>
+      )}
+      <input
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        placeholder="Ej: chat con mi jefe, recibo de marzo"
+        maxLength={120}
+        className="mt-3 w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-[15px] text-zinc-900 placeholder:text-zinc-400 focus:border-[#1f3a4d] focus:outline-none"
+      />
+      <input ref={input} type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={(e) => subir(e.target.files)} />
+      <button
+        type="button"
+        disabled={subiendo || nombre.trim().length < 2}
+        onClick={() => input.current?.click()}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[#1f3a4d] px-3 py-2.5 text-sm font-semibold text-[#1f3a4d] active:bg-zinc-100 disabled:opacity-40"
+      >
+        {subiendo ? <><Loader2 className="h-4 w-4 animate-spin" /> Subiendo…</> : <><Camera className="h-4 w-4" /> Sacar foto o elegir archivo</>}
+      </button>
+      {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+    </div>
+  )
+}
+
 export default function SubirDocumentacionPage() {
   const { token = '' } = useParams<{ token: string }>()
   const [info, setInfo] = useState<Info | null>(null)
@@ -175,8 +245,8 @@ export default function SubirDocumentacionPage() {
           <>
             <h2 className="text-xl font-semibold">Hola{info.cliente ? `, ${info.cliente}` : ''}</h2>
             <p className="mt-1 text-[15px] text-zinc-600">
-              Para avanzar con tu caso necesitamos esta documentación. Podés sacarle una foto con el celular
-              (si son varias hojas, elegí todas las fotos juntas) o subir un PDF.
+              {info.items.length ? 'Para avanzar con tu caso necesitamos esta documentación.' : 'Desde acá podés mandarnos documentación para tu caso.'} Podés sacarle una foto con el celular
+              (si son varias hojas, elegí todas las fotos juntas) o subir un PDF. Hasta 25 MB por vez.
             </p>
 
             {total > 0 && (
@@ -191,7 +261,7 @@ export default function SubirDocumentacionPage() {
             )}
 
             {total === 0 ? (
-              <p className="mt-6 text-center text-sm text-zinc-500">No hay documentación pendiente. Gracias.</p>
+              <p className="mt-5 text-sm text-zinc-600">Podés mandarnos la documentación de tu caso acá abajo.</p>
             ) : (
               <ul className="mt-5 space-y-3">
                 {info.items.map((item) => (
@@ -200,6 +270,8 @@ export default function SubirDocumentacionPage() {
                 ))}
               </ul>
             )}
+
+            <OtroDocumento token={token} onSubido={() => {}} />
 
             <p className="mt-6 flex items-start gap-2 text-xs text-zinc-500">
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />

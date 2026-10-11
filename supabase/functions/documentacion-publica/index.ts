@@ -9,6 +9,9 @@
 //   → { path, upload_token }  (subida directa a Storage con URL firmada)
 // POST { accion: 'confirmar', token, item_id, path, nombre_original }
 //   → registra el adjunto, marca el documento como recibido y avisa al estudio.
+// Documento que el cliente manda por su cuenta (no estaba en la lista):
+//   subir_url con { libre: true } y confirmar con { libre: true, nombre }
+//   → se agrega a la lista como recibido (fuente cliente).
 //
 // Deploy con --no-verify-jwt.
 
@@ -113,8 +116,10 @@ Deno.serve(async (req) => {
     // ── subir_url ──────────────────────────────────────────────────────────
     if (body.accion === 'subir_url') {
       if (enlace.subidas >= MAX_SUBIDAS_POR_ENLACE) return json(req, { error: 'Se alcanzó el máximo de archivos para este enlace.' }, 429)
-      const item = await cargarItem(admin, enlace, body.item_id)
-      if (!item) return json(req, { error: 'Documento no encontrado.' }, 404)
+      if (body.libre !== true) {
+        const item = await cargarItem(admin, enlace, body.item_id)
+        if (!item) return json(req, { error: 'Documento no encontrado.' }, 404)
+      }
       const path = `${carpeta(enlace)}/cliente_${Date.now()}_${crypto.randomUUID().slice(0, 8)}.pdf`
       const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(path)
       if (error || !data) return json(req, { error: 'No se pudo preparar la subida.' }, 500)
@@ -123,11 +128,20 @@ Deno.serve(async (req) => {
 
     // ── confirmar ──────────────────────────────────────────────────────────
     if (body.accion === 'confirmar') {
-      const item = await cargarItem(admin, enlace, body.item_id)
-      if (!item) return json(req, { error: 'Documento no encontrado.' }, 404)
       const path = typeof body.path === 'string' ? body.path : ''
       const dir = carpeta(enlace)
       if (!path.startsWith(`${dir}/cliente_`) || path.includes('..')) return json(req, { error: 'Archivo inválido.' }, 400)
+
+      let item: { id: string; nombre: string } | null = null
+      if (body.libre === true) {
+        const nombre = typeof body.nombre === 'string' ? body.nombre.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
+        if (nombre.length < 2) return json(req, { error: 'Contanos qué documento es.' }, 400)
+        // El archivo se valida abajo; el documento se crea recién si está todo bien
+        item = { id: '', nombre }
+      } else {
+        item = await cargarItem(admin, enlace, body.item_id)
+        if (!item) return json(req, { error: 'Documento no encontrado.' }, 404)
+      }
 
       // El archivo tiene que existir y no superar el tamaño máximo
       const nombreArchivo = path.slice(dir.length + 1)
@@ -138,6 +152,21 @@ Deno.serve(async (req) => {
       if (tamano > MAX_BYTES) {
         await admin.storage.from(BUCKET).remove([path])
         return json(req, { error: 'El archivo supera los 25 MB.' }, 400)
+      }
+
+      if (body.libre === true) {
+        const { data: nuevo, error: nErr } = await admin.from('documentos_requeridos').insert({
+          expediente_id: enlace.expediente_id,
+          consulta_id: enlace.expediente_id ? null : enlace.consulta_id,
+          nombre: item.nombre,
+          descripcion: 'Lo mandó el cliente por su cuenta',
+          obligatorio: false,
+          estado: 'pendiente',
+          orden: 10_000,
+          created_by: enlace.created_by,
+        }).select('id').single()
+        if (nErr || !nuevo) return json(req, { error: 'No se pudo registrar el documento.' }, 500)
+        item = { ...item, id: (nuevo as { id: string }).id }
       }
 
       let clienteId: string | null = null
@@ -169,7 +198,10 @@ Deno.serve(async (req) => {
         descripcion: `Subido por el cliente desde el enlace de documentación${typeof body.nombre_original === 'string' ? ` (archivo: ${body.nombre_original.slice(0, 120)})` : ''}`,
         uploaded_by: enlace.created_by,
       }).select('id').single()
-      if (adjErr || !adj) return json(req, { error: 'No se pudo registrar el archivo.' }, 500)
+      if (adjErr || !adj) {
+        if (body.libre === true) await admin.from('documentos_requeridos').delete().eq('id', item.id)
+        return json(req, { error: 'No se pudo registrar el archivo.' }, 500)
+      }
 
       const ahora = new Date().toISOString()
       await admin.from('documentos_requeridos').update({
@@ -180,7 +212,7 @@ Deno.serve(async (req) => {
       // Aviso al responsable
       await admin.from('alertas').insert({
         tipo: 'CUSTOM',
-        titulo: `El cliente subió: ${item.nombre}`,
+        titulo: `El cliente subió${body.libre === true ? ' (por su cuenta)' : ''}: ${item.nombre}`,
         mensaje: caratula ? `${caratula.slice(0, 120)} — desde el enlace de documentación.` : 'Desde el enlace de documentación.',
         expediente_id: enlace.expediente_id,
         destinatario_id: responsable,
@@ -191,7 +223,7 @@ Deno.serve(async (req) => {
         },
       })
 
-      return json(req, { ok: true })
+      return json(req, { ok: true, item_id: item.id })
     }
 
     return json(req, { error: 'Acción inválida' }, 400)
