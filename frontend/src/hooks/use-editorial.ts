@@ -159,14 +159,20 @@ export function useEditorialIA() {
     mutationFn: async (body: Record<string, unknown>) => {
       const { data, error } = await createClient().functions.invoke('editorial-ia', { body })
       if (error) {
-        const ctx = (error as { context?: Response }).context
-        const msg = ctx ? await ctx.json().then((j: { error?: string }) => j.error).catch(() => null) : null
-        throw new Error(msg ?? error.message)
+        const ctx = (error as { context?: unknown }).context
+        if (ctx instanceof Response) {
+          const msg = await ctx.json().then((j: { error?: string }) => j.error).catch(() => null)
+          throw new Error(msg ?? error.message)
+        }
+        // Se cortó la conexión (red del celular, pantalla bloqueada): la IA
+        // puede haber terminado igual del lado del servidor.
+        throw new Error('Se cortó la conexión mientras la IA trabajaba. Si terminó, el resultado aparece en unos segundos; si no, probá de nuevo.')
       }
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
       return data as Record<string, unknown>
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['editorial'] }),
+    // También ante error: el pedido pudo completarse aunque se cortara la respuesta
+    onSettled: () => qc.invalidateQueries({ queryKey: ['editorial'] }),
   })
 }
 
