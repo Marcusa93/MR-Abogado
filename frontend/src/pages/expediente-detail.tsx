@@ -109,13 +109,18 @@ export default function ExpedienteDetailPage() {
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const esDirector = profile?.rol === 'DIRECTOR'
-  const visibleTabs = TABS.filter((t) => {
+  const { data: expediente, isLoading, isError } = useExpediente(id!)
+  const tieneSae = !!(expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae
+
+  // En expedientes del SAE, las actuaciones van primero.
+  const tabsFiltradas = TABS.filter((t) => {
     if (t.id === 'caja') return tieneAccesoCaja
     if (t.id === 'novedades') return esDirector
     return true
   })
-
-  const { data: expediente, isLoading, isError } = useExpediente(id!)
+  const visibleTabs = tieneSae
+    ? [...tabsFiltradas.filter((t) => t.id === 'actuaciones'), ...tabsFiltradas.filter((t) => t.id !== 'actuaciones')]
+    : tabsFiltradas
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
 
@@ -136,6 +141,17 @@ export default function ExpedienteDetailPage() {
     if (urlTab && TABS.some(t => t.id === urlTab)) return urlTab as TabId
     return 'datos'
   })
+  // Pestaña inicial: actuaciones si el expediente es del SAE (salvo que la URL
+  // pida otra). Se decide una vez por expediente, cuando termina de cargar,
+  // para no pisar la pestaña que el usuario elija después.
+  const tabInicialPara = useRef<string | null>(null)
+  useEffect(() => {
+    if (!expediente || !id || tabInicialPara.current === id) return
+    tabInicialPara.current = id
+    if (urlTab && TABS.some(t => t.id === urlTab)) return
+    setActiveTab(tieneSae ? 'actuaciones' : 'datos')
+  }, [expediente, id, urlTab, tieneSae])
+
   const activeTabRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })

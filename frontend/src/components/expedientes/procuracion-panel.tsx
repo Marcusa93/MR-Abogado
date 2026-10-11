@@ -326,28 +326,31 @@ export function ProcuracionPanel({ expedienteId, tieneSae, onVerEscritos }: {
   }
 
   return (
-    <div className={cn(
-      'rounded-xl border px-4 py-3',
-      activo ? 'border-violet-500/30 bg-violet-500/[0.04]' : 'border-zinc-200 dark:border-white/10',
-    )}>
+    <div
+      className={cn(
+        'rounded-xl border px-4',
+        activo ? 'border-violet-500/30 bg-violet-500/[0.04] py-3' : 'border-zinc-200 py-1.5 dark:border-white/10',
+      )}
+      title={activo ? undefined : tieneSae
+        ? 'Revisa sola las actuaciones nuevas, calcula plazos, crea tareas y controla oficios y testigos. Propone escritos, pero no redacta ni presenta nada sin tu aprobación.'
+        : 'Necesita el número SAE del expediente para traer las actuaciones.'}
+    >
       <div className="flex flex-wrap items-center gap-3">
         <Bot className={cn('h-4 w-4 shrink-0', activo ? 'text-violet-500' : 'text-zinc-400')} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Procuración automática
+          <p className={cn('font-semibold', activo ? 'text-sm text-zinc-900 dark:text-zinc-100' : 'text-xs text-zinc-500 dark:text-zinc-400')}>
+            Procuración automática{!activo && ' · desactivada'}
             {propuestasPendientes > 0 && (
               <span className="ml-2 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
                 {propuestasPendientes} {propuestasPendientes === 1 ? 'escrito propuesto' : 'escritos propuestos'}
               </span>
             )}
           </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {activo
-              ? 'Cada actuación nueva: plazo, tarea y seguimiento de oficios y testigos. Los escritos los propone; se redactan solo si los aprobás.'
-              : tieneSae
-                ? 'Revisa sola las actuaciones nuevas, calcula plazos, crea tareas y controla oficios y testigos. Propone escritos, pero no redacta ni presenta nada sin tu aprobación.'
-                : 'Necesita el número SAE del expediente para traer las actuaciones.'}
-          </p>
+          {activo && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Cada actuación nueva: plazo, tarea y seguimiento de oficios y testigos. Los escritos los propone; se redactan solo si los aprobás.
+            </p>
+          )}
         </div>
 
         {activo && (
