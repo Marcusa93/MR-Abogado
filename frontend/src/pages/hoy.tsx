@@ -29,6 +29,7 @@ import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-pane
 import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useCuentasSaldos } from '@/hooks/use-cuenta-corriente'
+import { useAccesoEditorial, usePropuestas } from '@/hooks/use-editorial'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -722,6 +723,25 @@ function ContenidosPendientes({ items }: { items: HoyContenido[] }) {
 
 const fmtARS = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 
+/** Propuestas editoriales nuevas (solo quien tiene acceso editorial). */
+function AvisoEditorial() {
+  const { data: propuestas = [] } = usePropuestas()
+  const nuevas = propuestas.filter((p) => p.estado === 'propuesta')
+  if (nuevas.length === 0) return null
+  const deSentencia = nuevas.filter((p) => p.origen === 'sentencia').length
+  return (
+    <Link to="/editorial" className="dashboard-panel flex items-center gap-3 rounded-[1.25rem] px-4 py-3 hover:opacity-90">
+      <FileText className="h-4 w-4 shrink-0 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+      <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">
+        <span className="font-semibold">{nuevas.length} {nuevas.length === 1 ? 'propuesta editorial' : 'propuestas editoriales'}</span>
+        {deSentencia > 0 && ` (${deSentencia} por ${deSentencia === 1 ? 'una sentencia nueva' : 'sentencias nuevas'})`}
+        <span className="text-zinc-500"> · {nuevas[0].titulo.slice(0, 80)}{nuevas.length > 1 ? '…' : ''}</span>
+      </span>
+      <ArrowRight className="h-4 w-4 text-zinc-400" />
+    </Link>
+  )
+}
+
 /** Lo que le deben al estudio (cuentas corrientes). Solo con acceso a caja. */
 function CobrosPendientes() {
   const { data: saldos = [], isLoading } = useCuentasSaldos()
@@ -769,6 +789,7 @@ export default function HoyPage() {
   // Abogados y dirección: plazos procesales por vencer
   const esLetrado = !isSecretaria && profile?.rol !== 'CRITERIO'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
+  const { data: accesoEditorial } = useAccesoEditorial()
 
   if (isLoading) {
     return (
@@ -824,6 +845,9 @@ export default function HoyPage() {
 
       {/* ── NOTIFICACIONES — siempre primera sección de contenido ───────── */}
       <NotificacionesHoyPanel />
+
+      {/* ── Editorial: propuestas de artículos (solo Marco) ─────────────── */}
+      {accesoEditorial && <AvisoEditorial />}
 
       {/* ── Audiencias del día — para todos los roles ───────────────────── */}
       {(isSecretaria || data.audiencias_hoy.length > 0) && (

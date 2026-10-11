@@ -8,6 +8,7 @@ import { SaeHealthBadge } from './sae-health-badge'
 
 const pageTitles: Record<string, string> = {
   '/inicio': 'Inicio',
+  '/editorial': 'Editorial',
   '/dashboard': 'Indicadores',
   '/mi-trabajo': 'Asuntos',
   '/expedientes': 'Expedientes',
