@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { SelectorExpediente, SelectorCliente, useExpedienteOpcion, useClienteOpcion, type ExpedienteOpcion, type ClienteOpcion } from '@/components/caja/selectores'
 import { X, Loader2, Plus } from 'lucide-react'
 import {
   useCreateGasto, useUpdateGasto, useCreateIngreso, useUpdateIngreso,
@@ -19,7 +20,7 @@ const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
 
 export { fmt }
 
-const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20'
+export const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20'
 
 // ─── Shell + helpers del formulario ─────────────────────────────────────────
 
@@ -61,6 +62,12 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
   const [categoria, setCategoria] = useState(initial?.categoria ?? 'timbrado')
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
   const [recuperable, setRecuperable] = useState(initial?.recuperable ?? false)
+  const [expediente, setExpediente] = useState<ExpedienteOpcion | null>(null)
+  const { data: expInicial } = useExpedienteOpcion(initial?.expediente_id)
+  const [expCargado, setExpCargado] = useState(false)
+  useEffect(() => {
+    if (!expCargado && expInicial) { setExpediente(expInicial); setExpCargado(true) }
+  }, [expInicial, expCargado])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,13 +79,14 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
         await updateGasto.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, categoria,
           descripcion: descripcion || null, recuperable,
+          expediente_id: expediente?.id ?? null,
         })
         toast.success('Gasto actualizado')
       } else {
         if (!user?.id) return
         await createGasto.mutateAsync({
           fecha, monto: n, moneda, categoria,
-          expediente_id: null, descripcion: descripcion || null,
+          expediente_id: expediente?.id ?? null, descripcion: descripcion || null,
           comprobante_path: null, recuperable,
           cargado_por: user.id,
         })
@@ -115,10 +123,16 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
         <FormRow label="Descripción (opcional)">
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Ej: cédula a Marcheton" />
         </FormRow>
+        <FormRow label="Expediente (opcional)">
+          <SelectorExpediente value={expediente} onChange={setExpediente} />
+        </FormRow>
         <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
           <input type="checkbox" checked={recuperable} onChange={e => setRecuperable(e.target.checked)} className="rounded border-white/10 bg-white/5" />
           Recuperable del cliente
         </label>
+        {recuperable && !expediente && (
+          <p className="text-[11px] text-amber-400">Vinculalo a un expediente para que se le cargue al cliente en su cuenta corriente.</p>
+        )}
         <button type="submit" disabled={isPending} className="w-full rounded-md bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
           {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {isEditing ? 'Guardar cambios' : 'Registrar gasto'}
@@ -135,19 +149,29 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
   const createIngreso = useCreateIngreso()
   const updateIngreso = useUpdateIngreso()
   const isEditing = Boolean(initial)
-  const { data: clientesResult } = useClientes({ pageSize: 500 })
-  const clientes = clientesResult?.data ?? []
   const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
   const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
   const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
   const [tipo, setTipo] = useState(initial?.tipo ?? 'honorario_expediente')
-  const [clienteId, setClienteId] = useState<string>(initial?.cliente_id ?? '')
+  const [cliente, setCliente] = useState<ClienteOpcion | null>(null)
+  const [expediente, setExpediente] = useState<ExpedienteOpcion | null>(null)
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
+  const clienteId = cliente?.id ?? ''
 
-  const clientesOrdenados = useMemo(
-    () => [...clientes].sort((a, b) => (a.apellido ?? '').localeCompare(b.apellido ?? '')),
-    [clientes]
-  )
+  // Al editar: cargar cliente y expediente guardados
+  const { data: cliInicial } = useClienteOpcion(initial?.cliente_id)
+  const { data: expInicial } = useExpedienteOpcion((initial as { expediente_id?: string | null } | undefined)?.expediente_id)
+  const [iniciales, setIniciales] = useState({ cli: false, exp: false })
+  useEffect(() => {
+    if (!iniciales.cli && cliInicial) { setCliente(cliInicial); setIniciales((v) => ({ ...v, cli: true })) }
+    if (!iniciales.exp && expInicial) { setExpediente(expInicial); setIniciales((v) => ({ ...v, exp: true })) }
+  }, [cliInicial, expInicial, iniciales])
+
+  // Elegir expediente completa el cliente (si no había uno)
+  const elegirExpediente = (e: ExpedienteOpcion | null) => {
+    setExpediente(e)
+    if (e?.cliente_id && !cliente) setCliente({ id: e.cliente_id, label: e.cliente_label ?? 'Cliente del expediente' })
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,6 +183,7 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
         await updateIngreso.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, tipo,
           cliente_id: clienteId || null,
+          expediente_id: expediente?.id ?? null,
           descripcion: descripcion || null,
         })
         toast.success('Ingreso actualizado')
@@ -166,7 +191,7 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
         if (!user?.id) return
         await createIngreso.mutateAsync({
           fecha, monto: n, moneda, tipo, categoria: null,
-          cliente_id: clienteId || null, expediente_id: null,
+          cliente_id: clienteId || null, expediente_id: expediente?.id ?? null,
           abono_id: null, periodo_year: null, periodo_month: null,
           descripcion: descripcion || null,
           comprobante_path: null, cargado_por: user.id,
@@ -203,14 +228,15 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
             ))}
           </select>
         </FormRow>
-        <FormRow label="Cliente (opcional)">
-          <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={inputCls}>
-            <option value="">— sin cliente —</option>
-            {clientesOrdenados.map(c => (
-              <option key={c.id} value={c.id}>{c.apellido}, {c.nombre}</option>
-            ))}
-          </select>
+        <FormRow label="Expediente (opcional)">
+          <SelectorExpediente value={expediente} onChange={elegirExpediente} clienteId={cliente?.id} />
         </FormRow>
+        <FormRow label="Cliente (opcional)">
+          <SelectorCliente value={cliente} onChange={setCliente} />
+        </FormRow>
+        {!cliente && !expediente && tipo !== 'consulta' && (
+          <p className="text-[11px] text-amber-400">Sin cliente ni expediente, este pago no entra en ninguna cuenta corriente.</p>
+        )}
         <FormRow label="Descripción (opcional)">
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Ej: anticipo escrito apelación" />
         </FormRow>

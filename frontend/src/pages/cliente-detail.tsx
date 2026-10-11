@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRegistrarAcceso } from '@/hooks/use-audit-log'
+import { useTieneAccesoCaja } from '@/hooks/use-caja'
+import { CuentaCorriente } from '@/components/caja/cuenta-corriente'
 import { ESTADO_CIVIL_LABELS, type EstadoCivil } from '@/types/enums'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EstadoBadge } from '@/components/shared/estado-badge'
@@ -35,6 +37,7 @@ import {
   Building2,
   FolderOpen,
   StickyNote,
+  Wallet,
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -104,6 +107,7 @@ const TABS = [
   { id: 'datos',       label: 'Datos',       icon: User },
   { id: 'contacto',    label: 'Contacto',    icon: Phone },
   { id: 'notas',       label: 'Notas',       icon: StickyNote },
+  { id: 'cuenta',      label: 'Cuenta corriente', icon: Wallet },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 
@@ -117,7 +121,11 @@ export default function ClienteDetailPage() {
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabId>('expedientes')
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return TABS.some(x => x.id === t) ? (t as TabId) : 'expedientes'
+  })
+  const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const deleteCliente = useDeleteCliente()
 
   const { data: cliente, isLoading, isError } = useCliente(id)
@@ -233,7 +241,7 @@ export default function ClienteDetailPage() {
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-white/10 overflow-x-auto scrollbar-none">
         <nav className="flex gap-1 -mb-px min-w-max">
-          {TABS.map(tab => {
+          {TABS.filter(tab => tab.id !== 'cuenta' || tieneAccesoCaja).map(tab => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             const count = tabCounts[tab.id]
@@ -272,6 +280,7 @@ export default function ClienteDetailPage() {
         {activeTab === 'datos' && <DatosTab cliente={cliente} />}
         {activeTab === 'contacto' && <ContactoTab cliente={cliente} />}
         {activeTab === 'notas' && <NotasTab cliente={cliente} />}
+        {activeTab === 'cuenta' && tieneAccesoCaja && <CuentaCorriente clienteId={cliente.id} />}
       </div>
 
       <EditarClienteDialog

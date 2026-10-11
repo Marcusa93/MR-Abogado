@@ -285,6 +285,7 @@ export function useCreateGasto() {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
       qc.invalidateQueries({ queryKey: ['gastos-fijos-pendientes'] })
     },
   })
@@ -304,6 +305,7 @@ export function useCreateIngreso() {
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -322,6 +324,7 @@ export function useCreateAbono() {
       qc.invalidateQueries({ queryKey: ['abonos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -330,7 +333,7 @@ export function useUpdateGasto() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; categoria?: string; descripcion?: string | null; recuperable?: boolean }) => {
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; categoria?: string; descripcion?: string | null; recuperable?: boolean; expediente_id?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)('gastos').update(patch).eq('id', id)
       if (error) throw error
@@ -339,6 +342,7 @@ export function useUpdateGasto() {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -347,7 +351,7 @@ export function useUpdateIngreso() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; tipo?: string; cliente_id?: string | null; descripcion?: string | null }) => {
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; tipo?: string; cliente_id?: string | null; expediente_id?: string | null; descripcion?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)('ingresos').update(patch).eq('id', id)
       if (error) throw error
@@ -357,6 +361,7 @@ export function useUpdateIngreso() {
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -373,6 +378,7 @@ export function useToggleAbono() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['abonos'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -390,6 +396,7 @@ export function useDeleteGasto() {
       qc.invalidateQueries({ queryKey: ['gastos'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -408,6 +415,7 @@ export function useDeleteIngreso() {
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-pagos-pendientes'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }
@@ -563,6 +571,7 @@ export function useMarcarGastoRecuperado() {
       qc.invalidateQueries({ queryKey: ['gastos-recuperables-pendientes'] })
       qc.invalidateQueries({ queryKey: ['caja-resumen'] })
       qc.invalidateQueries({ queryKey: ['caja-por-expediente'] })
+      qc.invalidateQueries({ queryKey: ['cuenta-corriente'] })
     },
   })
 }

@@ -29,8 +29,9 @@ import { toast } from '@/stores/toast-store'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import { useUsdRate, type CotizacionUSD } from '@/hooks/use-cotizacion'
+import { useCuentasSaldos } from '@/hooks/use-cuenta-corriente'
 
-type Tab = 'resumen' | 'ingresos' | 'gastos' | 'abonos' | 'gastos_fijos' | 'ia'
+type Tab = 'resumen' | 'ingresos' | 'gastos' | 'cuentas' | 'abonos' | 'gastos_fijos' | 'ia'
 
 const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
   const formatter = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
@@ -136,6 +137,7 @@ export default function CajaPage() {
             { id: 'resumen' as const, label: 'Resumen', icon: Wallet },
             { id: 'ingresos' as const, label: 'Ingresos', icon: TrendingUp },
             { id: 'gastos' as const, label: 'Gastos', icon: TrendingDown },
+            { id: 'cuentas' as const, label: 'Cuentas corrientes', icon: Users },
             { id: 'abonos' as const, label: 'Abonos mensuales', icon: Repeat },
             { id: 'gastos_fijos' as const, label: 'Gastos fijos', icon: TrendingDown },
           ...(isDirector ? [{ id: 'ia' as const, label: 'Análisis IA', icon: Sparkles }] : []),
@@ -174,6 +176,7 @@ export default function CajaPage() {
       {activeTab === 'resumen' && <TabResumen onGoTab={setActiveTab} />}
       {activeTab === 'ingresos' && <TabIngresos onEdit={(i) => setEditingIngreso(i)} />}
       {activeTab === 'gastos' && <TabGastos onEdit={(g) => setEditingGasto(g)} />}
+      {activeTab === 'cuentas' && <TabCuentas onIrIngresos={() => setActiveTab('ingresos')} />}
       {activeTab === 'abonos' && <TabAbonos />}
       {activeTab === 'gastos_fijos' && <TabGastosFijos onEdit={(gf) => setEditingGastoFijo(gf)} />}
       {activeTab === 'ia' && isDirector && <TabCajaIA />}
@@ -1130,6 +1133,105 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
         confirmLabel="Eliminar"
         variant="danger"
       />
+    </div>
+  )
+}
+
+// ─── Cuentas corrientes ─────────────────────────────────────────────────────
+
+function TabCuentas({ onIrIngresos }: { onIrIngresos: () => void }) {
+  const { data: saldos = [], isLoading } = useCuentasSaldos()
+  // Pagos que no entran en ninguna cuenta: sin cliente ni expediente
+  const { data: ingresosTodos = [] } = useIngresos()
+  const sinAsignar = ingresosTodos.filter((i) => !i.cliente_id && !(i as { expediente_id?: string | null }).expediente_id && i.tipo !== 'consulta')
+  const [soloDeudores, setSoloDeudores] = useState(true)
+
+  const filas = useMemo(() => {
+    const visibles = soloDeudores ? saldos.filter((s) => s.saldo_ars > 0 || s.saldo_usd > 0) : saldos.filter((s) => s.saldo_ars !== 0 || s.saldo_usd !== 0)
+    return [...visibles].sort((a, b) =>
+      (b.vencido_ars - a.vencido_ars) || (b.vencido_usd - a.vencido_usd) || (b.saldo_ars - a.saldo_ars))
+  }, [saldos, soloDeudores])
+
+  const totalDeuda = saldos.reduce((a, s) => a + Math.max(s.saldo_ars, 0), 0)
+  const totalVencido = saldos.reduce((a, s) => a + s.vencido_ars, 0)
+  const totalDeudaUsd = saldos.reduce((a, s) => a + Math.max(s.saldo_usd, 0), 0)
+
+  if (isLoading) return <Loader />
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <KPICard label="Te deben (ARS)" value={fmt(totalDeuda)} sub={totalDeudaUsd > 0 ? `+ ${fmt(totalDeudaUsd, 'USD')}` : null} accent="rose" icon={Users} />
+        <KPICard label="Vencido (ARS)" value={fmt(totalVencido)} accent="amber" icon={AlertTriangle} />
+        <KPICard label="Clientes con deuda" value={String(saldos.filter((s) => s.saldo_ars > 0 || s.saldo_usd > 0).length)} accent="cyan" icon={Users} />
+      </div>
+
+      {sinAsignar.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">
+            {sinAsignar.length} {sinAsignar.length === 1 ? 'pago no tiene' : 'pagos no tienen'} cliente ni expediente, así que no
+            {sinAsignar.length === 1 ? ' entra' : ' entran'} en ninguna cuenta corriente.
+          </span>
+          <button type="button" onClick={onIrIngresos} className="font-medium underline hover:text-amber-200">
+            Asignarlos en Ingresos
+          </button>
+        </div>
+      )}
+
+      <label className="flex items-center gap-2 text-xs text-zinc-400">
+        <input type="checkbox" checked={soloDeudores} onChange={(e) => setSoloDeudores(e.target.checked)} className="rounded border-white/10 bg-white/5" />
+        Solo clientes con deuda
+      </label>
+
+      {filas.length === 0 ? (
+        <EmptyState icon={Users} title={soloDeudores ? 'Nadie debe nada' : 'Sin movimientos'}
+          description="Cargá lo pactado desde la ficha del cliente → Cuenta corriente, o desde la solapa Caja del expediente." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-white/10">
+          <table className="w-full text-sm">
+            <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+              <tr>
+                <th className="px-3 py-2 text-left">Cliente</th>
+                <th className="px-3 py-2 text-right">Saldo</th>
+                <th className="px-3 py-2 text-right">Vencido</th>
+                <th className="hidden px-3 py-2 text-left md:table-cell">Último pago</th>
+                <th className="hidden px-3 py-2 text-left md:table-cell">Próximo vencimiento</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filas.map((s) => (
+                <tr key={s.cliente_id} className="hover:bg-white/[0.02]">
+                  <td className="px-3 py-2">
+                    <Link to={`/clientes/${s.cliente_id}?tab=cuenta`} className="text-zinc-100 hover:text-cyan-400 hover:underline">
+                      {s.apellido ? `${s.apellido}, ${s.nombre ?? ''}` : (s.nombre ?? 'Cliente')}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {s.saldo_ars !== 0 && (
+                      <span className={s.saldo_ars > 0 ? 'text-zinc-100' : 'text-amber-300'}
+                        title={s.saldo_ars < 0 ? 'Pagos sin cargo registrado (falta cargar lo pactado o pagó de más)' : undefined}>
+                        {s.saldo_ars < 0 ? 'sin cargo ' : ''}{fmt(Math.abs(s.saldo_ars))}
+                      </span>
+                    )}
+                    {s.saldo_usd !== 0 && <span className="ml-2 text-zinc-300">{fmt(Math.abs(s.saldo_usd), 'USD')}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {s.vencido_ars > 0 && <span className="font-medium text-rose-400">{fmt(s.vencido_ars)}</span>}
+                    {s.vencido_usd > 0 && <span className="ml-2 font-medium text-rose-400">{fmt(s.vencido_usd, 'USD')}</span>}
+                    {s.vencido_ars <= 0 && s.vencido_usd <= 0 && <span className="text-zinc-600">—</span>}
+                  </td>
+                  <td className="hidden px-3 py-2 text-zinc-400 md:table-cell">{s.ultimo_pago ? formatDate(s.ultimo_pago) : '—'}</td>
+                  <td className="hidden px-3 py-2 text-zinc-400 md:table-cell">{s.proximo_vencimiento ? formatDate(s.proximo_vencimiento) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-[11px] text-zinc-500">
+        Saldo = honorarios pactados + abonos devengados + gastos recuperables − pagos. "Sin cargo" = pagos sin un cargo que los respalde.
+      </p>
     </div>
   )
 }
