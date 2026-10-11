@@ -76,19 +76,32 @@ async function llm(admin: Admin, userId: string, instruccion: string, maxTokens:
   })
   logLlmCall(admin, userId, FUNCTION_NAME, bytes)
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`)
-  const out = await res.json() as { choices?: { message?: { content?: string } }[] }
+  const out = await res.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[] }
   const raw = out.choices?.[0]?.message?.content ?? ''
-  const match = raw.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('La IA no devolvió el formato esperado')
+  const finish = out.choices?.[0]?.finish_reason ?? ''
+  const inicio = raw.indexOf('{')
+  if (inicio < 0) {
+    console.error('[editorial] respuesta sin JSON', finish, raw.slice(0, 500))
+    throw new Error('La IA no devolvió el formato esperado')
+  }
+  const fin = raw.lastIndexOf('}')
+  const candidato = fin > inicio ? raw.slice(inicio, fin + 1) : raw.slice(inicio)
   try {
-    return JSON.parse(match[0])
+    return JSON.parse(candidato)
   } catch {
-    // Textos largos: a veces vienen comillas sin escapar o comas faltantes
-    try {
-      return JSON.parse(jsonrepair(match[0]))
-    } catch (err) {
-      throw new Error(`La IA devolvió un formato inválido: ${err instanceof Error ? err.message : err}`)
+    // Textos largos: comillas sin escapar, comas faltantes o respuesta cortada
+    // por el tope de tokens. jsonrepair cierra strings y llaves abiertas.
+    for (const intento of [candidato, raw.slice(inicio)]) {
+      try {
+        const r = JSON.parse(jsonrepair(intento)) as Record<string, unknown>
+        if (finish === 'length') console.warn('[editorial] respuesta cortada por max_tokens, reparada')
+        return r
+      } catch { /* siguiente intento */ }
     }
+    console.error('[editorial] JSON irreparable', finish, raw.slice(0, 300), '…', raw.slice(-300))
+    throw new Error(finish === 'length'
+      ? 'La respuesta de la IA fue demasiado larga y quedó cortada. Probá de nuevo.'
+      : 'La IA devolvió un formato inválido. Probá de nuevo.')
   }
 }
 
@@ -361,10 +374,10 @@ Deno.serve(async (req) => {
         `FUENTE B — jurisprudencia de la base del estudio relacionada (la única que podés citar como comprobada):\n${juris || '(no se encontraron precedentes en la base)'}\n\n` +
         'Desarrollá la investigación: identificación normativa (con jurisdicción y fuero), análisis de la jurisprudencia disponible, contraste de ' +
         'interpretaciones, objeciones y una tesis editorial. Lo que no esté en las fuentes de arriba y no puedas afirmar con certeza, ' +
-        'marcalo como [VERIFICAR: …]. No inventes fallos ni citas.\n\n' +
+        'marcalo como [VERIFICAR: …]. No inventes fallos ni citas. Sé sintético: la investigación completa no debe pasar de 1500 palabras.\n\n' +
         `${FORMATO_JSON}\n{ "titulo": "título de trabajo", "tesis": "tesis editorial en 2-3 oraciones", ` +
         '"tipo_sugerido": "divulgacion|analisis_profesional|actualidad|reflexion|jurisprudencial", "investigacion_markdown": "la investigación completa en markdown" }',
-        6000)
+        9000)
 
       const tipo = TIPOS.includes(r.tipo_sugerido as typeof TIPOS[number]) ? String(r.tipo_sugerido) : (String(prop.tipo_sugerido ?? '') || 'analisis_profesional')
       const investigacion = `**Tesis:** ${String(r.tesis ?? '')}\n\n${String(r.investigacion_markdown ?? '')}`
@@ -402,7 +415,7 @@ Deno.serve(async (req) => {
         `${FORMATO_JSON}\n{ "titulo": "...", "bajada": "...", "cuerpo_markdown": "...", ` +
         '"referencias": [{ "cita": "norma o fallo citado", "fuente": "de dónde sale (base del estudio, norma vigente, etc.)", "verificada": true|false }], ' +
         '"a_verificar": ["afirmaciones que Marco tiene que comprobar antes de aprobar"] }',
-        8000)
+        10000)
 
       const titulo = String(r.titulo ?? art.titulo).slice(0, 300)
       const bajada = String(r.bajada ?? '').slice(0, 1000)
