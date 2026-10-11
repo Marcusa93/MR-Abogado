@@ -20,6 +20,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 import { EDITORIAL_SYSTEM_PROMPT } from '../_shared/editorial-system-prompt.ts'
+import { jsonrepair } from 'npm:jsonrepair@3.13.1'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -79,7 +80,16 @@ async function llm(admin: Admin, userId: string, instruccion: string, maxTokens:
   const raw = out.choices?.[0]?.message?.content ?? ''
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('La IA no devolvió el formato esperado')
-  return JSON.parse(match[0])
+  try {
+    return JSON.parse(match[0])
+  } catch {
+    // Textos largos: a veces vienen comillas sin escapar o comas faltantes
+    try {
+      return JSON.parse(jsonrepair(match[0]))
+    } catch (err) {
+      throw new Error(`La IA devolvió un formato inválido: ${err instanceof Error ? err.message : err}`)
+    }
+  }
 }
 
 const FORMATO_JSON = 'Respondé SOLO con un objeto JSON válido, sin texto antes ni después. Dentro de los strings usá \\n para los saltos de línea.'
@@ -281,15 +291,17 @@ Deno.serve(async (req) => {
       const hace14 = new Date(Date.now() - 14 * 86_400_000).toISOString()
       const [{ data: movs }, { data: juris }, { data: normas }] = await Promise.all([
         admin.from('sae_movements')
-          .select('fecha, titulo, tipo_movimiento, ai_summary, expediente:expedientes(fuero)')
+          .select('fecha, titulo, tipo_movimiento, ai_summary, cuerpo, expediente:expedientes(fuero)')
           .in('tipo_movimiento', ['sentencia', 'decreto', 'intimacion', 'traslado', 'informe'])
-          .gte('created_at', hace7).not('ai_summary', 'is', null).order('fecha', { ascending: false }).limit(40),
+          .gte('created_at', hace7).order('fecha', { ascending: false }).limit(40),
         admin.from('jurisprudencia_documentos')
           .select('caratula, tribunal, fecha, sumario, source_url').gte('created_at', hace14).limit(15),
         admin.from('normativa_documentos').select('*').gte('created_at', hace14).limit(10),
       ])
-      const a = ((movs ?? []) as unknown as { fecha: string; titulo: string; tipo_movimiento: string; ai_summary: string; expediente: { fuero: string | null } | null }[])
-        .map((m) => `- ${m.fecha} · ${m.tipo_movimiento} · fuero ${m.expediente?.fuero ?? 's/d'}: ${m.ai_summary.slice(0, 300)}`)
+      // La mayoría de las actuaciones no tiene resumen de IA: se usa el título y el comienzo del texto
+      const a = ((movs ?? []) as unknown as { fecha: string; titulo: string; tipo_movimiento: string; ai_summary: string | null; cuerpo: string | null; expediente: { fuero: string | null } | null }[])
+        .map((m) => `- ${m.fecha} · ${m.tipo_movimiento} · fuero ${m.expediente?.fuero ?? 's/d'}: ` +
+          (m.ai_summary ?? `${m.titulo}${m.cuerpo ? ` — ${m.cuerpo.replace(/\s+/g, ' ').slice(0, 300)}` : ''}`).slice(0, 400))
       const b = ((juris ?? []) as { caratula: string; tribunal: string | null; fecha: string | null; sumario: string | null; source_url: string | null }[])
         .map((j) => `- ${j.tribunal ?? 'Tribunal s/d'}, ${j.fecha ?? 's/f'}, "${j.caratula}": ${(j.sumario ?? '').slice(0, 400)}${j.source_url ? ` (${j.source_url})` : ''}`)
       const c = ((normas ?? []) as Record<string, unknown>[])
