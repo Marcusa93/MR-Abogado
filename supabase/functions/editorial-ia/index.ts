@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
     let userId: string
     if (esCron) {
       if (!['sentencias', 'radar'].includes(modo)) return json(req, { error: 'Modo no permitido por cron' }, 403)
-      const { data } = await admin.from('profiles').select('id').eq('acceso_editorial', true).eq('activo', true).limit(1).maybeSingle()
+      const { data } = await admin.from('profiles').select('id').eq('acceso_editorial', true).eq('activo', true).order('editorial_aprueba', { ascending: false }).limit(1).maybeSingle()
       if (!data) return json(req, { ok: true, mensaje: 'Nadie con acceso editorial' })
       userId = (data as { id: string }).id
     } else {
@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
     // Modos sobre un artículo existente
     const { data: a } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -520,6 +520,16 @@ Deno.serve(async (req) => {
       if (!bibliografia.length) throw new Error('La IA no devolvió entradas de bibliografía')
       await admin.from('editorial_articulos').update({ bibliografia, updated_at: new Date().toISOString() }).eq('id', art.id)
       return json(req, { ok: true, bibliografia })
+    }
+
+    // ── pedir aprobación a Marco (colaborador sin permiso de aprobar) ──────
+    if (modo === 'pedir_aprobacion' && art) {
+      const { data: autor } = await admin.from('profiles').select('nombre, apellido').eq('id', userId).maybeSingle()
+      const quien = autor ? `${(autor as { nombre: string }).nombre} ${(autor as { apellido: string | null }).apellido ?? ''}`.trim() : 'Un colaborador'
+      const nota = typeof body.nota === 'string' ? body.nota.slice(0, 500).trim() : ''
+      await telegramMarco(`Editorial: ${quien} te pide que revises y apruebes un artículo.\n\n` +
+        `"${art.titulo}"${nota ? `\n\n${nota}` : ''}\n\n${APP_URL}/editorial/${art.id}`)
+      return json(req, { ok: true })
     }
 
     // ── chequeo de confidencialidad (sin IA) ───────────────────────────────

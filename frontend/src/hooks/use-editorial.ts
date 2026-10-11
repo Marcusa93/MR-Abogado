@@ -105,6 +105,21 @@ export function useAccesoEditorial() {
   })
 }
 
+/** Aprobar y publicar es solo de Marco (profiles.editorial_aprueba); el resto colabora. */
+export function usePuedeAprobarEditorial() {
+  const profileId = useAuthStore((s) => s.profile?.id)
+  return useQuery({
+    queryKey: [...editorialKeys.acceso, 'aprobar', profileId],
+    enabled: !!profileId,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await sb().rpc('can_aprobar_editorial')
+      if (error) return false
+      return data === true
+    },
+  })
+}
+
 export function usePropuestas() {
   return useQuery({
     queryKey: editorialKeys.propuestas,

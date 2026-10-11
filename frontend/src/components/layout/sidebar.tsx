@@ -60,7 +60,7 @@ interface NavItem {
   hideForCriterio?: boolean
   adminOnly?: boolean
   cajaOnly?: boolean
-  /** Solo con profiles.acceso_editorial (Marco) */
+  /** Solo con profiles.acceso_editorial (Marco y Claudio) */
   editorialOnly?: boolean
   /** Si true, este item se oculta a la SECRETARIA. */
   hideForSecretaria?: boolean

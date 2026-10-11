@@ -4,7 +4,7 @@ import {
   AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import {
-  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia,
+  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
@@ -35,6 +35,7 @@ export default function EditorialArticuloPage() {
   const cambiarEstado = useCambiarEstadoArticulo(id)
   const enviarContenidos = useEnviarAContenidos()
   const guardarBiblio = useGuardarBibliografia(id)
+  const { data: puedeAprobar = false } = usePuedeAprobarEditorial()
   const [biblioTexto, setBiblioTexto] = useState<string | null>(null)
 
   const [titulo, setTitulo] = useState('')
@@ -158,14 +159,22 @@ export default function EditorialArticuloPage() {
             {guardar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar versión
           </button>
         )}
-        {art.estado === 'borrador' && (
+        {art.estado === 'borrador' && !puedeAprobar && (
+          <button type="button" disabled={sucio || !art.cuerpo || pidiendo === 'pedir_aprobacion'}
+            onClick={() => correrIA('pedir_aprobacion', {}, 'Le avisamos a Marco por Telegram')}
+            title={sucio ? 'Guardá los cambios antes de pedir la aprobación' : 'Los artículos salen a nombre de Marco: él hace la revisión final y aprueba'}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-40">
+            {pidiendo === 'pedir_aprobacion' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Pedir aprobación a Marco
+          </button>
+        )}
+        {art.estado === 'borrador' && puedeAprobar && (
           <button type="button" onClick={aprobar} disabled={sucio || !art.cuerpo}
             title={sucio ? 'Guardá los cambios antes de aprobar' : 'Aprobar el artículo (revisión final tuya)'}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-40">
             <CheckCircle2 className="h-3.5 w-3.5" /> Aprobar
           </button>
         )}
-        {aprobado && (
+        {aprobado && puedeAprobar && (
           <button type="button" onClick={() => cambiarEstado.mutate({ estado: 'borrador' }, { onSuccess: () => toast.info('Volvió a borrador') })}
             className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300">
             <PenLine className="h-3.5 w-3.5" /> Volver a editar
@@ -311,7 +320,7 @@ export default function EditorialArticuloPage() {
                   <MarkdownView texto={art.adaptaciones[f]!} className="text-sm" />
                 </div>
               ))}
-              {art.estado === 'aprobado' && (
+              {art.estado === 'aprobado' && puedeAprobar && (
                 <button type="button" onClick={() => {
                   const url = window.prompt('Link de la publicación (opcional)') ?? null
                   cambiarEstado.mutate({ estado: 'publicado', publicado_url: url }, { onSuccess: () => toast.success('Marcado como publicado') })
