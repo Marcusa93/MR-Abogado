@@ -56,6 +56,7 @@ export interface Articulo {
   investigacion: string | null
   revision_critica: string | null
   referencias: { cita?: string; fuente?: string; verificada?: boolean }[]
+  bibliografia: string[]
   a_verificar: string[]
   alertas_confidencialidad: string[]
   adaptaciones: Partial<Record<'linkedin' | 'redes' | 'boletin', string>>
@@ -244,6 +245,19 @@ export function useCambiarEstadoArticulo(id: string) {
       qc.invalidateQueries({ queryKey: editorialKeys.articulo(id) })
       qc.invalidateQueries({ queryKey: editorialKeys.articulos })
     },
+  })
+}
+
+/** Guarda la bibliografía APA editada a mano (una entrada por línea). */
+export function useGuardarBibliografia(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (bibliografia: string[]) => {
+      const { error } = await sb().from('editorial_articulos')
+        .update({ bibliografia, updated_at: new Date().toISOString() }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: editorialKeys.articulo(id) }),
   })
 }
 

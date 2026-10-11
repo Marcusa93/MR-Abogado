@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, Copy, Eye, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
+  AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import {
-  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos,
+  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
+import { descargarWord, imprimirPdf } from '@/components/editorial/exportar'
+import { HojaEditor } from '@/components/editorial/hoja-editor'
+import { DictarBoton } from '@/components/shared/dictar-boton'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -17,7 +20,7 @@ import { cn } from '@/lib/utils'
 // guardado es una versión restaurable. La IA investiga, redacta y revisa, pero
 // aprobar es siempre una decisión de Marco.
 
-type Panel = 'investigacion' | 'revision' | 'verificar' | 'versiones'
+type Panel = 'investigacion' | 'revision' | 'verificar' | 'bibliografia' | 'versiones'
 
 const contarVerificar = (t: string) => (t.match(/\[VERIFICAR:/g) ?? []).length
 const palabras = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0)
@@ -31,6 +34,8 @@ export default function EditorialArticuloPage() {
   const guardar = useGuardarArticulo(id)
   const cambiarEstado = useCambiarEstadoArticulo(id)
   const enviarContenidos = useEnviarAContenidos()
+  const guardarBiblio = useGuardarBibliografia(id)
+  const [biblioTexto, setBiblioTexto] = useState<string | null>(null)
 
   const [titulo, setTitulo] = useState('')
   const [bajada, setBajada] = useState('')
@@ -101,6 +106,33 @@ export default function EditorialArticuloPage() {
     toast.info(`Versión ${v.version} cargada en el editor`, 'Guardala para que quede como la actual.')
   }
 
+  const generarBibliografia = async (): Promise<string[] | null> => {
+    setPidiendo('apa')
+    try {
+      const r = await ia.mutateAsync({ modo: 'apa', articulo_id: id })
+      setBiblioTexto(null)
+      return (r.bibliografia as string[]) ?? []
+    } catch (e) {
+      toast.error('No se pudo armar la bibliografía', e instanceof Error ? e.message : undefined)
+      return null
+    } finally {
+      setPidiendo(null)
+    }
+  }
+
+  const exportar = async (formato: 'word' | 'pdf') => {
+    let bibliografia = art.bibliografia ?? []
+    if (!bibliografia.length) {
+      toast.info('Armando la bibliografía APA', 'Es la primera descarga: tarda unos segundos.')
+      const generada = await generarBibliografia()
+      if (!generada) return
+      bibliografia = generada
+    }
+    const datos = { titulo: art.titulo, bajada: art.bajada, cuerpo: art.cuerpo, bibliografia }
+    if (formato === 'word') return descargarWord(datos)
+    if (!imprimirPdf(datos)) toast.info('El navegador bloqueó la ventana', 'Tocá PDF de nuevo.')
+  }
+
   const copiar = async (texto: string, que: string) => {
     await navigator.clipboard.writeText(texto).catch(() => {})
     toast.success(`${que} copiado`)
@@ -138,6 +170,20 @@ export default function EditorialArticuloPage() {
             className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300">
             <PenLine className="h-3.5 w-3.5" /> Volver a editar
           </button>
+        )}
+        {aprobado && (
+          <>
+            <button type="button" onClick={() => exportar('word')} disabled={pidiendo === 'apa'}
+              title="Descargar en Word: Times New Roman 12, interlineado 1,5, bibliografía APA al final"
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+              {pidiendo === 'apa' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Word
+            </button>
+            <button type="button" onClick={() => exportar('pdf')} disabled={pidiendo === 'apa'}
+              title="Imprimir o guardar como PDF con el mismo formato"
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+              <FileText className="h-3.5 w-3.5" /> PDF
+            </button>
+          </>
         )}
         <button type="button" onClick={() => copiar(`# ${titulo}\n\n${bajada ? `_${bajada}_\n\n` : ''}${cuerpo}`, 'Artículo')}
           className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-500/10" title="Copiar el artículo (markdown)">
@@ -182,20 +228,24 @@ export default function EditorialArticuloPage() {
                 ))}
               </div>
               {vista === 'editar' && !aprobado ? (
-                <div className="space-y-2">
-                  <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título"
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-lg font-semibold text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50" />
-                  <textarea value={bajada} onChange={(e) => setBajada(e.target.value)} rows={2} placeholder="Bajada"
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm italic text-zinc-700 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300" />
-                  <textarea value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} rows={28}
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 font-[inherit] text-[15px] leading-relaxed text-zinc-800 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200" />
-                  <p className="text-[11px] text-zinc-500"># título · **negrita** · *cursiva* · - lista · {'>'} cita · [VERIFICAR: …] para marcar algo a comprobar</p>
-                </div>
+                <HojaEditor articuloId={id} titulo={titulo} bajada={bajada} cuerpo={cuerpo}
+                  onTitulo={setTitulo} onBajada={setBajada} onCuerpo={setCuerpo} />
               ) : (
-                <article className="space-y-3">
-                  <h1 className="text-2xl font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{titulo}</h1>
-                  {bajada && <p className="text-base italic text-zinc-600 dark:text-zinc-300">{bajada}</p>}
-                  <MarkdownView texto={cuerpo} />
+                <article className="overflow-hidden rounded-lg bg-white text-black shadow-sm ring-1 ring-zinc-200 dark:ring-white/10">
+                  <div className="mx-auto max-w-[21cm] px-5 py-8 text-justify sm:px-[2.5cm] sm:py-[2.5cm]"
+                    style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: '12pt', lineHeight: 1.5 }}>
+                    <p className="text-center font-bold" style={{ fontSize: '14pt' }}>{titulo}</p>
+                    {bajada && <p className="mt-1 text-center italic">{bajada}</p>}
+                    <MarkdownView texto={cuerpo} hoja className="mt-6" />
+                    {(art.bibliografia?.length ?? 0) > 0 && (
+                      <div className="mt-10">
+                        <p className="mb-3 text-center font-bold">Referencias</p>
+                        {[...art.bibliografia].sort((x, y) => x.localeCompare(y, 'es', { sensitivity: 'base' })).map((r, i) => (
+                          <p key={i} className="mb-2 pl-[1.27cm] -indent-[1.27cm] text-left">{r}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </article>
               )}
             </>
@@ -220,6 +270,10 @@ export default function EditorialArticuloPage() {
                     {pidiendo === 'revisar' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ClipboardCheck className="h-3.5 w-3.5" />} Revisión crítica
                   </button>
                 )}
+              </div>
+              <div className="flex justify-end">
+                <DictarBoton label="Dictar indicaciones" disabled={!!pidiendo}
+                  onTexto={(t) => setIndicaciones((p) => (p.trim() ? `${p.trim()} ${t}` : t))} />
               </div>
               <textarea value={indicaciones} onChange={(e) => setIndicaciones(e.target.value)} rows={2}
                 placeholder="Indicaciones para la IA (opcional): enfoque, extensión, qué agregar o sacar, a quién va dirigido…"
@@ -269,8 +323,8 @@ export default function EditorialArticuloPage() {
 
         {/* Panel lateral */}
         <aside className="dashboard-panel h-fit rounded-2xl p-3 lg:sticky lg:top-4">
-          <div className="mb-3 grid grid-cols-4 gap-1">
-            {([['investigacion', 'Investig.'], ['revision', 'Revisión'], ['verificar', 'Verificar'], ['versiones', 'Versiones']] as const).map(([p, label]) => (
+          <div className="mb-3 grid grid-cols-5 gap-1">
+            {([['investigacion', 'Investig.'], ['revision', 'Revisión'], ['verificar', 'Verificar'], ['bibliografia', 'Biblio.'], ['versiones', 'Versiones']] as const).map(([p, label]) => (
               <button key={p} type="button" onClick={() => setPanel(p)}
                 className={cn('rounded-md px-1.5 py-1 text-[11px] font-medium',
                   panel === p ? 'bg-zinc-200 text-zinc-900 dark:bg-white/10 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700')}>
@@ -285,6 +339,48 @@ export default function EditorialArticuloPage() {
             {panel === 'revision' && (art.revision_critica
               ? <MarkdownView texto={art.revision_critica} className="text-sm" />
               : <p className="text-xs text-zinc-500">Pedí una revisión crítica del borrador con el botón de abajo del editor.</p>)}
+            {panel === 'bibliografia' && (
+              <div className="space-y-2 text-sm">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <BookOpen className="h-3.5 w-3.5" /> Referencias (APA 7) · siempre al final del documento
+                </p>
+                {biblioTexto !== null ? (
+                  <>
+                    <textarea value={biblioTexto} onChange={(e) => setBiblioTexto(e.target.value)} rows={10}
+                      placeholder="Una entrada por línea"
+                      className="w-full rounded-lg border border-zinc-200 bg-transparent p-2 text-xs leading-relaxed dark:border-white/10" />
+                    <div className="flex gap-2">
+                      <button type="button" disabled={guardarBiblio.isPending}
+                        onClick={() => guardarBiblio.mutate(
+                          biblioTexto.split('\n').map((l) => l.trim()).filter(Boolean),
+                          { onSuccess: () => { setBiblioTexto(null); toast.success('Bibliografía guardada') },
+                            onError: (e) => toast.error('No se pudo guardar', e instanceof Error ? e.message : undefined) })}
+                        className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900">
+                        Guardar
+                      </button>
+                      <button type="button" onClick={() => setBiblioTexto(null)} className="text-xs text-zinc-500 hover:underline">Cancelar</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {art.bibliografia?.length ? (
+                      <ul className="space-y-1.5">
+                        {[...art.bibliografia].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })).map((r, i) => (
+                          <li key={i} className="pl-4 -indent-4 text-zinc-700 dark:text-zinc-300"><MarkdownView texto={r} className="text-sm" /></li>
+                        ))}
+                      </ul>
+                    ) : <p className="text-xs text-zinc-500">Todavía no hay bibliografía. Se arma sola al redactar o al descargar.</p>}
+                    <div className="flex flex-wrap gap-3 pt-1">
+                      <button type="button" onClick={() => setBiblioTexto((art.bibliografia ?? []).join('\n'))} className="text-xs text-zinc-600 hover:underline dark:text-zinc-300">Editar</button>
+                      <button type="button" disabled={pidiendo === 'apa'} onClick={() => { void generarBibliografia().then((b) => { if (b) toast.success('Bibliografía APA generada') }) }}
+                        className="flex items-center gap-1 text-xs text-zinc-600 hover:underline disabled:opacity-40 dark:text-zinc-300">
+                        {pidiendo === 'apa' && <Loader2 className="h-3 w-3 animate-spin" />}{art.bibliografia?.length ? 'Regenerar con IA' : 'Generar con IA'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             {panel === 'verificar' && (
               <div className="space-y-3 text-sm">
                 <div>

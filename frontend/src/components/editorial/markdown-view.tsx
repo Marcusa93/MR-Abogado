@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 function inline(texto: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = []
-  const re = /(\[VERIFICAR:[^\]]*\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g
+  const re = /(\[VERIFICAR[^\]]*\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g
   let ultimo = 0
   let m: RegExpExecArray | null
   let i = 0
@@ -28,7 +28,8 @@ function inline(texto: string, keyBase: string): ReactNode[] {
   return out
 }
 
-export function MarkdownView({ texto, className }: { texto: string; className?: string }) {
+/** `hoja`: formato de documento (fondo blanco fijo, Times 12, interlineado 1,5, sangría). */
+export function MarkdownView({ texto, className, hoja = false }: { texto: string; className?: string; hoja?: boolean }) {
   const lineas = (texto ?? '').replace(/\r\n/g, '\n').split('\n')
   const bloques: ReactNode[] = []
   let parrafo: string[] = []
@@ -37,7 +38,7 @@ export function MarkdownView({ texto, className }: { texto: string; className?: 
   const cerrarParrafo = () => {
     if (parrafo.length) {
       const k = `p${bloques.length}`
-      bloques.push(<p key={k} className="leading-relaxed">{inline(parrafo.join(' '), k)}</p>)
+      bloques.push(<p key={k} className={hoja ? 'indent-[1.27cm] text-justify' : 'leading-relaxed'}>{inline(parrafo.join(' '), k)}</p>)
       parrafo = []
     }
   }
@@ -63,7 +64,7 @@ export function MarkdownView({ texto, className }: { texto: string; className?: 
       const nivel = h[1].length
       const k = `h${bloques.length}`
       bloques.push(
-        <p key={k} className={cn('font-semibold text-zinc-900 dark:text-zinc-50', nivel === 1 ? 'text-xl' : nivel === 2 ? 'text-lg' : 'text-base')}>
+        <p key={k} className={cn('font-semibold', hoja ? 'text-black' : 'text-zinc-900 dark:text-zinc-50', nivel === 1 ? 'text-xl' : nivel === 2 ? 'text-lg' : 'text-base')}>
           {inline(h[2], k)}
         </p>,
       )
@@ -75,7 +76,7 @@ export function MarkdownView({ texto, className }: { texto: string; className?: 
     } else if (l.startsWith('>')) {
       cerrarParrafo(); cerrarLista()
       const k = `q${bloques.length}`
-      bloques.push(<blockquote key={k} className="border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300">{inline(l.replace(/^>\s?/, ''), k)}</blockquote>)
+      bloques.push(<blockquote key={k} className={hoja ? 'mx-[1.27cm]' : 'border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300'}>{inline(l.replace(/^>\s?/, ''), k)}</blockquote>)
     } else {
       cerrarLista()
       parrafo.push(l.trim())
@@ -83,5 +84,5 @@ export function MarkdownView({ texto, className }: { texto: string; className?: 
   }
   cerrarParrafo(); cerrarLista()
 
-  return <div className={cn('space-y-3 text-[15px] text-zinc-800 dark:text-zinc-200', className)}>{bloques.map((b, i) => <Fragment key={i}>{b}</Fragment>)}</div>
+  return <div className={cn(hoja ? 'space-y-3 text-black' : 'space-y-3 text-[15px] text-zinc-800 dark:text-zinc-200', className)}>{bloques.map((b, i) => <Fragment key={i}>{b}</Fragment>)}</div>
 }

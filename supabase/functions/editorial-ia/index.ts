@@ -105,7 +105,21 @@ async function llm(admin: Admin, userId: string, instruccion: string, maxTokens:
   }
 }
 
+const NORMAS_APA = 'Citas y referencias en normativa APA 7.ª edición, adaptada a fuentes jurídicas argentinas: ' +
+  'en el texto, cita autor-fecha entre paréntesis para doctrina (Apellido, año, p. x) y, para normas y fallos, la denominación con el año ' +
+  '(p. ej., Ley 26.485, 2009; CSJN, "Carátula", 2019). La bibliografía final lleva cada fuente citada en el texto, una por entrada, en orden ' +
+  'alfabético, con el formato APA (p. ej.: Ley 26.485 de Protección Integral a las Mujeres. (2009). Boletín Oficial de la República Argentina. / ' +
+  'Apellido, N. (año). Título del libro (ed.). Editorial.). No inventes datos de edición, páginas, fechas ni URLs: si un dato no consta en las ' +
+  'fuentes, omitilo o marcalo [VERIFICAR: …].'
+
 const FORMATO_JSON = 'Respondé SOLO con un objeto JSON válido, sin texto antes ni después. Dentro de los strings usá \\n para los saltos de línea.'
+
+/** Entradas de bibliografía: strings no vacíos, sin duplicados, en orden alfabético. */
+function limpiarBibliografia(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  const unicas = [...new Set(v.map((e) => String(e ?? '').trim()).filter(Boolean))]
+  return unicas.slice(0, 60).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+}
 
 // ── Contexto ────────────────────────────────────────────────────────────────
 
@@ -393,7 +407,7 @@ Deno.serve(async (req) => {
     // Modos sobre un artículo existente
     const { data: a } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -412,7 +426,8 @@ Deno.serve(async (req) => {
         'Redactá el artículo completo, listo para revisión profesional: título, bajada y cuerpo argumentativo en markdown (pocos subtítulos, ' +
         'párrafos desarrollados). Cada afirmación que no puedas respaldar con las fuentes de arriba, marcala en el texto como [VERIFICAR: …]. ' +
         'Nada de datos que permitan reconocer el caso de origen. No le atribuyas a Marco experiencias ni opiniones no autorizadas.\n\n' +
-        `${FORMATO_JSON}\n{ "titulo": "...", "bajada": "...", "cuerpo_markdown": "...", ` +
+        `${NORMAS_APA} No incluyas la bibliografía dentro del cuerpo: va aparte, en "bibliografia".\n\n` +
+        `${FORMATO_JSON}\n{ "titulo": "...", "bajada": "...", "cuerpo_markdown": "...", "bibliografia": ["entrada APA", "..."], ` +
         '"referencias": [{ "cita": "norma o fallo citado", "fuente": "de dónde sale (base del estudio, norma vigente, etc.)", "verificada": true|false }], ' +
         '"a_verificar": ["afirmaciones que Marco tiene que comprobar antes de aprobar"] }',
         10000)
@@ -427,6 +442,7 @@ Deno.serve(async (req) => {
       await admin.from('editorial_articulos').update({
         estado: 'borrador', tipo, titulo, bajada, cuerpo, version, modelo_ia: MODELO,
         referencias: Array.isArray(r.referencias) ? r.referencias.slice(0, 40) : [],
+        bibliografia: limpiarBibliografia(r.bibliografia),
         a_verificar: Array.isArray(r.a_verificar) ? r.a_verificar.slice(0, 40) : [],
         alertas_confidencialidad: alertas, aprobado_at: null, updated_at: new Date().toISOString(),
       }).eq('id', art.id)
@@ -468,6 +484,42 @@ Deno.serve(async (req) => {
       const adaptaciones = { ...(art.adaptaciones as Record<string, unknown> ?? {}), [formato]: String(r.texto ?? '') }
       await admin.from('editorial_articulos').update({ adaptaciones, updated_at: new Date().toISOString() }).eq('id', art.id)
       return json(req, { ok: true, texto: adaptaciones[formato] })
+    }
+
+    // ── refinar un fragmento (Marco elige el pasaje y da la instrucción) ───
+    if (modo === 'refinar' && art) {
+      const fragmento = typeof body.fragmento === 'string' ? body.fragmento.slice(0, 8000) : ''
+      const instruccion = typeof body.instruccion === 'string' ? body.instruccion.slice(0, 2000) : ''
+      const contexto = typeof body.contexto === 'string' ? body.contexto.slice(0, 30000) : String(art.cuerpo ?? '')
+      if (!fragmento.trim() || !instruccion.trim()) return json(req, { error: 'Falta el fragmento o la instrucción' }, 400)
+      const r = await llm(admin, userId,
+        'MODO EDICIÓN DE FRAGMENTO.\n\n' +
+        `ARTÍCULO COMPLETO (solo de contexto, no lo reescribas):\nTítulo: ${art.titulo}\n\n${contexto}\n\n` +
+        `FRAGMENTO A MODIFICAR:\n<<<\n${fragmento}\n>>>\n\nINSTRUCCIÓN DE MARCO:\n${instruccion}\n\n` +
+        'Devolvé solo el fragmento reescrito según la instrucción, en el mismo formato markdown, para reemplazarlo tal cual en el texto. ' +
+        `Mantené el registro del resto del artículo. Lo que no puedas respaldar, marcalo [VERIFICAR: …]. ${NORMAS_APA}\n\n` +
+        `${FORMATO_JSON}\n{ "texto": "..." }`,
+        3000)
+      const texto = String(r.texto ?? '').trim()
+      if (!texto) throw new Error('La IA no devolvió el fragmento')
+      return json(req, { ok: true, texto })
+    }
+
+    // ── bibliografía APA (no toca el cuerpo: solo arma la lista final) ─────
+    if (modo === 'apa' && art) {
+      if (!String(art.cuerpo ?? '').trim()) return json(req, { error: 'Todavía no hay texto' }, 400)
+      const r = await llm(admin, userId,
+        'MODO BIBLIOGRAFÍA.\n\n' +
+        `ARTÍCULO:\nTítulo: ${art.titulo}\n\n${String(art.cuerpo).slice(0, 30000)}\n\n` +
+        `REFERENCIAS REGISTRADAS EN LA REDACCIÓN:\n${JSON.stringify(art.referencias ?? [], null, 2)}\n\n` +
+        'Armá la bibliografía final del artículo: una entrada por cada norma, fallo u obra efectivamente citada o aludida en el texto. ' +
+        `No reescribas el artículo ni agregues fuentes que el texto no use. ${NORMAS_APA}\n\n` +
+        `${FORMATO_JSON}\n{ "bibliografia": ["entrada APA", "..."] }`,
+        3000)
+      const bibliografia = limpiarBibliografia(r.bibliografia)
+      if (!bibliografia.length) throw new Error('La IA no devolvió entradas de bibliografía')
+      await admin.from('editorial_articulos').update({ bibliografia, updated_at: new Date().toISOString() }).eq('id', art.id)
+      return json(req, { ok: true, bibliografia })
     }
 
     // ── chequeo de confidencialidad (sin IA) ───────────────────────────────
