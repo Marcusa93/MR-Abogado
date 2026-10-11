@@ -34,6 +34,7 @@ import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hoo
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
 import { useAutoSaeSync } from '@/hooks/use-sae'
+import { useRegistrarAcceso } from '@/hooks/use-audit-log'
 import { FavoritoStar } from '@/components/expedientes/favorito-star'
 import type { Tables } from '@/types/database.types'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
@@ -123,6 +124,9 @@ export default function ExpedienteDetailPage() {
     : tabsFiltradas
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
+
+  // Registro de actividad: quién abrió el expediente
+  useRegistrarAcceso('expedientes', id)
 
   // Actuaciones al día sin apretar "Sincronizar"
   useAutoSaeSync(

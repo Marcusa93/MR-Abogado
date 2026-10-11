@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -97,4 +98,18 @@ export function useAuditStats(dateFrom?: string) {
     },
     staleTime: 60_000,
   })
+}
+
+/**
+ * Registra en el log de actividad que el usuario abrió un expediente o un
+ * cliente. El servidor lo anota como mucho una vez cada 30 min por persona.
+ */
+export function useRegistrarAcceso(tabla: 'expedientes' | 'clientes', registroId: string | undefined) {
+  useEffect(() => {
+    if (!registroId) return
+    const supabase = createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase as any).rpc('registrar_acceso', { p_tabla: tabla, p_registro_id: registroId })
+      .then(() => {}, () => {})
+  }, [tabla, registroId])
 }

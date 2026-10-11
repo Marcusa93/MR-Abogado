@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useRegistrarAcceso } from '@/hooks/use-audit-log'
 import { ESTADO_CIVIL_LABELS, type EstadoCivil } from '@/types/enums'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EstadoBadge } from '@/components/shared/estado-badge'
@@ -110,6 +111,7 @@ type TabId = (typeof TABS)[number]['id']
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>()
+  useRegistrarAcceso('clientes', id)
   const navigate = useNavigate()
   const { profile } = useAuth()
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
