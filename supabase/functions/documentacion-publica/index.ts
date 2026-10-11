@@ -57,6 +57,19 @@ async function cargarItem(admin: Admin, enlace: Enlace, itemId: unknown) {
   return data as { id: string; nombre: string; estado: string; expediente_id: string | null; consulta_id: string | null } | null
 }
 
+// adjuntos.categoria es una lista cerrada (adjuntos_categoria_check)
+function categoriaAdjunto(nombre: string): string {
+  const n = nombre.toLowerCase()
+  if (/\bdni\b|documento de identidad/.test(n)) return 'dni'
+  if (/\bcuil\b/.test(n)) return 'cuil'
+  if (/\bpoder\b/.test(n)) return 'poder'
+  if (/contrato|convenio|p[oó]liza/.test(n)) return 'contrato'
+  if (/pericia|peritaje/.test(n)) return 'pericia'
+  if (/c[eé]dula/.test(n)) return 'cedula'
+  if (/constancia|certificad/.test(n)) return 'constancia'
+  return 'otro'
+}
+
 function carpeta(enlace: Enlace): string {
   return enlace.expediente_id ? enlace.expediente_id : `consultas/${enlace.consulta_id}`
 }
@@ -87,8 +100,11 @@ Deno.serve(async (req) => {
         .order('orden', { ascending: true }).order('created_at', { ascending: true })
       q = enlace.expediente_id ? q.eq('expediente_id', enlace.expediente_id) : q.eq('consulta_id', enlace.consulta_id)
       const { data: items } = await q
+      // Clientes creados por la importación del SAE tienen el número de
+      // expediente como nombre: en ese caso no se saluda con el nombre.
+      const primerNombre = cliente.split(/\s+/)[0] ?? ''
       return json(req, {
-        cliente: cliente.split(/\s+/)[0] ?? '',
+        cliente: /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'-]{2,}$/.test(primerNombre) ? primerNombre : '',
         vence: enlace.expires_at,
         items: items ?? [],
       })
@@ -149,7 +165,7 @@ Deno.serve(async (req) => {
         tipo_mime: 'application/pdf',
         tamano_bytes: tamano || null,
         storage_path: path,
-        categoria: 'documentacion',
+        categoria: categoriaAdjunto(item.nombre),
         descripcion: `Subido por el cliente desde el enlace de documentación${typeof body.nombre_original === 'string' ? ` (archivo: ${body.nombre_original.slice(0, 120)})` : ''}`,
         uploaded_by: enlace.created_by,
       }).select('id').single()

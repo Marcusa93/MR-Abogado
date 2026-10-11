@@ -72,8 +72,11 @@ export function DocumentacionRequerida({ caso, clienteNombre, clienteTelefono }:
     }
   }
 
+  // Los clientes importados del SAE tienen el número de expediente como nombre
+  const primerNombre = (clienteNombre ?? '').trim().split(/\s+/)[0] ?? ''
+  const saludo = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'-]{2,}$/.test(primerNombre) ? ` ${primerNombre}` : ''
   const mensaje = (url: string) =>
-    `Hola${clienteNombre ? ` ${clienteNombre.split(' ')[0]}` : ''}, te escribimos del Estudio Jurídico Dr. Marco Rossi. ` +
+    `Hola${saludo}, te escribimos del Estudio Jurídico Dr. Marco Rossi. ` +
     `Para avanzar con tu caso necesitamos esta documentación:\n\n${pendientesTxt}\n\n` +
     `Podés subirla desde el celular, sacándole una foto, en este enlace:\n${url}\n\nGracias.`
 
