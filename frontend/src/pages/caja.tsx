@@ -790,6 +790,120 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
 
 type ModoPeriodo = 'mes' | 'anio' | 'todo'
 
+// ─── Promedios mensuales ────────────────────────────────────────────────────
+// Solo meses cerrados (el mes en curso no cuenta hasta que termina) y sin el
+// primer mes si los registros empezaron a mitad de mes: si no, el promedio
+// queda subestimado. Los meses sin movimientos cuentan como cero.
+
+type Movimiento = { fecha: string; monto: number | string; moneda: MonedaCaja }
+
+const claveMes = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
+
+function mesesDelPeriodo(modo: ModoPeriodo, anio: number, primeraFecha: string | null): string[] {
+  if (!primeraFecha) return []
+  const hoy = new Date()
+  // Último mes cerrado
+  let finY = hoy.getFullYear()
+  let finM = hoy.getMonth() // 0 = el mes anterior a enero → diciembre del año pasado
+  if (finM === 0) { finY -= 1; finM = 12 }
+
+  // Primer mes completo con datos
+  let iniY = Number(primeraFecha.slice(0, 4))
+  let iniM = Number(primeraFecha.slice(5, 7))
+  if (Number(primeraFecha.slice(8, 10)) > 5) { iniM += 1; if (iniM === 13) { iniM = 1; iniY += 1 } }
+
+  if (modo === 'anio') {
+    if (anio > finY) return []
+    if (anio < finY) { finY = anio; finM = 12 }
+    if (anio > iniY) { iniY = anio; iniM = 1 }
+  } else if (modo === 'mes') {
+    // Últimos 12 meses cerrados
+    let y = finY, m = finM - 11
+    while (m < 1) { m += 12; y -= 1 }
+    if (y > iniY || (y === iniY && m > iniM)) { iniY = y; iniM = m }
+  }
+
+  const meses: string[] = []
+  let y = iniY, m = iniM
+  while (y < finY || (y === finY && m <= finM)) {
+    meses.push(claveMes(y, m))
+    m += 1
+    if (m === 13) { m = 1; y += 1 }
+  }
+  return meses
+}
+
+function promedio(items: Movimiento[], meses: string[], moneda: MonedaCaja): number {
+  if (meses.length === 0) return 0
+  const set = new Set(meses)
+  const total = items
+    .filter((i) => i.moneda === moneda && set.has(i.fecha.slice(0, 7)))
+    .reduce((acc, i) => acc + Number(i.monto), 0)
+  return total / meses.length
+}
+
+function etiquetaRango(meses: string[]): string {
+  if (meses.length === 0) return ''
+  const label = (k: string) => `${MES_LABELS[Number(k.slice(5, 7)) - 1].slice(0, 3).toLowerCase()} ${k.slice(0, 4)}`
+  const rango = meses.length === 1 ? label(meses[0]) : `${label(meses[0])} – ${label(meses[meses.length - 1])}`
+  return `${rango} · ${meses.length} ${meses.length === 1 ? 'mes cerrado' : 'meses cerrados'}`
+}
+
+function PromediosMensuales({ modo, anio }: { modo: ModoPeriodo; anio: number }) {
+  const { data: gastos = [], isLoading: lg } = useGastos(undefined)
+  const { data: ingresos = [], isLoading: li } = useIngresos()
+
+  const datos = useMemo(() => {
+    const fechas = [...gastos, ...ingresos].map((x) => x.fecha).sort()
+    const meses = mesesDelPeriodo(modo, anio, fechas[0] ?? null)
+    return {
+      meses,
+      gastoARS: promedio(gastos, meses, 'ARS'),
+      gastoUSD: promedio(gastos, meses, 'USD'),
+      ingresoARS: promedio(ingresos, meses, 'ARS'),
+      ingresoUSD: promedio(ingresos, meses, 'USD'),
+    }
+  }, [gastos, ingresos, modo, anio])
+
+  if (lg || li) return null
+
+  if (datos.meses.length === 0) {
+    return (
+      <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-zinc-500">
+        Promedio mensual: todavía no hay meses cerrados en este período.
+      </div>
+    )
+  }
+
+  const resultado = datos.ingresoARS - datos.gastoARS
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-500">Promedio mensual</span>
+        <span className="text-[11px] text-zinc-500">{etiquetaRango(datos.meses)}</span>
+      </div>
+      <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div>
+          <p className="text-[11px] text-zinc-500">Gasto promedio</p>
+          <p className="text-sm font-semibold tabular-nums text-rose-300">{fmt(Math.round(datos.gastoARS))}</p>
+          {datos.gastoUSD > 0 && <p className="text-xs tabular-nums text-rose-300/80">+ {fmt(Math.round(datos.gastoUSD), 'USD')}</p>}
+        </div>
+        <div>
+          <p className="text-[11px] text-zinc-500">Ingreso promedio</p>
+          <p className="text-sm font-semibold tabular-nums text-emerald-300">{fmt(Math.round(datos.ingresoARS))}</p>
+          {datos.ingresoUSD > 0 && <p className="text-xs tabular-nums text-emerald-300/80">+ {fmt(Math.round(datos.ingresoUSD), 'USD')}</p>}
+        </div>
+        <div>
+          <p className="text-[11px] text-zinc-500">Resultado promedio (ARS)</p>
+          <p className={cn('text-sm font-semibold tabular-nums', resultado >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+            {resultado >= 0 ? '' : '−'}{fmt(Math.round(Math.abs(resultado)))}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
   const now = new Date()
   const [modo, setModo] = useState<ModoPeriodo>('mes')
@@ -901,6 +1015,8 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
       </div>
 
       <TotalesMes items={gastos} tipo="gasto" label={totalLabel} />
+
+      <PromediosMensuales modo={modo} anio={anioNav} />
 
       {/* Desglose por categoría para año/todo */}
       {modo !== 'mes' && categoriaTotalesARS.length > 0 && (
