@@ -89,14 +89,16 @@ async function llm(admin: Admin, userId: string, instruccion: string, maxTokens:
   const fin = raw.lastIndexOf('}')
   const candidato = fin > inicio ? raw.slice(inicio, fin + 1) : raw.slice(inicio)
   try {
-    return JSON.parse(candidato)
+    const r = JSON.parse(candidato) as Record<string, unknown>
+    if (finish === 'length') r.__cortada = true
+    return r
   } catch {
     // Textos largos: comillas sin escapar, comas faltantes o respuesta cortada
     // por el tope de tokens. jsonrepair cierra strings y llaves abiertas.
     for (const intento of [candidato, raw.slice(inicio)]) {
       try {
         const r = JSON.parse(jsonrepair(intento)) as Record<string, unknown>
-        if (finish === 'length') console.warn('[editorial] respuesta cortada por max_tokens, reparada')
+        if (finish === 'length') { console.warn('[editorial] respuesta cortada por max_tokens, reparada'); r.__cortada = true }
         return r
       } catch { /* siguiente intento */ }
     }
@@ -158,6 +160,37 @@ async function bloqueEvidencia(admin: Admin, articuloId: string): Promise<string
     `PARCIAL (la fuente existe pero la cita no coincide exacta: usala con cautela y marcá [VERIFICAR] si afirmás el detalle):\n${parcial.map(linea).join('\n') || '(ninguna)'}\n\n` +
     `NO COMPROBADA (no la afirmes; si la mencionás, va con [VERIFICAR: …]):\n${no.map(linea).join('\n') || '(ninguna)'}\n\n` +
     'La bibliografía debe incluir las fuentes comprobadas que uses, con su URL y la fecha de consulta en formato APA.'
+}
+
+/** Pide la parte que faltó de un artículo cortado y los datos finales (referencias, bibliografía). */
+async function continuarArticulo(admin: Admin, userId: string, art: { id: string; titulo: string; bajada: string | null }, cuerpo: string): Promise<{
+  continuacion: string; referencias: unknown[]; bibliografia: string[]; a_verificar: unknown[]
+}> {
+  const evidencia = await bloqueEvidencia(admin, art.id)
+  const r = await llm(admin, userId,
+    'MODO CONTINUACIÓN. El borrador de abajo quedó cortado (puede terminar en mitad de una palabra). ' +
+    'Escribí SOLO la continuación desde el punto exacto del corte, sin repetir nada de lo anterior, hasta el cierre del artículo. ' +
+    'Si el corte quedó en mitad de una palabra, empezá completándola. Mantené el registro y las reglas de citas.\n\n' +
+    (evidencia ? `${evidencia}\n\n` : '') +
+    `TÍTULO: ${art.titulo}\nBAJADA: ${art.bajada ?? ''}\n\nBORRADOR HASTA EL CORTE (últimos 12.000 caracteres):\n<<<\n${cuerpo.slice(-12000)}\n>>>\n\n` +
+    `${NORMAS_APA}\n\n` +
+    `${FORMATO_JSON}\n{ "continuacion_markdown": "...", "bibliografia": ["entrada APA de cada fuente citada en TODO el artículo"], ` +
+    '"referencias": [{ "cita": "...", "fuente": "...", "verificada": true|false }], "a_verificar": ["..."] }',
+    7000)
+  return {
+    continuacion: String(r.continuacion_markdown ?? ''),
+    referencias: Array.isArray(r.referencias) ? r.referencias.slice(0, 40) : [],
+    bibliografia: limpiarBibliografia(r.bibliografia),
+    a_verificar: Array.isArray(r.a_verificar) ? r.a_verificar.slice(0, 40) : [],
+  }
+}
+
+/** Une el texto cortado con su continuación respetando el corte (palabra a medias o espacio). */
+function unirCorte(antes: string, despues: string): string {
+  const a = antes.replace(/\s+$/, '')
+  const d = despues.replace(/^\s+/, '')
+  if (!d) return a
+  return /[\p{L}\p{N}]$/u.test(a) && /^[\p{Ll}]/u.test(d) && !/[.!?:;»")\]]$/.test(a) ? a + d : `${a}${/^[,.;:)]/.test(d) ? '' : ' '}${d}`
 }
 
 // ── Contexto ────────────────────────────────────────────────────────────────
@@ -738,7 +771,7 @@ Deno.serve(async (req) => {
     const { data: a, error: errArt } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     if (errArt) throw new Error(`No se pudo leer el artículo: ${errArt.message}`)
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -767,8 +800,14 @@ Deno.serve(async (req) => {
 
       const titulo = String(r.titulo ?? art.titulo).slice(0, 300)
       const bajada = String(r.bajada ?? '').slice(0, 1000)
-      const cuerpo = String(r.cuerpo_markdown ?? '')
+      let cuerpo = String(r.cuerpo_markdown ?? '')
       if (!cuerpo.trim()) throw new Error('La IA no devolvió el cuerpo del artículo')
+      // Respuesta cortada por el tope: se pide la continuación y los datos finales
+      if (r.__cortada || !Array.isArray(r.bibliografia)) {
+        const c = await continuarArticulo(admin, userId, { id: String(art.id), titulo, bajada }, cuerpo)
+        cuerpo = unirCorte(cuerpo, c.continuacion)
+        r.referencias = c.referencias; r.bibliografia = c.bibliografia; r.a_verificar = c.a_verificar
+      }
       const alertas = chequearConfidencialidad(`${titulo}\n${bajada}\n${cuerpo}`, await nombresSensibles(admin, (prop?.expediente_id as string) ?? null))
       const version = Number(art.version ?? 0) + 1
       await admin.from('editorial_versiones').insert({ articulo_id: art.id, version, origen: 'ia', modo: 'redaccion', titulo, bajada, cuerpo, autor_id: userId })
@@ -780,6 +819,72 @@ Deno.serve(async (req) => {
         alertas_confidencialidad: alertas, aprobado_at: null, updated_at: new Date().toISOString(),
       }).eq('id', art.id)
       return json(req, { ok: true, version, alertas: alertas.length })
+    }
+
+    // ── resolver las marcas [VERIFICAR] con la evidencia disponible ───────
+    if (modo === 'resolver_marcas' && art) {
+      const cuerpo = typeof body.cuerpo === 'string' && body.cuerpo.trim() ? body.cuerpo : String(art.cuerpo ?? '')
+      // Cada marca con la oración (o el tramo) que la contiene
+      const marcas: { i: number; marca: string; contexto: string }[] = []
+      const re = /\[VERIFICAR[^\]]*\]/g
+      let m: RegExpExecArray | null
+      while ((m = re.exec(cuerpo)) && marcas.length < 30) {
+        const ini = Math.max(cuerpo.lastIndexOf('\n', m.index), cuerpo.slice(0, m.index).search(/[^.!?]*$/) - 1, 0)
+        const desde = Math.max(0, Math.min(ini, m.index - 400))
+        marcas.push({ i: marcas.length, marca: m[0], contexto: cuerpo.slice(desde, m.index + m[0].length).trim() })
+      }
+      if (!marcas.length) return json(req, { ok: true, propuestas: [] })
+      const evidencia = await bloqueEvidencia(admin, String(art.id))
+      // Normas y fallos de la base relacionados (texto, sin IA)
+      const { data: normas } = await admin.from('normativa_documentos').select('titulo, tipo, numero, fecha, source_url').limit(60)
+      const { data: fallos } = await admin.from('jurisprudencia_documentos').select('caratula, tribunal, fecha, sumario, source_url').limit(60)
+      const base = [
+        ...((normas ?? []) as Record<string, unknown>[]).map((n) => `- Norma: ${n.tipo ?? ''} ${n.numero ?? ''} ${n.titulo} (${n.fecha ?? 's/f'})${n.source_url ? ` <${n.source_url}>` : ''}`),
+        ...((fallos ?? []) as Record<string, unknown>[]).map((f) => `- Fallo: ${f.tribunal ?? ''}, "${f.caratula}", ${f.fecha ?? 's/f'}: ${String(f.sumario ?? '').slice(0, 300)}`),
+      ].join('\n')
+      const r = await llm(admin, userId,
+        'MODO RESOLUCIÓN DE MARCAS. El borrador tiene marcas [VERIFICAR: …] en afirmaciones que no estaban respaldadas. ' +
+        'Para cada marca decidí, usando SOLO la evidencia comprobada y la base del estudio que figuran abajo:\n' +
+        '- "respaldada": la evidencia la sostiene → reescribí el tramo citando la fuente en APA y sin la marca.\n' +
+        '- "reformular": la evidencia no alcanza pero la idea es defendible como opinión o inferencia → reescribí el tramo presentándolo como tal, sin la marca.\n' +
+        '- "eliminar": es un dato que no se puede sostener → reescribí el tramo sin esa afirmación (y sin la marca).\n' +
+        '- "mantener": hace falta que Marco lo compruebe a mano → no cambies nada.\n' +
+        'El "original" debe ser una copia EXACTA, carácter por carácter, de un tramo del contexto que incluya la marca. El "nuevo" lo reemplaza tal cual.\n\n' +
+        (evidencia ? `${evidencia}\n\n` : 'No hay investigación externa cargada.\n\n') +
+        `BASE DEL ESTUDIO:\n${base || '(vacía)'}\n\n` +
+        `MARCAS:\n${marcas.map((x) => `#${x.i}\nMarca: ${x.marca}\nContexto: ${x.contexto}`).join('\n\n')}\n\n` +
+        `${NORMAS_APA}\n\n` +
+        `${FORMATO_JSON}\n{ "propuestas": [{ "i": 0, "decision": "respaldada|reformular|eliminar|mantener", "motivo": "una oración", "fuente": "fuente usada o vacío", "original": "...", "nuevo": "..." }] }`,
+        6000)
+      const props = ((Array.isArray(r.propuestas) ? r.propuestas : []) as Record<string, unknown>[]).map((p) => {
+        const x = marcas[Number(p.i)]
+        if (!x) return null
+        let original = String(p.original ?? '')
+        // Si la IA no copió exacto, se reemplaza solo la marca
+        if (!original || !cuerpo.includes(original) || !original.includes('[VERIFICAR')) original = x.marca
+        const decision = ['respaldada', 'reformular', 'eliminar', 'mantener'].includes(String(p.decision)) ? String(p.decision) : 'mantener'
+        return { i: x.i, marca: x.marca, decision, motivo: String(p.motivo ?? ''), fuente: String(p.fuente ?? ''), original, nuevo: decision === 'mantener' ? original : String(p.nuevo ?? '') }
+      }).filter(Boolean)
+      return json(req, { ok: true, propuestas: props })
+    }
+
+    // ── continuar un artículo que quedó cortado ────────────────────────────
+    if (modo === 'continuar' && art) {
+      const cuerpoActual = String(art.cuerpo ?? '')
+      if (!cuerpoActual.trim()) return json(req, { error: 'Todavía no hay borrador' }, 400)
+      const c = await continuarArticulo(admin, userId, { id: String(art.id), titulo: String(art.titulo), bajada: (art.bajada as string | null) ?? null }, cuerpoActual)
+      if (!c.continuacion.trim()) throw new Error('La IA no devolvió la continuación')
+      const cuerpo = unirCorte(cuerpoActual, c.continuacion)
+      const version = Number(art.version ?? 0) + 1
+      await admin.from('editorial_versiones').insert({ articulo_id: art.id, version, origen: 'ia', modo: 'continuacion', titulo: art.titulo, bajada: art.bajada, cuerpo, autor_id: userId })
+      await admin.from('editorial_articulos').update({
+        cuerpo, version,
+        ...(c.bibliografia.length ? { bibliografia: c.bibliografia } : {}),
+        ...(c.referencias.length && !(art.referencias as unknown[] | null)?.length ? { referencias: c.referencias } : {}),
+        ...(c.a_verificar.length && !(art.a_verificar as unknown[] | null)?.length ? { a_verificar: c.a_verificar } : {}),
+        updated_at: new Date().toISOString(),
+      }).eq('id', art.id)
+      return json(req, { ok: true, version })
     }
 
     // ── revisar ────────────────────────────────────────────────────────────

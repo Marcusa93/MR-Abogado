@@ -15,6 +15,7 @@ import { DictarBoton } from '@/components/shared/dictar-boton'
 import { CompararVersiones } from '@/components/editorial/comparar-versiones'
 import { VerificacionCitas } from '@/components/editorial/verificacion-citas'
 import { HallazgosPanel } from '@/components/editorial/investigacion-externa'
+import { MarcasVerificar } from '@/components/editorial/marcas-verificar'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -349,6 +350,14 @@ export default function EditorialArticuloPage() {
           </div>
         </Aviso>
       ))}
+      {!aprobado && art.cuerpo && art.cuerpo.trim().length > 300 && !/[.!?…»”")\]]\s*$/.test(art.cuerpo) && (
+        <Aviso tono="orange" icon={AlertTriangle} titulo="El texto parece haber quedado cortado al final"
+          accion={{ label: pidiendo === 'continuar' ? 'Completando…' : 'Completar con IA', onClick: () => {
+            if (pidiendo) return
+            if (sucio) return toast.info('Guardá tus cambios primero')
+            correrIA('continuar', {}, 'Texto completado')
+          } }} />
+      )}
       {art.alertas_confidencialidad?.length > 0 && (
         <Aviso tono="rose" icon={ShieldAlert} titulo="Posibles datos identificatorios del caso de origen">
           <ul className="list-disc pl-4">{art.alertas_confidencialidad.map((a, i) => <li key={i}>{a}</li>)}</ul>
@@ -578,7 +587,8 @@ export default function EditorialArticuloPage() {
               </div>
             )}
             {panel === 'verificar' && (
-              <div className="space-y-3 text-sm">
+              <div className="space-y-4 text-sm">
+                <MarcasVerificar articuloId={id} cuerpo={cuerpo} onCuerpo={setCuerpo} editable={!aprobado} />
                 <VerificacionCitas citas={art.verificacion_citas ?? []} verificadoAt={art.citas_verificadas_at}
                   desactualizada={!!art.citas_verificadas_at && art.updated_at > art.citas_verificadas_at}
                   pidiendo={pidiendo === 'verificar_citas'}
