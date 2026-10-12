@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, BookOpen, MoreHorizontal, X, GitCompare, MessageSquareWarning, RefreshCw, Undo2, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
+  AlertTriangle, ArrowLeft, ArrowRight, BookOpen, ChevronDown, MoreHorizontal, X, GitCompare, MessageSquareWarning, RefreshCw, Undo2, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import {
   useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial, useEquipoEditorial,
@@ -55,6 +55,7 @@ export default function EditorialArticuloPage() {
   const seccionInicial = searchParams.get('seccion') as Panel | null
   const [seccion, setSeccion] = useState<Panel | 'articulo'>(seccionInicial ?? 'articulo')
   const [iaAbierta, setIaAbierta] = useState(false)
+  const [dispararMarcas, setDispararMarcas] = useState(0)
   // Alto de la barra fija: la barra de herramientas del editor se pega justo debajo
   const barraRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -266,6 +267,67 @@ export default function EditorialArticuloPage() {
     </button>
   )
 
+  // ── Guía paso a paso para terminar el artículo ──
+  const textoCortado = !!art.cuerpo && art.cuerpo.trim().length > 300 && !/[.!?…»”")\]]\s*$/.test(art.cuerpo)
+  const hallazgosExt = investigacionExterna?.hallazgos ?? []
+  const citasDesactualizadas = !!art.citas_verificadas_at && art.updated_at > art.citas_verificadas_at
+  const irAlTexto = () => { irA('articulo'); barraRef.current?.closest('main')?.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const pasos: PasoGuia[] = aprobado ? [
+    { key: 'aprobado', titulo: 'Artículo aprobado', hecho: true, detalle: '' },
+    { key: 'descargar', titulo: 'Descargar el documento', hecho: false,
+      detalle: 'Word o PDF con formato de escrito (Times New Roman 12, interlineado 1,5) y la bibliografía APA al final.',
+      accion: { label: 'Descargar Word', onClick: () => { void exportar('word') }, cargando: pidiendo === 'apa' },
+      secundaria: { label: 'PDF', onClick: () => { void exportar('pdf') } } },
+    { key: 'difundir', titulo: 'Adaptarlo para redes o boletín (opcional)', hecho: Object.keys(art.adaptaciones ?? {}).length > 0, opcional: true,
+      detalle: 'Versiones cortas para LinkedIn, Instagram o el boletín, más abajo del texto.',
+      accion: { label: 'Ir a adaptaciones', onClick: irAlTexto } },
+  ] : [
+    { key: 'investigacion', titulo: 'Investigar con fuentes comprobadas', hecho: hallazgosExt.length > 0 || !!art.investigacion,
+      detalle: hallazgosExt.length ? `${hallazgosExt.filter((h) => h.estado === 'comprobado').length} hallazgos comprobados.`
+        : 'Corré el pedido en Gemini Deep Research y cargá el informe: el sistema comprueba cada cita contra su fuente.',
+      accion: { label: 'Investigar con Gemini', onClick: () => irA('investigacion') } },
+    { key: 'redactar', titulo: 'Redactar el borrador', hecho: !!art.cuerpo,
+      detalle: 'Elegí el tipo de artículo y, si querés, dictá indicaciones. La IA usa solo la evidencia comprobada.',
+      accion: { label: 'Redactar ahora', onClick: () => { setIaAbierta(true); irAlTexto() } } },
+    { key: 'completo', titulo: 'Texto completo', hecho: !!art.cuerpo && !textoCortado,
+      detalle: textoCortado ? 'El final quedó cortado. La IA escribe solo lo que falta y agrega la bibliografía.' : '',
+      accion: { label: 'Completar con IA', onClick: () => correrIA('continuar', {}, 'Texto completado'), cargando: pidiendo === 'continuar' } },
+    { key: 'guardar', titulo: 'Guardar tus cambios', hecho: !sucio, oculto: !sucio,
+      detalle: 'Tenés cambios sin guardar. Guardalos antes de seguir: la IA trabaja sobre la última versión guardada.',
+      accion: { label: 'Guardar', onClick: guardarVersion, cargando: guardar.isPending } },
+    { key: 'marcas', titulo: 'Resolver las marcas [VERIFICAR]', hecho: !!cuerpo && verificarEnTexto === 0,
+      detalle: verificarEnTexto ? `Quedan ${verificarEnTexto}. La IA propone para cada una citar la fuente, reformular o eliminar; vos aplicás.` : '',
+      accion: { label: 'Resolver marcas con IA', onClick: () => { irA('verificar'); setDispararMarcas(Date.now()) } } },
+    { key: 'citas', titulo: 'Verificar las citas contra tu base', hecho: !!art.citas_verificadas_at && !citasDesactualizadas,
+      detalle: citasDesactualizadas ? 'El texto cambió después de la última verificación.' : 'Cruza cada norma y fallo citado con tu base de normativa y jurisprudencia.',
+      accion: { label: 'Verificar citas', onClick: () => { irA('verificar'); correrIA('verificar_citas', {}, 'Citas verificadas') }, cargando: pidiendo === 'verificar_citas' } },
+    { key: 'bibliografia', titulo: 'Bibliografía APA', hecho: (art.bibliografia?.length ?? 0) > 0,
+      detalle: 'Se arma con las fuentes citadas; después podés editarla.',
+      accion: { label: 'Generar bibliografía', onClick: () => { void generarBibliografia().then((b) => { if (b) toast.success('Bibliografía generada') }) }, cargando: pidiendo === 'apa' } },
+    { key: 'confidencialidad', titulo: 'Sacar datos identificatorios del caso', hecho: !(art.alertas_confidencialidad?.length), oculto: !(art.alertas_confidencialidad?.length),
+      detalle: `Aparecen nombres del expediente de origen: ${(art.alertas_confidencialidad ?? []).join(', ')}. Editalos en el texto.`,
+      accion: { label: 'Editar el texto', onClick: () => { setVista('editar'); irAlTexto() } } },
+    puedeAprobar
+      ? { key: 'aprobar', titulo: 'Revisión final y aprobación', hecho: false,
+          detalle: 'Leelo completo en la vista previa. Al aprobar queda listo para descargar.',
+          accion: { label: 'Aprobar', onClick: () => { void aprobar() } } }
+      : { key: 'pedir', titulo: 'Pedir la aprobación a Marco', hecho: !!art.aprobacion_pedida_at,
+          detalle: art.aprobacion_pedida_at ? 'Ya se la pediste. Marco recibió el aviso por Telegram.' : 'Marco hace la revisión final y aprueba.',
+          accion: { label: 'Pedir aprobación', onClick: () => correrIA('pedir_aprobacion', {}, 'Le avisamos a Marco por Telegram'), cargando: pidiendo === 'pedir_aprobacion' } },
+  ]
+
+  // Mientras queden pasos, aprobar/pedir aprobación no es la acción principal: va al menú
+  const faltanPasos = !aprobado && pasos.some((p) => !p.oculto && !p.hecho && !p.opcional && p.key !== 'aprobar' && p.key !== 'pedir')
+  if (faltanPasos) {
+    for (const k of ['aprobar', 'pedir']) {
+      const i = principales.findIndex((x) => x.key === k)
+      if (i >= 0) {
+        const [x] = principales.splice(i, 1)
+        secundarias.unshift({ ...x!, tono: 'out', label: k === 'aprobar' ? 'Aprobar sin terminar los pasos' : 'Pedir aprobación sin terminar los pasos' })
+      }
+    }
+  }
+
   const hoja = 'mx-auto max-w-[21cm] px-4 py-6 sm:px-10 sm:py-10 xl:px-[2.5cm] xl:py-[2.5cm]'
 
   return (
@@ -306,6 +368,11 @@ export default function EditorialArticuloPage() {
           ))}
         </div>
       </div>
+
+      {/* Guía paso a paso */}
+      {(art.estado === 'investigacion' || art.estado === 'borrador' || art.estado === 'aprobado') && (
+        <GuiaArticulo pasos={pasos} articuloId={id} ocupado={!!pidiendo} />
+      )}
 
       {/* Avisos */}
       {devolviendo && (
@@ -350,25 +417,11 @@ export default function EditorialArticuloPage() {
           </div>
         </Aviso>
       ))}
-      {!aprobado && art.cuerpo && art.cuerpo.trim().length > 300 && !/[.!?…»”")\]]\s*$/.test(art.cuerpo) && (
-        <Aviso tono="orange" icon={AlertTriangle} titulo="El texto parece haber quedado cortado al final"
-          accion={{ label: pidiendo === 'continuar' ? 'Completando…' : 'Completar con IA', onClick: () => {
-            if (pidiendo) return
-            if (sucio) return toast.info('Guardá tus cambios primero')
-            correrIA('continuar', {}, 'Texto completado')
-          } }} />
-      )}
       {art.alertas_confidencialidad?.length > 0 && (
         <Aviso tono="rose" icon={ShieldAlert} titulo="Posibles datos identificatorios del caso de origen">
           <ul className="list-disc pl-4">{art.alertas_confidencialidad.map((a, i) => <li key={i}>{a}</li>)}</ul>
         </Aviso>
       )}
-      {verificarEnTexto > 0 && (
-        <Aviso tono="amber" icon={AlertTriangle}
-          titulo={`${verificarEnTexto} ${verificarEnTexto === 1 ? 'marca' : 'marcas'} [VERIFICAR] en el texto`}
-          accion={{ label: 'Qué revisar', onClick: () => irA('verificar') }} />
-      )}
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Columna del artículo */}
         <div className={cn('min-w-0 space-y-3', seccion !== 'articulo' && 'hidden lg:block')}>
@@ -588,7 +641,7 @@ export default function EditorialArticuloPage() {
             )}
             {panel === 'verificar' && (
               <div className="space-y-4 text-sm">
-                <MarcasVerificar articuloId={id} cuerpo={cuerpo} onCuerpo={setCuerpo} editable={!aprobado} />
+                <MarcasVerificar articuloId={id} cuerpo={cuerpo} onCuerpo={setCuerpo} editable={!aprobado} disparar={dispararMarcas} onDisparado={() => setDispararMarcas(0)} />
                 <VerificacionCitas citas={art.verificacion_citas ?? []} verificadoAt={art.citas_verificadas_at}
                   desactualizada={!!art.citas_verificadas_at && art.updated_at > art.citas_verificadas_at}
                   pidiendo={pidiendo === 'verificar_citas'}
@@ -730,6 +783,90 @@ function MenuMas({ acciones }: { acciones: { key: string; label: string; icon: t
             </button>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+interface PasoGuia {
+  key: string
+  titulo: string
+  hecho: boolean
+  detalle: string
+  opcional?: boolean
+  oculto?: boolean
+  accion?: { label: string; onClick: () => void; cargando?: boolean }
+  secundaria?: { label: string; onClick: () => void }
+}
+
+function GuiaArticulo({ pasos, articuloId, ocupado }: { pasos: PasoGuia[]; articuloId: string; ocupado: boolean }) {
+  const visibles = pasos.filter((p) => !p.oculto)
+  const actual = visibles.find((p) => !p.hecho && !p.opcional) ?? visibles.find((p) => !p.hecho)
+  const hechos = visibles.filter((p) => p.hecho).length
+  const claveLista = `editorial-guia-${articuloId}`
+  const [verLista, setVerLista] = useState(() => { try { return localStorage.getItem(claveLista) === '1' } catch { return false } })
+  const alternar = () => setVerLista((v) => { try { localStorage.setItem(claveLista, v ? '0' : '1') } catch { /* sin almacenamiento */ } return !v })
+  const nActual = actual ? visibles.indexOf(actual) + 1 : visibles.length
+
+  return (
+    <div className="rounded-2xl border border-[var(--brand-accent)]/30 bg-[var(--brand-accent)]/5 p-3 dark:border-[var(--brand-ice)]/25 dark:bg-[var(--brand-ice)]/5 sm:p-4">
+      {/* Progreso */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 gap-1">
+          {visibles.map((p) => (
+            <span key={p.key} className={cn('h-1.5 flex-1 rounded-full',
+              p.hecho ? 'bg-emerald-500' : p === actual ? 'bg-[var(--brand-accent)] dark:bg-[var(--brand-ice)]' : 'bg-zinc-300 dark:bg-white/15')} />
+          ))}
+        </div>
+        <span className="shrink-0 text-[11px] font-medium tabular-nums text-zinc-500">{hechos}/{visibles.length}</span>
+      </div>
+
+      {/* Paso actual */}
+      {actual ? (
+        <div className="mt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso {nActual} de {visibles.length}{actual.opcional ? ' · opcional' : ''}</p>
+          <p className="mt-0.5 text-base font-semibold text-zinc-900 dark:text-zinc-50">{actual.titulo}</p>
+          {actual.detalle && <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-300">{actual.detalle}</p>}
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {actual.accion && (
+              <button type="button" onClick={actual.accion.onClick} disabled={ocupado}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--brand-navy)] px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:flex-none dark:bg-white dark:text-[var(--brand-navy)]">
+                {actual.accion.cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {actual.accion.label}
+              </button>
+            )}
+            {actual.secundaria && (
+              <button type="button" onClick={actual.secundaria.onClick} disabled={ocupado}
+                className="flex min-h-10 items-center justify-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-700 disabled:opacity-50 dark:border-white/10 dark:text-zinc-200">
+                {actual.secundaria.label}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Todo listo.</p>
+      )}
+
+      {/* Lista completa */}
+      <button type="button" onClick={alternar} className="mt-3 flex min-h-8 items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', verLista && 'rotate-180')} /> {verLista ? 'Ocultar los pasos' : 'Ver todos los pasos'}
+      </button>
+      {verLista && (
+        <ol className="mt-1 space-y-1">
+          {visibles.map((p, i) => (
+            <li key={p.key} className="flex items-center gap-2 text-sm">
+              {p.hecho
+                ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                : <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold',
+                    p === actual ? 'border-[var(--brand-accent)] text-[var(--brand-accent)] dark:border-[var(--brand-ice)] dark:text-[var(--brand-ice)]' : 'border-zinc-300 text-zinc-400 dark:border-white/20')}>{i + 1}</span>}
+              <span className={cn('flex-1', p.hecho ? 'text-zinc-400 line-through decoration-zinc-400/40' : p === actual ? 'font-medium text-zinc-900 dark:text-zinc-50' : 'text-zinc-600 dark:text-zinc-300')}>
+                {p.titulo}{p.opcional ? ' (opcional)' : ''}
+              </span>
+              {!p.hecho && p !== actual && p.accion && (
+                <button type="button" onClick={p.accion.onClick} disabled={ocupado} className="shrink-0 text-xs text-[var(--brand-accent)] underline disabled:opacity-50 dark:text-[var(--brand-ice)]">{p.accion.label}</button>
+              )}
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   )

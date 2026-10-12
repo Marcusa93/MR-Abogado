@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Loader2, Sparkles, Wand2 } from 'lucide-react'
 import { llamarEditorial } from '@/hooks/use-editorial'
 import { toast } from '@/stores/toast-store'
@@ -27,11 +27,14 @@ const DECISION: Record<Propuesta['decision'], { label: string; cls: string }> = 
 
 const BTN = 'flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium disabled:opacity-50'
 
-export function MarcasVerificar({ articuloId, cuerpo, onCuerpo, editable }: {
+export function MarcasVerificar({ articuloId, cuerpo, onCuerpo, editable, disparar = 0, onDisparado }: {
   articuloId: string
   cuerpo: string
   onCuerpo: (v: string) => void
   editable: boolean
+  /** Cambia cuando la guía pide resolver las marcas: dispara la propuesta sin un toque más */
+  disparar?: number
+  onDisparado?: () => void
 }) {
   const [propuestas, setPropuestas] = useState<Propuesta[] | null>(null)
   const [aplicadas, setAplicadas] = useState<Set<number>>(new Set())
@@ -59,6 +62,12 @@ export function MarcasVerificar({ articuloId, cuerpo, onCuerpo, editable }: {
       toast.error('No se pudieron proponer soluciones', e instanceof Error ? e.message : undefined)
     } finally { setCargando(false) }
   }
+
+  useEffect(() => {
+    if (!disparar) return
+    onDisparado?.()
+    if (editable && !cargando) void proponer()
+  }, [disparar]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const aplicar = (lista: Propuesta[]) => {
     let texto = cuerpo
