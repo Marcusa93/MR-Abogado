@@ -25,7 +25,7 @@ export function VerificacionCitas({ citas, verificadoAt, desactualizada, pidiend
       <div className="flex items-center gap-2">
         <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Citas contra tu base</p>
         <button type="button" onClick={onVerificar} disabled={pidiendo}
-          className="flex items-center gap-1 text-xs text-[var(--brand-accent)] hover:underline disabled:opacity-50 dark:text-[var(--brand-ice)]">
+          className="flex min-h-8 items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5">
           {pidiendo ? <Loader2 className="h-3 w-3 animate-spin" /> : <SearchCheck className="h-3 w-3" />}
           {verificadoAt ? 'Volver a verificar' : 'Verificar'}
         </button>

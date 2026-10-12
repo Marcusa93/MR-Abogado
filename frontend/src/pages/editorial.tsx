@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AlertTriangle, BookOpen, CalendarClock, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
 import {
   useAccesoEditorial, usePropuestas, useArticulos, useEditorialIA, useActualizarPropuesta, useCrearPropuestaManual,
   usePuedeAprobarEditorial, useEquipoEditorial, useAsignarPropuesta, nombreCorto,
@@ -77,7 +77,7 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
   })
   if (p.asignado_a && !abierto) {
     return (
-      <button type="button" onClick={() => enviar(null)} disabled={asignar.isPending} className="rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-500/10">
+      <button type="button" onClick={() => enviar(null)} disabled={asignar.isPending} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
         Quitar asignación
       </button>
     )
@@ -85,31 +85,31 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
   if (!abierto) {
     return (
       <button type="button" onClick={() => { setA(colaboradores[0]?.id ?? ''); setAbierto(true) }}
-        className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
-        <UserRound className="h-3.5 w-3.5" /> Proponérselo a…
+        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+        <UserRound className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Asignar
       </button>
     )
   }
   return (
-    <div className="mt-2 w-full space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+    <div className="order-first basis-full space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Proponer este tema a</p>
       <select value={a} onChange={(e) => setA(e.target.value)}
-        className="w-full rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+        className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-base sm:min-h-9 sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
         {colaboradores.map((m) => <option key={m.id} value={m.id}>{nombreCorto(m)}</option>)}
       </select>
       <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
         placeholder="Indicaciones (opcional): enfoque, a quién va dirigido, para cuándo…"
-        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
-      <label className="flex items-center gap-2 text-xs text-zinc-500">
-        Para el (opcional)
+        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
+      <label className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        Fecha límite (opcional)
         <input type="date" value={plazo} min={hoyISO()} onChange={(e) => setPlazo(e.target.value)}
-          className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
+          className="min-h-9 rounded-lg border border-zinc-200 bg-white px-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
       </label>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => enviar(a)} disabled={!a || asignar.isPending}
-          className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-[var(--brand-navy)]">
-          {asignar.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Asignar y avisar
+      <div className="flex gap-2 sm:justify-end">
+        <button type="button" onClick={() => setAbierto(false)} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">Cancelar</button>
+        <button type="button" onClick={() => enviar(a)} disabled={!a || asignar.isPending} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]">
+          {asignar.isPending && <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" />} Asignar y avisar
         </button>
-        <button type="button" onClick={() => setAbierto(false)} className="text-xs text-zinc-500 hover:underline">Cancelar</button>
       </div>
     </div>
   )
@@ -195,41 +195,46 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => setAbierta((v) => !v)} className="text-xs text-zinc-500 hover:underline">
-          {abierta ? 'Ver menos' : 'Ver problema, hipótesis y fuentes'}
-        </button>
-        <span className="flex-1" />
-        {p.estado === 'propuesta' && p.origen === 'actualizacion' && p.articulo_id && (
-          <>
-            <button type="button" disabled={actualizar.isPending}
-              onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-500/10">
-              No hace falta
-            </button>
-            <Link to={`/editorial/${p.articulo_id}`}
-              className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 dark:bg-white dark:text-[var(--brand-navy)]">
-              <RefreshCw className="h-3.5 w-3.5" /> Abrir el artículo
-            </Link>
-          </>
-        )}
-        {p.estado === 'propuesta' && p.origen !== 'actualizacion' && puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
-        {p.estado === 'propuesta' && p.origen !== 'actualizacion' && (
-          <>
-            <button type="button" disabled={actualizar.isPending}
-              onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-500/10">
-              Descartar
-            </button>
-            <button type="button" onClick={investigar} disabled={ia.isPending}
-              className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]"
-              title="Modo investigación: normas, jurisprudencia de tu base, interpretaciones y tesis. No redacta el artículo todavía.">
-              {ia.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-              {ia.isPending ? 'Investigando… (1-2 min)' : 'Investigar'}
-            </button>
-          </>
-        )}
-      </div>
+      <button type="button" onClick={() => setAbierta((v) => !v)}
+        className="mt-2 flex min-h-8 items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', abierta && 'rotate-180')} />
+        {abierta ? 'Ver menos' : p.origen === 'actualizacion' ? 'Ver qué cambió' : 'Ver problema, hipótesis y fuentes'}
+      </button>
+
+      {p.estado === 'propuesta' && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-white/10 sm:justify-end">
+          {p.origen === 'actualizacion' && p.articulo_id ? (
+            <>
+              <button type="button" disabled={actualizar.isPending}
+                onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
+                No hace falta
+              </button>
+              <Link to={`/editorial/${p.articulo_id}`} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]">
+                <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Abrir el artículo
+              </Link>
+            </>
+          ) : (
+            <>
+              <button type="button" disabled={actualizar.isPending || ia.isPending}
+                onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
+                Descartar
+              </button>
+              {puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
+              <button type="button" onClick={investigar} disabled={ia.isPending}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]"
+                title="Modo investigación: normas, jurisprudencia de tu base, interpretaciones y tesis. No redacta el artículo todavía.">
+                {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" /> : <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
+                {ia.isPending ? 'Investigando…' : 'Investigar'}
+              </button>
+            </>
+          )}
+          {ia.isPending && (
+            <p className="basis-full text-center text-xs text-zinc-500 sm:text-right">Tarda uno o dos minutos. Al terminar se abre el artículo.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -243,12 +248,12 @@ function NuevaPropuesta({ onClose, equipo, puedeAprobar, yo }: { onClose: () => 
   const [titulo, setTitulo] = useState('')
   const [problema, setProblema] = useState('')
   const [pregunta, setPregunta] = useState('')
-  const cls = 'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100'
+  const cls = 'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm text-zinc-800 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100'
   return (
     <div className="dashboard-panel space-y-2 rounded-2xl p-4">
       <div className="flex items-center">
-        <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Nueva propuesta propia</p>
-        <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600"><X className="h-4 w-4" /></button>
+        <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Nuevo tema</p>
+        <button type="button" onClick={onClose} className="-m-1.5 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-500/10 hover:text-zinc-600" aria-label="Cerrar"><X className="h-5 w-5 sm:h-4 sm:w-4" /></button>
       </div>
       <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título tentativo" className={cls} autoFocus />
       <textarea value={problema} onChange={(e) => setProblema(e.target.value)} rows={3} placeholder="El problema jurídico que querés pensar (qué viste, por qué importa)" className={cls} />
@@ -275,7 +280,7 @@ function NuevaPropuesta({ onClose, equipo, puedeAprobar, yo }: { onClose: () => 
           },
           onError: (e) => toast.error('No se pudo crear', e instanceof Error ? e.message : undefined),
         })}
-        className="rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-[var(--brand-navy)]">
+        className="flex min-h-10 w-full items-center justify-center rounded-xl bg-[var(--brand-navy)] px-4 text-sm font-medium text-white disabled:opacity-50 sm:min-h-9 sm:w-auto sm:rounded-lg sm:text-xs dark:bg-white dark:text-[var(--brand-navy)]">
         Crear propuesta
       </button>
     </div>
@@ -292,6 +297,8 @@ export default function EditorialPage() {
   const ia = useEditorialIA()
   const [tab, setTab] = useState<'propuestas' | 'articulos'>('propuestas')
   const [nueva, setNueva] = useState(false)
+  const [filtroArt, setFiltroArt] = useState<'todos' | 'aprobacion' | 'curso' | 'aprobados'>('todos')
+  const [filtroProp, setFiltroProp] = useState<'todas' | 'asignadas' | 'libres'>('todas')
 
   if (cargandoAcceso) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>
   if (!acceso) return <Navigate to="/inicio" replace />
@@ -310,35 +317,69 @@ export default function EditorialPage() {
     onError: (e) => toast.error('No se pudo correr el radar', e instanceof Error ? e.message : undefined),
   })
 
+  const filtrosArt = {
+    todos: () => true,
+    aprobacion: esperanAprobacion,
+    curso: (a: { estado: EstadoArticulo }) => a.estado === 'investigacion' || a.estado === 'borrador',
+    aprobados: (a: { estado: EstadoArticulo }) => a.estado === 'aprobado' || a.estado === 'publicado',
+  } as const
+  const filtrosProp = {
+    todas: () => true,
+    asignadas: (p: Propuesta) => (puedeAprobar ? !!p.asignado_a : p.asignado_a === yo),
+    libres: (p: Propuesta) => !p.asignado_a,
+  } as const
+  const artVisibles = articulosOrden.filter(filtrosArt[filtroArt])
+  const propVisibles = propuestasOrden.filter(filtrosProp[filtroProp])
+  const nAprobacion = articulos.filter(esperanAprobacion).length
+
   return (
     <div className="mx-auto max-w-4xl space-y-4 pb-12">
-      <Breadcrumb items={[{ label: 'Editorial' }]} />
-      <div className="flex flex-wrap items-start gap-3">
+      <div className="hidden sm:block"><Breadcrumb items={[{ label: 'Editorial' }]} /></div>
+
+      {/* Encabezado */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
             <Newspaper className="h-5 w-5 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" /> Editorial
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            {puedeAprobar ? 'Propuestas de artículos (sentencias nuevas y radar de lunes a viernes a las 7). Ves también lo que trabaja tu equipo; nada se publica sin tu aprobación.' : 'Los artículos salen a nombre de Marco Rossi: vos investigás y redactás, él hace la revisión final y aprueba.'}
+          <p className="mt-1 max-w-2xl text-sm leading-snug text-zinc-500">
+            {puedeAprobar
+              ? 'Propuestas de artículos y lo que trabaja tu equipo. Nada se publica sin tu aprobación.'
+              : 'Los artículos salen a nombre de Marco Rossi: vos investigás y redactás, él revisa y aprueba.'}
           </p>
         </div>
-        <button type="button" onClick={() => setNueva(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
-          <Plus className="h-3.5 w-3.5" /> Propuesta propia
-        </button>
-        <button type="button" onClick={radar} disabled={ia.isPending}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-          title="Analiza las novedades de la semana y propone de 0 a 5 temas">
-          {ia.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Radar className="h-3.5 w-3.5" />} Correr radar ahora
-        </button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <button type="button" onClick={() => { setNueva(true); setTab('propuestas') }}
+            className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:min-h-9 sm:text-xs dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+            <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Nuevo tema
+          </button>
+          <button type="button" onClick={radar} disabled={ia.isPending}
+            className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 sm:min-h-9 sm:text-xs dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            title="Analiza las novedades de la semana y propone de 0 a 5 temas (corre solo de lunes a viernes a las 7)">
+            {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" /> : <Radar className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
+            {ia.isPending ? 'Buscando…' : 'Correr radar'}
+          </button>
+        </div>
       </div>
 
+      {/* Aviso de aprobaciones pendientes */}
+      {puedeAprobar && nAprobacion > 0 && tab === 'propuestas' && (
+        <button type="button" onClick={() => { setTab('articulos'); setFiltroArt('aprobacion') }}
+          className="flex w-full items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-left text-sm text-emerald-800 dark:text-emerald-300">
+          <Clock className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{nAprobacion === 1 ? 'Un artículo espera tu aprobación' : `${nAprobacion} artículos esperan tu aprobación`}</span>
+          <span className="text-xs font-medium underline">Ver</span>
+        </button>
+      )}
+
+      {/* Pestañas */}
       <div className="flex border-b border-zinc-200 dark:border-white/10">
-        {([['propuestas', `Propuestas${pendientes.length ? ` (${pendientes.length})` : ''}`, BookOpen], ['articulos', `Artículos${articulos.length ? ` (${articulos.length})` : ''}`, FileText]] as const).map(([id, label, Icon]) => (
+        {([['propuestas', 'Propuestas', pendientes.length, BookOpen], ['articulos', 'Artículos', articulos.length, FileText]] as const).map(([id, label, n, Icon]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
-            className={cn('-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium',
+            className={cn('-mb-px flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 px-4 text-sm font-medium sm:flex-none',
               tab === id ? 'border-[var(--brand-accent)] text-zinc-900 dark:border-[var(--brand-ice)] dark:text-zinc-50' : 'border-transparent text-zinc-500 hover:text-zinc-700')}>
             <Icon className="h-4 w-4" /> {label}
+            {n > 0 && <span className="rounded-full bg-zinc-500/15 px-1.5 text-[11px] tabular-nums">{n}</span>}
           </button>
         ))}
       </div>
@@ -346,53 +387,88 @@ export default function EditorialPage() {
       {tab === 'propuestas' && (
         <div className="space-y-3">
           {nueva && <NuevaPropuesta onClose={() => setNueva(false)} equipo={equipo} puedeAprobar={puedeAprobar} yo={yo} />}
+          {equipo.length > 1 && propuestas.length > 0 && (
+            <Chips valor={filtroProp} onChange={setFiltroProp} opciones={[
+              ['todas', 'Todas', propuestas.length],
+              ['asignadas', puedeAprobar ? 'Asignadas' : 'Para vos', propuestas.filter(filtrosProp.asignadas).length],
+              ['libres', 'Sin asignar', propuestas.filter(filtrosProp.libres).length],
+            ]} />
+          )}
           {isLoading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-zinc-400" /></div>
-          ) : propuestas.length === 0 ? (
+          ) : propVisibles.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
-              Todavía no hay propuestas. Van a aparecer cuando entre una sentencia o con el radar de la mañana. También podés correrlo ahora o cargar una propia.
+              {propuestas.length === 0
+                ? 'Todavía no hay propuestas. Aparecen cuando entra una sentencia, con el radar de la mañana o cuando cargás una.'
+                : 'No hay propuestas en este filtro.'}
             </p>
-          ) : propuestasOrden.map((p) => <PropuestaCard key={p.id} p={p} equipo={equipo} puedeAprobar={puedeAprobar} yo={yo} />)}
+          ) : propVisibles.map((p) => <PropuestaCard key={p.id} p={p} equipo={equipo} puedeAprobar={puedeAprobar} yo={yo} />)}
         </div>
       )}
 
       {tab === 'articulos' && (
         <div className="space-y-2">
-          {articulos.length === 0 ? (
+          {articulos.length > 0 && (
+            <Chips valor={filtroArt} onChange={setFiltroArt} opciones={[
+              ['todos', 'Todos', articulos.length],
+              ['aprobacion', puedeAprobar ? 'Esperan aprobación' : 'Pedida aprobación', nAprobacion],
+              ['curso', 'En curso', articulos.filter(filtrosArt.curso).length],
+              ['aprobados', 'Aprobados', articulos.filter(filtrosArt.aprobados).length],
+            ]} />
+          )}
+          {artVisibles.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
-              Sin artículos todavía. Empezá investigando una propuesta.
+              {articulos.length === 0 ? 'Sin artículos todavía. Empezá investigando una propuesta.' : 'No hay artículos en este filtro.'}
             </p>
-          ) : articulosOrden.map((a) => (
-            <Link key={a.id} to={`/editorial/${a.id}`} className="dashboard-panel block rounded-xl px-4 py-3 hover:opacity-90">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[a.estado])}>{ESTADO_ARTICULO_LABEL[a.estado]}</span>
-                <span className="text-[11px] text-zinc-500">{TIPO_ARTICULO_LABEL[a.tipo]} · v{a.version} · {new Date(a.updated_at).toLocaleDateString('es-AR')}</span>
-                {a.estado === 'borrador' && a.devuelto_at && (
-                  <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:text-orange-300">
-                    <MessageSquareWarning className="h-3 w-3" /> Con observaciones
-                  </span>
-                )}
-                {esperanAprobacion(a) && (
-                  <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                    <Clock className="h-3 w-3" /> {puedeAprobar ? 'Espera tu aprobación' : 'Aprobación pedida'}
-                  </span>
-                )}
-                {(() => {
-                  const quien = persona(a.asignado_a ?? a.creado_por)
-                  return quien && quien.id !== yo
-                    ? <span className="flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-300"><UserRound className="h-3 w-3" /> {quien.nombre}</span>
-                    : null
-                })()}
-                {(a.alertas_confidencialidad?.length ?? 0) > 0 && (
-                  <span className="flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400"><AlertTriangle className="h-3 w-3" /> confidencialidad</span>
-                )}
-              </div>
-              <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-50">{a.titulo}</p>
-              {a.bajada && <p className="line-clamp-1 text-sm text-zinc-500">{a.bajada}</p>}
-            </Link>
-          ))}
+          ) : artVisibles.map((a) => {
+            const quien = persona(a.asignado_a ?? a.creado_por)
+            return (
+              <Link key={a.id} to={`/editorial/${a.id}`} className="dashboard-panel block rounded-xl px-4 py-3 transition-opacity hover:opacity-90 active:opacity-80">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[a.estado])}>{ESTADO_ARTICULO_LABEL[a.estado]}</span>
+                  {esperanAprobacion(a) && (
+                    <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                      <Clock className="h-3 w-3" /> {puedeAprobar ? 'Espera tu aprobación' : 'Aprobación pedida'}
+                    </span>
+                  )}
+                  {a.estado === 'borrador' && a.devuelto_at && (
+                    <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:text-orange-300">
+                      <MessageSquareWarning className="h-3 w-3" /> Con observaciones
+                    </span>
+                  )}
+                  {(a.alertas_confidencialidad?.length ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400"><AlertTriangle className="h-3 w-3" /> confidencialidad</span>
+                  )}
+                </div>
+                <p className="mt-1.5 font-medium leading-snug text-zinc-900 dark:text-zinc-50">{a.titulo}</p>
+                {a.bajada && <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500 sm:line-clamp-1">{a.bajada}</p>}
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
+                  <span>{TIPO_ARTICULO_LABEL[a.tipo]}</span>
+                  <span>· v{a.version}</span>
+                  <span>· {new Date(a.updated_at).toLocaleDateString('es-AR')}</span>
+                  {quien && quien.id !== yo && <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-300">· <UserRound className="h-3 w-3" /> {quien.nombre}</span>}
+                </p>
+              </Link>
+            )
+          })}
         </div>
       )}
+    </div>
+  )
+}
+
+function Chips<T extends string>({ valor, onChange, opciones }: { valor: T; onChange: (v: T) => void; opciones: (readonly [T, string, number])[] }) {
+  return (
+    <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0">
+      {opciones.map(([v, label, n]) => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium',
+            valor === v
+              ? 'border-transparent bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
+              : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5')}>
+          {label} <span className="tabular-nums opacity-70">{n}</span>
+        </button>
+      ))}
     </div>
   )
 }

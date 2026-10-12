@@ -109,24 +109,24 @@ export function HojaEditor({ articuloId, titulo, bajada, cuerpo, onTitulo, onBaj
     toast.success('Fragmento reemplazado', 'Guardá la versión para conservar el cambio.')
   }
 
-  const boton = 'inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5'
+  const boton = 'inline-flex min-h-9 min-w-9 items-center justify-center gap-1 rounded-lg px-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5'
 
   return (
     <div className="space-y-2">
       {/* Barra de herramientas (onMouseDown evita perder la selección del texto) */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 rounded-xl border border-zinc-200 bg-white/95 p-1 backdrop-blur dark:border-white/10 dark:bg-zinc-900/95">
+      <div className="sticky top-[calc(var(--ed-barra,1rem)-1rem)] z-10 flex flex-wrap items-center gap-1 rounded-xl sm:top-[calc(var(--ed-barra,1.5rem)-1.5rem)] lg:top-0 border border-zinc-200 bg-white/95 p-1 backdrop-blur dark:border-white/10 dark:bg-zinc-900/95">
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={() => envolver('**')} title="Negrita"><Bold className="h-3.5 w-3.5" /></button>
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={() => envolver('*')} title="Cursiva"><Italic className="h-3.5 w-3.5" /></button>
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={subtitulo} title="Subtítulo"><Heading2 className="h-3.5 w-3.5" /></button>
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={() => envolver('[VERIFICAR: ', ']')} title="Marcar para verificar">
-          <AlertTriangle className="h-3.5 w-3.5" /> Verificar
+          <AlertTriangle className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Verificar</span>
         </button>
-        <span className="mx-1 h-5 w-px bg-zinc-200 dark:bg-white/10" />
+        <span className="mx-0.5 h-5 w-px bg-zinc-200 dark:bg-white/10" />
         <DictarBoton onTexto={insertarDictado} />
         <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={abrirEdicionIA}
           className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-2.5 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/20 dark:text-violet-300"
           title="Seleccioná un fragmento y pedile a la IA que lo modifique">
-          <Wand2 className="h-3.5 w-3.5" /> IA en selección
+          <Wand2 className="h-3.5 w-3.5" /> <span className="sm:hidden">IA</span><span className="hidden sm:inline">IA en selección</span>
         </button>
       </div>
 
@@ -151,7 +151,7 @@ export function HojaEditor({ articuloId, titulo, bajada, cuerpo, onTitulo, onBaj
               </div>
               <textarea value={instruccion} onChange={(e) => setInstruccion(e.target.value)} rows={2} autoFocus
                 placeholder="¿Qué querés que haga con este fragmento?"
-                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200" />
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-xs dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200" />
               <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={pedirIA} disabled={!instruccion.trim() || ia.isPending}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50">
@@ -177,7 +177,7 @@ export function HojaEditor({ articuloId, titulo, bajada, cuerpo, onTitulo, onBaj
 
       {/* La hoja */}
       <div className="overflow-hidden rounded-lg bg-white text-black shadow-sm ring-1 ring-zinc-200 dark:ring-white/10">
-        <div className="mx-auto max-w-[21cm] px-5 py-8 sm:px-[2.5cm] sm:py-[2.5cm]" style={HOJA}>
+        <div className="mx-auto max-w-[21cm] px-4 py-6 sm:px-10 sm:py-10 xl:px-[2.5cm] xl:py-[2.5cm]" style={HOJA}>
           <textarea value={titulo} onChange={(e) => onTitulo(e.target.value)} rows={2} placeholder="Título"
             className="w-full resize-none border-0 bg-transparent p-0 text-center font-bold text-black placeholder:text-zinc-400 focus:outline-none focus:ring-0"
             style={{ ...HOJA, fontSize: '14pt' }} />

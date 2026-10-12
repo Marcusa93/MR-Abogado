@@ -76,7 +76,7 @@ export function MarkdownView({ texto, className, hoja = false }: { texto: string
     } else if (l.startsWith('>')) {
       cerrarParrafo(); cerrarLista()
       const k = `q${bloques.length}`
-      bloques.push(<blockquote key={k} className={hoja ? 'mx-[1.27cm]' : 'border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300'}>{inline(l.replace(/^>\s?/, ''), k)}</blockquote>)
+      bloques.push(<blockquote key={k} className={hoja ? 'mx-3 sm:mx-[1.27cm]' : 'border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300'}>{inline(l.replace(/^>\s?/, ''), k)}</blockquote>)
     } else {
       cerrarLista()
       parrafo.push(l.trim())
