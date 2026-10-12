@@ -26,7 +26,7 @@ export const ESTADO_ARTICULO_LABEL: Record<EstadoArticulo, string> = {
 
 export interface Propuesta {
   id: string
-  origen: 'radar' | 'sentencia' | 'manual'
+  origen: 'radar' | 'sentencia' | 'manual' | 'actuacion' | 'actualizacion'
   estado: 'propuesta' | 'en_curso' | 'descartada'
   titulo: string
   problema: string | null
@@ -45,6 +45,8 @@ export interface Propuesta {
   creado_por: string | null
   asignado_a: string | null
   nota_asignacion: string | null
+  fecha_limite: string | null
+  articulo_id: string | null
   created_at: string
 }
 
@@ -71,6 +73,10 @@ export interface Articulo {
   creado_por: string | null
   asignado_a: string | null
   aprobacion_pedida_at: string | null
+  observaciones: string | null
+  devuelto_at: string | null
+  verificacion_citas: CitaVerificada[]
+  citas_verificadas_at: string | null
   created_at: string
   updated_at: string
 }
@@ -85,6 +91,14 @@ export interface Version {
   cuerpo: string
   autor_id: string | null
   created_at: string
+}
+
+export interface CitaVerificada {
+  entrada: string
+  tipo: 'norma' | 'fallo' | 'doctrina' | 'otro'
+  estado: 'encontrada' | 'no_encontrada' | 'manual'
+  documento: { titulo: string; url: string | null } | null
+  nota: string
 }
 
 export interface MiembroEditorial { id: string; nombre: string; apellido: string | null; editorial_aprueba: boolean }
@@ -150,7 +164,7 @@ export const nombreCorto = (m?: { nombre: string; apellido: string | null } | nu
 export function useAsignarPropuesta() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { propuesta_id: string; asignado_a: string | null; nota?: string }) => {
+    mutationFn: async (v: { propuesta_id: string; asignado_a: string | null; nota?: string; fecha_limite?: string | null }) => {
       const { data, error } = await createClient().functions.invoke('editorial-ia', { body: { modo: 'asignar', ...v } })
       if (error) {
         const ctx = (error as { context?: unknown }).context
@@ -181,7 +195,7 @@ export function useArticulos() {
     queryKey: editorialKeys.articulos,
     queryFn: async () => {
       const { data, error } = await sb().from('editorial_articulos')
-        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar, creado_por, asignado_a, aprobacion_pedida_at')
+        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar, creado_por, asignado_a, aprobacion_pedida_at, devuelto_at')
         .order('updated_at', { ascending: false }).limit(100)
       if (error) throw error
       return (data ?? []) as Articulo[]
@@ -305,6 +319,41 @@ export function useCambiarEstadoArticulo(id: string) {
       qc.invalidateQueries({ queryKey: editorialKeys.articulos })
     },
   })
+}
+
+/** Propuestas de actualización abiertas de un artículo. */
+export function useActualizacionesArticulo(articuloId: string) {
+  return useQuery({
+    queryKey: [...editorialKeys.propuestas, 'actualizacion', articuloId],
+    queryFn: async () => {
+      const { data, error } = await sb().from('editorial_propuestas').select('*')
+        .eq('articulo_id', articuloId).eq('estado', 'propuesta').order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Propuesta[]
+    },
+  })
+}
+
+/** Última versión que leí de un artículo (para mostrar qué cambió desde entonces). */
+export function useMiLectura(articuloId: string) {
+  const profileId = useAuthStore((s) => s.profile?.id)
+  return useQuery({
+    queryKey: ['editorial', 'lectura', articuloId, profileId],
+    enabled: !!profileId,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await sb().from('editorial_lecturas').select('version, leido_at')
+        .eq('articulo_id', articuloId).eq('profile_id', profileId).maybeSingle()
+      return (data ?? null) as { version: number; leido_at: string } | null
+    },
+  })
+}
+
+export async function marcarLeido(articuloId: string, profileId: string, version: number) {
+  await sb().from('editorial_lecturas').upsert(
+    { articulo_id: articuloId, profile_id: profileId, version, leido_at: new Date().toISOString() },
+    { onConflict: 'articulo_id,profile_id' },
+  )
 }
 
 /** Guarda la bibliografía APA editada a mano (una entrada por línea). */

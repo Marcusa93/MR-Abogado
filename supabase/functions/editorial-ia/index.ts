@@ -186,6 +186,19 @@ function chequearConfidencialidad(texto: string, nombres: string[]): string[] {
     .map((n) => `Aparece "${n}", que figura en la carátula o en los datos del cliente del expediente de origen.`)
 }
 
+/** Aviso por Telegram a una persona del equipo (si tiene el chat vinculado). */
+async function avisarPersona(admin: Admin, profileId: string | null, texto: string, url = `${APP_URL}/editorial`): Promise<boolean> {
+  const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
+  if (!profileId || !token) return false
+  const { data } = await admin.from('profiles').select('telegram_chat_id').eq('id', profileId).maybeSingle()
+  const chat = (data as { telegram_chat_id: number | null } | null)?.telegram_chat_id
+  if (!chat) return false
+  return await tgSendKb(token, chat, texto, [[{ text: 'Abrir en Editorial', url }]])
+}
+
+/** Quién trabaja un artículo: el asignado o quien lo creó. */
+const responsable = (a: Record<string, unknown>) => (a.asignado_a ?? a.creado_por ?? null) as string | null
+
 async function telegramMarco(texto: string) {
   const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
   const chat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null
@@ -242,7 +255,7 @@ Deno.serve(async (req) => {
     const esCron = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret
     let userId: string
     if (esCron) {
-      if (!['sentencias', 'radar'].includes(modo)) return json(req, { error: 'Modo no permitido por cron' }, 403)
+      if (!['sentencias', 'radar', 'seguimiento', 'actualizacion'].includes(modo)) return json(req, { error: 'Modo no permitido por cron' }, 403)
       const { data } = await admin.from('profiles').select('id').eq('acceso_editorial', true).eq('activo', true).order('editorial_aprueba', { ascending: false }).limit(1).maybeSingle()
       if (!data) return json(req, { ok: true, mensaje: 'Nadie con acceso editorial' })
       userId = (data as { id: string }).id
@@ -254,6 +267,121 @@ Deno.serve(async (req) => {
       const { data: ok } = await anon.rpc('can_access_editorial')
       if (ok !== true) return json(req, { error: 'Sin acceso al módulo editorial' }, 403)
       userId = user.id
+    }
+
+    // ── seguimiento (cron diario): recordatorios y resumen semanal ─────────
+    if (modo === 'seguimiento') {
+      const hoy = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10) // fecha AR
+      const { data: aprobadores } = await admin.from('profiles').select('id').eq('editorial_aprueba', true)
+      const marcoIds = new Set(((aprobadores ?? []) as { id: string }[]).map((p) => p.id))
+      let recordatorios = 0
+
+      // Temas asignados con plazo vencido que todavía no llegaron a aprobación
+      const { data: vencidas } = await admin.from('editorial_propuestas')
+        .select('id, titulo, asignado_a, fecha_limite, estado').not('asignado_a', 'is', null)
+        .neq('estado', 'descartada').lt('fecha_limite', hoy)
+      for (const p of (vencidas ?? []) as { id: string; titulo: string; asignado_a: string; fecha_limite: string }[]) {
+        const { data: art } = await admin.from('editorial_articulos').select('estado, aprobacion_pedida_at').eq('propuesta_id', p.id).maybeSingle()
+        const a = art as { estado: string; aprobacion_pedida_at: string | null } | null
+        if (a && (['aprobado', 'publicado', 'archivado'].includes(a.estado) || a.aprobacion_pedida_at)) continue
+        if (await avisarPersona(admin, p.asignado_a, `Editorial: venció el plazo (${p.fecha_limite.split('-').reverse().join('/')}) del artículo "${p.titulo}". ` +
+          (a ? 'Está en curso: cuando lo tengas, pedile la aprobación a Marco.' : 'Todavía no empezó la investigación.'))) recordatorios++
+      }
+
+      // Artículos de colaboradores parados hace 4 días o más (un recordatorio cada 3 días)
+      const hace4 = new Date(Date.now() - 4 * 86_400_000).toISOString()
+      const hace3 = new Date(Date.now() - 3 * 86_400_000).toISOString()
+      const { data: parados } = await admin.from('editorial_articulos')
+        .select('id, titulo, estado, asignado_a, creado_por, recordado_at, devuelto_at')
+        .in('estado', ['investigacion', 'borrador']).is('aprobacion_pedida_at', null).lt('updated_at', hace4)
+      for (const a of (parados ?? []) as Record<string, unknown>[]) {
+        const quien = responsable(a)
+        if (!quien || marcoIds.has(quien)) continue
+        if (a.recordado_at && String(a.recordado_at) > hace3) continue
+        const texto = `Editorial: el artículo "${a.titulo}" está sin movimiento hace más de 4 días` +
+          (a.devuelto_at ? ' y tiene observaciones de Marco pendientes.' : '.')
+        if (await avisarPersona(admin, quien, texto, `${APP_URL}/editorial/${a.id}`)) {
+          recordatorios++
+          await admin.from('editorial_articulos').update({ recordado_at: new Date().toISOString() }).eq('id', a.id)
+        }
+      }
+
+      // Lunes: resumen semanal para Marco
+      let resumen = false
+      if (new Date(Date.now() - 3 * 3_600_000).getUTCDay() === 1) {
+        const [{ data: arts }, { data: props }] = await Promise.all([
+          admin.from('editorial_articulos').select('titulo, estado, aprobacion_pedida_at, devuelto_at, aprobado_at, updated_at').neq('estado', 'archivado'),
+          admin.from('editorial_propuestas').select('estado, asignado_a, fecha_limite').eq('estado', 'propuesta'),
+        ])
+        const A = (arts ?? []) as { titulo: string; estado: string; aprobacion_pedida_at: string | null; devuelto_at: string | null; aprobado_at: string | null; updated_at: string }[]
+        const hace7 = new Date(Date.now() - 7 * 86_400_000).toISOString()
+        const esperan = A.filter((a) => a.estado === 'borrador' && a.aprobacion_pedida_at)
+        const enCurso = A.filter((a) => ['investigacion', 'borrador'].includes(a.estado) && !a.aprobacion_pedida_at)
+        const aprobados = A.filter((a) => a.aprobado_at && a.aprobado_at > hace7)
+        const P = (props ?? []) as { asignado_a: string | null; fecha_limite: string | null }[]
+        const vencidasN = P.filter((p) => p.asignado_a && p.fecha_limite && p.fecha_limite < hoy).length
+        if (A.length || P.length) {
+          await telegramMarco('Editorial — resumen de la semana\n\n' +
+            `• Esperan tu aprobación: ${esperan.length}${esperan.length ? `\n${esperan.slice(0, 5).map((a) => `   – ${a.titulo}`).join('\n')}` : ''}\n` +
+            `• En curso: ${enCurso.length} (${enCurso.filter((a) => a.devuelto_at).length} con tus observaciones)\n` +
+            `• Aprobados en los últimos 7 días: ${aprobados.length}\n` +
+            `• Propuestas sin empezar: ${P.length}${vencidasN ? ` (${vencidasN} asignadas con plazo vencido)` : ''}`)
+          resumen = true
+        }
+      }
+      return json(req, { ok: true, recordatorios, resumen })
+    }
+
+    // ── actualización (cron semanal): ¿algún artículo aprobado quedó desactualizado? ──
+    if (modo === 'actualizacion') {
+      const { data: arts } = await admin.from('editorial_articulos')
+        .select('id, titulo, bajada, cuerpo, estado').in('estado', ['aprobado', 'publicado']).order('updated_at', { ascending: false }).limit(25)
+      const articulos = (arts ?? []) as { id: string; titulo: string; bajada: string | null; cuerpo: string }[]
+      if (!articulos.length) return json(req, { ok: true, propuestas: 0, mensaje: 'Sin artículos aprobados' })
+      const hace8 = new Date(Date.now() - 8 * 86_400_000).toISOString()
+      const [{ data: movs }, { data: juris }, { data: normas }] = await Promise.all([
+        admin.from('sae_movements').select('fecha, titulo, cuerpo, expediente:expedientes(fuero)')
+          .eq('tipo_movimiento', 'sentencia').gte('created_at', hace8).limit(20),
+        admin.from('jurisprudencia_documentos').select('caratula, tribunal, fecha, sumario').gte('created_at', hace8).limit(15),
+        admin.from('normativa_documentos').select('titulo, tipo, numero, fecha').gte('created_at', hace8).limit(15),
+      ])
+      const novedades = [
+        ...((movs ?? []) as unknown as { fecha: string; titulo: string; cuerpo: string | null; expediente: { fuero: string | null } | null }[])
+          .map((m) => `- Sentencia (interna, fuero ${m.expediente?.fuero ?? 's/d'}, ${m.fecha}): ${m.titulo} — ${(m.cuerpo ?? '').replace(/\s+/g, ' ').slice(0, 500)}`),
+        ...((juris ?? []) as { caratula: string; tribunal: string | null; fecha: string | null; sumario: string | null }[])
+          .map((j) => `- Fallo incorporado: ${j.tribunal ?? 's/d'}, ${j.fecha ?? 's/f'}, "${j.caratula}": ${(j.sumario ?? '').slice(0, 400)}`),
+        ...((normas ?? []) as { titulo: string; tipo: string | null; numero: string | null; fecha: string | null }[])
+          .map((n) => `- Norma incorporada: ${n.tipo ?? ''} ${n.numero ?? ''} ${n.titulo} (${n.fecha ?? 's/f'})`),
+      ]
+      if (!novedades.length) return json(req, { ok: true, propuestas: 0, mensaje: 'Sin novedades en la semana' })
+      const { data: abiertas } = await admin.from('editorial_propuestas').select('articulo_id').eq('origen', 'actualizacion').eq('estado', 'propuesta')
+      const conAbierta = new Set(((abiertas ?? []) as { articulo_id: string }[]).map((p) => p.articulo_id))
+
+      const r = await llm(admin, userId,
+        'MODO ACTUALIZACIÓN.\n\n' +
+        `ARTÍCULOS APROBADOS O PUBLICADOS:\n${articulos.map((a) => `[${a.id}] ${a.titulo}\n${a.bajada ?? ''}\n${a.cuerpo.replace(/\s+/g, ' ').slice(0, 1200)}`).join('\n\n')}\n\n` +
+        `NOVEDADES DE LA ÚLTIMA SEMANA:\n${novedades.join('\n')}\n\n` +
+        'Indicá solo los artículos que una novedad concreta deja desactualizados, incompletos o en tensión (un criterio nuevo, una reforma, ' +
+        'un fallo que confirma o contradice la tesis). Si ninguno, devolvé la lista vacía: es lo más común. No uses datos identificatorios de partes.\n\n' +
+        `${FORMATO_JSON}\n{ "actualizaciones": [{ "articulo_id": "uuid de arriba", "motivo": "qué novedad y por qué afecta al artículo", "que_revisar": "qué pasajes o afirmaciones revisar" }] }`,
+        2500)
+      const ids = new Set(articulos.map((a) => a.id))
+      const titulos: string[] = []
+      for (const u of (Array.isArray(r.actualizaciones) ? r.actualizaciones : []) as Record<string, unknown>[]) {
+        const id = String(u.articulo_id ?? '')
+        if (!ids.has(id) || conAbierta.has(id)) continue
+        const art = articulos.find((a) => a.id === id)!
+        const { data } = await admin.from('editorial_propuestas').insert({
+          origen: 'actualizacion', articulo_id: id, titulo: `Actualizar: ${art.titulo}`.slice(0, 300),
+          problema: String(u.motivo ?? '').slice(0, 2000), hipotesis: String(u.que_revisar ?? '').slice(0, 2000),
+        }).select('titulo').single()
+        if (data) { titulos.push(art.titulo); conAbierta.add(id) }
+      }
+      if (titulos.length) {
+        await telegramMarco(`Editorial: ${titulos.length === 1 ? 'un artículo aprobado puede haber quedado desactualizado' : `${titulos.length} artículos aprobados pueden haber quedado desactualizados`}\n\n` +
+          titulos.map((t) => `• ${t}`).join('\n'))
+      }
+      return json(req, { ok: true, propuestas: titulos.length })
     }
 
     // ── sentencias: evaluar las nuevas ─────────────────────────────────────
@@ -376,8 +504,9 @@ Deno.serve(async (req) => {
         if (!dd?.acceso_editorial || !dd.activo) return json(req, { error: 'Esa persona no tiene acceso al módulo editorial' }, 400)
         destino = dd
       }
+      const fechaLimite = typeof body.fecha_limite === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha_limite) ? body.fecha_limite : null
       await admin.from('editorial_propuestas').update({
-        asignado_a: asignadoA, nota_asignacion: asignadoA ? nota : null,
+        asignado_a: asignadoA, nota_asignacion: asignadoA ? nota : null, fecha_limite: asignadoA ? fechaLimite : null,
         asignado_at: asignadoA ? new Date().toISOString() : null, updated_at: new Date().toISOString(),
       }).eq('id', propuestaId)
       let avisado = false
@@ -386,10 +515,35 @@ Deno.serve(async (req) => {
         const prop = p as { id: string; titulo: string; pregunta: string | null }
         avisado = await tgSendKb(token, destino.telegram_chat_id,
           `Editorial: ${(yo as { nombre: string }).nombre} te propone un tema para un artículo.\n\n` +
-          `"${prop.titulo}"${prop.pregunta ? `\n${prop.pregunta}` : ''}${nota ? `\n\nIndicaciones: ${nota}` : ''}`,
+          `"${prop.titulo}"${prop.pregunta ? `\n${prop.pregunta}` : ''}${nota ? `\n\nIndicaciones: ${nota}` : ''}` +
+          (fechaLimite ? `\n\nPara el ${fechaLimite.split('-').reverse().join('/')}` : ''),
           [[{ text: 'Abrir en Editorial', url: `${APP_URL}/editorial` }]])
       }
       return json(req, { ok: true, avisado })
+    }
+
+    // ── proponer un artículo desde una actuación concreta (botón en el expediente) ──
+    if (modo === 'proponer_movimiento') {
+      const s = await cargarSentencia(admin, String(body.movement_id ?? ''))
+      if (!s) return json(req, { error: 'Actuación no encontrada' }, 404)
+      if ((s.cuerpo ?? '').length < 200) return json(req, { error: 'La actuación todavía no tiene texto: bajá el cuerpo desde SAE primero' }, 400)
+      const r = await llm(admin, userId,
+        `MODO: propuesta editorial a partir de una actuación elegida por el equipo.\n\n${bloqueSentencia(s)}\n\n` +
+        `MEMORIA EDITORIAL (no repetir):\n${await memoria(admin)}\n\n` +
+        'El equipo eligió esta actuación porque cree que da para un artículo. Formulá la mejor propuesta posible como problema jurídico ' +
+        'general, sin nombres de partes ni datos que permitan reconocer el caso. Si de verdad no da para un artículo, decilo en "advertencia".\n\n' +
+        `${FORMATO_JSON}\n{ "advertencia": "vacío o por qué no da", "propuesta": ${CAMPOS_PROPUESTA} }`,
+        1500)
+      if (!r.propuesta || typeof r.propuesta !== 'object') throw new Error('La IA no devolvió la propuesta')
+      const { data: prop, error } = await admin.from('editorial_propuestas').insert({
+        ...propuestaDesdeIA(r.propuesta as Record<string, unknown>),
+        origen: 'actuacion', movement_id: s.id, expediente_id: s.expediente_id, creado_por: userId,
+      }).select('id, titulo').single()
+      if (error || !prop) throw new Error(`No se pudo crear la propuesta: ${error?.message}`)
+      await admin.from('editorial_movimientos_evaluados').upsert({
+        movement_id: s.id, resultado: 'propuesta', propuesta_id: (prop as { id: string }).id, motivo: 'Propuesta pedida desde el expediente',
+      }, { onConflict: 'movement_id' })
+      return json(req, { ok: true, propuesta_id: (prop as { id: string }).id, titulo: (prop as { titulo: string }).titulo, advertencia: r.advertencia || null })
     }
 
     if (modo === 'investigar') {
@@ -441,7 +595,7 @@ Deno.serve(async (req) => {
     // Modos sobre un artículo existente
     const { data: a } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -561,10 +715,101 @@ Deno.serve(async (req) => {
       const { data: autor } = await admin.from('profiles').select('nombre, apellido').eq('id', userId).maybeSingle()
       const quien = autor ? `${(autor as { nombre: string }).nombre} ${(autor as { apellido: string | null }).apellido ?? ''}`.trim() : 'Un colaborador'
       const nota = typeof body.nota === 'string' ? body.nota.slice(0, 500).trim() : ''
-      await admin.from('editorial_articulos').update({ aprobacion_pedida_at: new Date().toISOString() }).eq('id', art.id)
+      await admin.from('editorial_articulos').update({ aprobacion_pedida_at: new Date().toISOString(), devuelto_at: null }).eq('id', art.id)
       await telegramMarco(`Editorial: ${quien} te pide que revises y apruebes un artículo.\n\n` +
         `"${art.titulo}"${nota ? `\n\n${nota}` : ''}\n\n${APP_URL}/editorial/${art.id}`)
       return json(req, { ok: true })
+    }
+
+    // ── devolver con observaciones (solo quien aprueba) ────────────────────
+    if (modo === 'devolver' && art) {
+      const { data: yo } = await admin.from('profiles').select('nombre, editorial_aprueba').eq('id', userId).maybeSingle()
+      if (!(yo as { editorial_aprueba?: boolean } | null)?.editorial_aprueba) return json(req, { error: 'Solo Marco devuelve artículos' }, 403)
+      const obs = typeof body.observaciones === 'string' ? body.observaciones.slice(0, 6000).trim() : ''
+      if (!obs) return json(req, { error: 'Escribí las observaciones' }, 400)
+      await admin.from('editorial_articulos').update({
+        observaciones: obs, devuelto_at: new Date().toISOString(), aprobacion_pedida_at: null,
+        estado: ['aprobado', 'publicado'].includes(String(art.estado)) ? String(art.estado) : 'borrador',
+        updated_at: new Date().toISOString(),
+      }).eq('id', art.id)
+      const quien = responsable(art)
+      const avisado = quien && quien !== userId
+        ? await avisarPersona(admin, quien, `Editorial: Marco te devolvió "${art.titulo}" con observaciones.\n\n${obs.slice(0, 1500)}`, `${APP_URL}/editorial/${art.id}`)
+        : false
+      return json(req, { ok: true, avisado })
+    }
+
+    // ── verificar citas contra la base de normativa y jurisprudencia ───────
+    if (modo === 'verificar_citas' && art) {
+      const entradas = [
+        ...((art.bibliografia as string[] | null) ?? []),
+        ...(((art.referencias as { cita?: string }[] | null) ?? []).map((r) => r.cita ?? '')),
+      ].map((e) => String(e).trim()).filter(Boolean)
+      // Citas en el texto que no estén en la bibliografía (Ley N, Decreto N, fallos entre comillas)
+      const enTexto = [...String(art.cuerpo ?? '').matchAll(/\b(Ley|Decreto|Resoluci[oó]n|Acordada)\s+(?:N[°º.]?\s*)?[\d.\/]+/gi)].map((m) => m[0])
+      const todas = [...new Set([...entradas, ...enTexto])].slice(0, 40)
+      if (!todas.length) return json(req, { error: 'El artículo no tiene citas para verificar' }, 400)
+
+      const r = await llm(admin, userId,
+        'MODO EXTRACCIÓN DE CITAS. Para cada cita, identificá qué fuente es. No evalúes si es correcta: solo clasificala.\n\n' +
+        `CITAS:\n${todas.map((c, i) => `${i}. ${c}`).join('\n')}\n\n` +
+        `${FORMATO_JSON}\n{ "citas": [{ "i": 0, "tipo": "norma|fallo|doctrina|otro", "numero": "número de la norma, solo dígitos y puntos, o vacío", ` +
+        '"nombre": "nombre corto de la norma, carátula del fallo o título de la obra", "tribunal": "si es un fallo", "articulos": ["artículos citados, si hay"] }] }',
+        2500)
+      const soloDigitos = (t: string | null | undefined) => String(t ?? '').replace(/\D/g, '')
+      const [{ data: normas }, { data: fallos }] = await Promise.all([
+        admin.from('normativa_documentos').select('id, titulo, tipo, numero, fecha, source_url'),
+        admin.from('jurisprudencia_documentos').select('id, caratula, tribunal, fecha, source_url'),
+      ])
+      const N = (normas ?? []) as { id: string; titulo: string; tipo: string | null; numero: string | null; fecha: string | null; source_url: string | null }[]
+      const F = (fallos ?? []) as { id: string; caratula: string; tribunal: string | null; fecha: string | null; source_url: string | null }[]
+      const palabras = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter((w) => w.length > 3)
+
+      const resultado = []
+      for (const c of (Array.isArray(r.citas) ? r.citas : []) as Record<string, unknown>[]) {
+        const entrada = todas[Number(c.i)]
+        if (!entrada) continue
+        const tipo = String(c.tipo ?? 'otro')
+        let estado: 'encontrada' | 'no_encontrada' | 'manual' = 'manual'
+        let documento: { titulo: string; url: string | null } | null = null
+        let nota = ''
+        if (tipo === 'norma') {
+          const num = soloDigitos(String(c.numero ?? ''))
+          const hit = num.length >= 3 ? N.find((n) => soloDigitos(n.numero) === num || soloDigitos(n.titulo).includes(num)) : undefined
+          if (hit) {
+            estado = 'encontrada'; documento = { titulo: `${hit.tipo ?? ''} ${hit.numero ?? ''} ${hit.titulo}`.trim(), url: hit.source_url }
+            const arts = (Array.isArray(c.articulos) ? c.articulos : []) as string[]
+            if (arts.length) {
+              const faltan: string[] = []
+              for (const a of arts.slice(0, 6)) {
+                const n = soloDigitos(a)
+                if (!n) continue
+                const { count } = await admin.from('normativa_chunks').select('id', { count: 'exact', head: true })
+                  .eq('documento_id', hit.id).or(`contenido.ilike.%art. ${n}%,contenido.ilike.%artículo ${n}%,contenido.ilike.%articulo ${n}%`)
+                if (!count) faltan.push(a)
+              }
+              if (faltan.length) nota = `No se ubicó en el texto cargado: ${faltan.join(', ')}`
+            }
+          } else { estado = 'no_encontrada'; nota = 'La norma no está cargada en la base de normativa' }
+        } else if (tipo === 'fallo') {
+          const claves = palabras(String(c.nombre ?? entrada))
+          let mejor: { f: typeof F[number]; score: number } | null = null
+          for (const f of F) {
+            const pf = new Set(palabras(f.caratula))
+            const score = claves.filter((w) => pf.has(w)).length
+            if (score >= 2 && (!mejor || score > mejor.score)) mejor = { f, score }
+          }
+          if (mejor) { estado = 'encontrada'; documento = { titulo: `${mejor.f.tribunal ?? ''} "${mejor.f.caratula}" ${mejor.f.fecha ?? ''}`.trim(), url: mejor.f.source_url } }
+          else { estado = 'no_encontrada'; nota = 'El fallo no está en la base de jurisprudencia' }
+        } else {
+          nota = tipo === 'doctrina' ? 'Doctrina: verificar en la obra' : 'Verificar manualmente'
+        }
+        resultado.push({ entrada, tipo, estado, documento, nota })
+      }
+      await admin.from('editorial_articulos').update({
+        verificacion_citas: resultado, citas_verificadas_at: new Date().toISOString(),
+      }).eq('id', art.id)
+      return json(req, { ok: true, verificacion: resultado })
     }
 
     // ── chequeo de confidencialidad (sin IA) ───────────────────────────────

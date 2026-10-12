@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AlertTriangle, BookOpen, Clock, FileText, Gavel, Loader2, Newspaper, Plus, Radar, Search, ShieldAlert, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, CalendarClock, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
 import {
   useAccesoEditorial, usePropuestas, useArticulos, useEditorialIA, useActualizarPropuesta, useCrearPropuestaManual,
   usePuedeAprobarEditorial, useEquipoEditorial, useAsignarPropuesta, nombreCorto,
@@ -19,7 +19,12 @@ const ORIGEN: Record<Propuesta['origen'], { label: string; icon: typeof Radar; c
   sentencia: { label: 'Sentencia nueva', icon: Gavel, cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
   radar: { label: 'Radar', icon: Radar, cls: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' },
   manual: { label: 'Manual', icon: Plus, cls: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300' },
+  actuacion: { label: 'Desde un expediente', icon: FileSearch, cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+  actualizacion: { label: 'Actualización', icon: RefreshCw, cls: 'bg-orange-500/10 text-orange-700 dark:text-orange-300' },
 }
+
+const hoyISO = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
+const fechaCorta = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/')
 
 const ESTADO_CLS: Record<EstadoArticulo, string> = {
   investigacion: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
@@ -58,9 +63,10 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
   const [abierto, setAbierto] = useState(false)
   const [a, setA] = useState('')
   const [nota, setNota] = useState('')
+  const [plazo, setPlazo] = useState('')
   const colaboradores = equipo.filter((m) => m.id !== yo)
   if (!colaboradores.length) return null
-  const enviar = (asignadoA: string | null) => asignar.mutate({ propuesta_id: p.id, asignado_a: asignadoA, nota: nota.trim() }, {
+  const enviar = (asignadoA: string | null) => asignar.mutate({ propuesta_id: p.id, asignado_a: asignadoA, nota: nota.trim(), fecha_limite: plazo || null }, {
     onSuccess: (r) => {
       setAbierto(false); setNota('')
       if (!asignadoA) return toast.info('Asignación quitada')
@@ -93,6 +99,11 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
       <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
         placeholder="Indicaciones (opcional): enfoque, a quién va dirigido, para cuándo…"
         className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
+      <label className="flex items-center gap-2 text-xs text-zinc-500">
+        Para el (opcional)
+        <input type="date" value={plazo} min={hoyISO()} onChange={(e) => setPlazo(e.target.value)}
+          className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
+      </label>
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => enviar(a)} disabled={!a || asignar.isPending}
           className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-[var(--brand-navy)]">
@@ -137,6 +148,12 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
           </span>
         )}
         {autor && <span className="text-[11px] text-zinc-500">· propuesta de {autor.nombre}</span>}
+        {p.asignado_a && p.fecha_limite && (
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+            p.fecha_limite < hoyISO() && p.estado === 'propuesta' ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300')}>
+            <CalendarClock className="h-3 w-3" /> para el {fechaCorta(p.fecha_limite)}
+          </span>
+        )}
       </div>
       <h3 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-50">{p.titulo}</h3>
       {p.pregunta && <p className="mt-1 text-sm italic text-zinc-600 dark:text-zinc-300">{p.pregunta}</p>}
@@ -153,8 +170,8 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
 
       {abierta && (
         <div className="mt-3 space-y-2.5 border-t border-zinc-200 pt-3 dark:border-white/10">
-          <Campo titulo="Problema jurídico" texto={p.problema} />
-          <Campo titulo="Hipótesis inicial" texto={p.hipotesis} />
+          <Campo titulo={p.origen === 'actualizacion' ? 'Qué cambió' : 'Problema jurídico'} texto={p.problema} />
+          <Campo titulo={p.origen === 'actualizacion' ? 'Qué revisar' : 'Hipótesis inicial'} texto={p.hipotesis} />
           <Campo titulo="Enfoque diferencial" texto={p.enfoque} />
           <Campo titulo="Relevancia" texto={p.relevancia} />
           {p.fuentes?.length > 0 && (
@@ -183,8 +200,21 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
           {abierta ? 'Ver menos' : 'Ver problema, hipótesis y fuentes'}
         </button>
         <span className="flex-1" />
-        {p.estado === 'propuesta' && puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
-        {p.estado === 'propuesta' && (
+        {p.estado === 'propuesta' && p.origen === 'actualizacion' && p.articulo_id && (
+          <>
+            <button type="button" disabled={actualizar.isPending}
+              onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
+              className="rounded-lg px-2.5 py-1.5 text-xs text-zinc-500 hover:bg-zinc-500/10">
+              No hace falta
+            </button>
+            <Link to={`/editorial/${p.articulo_id}`}
+              className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 dark:bg-white dark:text-[var(--brand-navy)]">
+              <RefreshCw className="h-3.5 w-3.5" /> Abrir el artículo
+            </Link>
+          </>
+        )}
+        {p.estado === 'propuesta' && p.origen !== 'actualizacion' && puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
+        {p.estado === 'propuesta' && p.origen !== 'actualizacion' && (
           <>
             <button type="button" disabled={actualizar.isPending}
               onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
@@ -337,6 +367,11 @@ export default function EditorialPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[a.estado])}>{ESTADO_ARTICULO_LABEL[a.estado]}</span>
                 <span className="text-[11px] text-zinc-500">{TIPO_ARTICULO_LABEL[a.tipo]} · v{a.version} · {new Date(a.updated_at).toLocaleDateString('es-AR')}</span>
+                {a.estado === 'borrador' && a.devuelto_at && (
+                  <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:text-orange-300">
+                    <MessageSquareWarning className="h-3 w-3" /> Con observaciones
+                  </span>
+                )}
                 {esperanAprobacion(a) && (
                   <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
                     <Clock className="h-3 w-3" /> {puedeAprobar ? 'Espera tu aprobación' : 'Aprobación pedida'}

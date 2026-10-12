@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
+  AlertTriangle, ArrowLeft, BookOpen, GitCompare, MessageSquareWarning, RefreshCw, Undo2, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import {
   useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial, useEquipoEditorial,
+  useMiLectura, marcarLeido, useActualizacionesArticulo, useActualizarPropuesta,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
 import { descargarWord, imprimirPdf } from '@/components/editorial/exportar'
 import { HojaEditor } from '@/components/editorial/hoja-editor'
 import { DictarBoton } from '@/components/shared/dictar-boton'
+import { CompararVersiones } from '@/components/editorial/comparar-versiones'
+import { VerificacionCitas } from '@/components/editorial/verificacion-citas'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -39,6 +42,21 @@ export default function EditorialArticuloPage() {
   const { data: puedeAprobar = false } = usePuedeAprobarEditorial()
   const { data: equipo = [] } = useEquipoEditorial()
   const yo = useAuthStore((s) => s.profile?.id)
+  const { data: lectura, isFetched: lecturaLista } = useMiLectura(id)
+  const { data: actualizaciones = [] } = useActualizacionesArticulo(id)
+  const actualizarPropuesta = useActualizarPropuesta()
+  const [leidaAntes, setLeidaAntes] = useState<number | null | undefined>(undefined)
+  const [comparar, setComparar] = useState<{ titulo: string; antes: { etiqueta: string; texto: string }; despues: { etiqueta: string; texto: string } } | null>(null)
+  const [devolviendo, setDevolviendo] = useState(false)
+  const [observaciones, setObservaciones] = useState('')
+
+  // Qué versión había leído antes de entrar (para "ver cambios"); después queda leída la actual
+  useEffect(() => {
+    if (!art || !yo || !lecturaLista) return
+    if (leidaAntes === undefined) setLeidaAntes(lectura?.version ?? null)
+    void marcarLeido(id, yo, art.version)
+  }, [art?.version, yo, lecturaLista]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const quien = (autorId: string | null) => (autorId === yo ? 'vos' : equipo.find((m) => m.id === autorId)?.nombre ?? 'edición')
   const [biblioTexto, setBiblioTexto] = useState<string | null>(null)
 
@@ -138,6 +156,39 @@ export default function EditorialArticuloPage() {
     if (!imprimirPdf(datos)) toast.info('El navegador bloqueó la ventana', 'Tocá PDF de nuevo.')
   }
 
+  const textoDe = (t: { titulo: string; bajada: string | null; cuerpo: string }) => `${t.titulo}\n\n${t.bajada ? `${t.bajada}\n\n` : ''}${t.cuerpo}`
+  const compararCon = (v: Version) => setComparar({
+    titulo: 'Cambios en el artículo',
+    antes: { etiqueta: `v${v.version}`, texto: textoDe(v) },
+    despues: { etiqueta: `v${art.version} (actual)`, texto: textoDe(art) },
+  })
+  const versionLeida = leidaAntes != null && leidaAntes < art.version ? versiones.find((v) => v.version === leidaAntes) : undefined
+
+  const devolver = () => {
+    if (!observaciones.trim()) return
+    setPidiendo('devolver')
+    ia.mutate({ modo: 'devolver', articulo_id: id, observaciones: observaciones.trim() }, {
+      onSuccess: (r) => {
+        setDevolviendo(false); setObservaciones('')
+        toast.success('Artículo devuelto', r.avisado ? 'Le llegó el aviso por Telegram.' : undefined)
+      },
+      onError: (e) => toast.error('No se pudo devolver', e instanceof Error ? e.message : undefined),
+      onSettled: () => setPidiendo(null),
+    })
+  }
+
+  const usarActualizacion = (p: { id: string; problema: string | null; hipotesis: string | null }) => {
+    const texto = `Actualizar el artículo. Qué cambió: ${p.problema ?? ''}${p.hipotesis ? `\nQué revisar: ${p.hipotesis}` : ''}`
+    const seguir = () => {
+      setIndicaciones(texto)
+      actualizarPropuesta.mutate({ id: p.id, estado: 'en_curso' })
+      toast.info('Indicaciones cargadas', 'Revisalas y tocá "Reescribir con IA", o editá a mano.')
+    }
+    if (art.estado === 'aprobado' || art.estado === 'publicado') {
+      cambiarEstado.mutate({ estado: 'borrador' }, { onSuccess: seguir, onError: (e) => toast.error('No se pudo pasar a borrador', e instanceof Error ? e.message : undefined) })
+    } else seguir()
+  }
+
   const copiar = async (texto: string, que: string) => {
     await navigator.clipboard.writeText(texto).catch(() => {})
     toast.success(`${que} copiado`)
@@ -169,6 +220,13 @@ export default function EditorialArticuloPage() {
             title={sucio ? 'Guardá los cambios antes de pedir la aprobación' : 'Los artículos salen a nombre de Marco: él hace la revisión final y aprueba'}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-40">
             {pidiendo === 'pedir_aprobacion' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Pedir aprobación a Marco
+          </button>
+        )}
+        {art.estado === 'borrador' && puedeAprobar && art.cuerpo && (
+          <button type="button" onClick={() => setDevolviendo((v) => !v)}
+            title="Devolver el artículo a quien lo trabaja, con tus observaciones"
+            className="flex items-center gap-1.5 rounded-lg border border-orange-500/40 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-500/10 dark:text-orange-300">
+            <Undo2 className="h-3.5 w-3.5" /> Devolver
           </button>
         )}
         {art.estado === 'borrador' && puedeAprobar && (
@@ -203,6 +261,66 @@ export default function EditorialArticuloPage() {
           <Copy className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Devolución con observaciones */}
+      {devolviendo && (
+        <div className="space-y-2 rounded-xl border border-orange-500/30 bg-orange-500/5 p-3">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Observaciones para devolver el artículo</p>
+          <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={4} autoFocus
+            placeholder="Qué hay que corregir, ampliar o sacar…"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100" />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={devolver} disabled={!observaciones.trim() || pidiendo === 'devolver'}
+              className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-700 disabled:opacity-50">
+              {pidiendo === 'devolver' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />} Devolver y avisar
+            </button>
+            <DictarBoton label="Dictar observaciones" onTexto={(t) => setObservaciones((p) => (p.trim() ? `${p.trim()} ${t}` : t))} />
+            <button type="button" onClick={() => setDevolviendo(false)} className="text-xs text-zinc-500 hover:underline">Cancelar</button>
+          </div>
+        </div>
+      )}
+      {art.devuelto_at && art.observaciones && art.estado === 'borrador' && (
+        <div className="flex gap-2 rounded-xl border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-zinc-800 dark:text-zinc-200">
+          <MessageSquareWarning className="mt-0.5 h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+          <div className="min-w-0">
+            <p className="font-medium text-orange-800 dark:text-orange-300">
+              Observaciones de Marco · {new Date(art.devuelto_at).toLocaleDateString('es-AR')}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap">{art.observaciones}</p>
+            {!puedeAprobar && <p className="mt-2 text-xs text-zinc-500">Cuando lo corrijas, guardá la versión y pedí la aprobación de nuevo.</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Cambios desde la última lectura */}
+      {versionLeida && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-sm text-sky-800 dark:text-sky-300">
+          <GitCompare className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Hay cambios desde la v{versionLeida.version}, la última que leíste.</span>
+          <button type="button" onClick={() => compararCon(versionLeida)} className="text-xs font-medium underline">Ver cambios</button>
+        </div>
+      )}
+
+      {/* Propuestas de actualización */}
+      {actualizaciones.map((p) => (
+        <div key={p.id} className="flex gap-2 rounded-xl border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-zinc-800 dark:text-zinc-200">
+          <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-orange-800 dark:text-orange-300">Puede haber quedado desactualizado</p>
+            {p.problema && <p className="mt-1">{p.problema}</p>}
+            {p.hipotesis && <p className="mt-1 text-zinc-600 dark:text-zinc-400"><span className="font-medium">Qué revisar:</span> {p.hipotesis}</p>}
+            <div className="mt-2 flex flex-wrap gap-3">
+              {(puedeAprobar || !aprobado) && (
+                <button type="button" onClick={() => usarActualizacion(p)} className="text-xs font-medium text-orange-700 underline dark:text-orange-300">
+                  {aprobado ? 'Volver a borrador y actualizar' : 'Usar como indicaciones para la IA'}
+                </button>
+              )}
+              <button type="button" onClick={() => actualizarPropuesta.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Descartada') })}
+                className="text-xs text-zinc-500 hover:underline">No hace falta</button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       {/* Alertas */}
       {art.alertas_confidencialidad?.length > 0 && (
@@ -396,6 +514,13 @@ export default function EditorialArticuloPage() {
             )}
             {panel === 'verificar' && (
               <div className="space-y-3 text-sm">
+                <VerificacionCitas citas={art.verificacion_citas ?? []} verificadoAt={art.citas_verificadas_at}
+                  desactualizada={!!art.citas_verificadas_at && art.updated_at > art.citas_verificadas_at}
+                  pidiendo={pidiendo === 'verificar_citas'}
+                  onVerificar={() => {
+                    if (sucio) return toast.info('Guardá tus cambios primero')
+                    correrIA('verificar_citas', {}, 'Citas verificadas')
+                  }} />
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">A comprobar antes de aprobar</p>
                   {art.a_verificar?.length ? (
@@ -429,6 +554,11 @@ export default function EditorialArticuloPage() {
                       <span className="font-medium text-zinc-800 dark:text-zinc-200">v{v.version}</span>
                       <span className="text-zinc-500"> · {v.origen === 'ia' ? `IA${v.autor_id && v.autor_id !== yo ? ` (pedida por ${quien(v.autor_id)})` : ''}` : quien(v.autor_id)} · {new Date(v.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     </span>
+                    {v.version !== art.version && (
+                      <button type="button" onClick={() => compararCon(v)} className="flex items-center gap-0.5 text-zinc-500 hover:underline" title="Ver qué cambió desde esta versión hasta la actual">
+                        <GitCompare className="h-3 w-3" /> cambios
+                      </button>
+                    )}
                     {!aprobado && v.version !== art.version && (
                       <button type="button" onClick={() => restaurar(v)} className="flex items-center gap-0.5 text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
                         <RotateCcw className="h-3 w-3" /> usar
@@ -456,11 +586,13 @@ export default function EditorialArticuloPage() {
         description={
           `${verificarEnTexto ? `Quedan ${verificarEnTexto} marcas [VERIFICAR] en el texto. ` : ''}` +
           `${art.alertas_confidencialidad?.length ? `Hay ${art.alertas_confidencialidad.length} posibles datos identificatorios del caso de origen. ` : ''}` +
+          `${!art.citas_verificadas_at ? 'Las citas no se verificaron contra tu base (pestaña Verificar). ' : (art.verificacion_citas ?? []).some((c) => c.estado === 'no_encontrada') ? `${(art.verificacion_citas ?? []).filter((c) => c.estado === 'no_encontrada').length} citas no están en tu base. ` : ''}` +
           '¿Lo revisaste y lo aprobás como versión final? Nada se publica automáticamente.'
         }
         confirmLabel="Aprobar"
         variant="warning"
       />
+      {comparar && <CompararVersiones {...comparar} onClose={() => setComparar(null)} />}
     </div>
   )
 }

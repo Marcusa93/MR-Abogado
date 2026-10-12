@@ -46,6 +46,7 @@ import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 import { SaeIntelligencePanel } from './sae-intelligence-panel'
+import { ProponerArticuloBoton } from '@/components/editorial/proponer-articulo-boton'
 import { extractPdfText } from '@/lib/utils/pdf-text'
 
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
@@ -467,6 +468,9 @@ function ActuacionRow({
           >
             <ListTodo className="h-3.5 w-3.5" />
           </button>
+          {(movement.tipo_movimiento === 'sentencia' || movement.tipo_movimiento === 'decreto') && (
+            <ProponerArticuloBoton movementId={movement.id} tieneTexto={hasCuerpo} />
+          )}
           {movement.fuente === 'manual' && (
             <button
               type="button"
