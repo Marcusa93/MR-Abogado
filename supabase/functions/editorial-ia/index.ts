@@ -50,7 +50,8 @@ function json(req: Request, body: unknown, status = 200) {
 
 // ── LLM ─────────────────────────────────────────────────────────────────────
 
-async function llm(admin: Admin, userId: string, instruccion: string, maxTokens: number): Promise<Record<string, unknown>> {
+/** Llamada a la IA que devuelve el texto tal cual (para formatos delimitados, no JSON). */
+async function llmTexto(admin: Admin, userId: string, instruccion: string, maxTokens: number): Promise<{ raw: string; finish: string }> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) throw new Error('OPENROUTER_API_KEY no configurada')
   const body = {
@@ -79,12 +80,15 @@ async function llm(admin: Admin, userId: string, instruccion: string, maxTokens:
   logLlmCall(admin, userId, FUNCTION_NAME, bytes)
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const out = await res.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[] }
-  const raw = out.choices?.[0]?.message?.content ?? ''
-  const finish = out.choices?.[0]?.finish_reason ?? ''
+  return { raw: out.choices?.[0]?.message?.content ?? '', finish: out.choices?.[0]?.finish_reason ?? '' }
+}
+
+async function llm(admin: Admin, userId: string, instruccion: string, maxTokens: number): Promise<Record<string, unknown>> {
+  const { raw, finish } = await llmTexto(admin, userId, instruccion, maxTokens)
   const inicio = raw.indexOf('{')
   if (inicio < 0) {
     console.error('[editorial] respuesta sin JSON', finish, raw.slice(0, 500))
-    throw new Error('La IA no devolvió el formato esperado')
+    throw new Error(`La IA no devolvió el formato esperado${raw.trim() ? '' : ' (respuesta vacía)'}. Probá de nuevo.`)
   }
   const fin = raw.lastIndexOf('}')
   const candidato = fin > inicio ? raw.slice(inicio, fin + 1) : raw.slice(inicio)
@@ -191,6 +195,22 @@ function unirCorte(antes: string, despues: string): string {
   const d = despues.replace(/^\s+/, '')
   if (!d) return a
   return /[\p{L}\p{N}]$/u.test(a) && /^[\p{Ll}]/u.test(d) && !/[.!?:;»")\]]$/.test(a) ? a + d : `${a}${/^[,.;:)]/.test(d) ? '' : ' '}${d}`
+}
+
+/** Bibliografía APA de las fuentes efectivamente citadas en el texto (no toca el cuerpo). */
+async function bibliografiaDesdeTexto(admin: Admin, userId: string, art: Record<string, unknown>): Promise<string[]> {
+  const evidencia = await bloqueEvidencia(admin, String(art.id))
+  const r = await llm(admin, userId,
+    'MODO BIBLIOGRAFÍA.\n\n' +
+    `ARTÍCULO:\nTítulo: ${art.titulo}\n\n${String(art.cuerpo ?? '').slice(0, 40000)}\n\n` +
+    (evidencia ? `${evidencia}\n\n` : '') +
+    `REFERENCIAS REGISTRADAS EN LA REDACCIÓN:\n${JSON.stringify(art.referencias ?? [], null, 2)}\n\n` +
+    'Armá la bibliografía final del artículo: una entrada por cada norma, fallo u obra efectivamente citada o aludida en el texto. ' +
+    'Si la fuente está en la evidencia, usá sus datos y su URL con la fecha de consulta. ' +
+    `No reescribas el artículo ni agregues fuentes que el texto no use. ${NORMAS_APA}\n\n` +
+    `${FORMATO_JSON}\n{ "bibliografia": ["entrada APA", "..."] }`,
+    3000)
+  return limpiarBibliografia(r.bibliografia)
 }
 
 // ── Contexto ────────────────────────────────────────────────────────────────
@@ -771,7 +791,7 @@ Deno.serve(async (req) => {
     const { data: a, error: errArt } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     if (errArt) throw new Error(`No se pudo leer el artículo: ${errArt.message}`)
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'depurar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -868,6 +888,76 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, propuestas: props })
     }
 
+    // ── depurar: sacar lo no verificable y dejar el artículo coherente ────
+    if (modo === 'depurar' && art) {
+      const cuerpoActual = String(art.cuerpo ?? '')
+      if (!cuerpoActual.trim()) return json(req, { error: 'Todavía no hay borrador' }, 400)
+      const evidencia = await bloqueEvidencia(admin, String(art.id))
+      const [{ data: normas }, { data: fallos }] = await Promise.all([
+        admin.from('normativa_documentos').select('titulo, tipo, numero, fecha').limit(80),
+        admin.from('jurisprudencia_documentos').select('caratula, tribunal, fecha').limit(80),
+      ])
+      const base = [
+        ...((normas ?? []) as Record<string, unknown>[]).map((n) => `- Norma: ${n.tipo ?? ''} ${n.numero ?? ''} ${n.titulo} (${n.fecha ?? 's/f'})`),
+        ...((fallos ?? []) as Record<string, unknown>[]).map((f) => `- Fallo: ${f.tribunal ?? ''}, "${f.caratula}", ${f.fecha ?? 's/f'}`),
+      ].join('\n')
+      const citas = ((art.verificacion_citas as { entrada: string; estado: string }[] | null) ?? [])
+        .map((c) => `- ${c.entrada}: ${c.estado === 'encontrada' ? 'está en la base' : c.estado === 'no_encontrada' ? 'NO está en la base' : 'sin comprobar'}`).join('\n')
+
+      const { raw, finish } = await llmTexto(admin, userId,
+        'MODO DEPURACIÓN DEL ARTÍCULO. Regla principal, por encima de cualquier otra: el error más grave de un artículo jurídico es citar ' +
+        'normativa o jurisprudencia que no se puede verificar.\n\n' +
+        'Reescribí el artículo completo aplicando estas reglas:\n' +
+        '1. Toda norma (ley, decreto, artículo, código) y todo fallo (tribunal, carátula, fecha, número) que NO figure en la evidencia comprobada ' +
+        'ni en la base del estudio de abajo se ELIMINA del texto, incluidas sus menciones indirectas ("la jurisprudencia sostiene que…", ' +
+        '"la Corte resolvió…"). No lo reemplaces por otra cita que no esté verificada.\n' +
+        '2. Al eliminar, reescribí las oraciones vecinas para que el argumento siga siendo coherente: si la idea se sostiene sola, presentala como ' +
+        'razonamiento o propuesta propia; si dependía de esa cita, sacala o reformulá la conclusión con la cautela que corresponda.\n' +
+        '3. Las normas y fallos que SÍ están en la evidencia comprobada o en la base se mantienen, citados en APA.\n' +
+        '4. Resolvé todas las marcas [VERIFICAR: …]: con respaldo comprobado → citá la fuente y quitá la marca; sin respaldo → reformulá como ' +
+        'opinión o inferencia, o eliminá. No dejes ninguna marca.\n' +
+        '5. No agregues datos, normas ni fallos nuevos. Conservá el estilo, la estructura, el título y la extensión aproximada.\n\n' +
+        (evidencia ? `${evidencia}\n\n` : 'No hay investigación externa cargada.\n\n') +
+        `BASE DEL ESTUDIO (normas y fallos verificables):\n${base || '(vacía)'}\n\n` +
+        (citas ? `RESULTADO DE LA VERIFICACIÓN DE CITAS:\n${citas}\n\n` : '') +
+        `ARTÍCULO ACTUAL:\nTítulo: ${art.titulo}\nBajada: ${art.bajada ?? ''}\n\n${cuerpoActual.slice(0, 40000)}\n\n` +
+        'FORMATO DE RESPUESTA (texto plano, sin JSON), exactamente con estos separadores:\n' +
+        '===CUERPO===\n(el artículo completo depurado, en markdown)\n' +
+        '===CAMBIOS===\n(una línea por cambio: "- ELIMINADO | REFORMULADO | RESPALDADO: qué se cambió — por qué", máximo 25 líneas)\n' +
+        '===BIBLIOGRAFIA===\n(una entrada APA por línea, solo de fuentes que quedaron citadas)\n===FIN===',
+        14000)
+      const parte = (nombre: string) => {
+        const m = new RegExp(`===${nombre}===\\s*([\\s\\S]*?)(?====[A-Z]+===|$)`).exec(raw)
+        return m ? m[1]!.trim() : ''
+      }
+      let cuerpo = parte('CUERPO')
+      if (cuerpo.length < cuerpoActual.length * 0.4) {
+        console.error('[editorial] depurar sin cuerpo', finish, raw.slice(0, 300))
+        throw new Error('La IA no devolvió el artículo depurado completo. Probá de nuevo.')
+      }
+      let cambios = parte('CAMBIOS').split('\n').map((l) => l.replace(/^[-*•]\s*/, '').trim()).filter(Boolean).slice(0, 30)
+      let bibliografia = limpiarBibliografia(parte('BIBLIOGRAFIA').split('\n').map((l) => l.replace(/^[-*•]\s*/, '').trim()))
+      if (finish === 'length' && !raw.includes('===CAMBIOS===')) {
+        // Cortado dentro del cuerpo: se completa
+        const c = await continuarArticulo(admin, userId, { id: String(art.id), titulo: String(art.titulo), bajada: (art.bajada as string | null) ?? null }, cuerpo)
+        cuerpo = unirCorte(cuerpo, c.continuacion)
+        if (!bibliografia.length) bibliografia = c.bibliografia
+        cambios = cambios.length ? cambios : ['El texto se depuró; la respuesta se completó en dos partes.']
+      }
+      try {
+        const b = await bibliografiaDesdeTexto(admin, userId, { ...art, cuerpo })
+        if (b.length) bibliografia = b
+      } catch (err) { console.warn('[editorial] bibliografía tras depurar', err) }
+      const version = Number(art.version ?? 0) + 1
+      await admin.from('editorial_versiones').insert({ articulo_id: art.id, version, origen: 'ia', modo: 'depuracion', titulo: art.titulo, bajada: art.bajada, cuerpo, autor_id: userId })
+      await admin.from('editorial_articulos').update({
+        cuerpo, version, ...(bibliografia.length ? { bibliografia } : {}),
+        revision_critica: `**Depuración del ${new Date().toLocaleDateString('es-AR')}** (se quitó lo no verificable)\n\n${cambios.map((c) => `- ${c}`).join('\n')}`,
+        citas_verificadas_at: null, updated_at: new Date().toISOString(),
+      }).eq('id', art.id)
+      return json(req, { ok: true, version, version_anterior: Number(art.version ?? 0), cambios })
+    }
+
     // ── continuar un artículo que quedó cortado ────────────────────────────
     if (modo === 'continuar' && art) {
       const cuerpoActual = String(art.cuerpo ?? '')
@@ -946,14 +1036,7 @@ Deno.serve(async (req) => {
     // ── bibliografía APA (no toca el cuerpo: solo arma la lista final) ─────
     if (modo === 'apa' && art) {
       if (!String(art.cuerpo ?? '').trim()) return json(req, { error: 'Todavía no hay texto' }, 400)
-      const r = await llm(admin, userId,
-        'MODO BIBLIOGRAFÍA.\n\n' +
-        `ARTÍCULO:\nTítulo: ${art.titulo}\n\n${String(art.cuerpo).slice(0, 30000)}\n\n` +
-        `REFERENCIAS REGISTRADAS EN LA REDACCIÓN:\n${JSON.stringify(art.referencias ?? [], null, 2)}\n\n` +
-        'Armá la bibliografía final del artículo: una entrada por cada norma, fallo u obra efectivamente citada o aludida en el texto. ' +
-        `No reescribas el artículo ni agregues fuentes que el texto no use. ${NORMAS_APA}\n\n` +
-        `${FORMATO_JSON}\n{ "bibliografia": ["entrada APA", "..."] }`,
-        3000)
+      const r = { bibliografia: await bibliografiaDesdeTexto(admin, userId, art) }
       const bibliografia = limpiarBibliografia(r.bibliografia)
       if (!bibliografia.length) throw new Error('La IA no devolvió entradas de bibliografía')
       await admin.from('editorial_articulos').update({ bibliografia, updated_at: new Date().toISOString() }).eq('id', art.id)

@@ -55,7 +55,7 @@ export default function EditorialArticuloPage() {
   const seccionInicial = searchParams.get('seccion') as Panel | null
   const [seccion, setSeccion] = useState<Panel | 'articulo'>(seccionInicial ?? 'articulo')
   const [iaAbierta, setIaAbierta] = useState(false)
-  const [dispararMarcas, setDispararMarcas] = useState(0)
+  const [compararTras, setCompararTras] = useState<{ version: number; antes: { etiqueta: string; texto: string } } | null>(null)
   // Alto de la barra fija: la barra de herramientas del editor se pega justo debajo
   const barraRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -73,6 +73,16 @@ export default function EditorialArticuloPage() {
     if (leidaAntes === undefined) setLeidaAntes(lectura?.version ?? null)
     void marcarLeido(id, yo, art.version)
   }, [art?.version, yo, lecturaLista]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!art || !compararTras || art.version < compararTras.version) return
+    setComparar({
+      titulo: 'Qué cambió al depurar',
+      antes: compararTras.antes,
+      despues: { etiqueta: `v${art.version} (depurada)`, texto: `${art.titulo}\n\n${art.bajada ? `${art.bajada}\n\n` : ''}${art.cuerpo}` },
+    })
+    setCompararTras(null)
+  }, [art, compararTras])
 
   const quien = (autorId: string | null) => (autorId === yo ? 'vos' : equipo.find((m) => m.id === autorId)?.nombre ?? 'edición')
   const [biblioTexto, setBiblioTexto] = useState<string | null>(null)
@@ -181,6 +191,22 @@ export default function EditorialArticuloPage() {
     despues: { etiqueta: `v${art.version} (actual)`, texto: textoDe(art) },
   })
   const versionLeida = leidaAntes != null && leidaAntes < art.version ? versiones.find((v) => v.version === leidaAntes) : undefined
+
+  const depurar = () => {
+    if (sucio) return toast.info('Guardá tus cambios primero', 'La depuración trabaja sobre la última versión guardada.')
+    const antes = { etiqueta: `v${art.version}`, texto: textoDe(art) }
+    setPidiendo('depurar')
+    ia.mutate({ modo: 'depurar', articulo_id: id }, {
+      onSuccess: (r) => {
+        const n = Array.isArray(r.cambios) ? r.cambios.length : 0
+        toast.success('Artículo depurado', `${n} cambios. Revisalos en la comparación; el detalle queda en la pestaña Revisión.`)
+        setCompararTras({ version: Number(r.version), antes })
+        setVista('previa'); irA('articulo')
+      },
+      onError: (e) => toast.error('No se pudo depurar', e instanceof Error ? e.message : undefined),
+      onSettled: () => setPidiendo(null),
+    })
+  }
 
   const devolver = () => {
     if (!observaciones.trim()) return
@@ -295,9 +321,11 @@ export default function EditorialArticuloPage() {
     { key: 'guardar', titulo: 'Guardar tus cambios', hecho: !sucio, oculto: !sucio,
       detalle: 'Tenés cambios sin guardar. Guardalos antes de seguir: la IA trabaja sobre la última versión guardada.',
       accion: { label: 'Guardar', onClick: guardarVersion, cargando: guardar.isPending } },
-    { key: 'marcas', titulo: 'Resolver las marcas [VERIFICAR]', hecho: !!cuerpo && verificarEnTexto === 0,
-      detalle: verificarEnTexto ? `Quedan ${verificarEnTexto}. La IA propone para cada una citar la fuente, reformular o eliminar; vos aplicás.` : '',
-      accion: { label: 'Resolver marcas con IA', onClick: () => { irA('verificar'); setDispararMarcas(Date.now()) } } },
+    { key: 'marcas', titulo: 'Depurar: quitar lo no verificable', hecho: !!cuerpo && verificarEnTexto === 0,
+      detalle: verificarEnTexto
+        ? `Quedan ${verificarEnTexto} marcas [VERIFICAR]. La IA quita toda norma o fallo que no esté verificado y deja el argumento coherente. Después ves qué cambió.`
+        : '',
+      accion: { label: 'Depurar el artículo', onClick: depurar, cargando: pidiendo === 'depurar' } },
     { key: 'citas', titulo: 'Verificar las citas contra tu base', hecho: !!art.citas_verificadas_at && !citasDesactualizadas,
       detalle: citasDesactualizadas ? 'El texto cambió después de la última verificación.' : 'Cruza cada norma y fallo citado con tu base de normativa y jurisprudencia.',
       accion: { label: 'Verificar citas', onClick: () => { irA('verificar'); correrIA('verificar_citas', {}, 'Citas verificadas') }, cargando: pidiendo === 'verificar_citas' } },
@@ -641,7 +669,7 @@ export default function EditorialArticuloPage() {
             )}
             {panel === 'verificar' && (
               <div className="space-y-4 text-sm">
-                <MarcasVerificar articuloId={id} cuerpo={cuerpo} onCuerpo={setCuerpo} editable={!aprobado} disparar={dispararMarcas} onDisparado={() => setDispararMarcas(0)} />
+                <MarcasVerificar cuerpo={cuerpo} editable={!aprobado} depurando={pidiendo === 'depurar'} onDepurar={depurar} />
                 <VerificacionCitas citas={art.verificacion_citas ?? []} verificadoAt={art.citas_verificadas_at}
                   desactualizada={!!art.citas_verificadas_at && art.updated_at > art.citas_verificadas_at}
                   pidiendo={pidiendo === 'verificar_citas'}
