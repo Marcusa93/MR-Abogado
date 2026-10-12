@@ -10,7 +10,7 @@ Este archivo se carga automáticamente en cada sesión de Claude Code sobre este
 
 ## Stack en una línea
 
-Vite 6 + React 19 + TS + Tailwind 4 + zustand + react-query + react-router 7 contra Supabase (PG 17, Auth, Storage, Edge Functions Deno). LLM por OpenRouter. Frontend en Vercel.
+Vite 6 + React 19 + TS + Tailwind 4 + zustand + react-query + react-router 7 contra Supabase (PG 17, Auth, Storage, Edge Functions Deno). LLM por OpenRouter. Frontend en Cloudflare Workers (desde 2026-10-12; antes Vercel, pausado por límites del plan gratuito).
 
 ## Layout
 
@@ -96,13 +96,11 @@ del bot de Telegram en el VPS), tenés autonomía total: **nunca le pidas a Marc
 corra comandos en su terminal** — hacelo vos y terminá la tarea completa (código +
 deploy + verificación) antes de reportar.
 
-- **Frontend (Vercel)**: el webhook GitHub→Vercel falla intermitentemente. Siempre deployar
-  con CLI después de `git push`:
-  ```bash
-  vercel deploy --prod --token $VERCEL_TOKEN --yes
-  ```
-  `VERCEL_TOKEN` está en `.env` del bot. Proyecto: `mr-abogado-system` (org `marco-rossis-projects-15e01031`).
-  Dominio de producción: `https://app.marcorossi.com.ar`.
+- **Frontend (Cloudflare Workers, worker `mr-abogado-frontend`)**: se publica solo en cada push a
+  `main` que toque `frontend/**` (GitHub Action `deploy-frontend-cloudflare.yml`; secretos en el repo).
+  Publicación manual: `cd frontend && npm run deploy` con `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`.
+  Dominio: `https://app.marcorossi.com.ar` (custom domain del worker). Encabezados en `frontend/public/_headers`.
+  Vercel quedó sin uso.
 
 - **Edge functions**: `supabase functions deploy <fn> --project-ref $SUPABASE_PROJECT_ID`
   (el CLI está instalado en el VPS; sin Docker bundlea vía API, funciona igual).
@@ -115,7 +113,7 @@ deploy + verificación) antes de reportar.
   y registrá la versión en `supabase_migrations.schema_migrations` (`INSERT ... ON CONFLICT DO NOTHING`).
   **No uses `supabase db push` a ciegas**: hay drift histórico entre migrations locales y prod.
 - **Secretos de functions**: `supabase secrets list|set --project-ref $SUPABASE_PROJECT_ID`.
-- **git push** ya funciona (deploy key); Vercel deploya el frontend solo al pushear main.
+- **git push** ya funciona (deploy key); la GitHub Action publica el frontend en Cloudflare al pushear main.
 - Después de deployar una function, verificá con `supabase functions list --project-ref $SUPABASE_PROJECT_ID`
   que la versión subió, o pegale un request de prueba.
 
