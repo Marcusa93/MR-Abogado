@@ -591,7 +591,7 @@ Deno.serve(async (req) => {
         const { data } = await admin.from('editorial_propuestas').select('titulo, problema, pregunta, hipotesis, enfoque').eq('id', String(body.propuesta_id)).maybeSingle()
         base = data as Record<string, unknown> | null
       } else if (body.articulo_id) {
-        const { data } = await admin.from('editorial_articulos').select('titulo, propuesta:editorial_propuestas(titulo, problema, pregunta, hipotesis, enfoque)').eq('id', String(body.articulo_id)).maybeSingle()
+        const { data } = await admin.from('editorial_articulos').select('titulo, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(titulo, problema, pregunta, hipotesis, enfoque)').eq('id', String(body.articulo_id)).maybeSingle()
         const a = data as { titulo: string; propuesta: Record<string, unknown> | null } | null
         base = a ? (a.propuesta ?? { titulo: a.titulo }) : null
       }
@@ -735,7 +735,8 @@ Deno.serve(async (req) => {
     }
 
     // Modos sobre un artículo existente
-    const { data: a } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
+    const { data: a, error: errArt } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
+    if (errArt) throw new Error(`No se pudo leer el artículo: ${errArt.message}`)
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
     if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
