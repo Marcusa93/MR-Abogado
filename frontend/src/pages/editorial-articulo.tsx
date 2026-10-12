@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import {
   useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial, useEquipoEditorial,
-  useMiLectura, marcarLeido, useActualizacionesArticulo, useActualizarPropuesta,
+  useMiLectura, marcarLeido, useActualizacionesArticulo, useActualizarPropuesta, useHallazgos,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
@@ -45,6 +45,7 @@ export default function EditorialArticuloPage() {
   const yo = useAuthStore((s) => s.profile?.id)
   const { data: lectura, isFetched: lecturaLista } = useMiLectura(id)
   const { data: actualizaciones = [] } = useActualizacionesArticulo(id)
+  const { data: investigacionExterna } = useHallazgos(id)
   const actualizarPropuesta = useActualizarPropuesta()
   const [leidaAntes, setLeidaAntes] = useState<number | null | undefined>(undefined)
   const [comparar, setComparar] = useState<{ titulo: string; antes: { etiqueta: string; texto: string }; despues: { etiqueta: string; texto: string } } | null>(null)
@@ -393,6 +394,21 @@ export default function EditorialArticuloPage() {
                   <textarea value={indicaciones} onChange={(e) => setIndicaciones(e.target.value)} rows={3}
                     placeholder="Indicaciones (opcional): enfoque, extensión, qué agregar o sacar, a quién va dirigido…"
                     className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200" />
+                  {(() => {
+                    const hs = investigacionExterna?.hallazgos ?? []
+                    if (!hs.length) return null
+                    const ok = hs.filter((h) => h.estado === 'comprobado').length
+                    const parcial = hs.filter((h) => h.estado === 'parcial').length
+                    const resto = hs.length - ok - parcial
+                    return (
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                        Se va a redactar con tu investigación de Gemini: <b>{ok} hallazgos comprobados</b> como base
+                        {parcial ? `, ${parcial} parcial${parcial > 1 ? 'es' : ''} con cautela` : ''}
+                        {resto ? ` y ${resto} sin comprobar marcado${resto > 1 ? 's' : ''} [VERIFICAR]` : ''}. La bibliografía sale de esas fuentes.
+                        <button type="button" onClick={() => irA('investigacion')} className="ml-1 font-semibold underline">Ver hallazgos</button>
+                      </div>
+                    )
+                  })()}
                   {!art.cuerpo && art.investigacion && (
                     <button type="button" onClick={() => irA('investigacion')} className="text-xs font-medium text-[var(--brand-accent)] underline underline-offset-2 lg:hidden dark:text-[var(--brand-ice)]">
                       Leer la investigación antes de redactar
