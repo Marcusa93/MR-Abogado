@@ -21,6 +21,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 import { EDITORIAL_SYSTEM_PROMPT } from '../_shared/editorial-system-prompt.ts'
 import { jsonrepair } from 'npm:jsonrepair@3.13.1'
+import { tgSendKb } from '../_shared/tareas-telegram.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -359,6 +360,38 @@ Deno.serve(async (req) => {
     }
 
     // ── investigar ─────────────────────────────────────────────────────────
+    // ── asignar un tema a un colaborador (solo quien aprueba: Marco) ──────
+    if (modo === 'asignar') {
+      const { data: yo } = await admin.from('profiles').select('nombre, editorial_aprueba').eq('id', userId).maybeSingle()
+      if (!(yo as { editorial_aprueba?: boolean } | null)?.editorial_aprueba) return json(req, { error: 'Solo Marco asigna temas' }, 403)
+      const propuestaId = String(body.propuesta_id ?? '')
+      const asignadoA = body.asignado_a ? String(body.asignado_a) : null
+      const nota = typeof body.nota === 'string' ? body.nota.slice(0, 2000).trim() || null : null
+      const { data: p } = await admin.from('editorial_propuestas').select('id, titulo, pregunta').eq('id', propuestaId).maybeSingle()
+      if (!p) return json(req, { error: 'Propuesta no encontrada' }, 404)
+      let destino: { nombre: string; telegram_chat_id: number | null } | null = null
+      if (asignadoA) {
+        const { data: d } = await admin.from('profiles').select('nombre, telegram_chat_id, acceso_editorial, activo').eq('id', asignadoA).maybeSingle()
+        const dd = d as { nombre: string; telegram_chat_id: number | null; acceso_editorial: boolean; activo: boolean } | null
+        if (!dd?.acceso_editorial || !dd.activo) return json(req, { error: 'Esa persona no tiene acceso al módulo editorial' }, 400)
+        destino = dd
+      }
+      await admin.from('editorial_propuestas').update({
+        asignado_a: asignadoA, nota_asignacion: asignadoA ? nota : null,
+        asignado_at: asignadoA ? new Date().toISOString() : null, updated_at: new Date().toISOString(),
+      }).eq('id', propuestaId)
+      let avisado = false
+      const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
+      if (destino?.telegram_chat_id && token) {
+        const prop = p as { id: string; titulo: string; pregunta: string | null }
+        avisado = await tgSendKb(token, destino.telegram_chat_id,
+          `Editorial: ${(yo as { nombre: string }).nombre} te propone un tema para un artículo.\n\n` +
+          `"${prop.titulo}"${prop.pregunta ? `\n${prop.pregunta}` : ''}${nota ? `\n\nIndicaciones: ${nota}` : ''}`,
+          [[{ text: 'Abrir en Editorial', url: `${APP_URL}/editorial` }]])
+      }
+      return json(req, { ok: true, avisado })
+    }
+
     if (modo === 'investigar') {
       const { data: p } = await admin.from('editorial_propuestas').select('*').eq('id', String(body.propuesta_id ?? '')).maybeSingle()
       if (!p) return json(req, { error: 'Propuesta no encontrada' }, 404)
@@ -396,6 +429,7 @@ Deno.serve(async (req) => {
       const tipo = TIPOS.includes(r.tipo_sugerido as typeof TIPOS[number]) ? String(r.tipo_sugerido) : (String(prop.tipo_sugerido ?? '') || 'analisis_profesional')
       const investigacion = `**Tesis:** ${String(r.tesis ?? '')}\n\n${String(r.investigacion_markdown ?? '')}`
       const { data: art, error } = await admin.from('editorial_articulos').insert({
+        creado_por: userId, asignado_a: prop.asignado_a ?? null,
         propuesta_id: prop.id, estado: 'investigacion', tipo: TIPOS.includes(tipo as typeof TIPOS[number]) ? tipo : 'analisis_profesional',
         titulo: String(r.titulo ?? prop.titulo).slice(0, 300), investigacion, modelo_ia: MODELO,
       }).select('id').single()
@@ -438,7 +472,7 @@ Deno.serve(async (req) => {
       if (!cuerpo.trim()) throw new Error('La IA no devolvió el cuerpo del artículo')
       const alertas = chequearConfidencialidad(`${titulo}\n${bajada}\n${cuerpo}`, await nombresSensibles(admin, (prop?.expediente_id as string) ?? null))
       const version = Number(art.version ?? 0) + 1
-      await admin.from('editorial_versiones').insert({ articulo_id: art.id, version, origen: 'ia', modo: 'redaccion', titulo, bajada, cuerpo })
+      await admin.from('editorial_versiones').insert({ articulo_id: art.id, version, origen: 'ia', modo: 'redaccion', titulo, bajada, cuerpo, autor_id: userId })
       await admin.from('editorial_articulos').update({
         estado: 'borrador', tipo, titulo, bajada, cuerpo, version, modelo_ia: MODELO,
         referencias: Array.isArray(r.referencias) ? r.referencias.slice(0, 40) : [],
@@ -527,6 +561,7 @@ Deno.serve(async (req) => {
       const { data: autor } = await admin.from('profiles').select('nombre, apellido').eq('id', userId).maybeSingle()
       const quien = autor ? `${(autor as { nombre: string }).nombre} ${(autor as { apellido: string | null }).apellido ?? ''}`.trim() : 'Un colaborador'
       const nota = typeof body.nota === 'string' ? body.nota.slice(0, 500).trim() : ''
+      await admin.from('editorial_articulos').update({ aprobacion_pedida_at: new Date().toISOString() }).eq('id', art.id)
       await telegramMarco(`Editorial: ${quien} te pide que revises y apruebes un artículo.\n\n` +
         `"${art.titulo}"${nota ? `\n\n${nota}` : ''}\n\n${APP_URL}/editorial/${art.id}`)
       return json(req, { ok: true })

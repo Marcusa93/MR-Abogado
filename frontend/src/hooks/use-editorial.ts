@@ -42,6 +42,9 @@ export interface Propuesta {
   tipo_sugerido: TipoArticulo | null
   movement_id: string | null
   expediente_id: string | null
+  creado_por: string | null
+  asignado_a: string | null
+  nota_asignacion: string | null
   created_at: string
 }
 
@@ -65,6 +68,9 @@ export interface Articulo {
   aprobado_at: string | null
   publicado_at: string | null
   publicado_url: string | null
+  creado_por: string | null
+  asignado_a: string | null
+  aprobacion_pedida_at: string | null
   created_at: string
   updated_at: string
 }
@@ -77,8 +83,11 @@ export interface Version {
   titulo: string
   bajada: string | null
   cuerpo: string
+  autor_id: string | null
   created_at: string
 }
+
+export interface MiembroEditorial { id: string; nombre: string; apellido: string | null; editorial_aprueba: boolean }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sb = () => createClient() as any
@@ -120,6 +129,41 @@ export function usePuedeAprobarEditorial() {
   })
 }
 
+/** Quienes trabajan en el módulo (Marco y colaboradores). */
+export function useEquipoEditorial() {
+  return useQuery({
+    queryKey: [...editorialKeys.acceso, 'equipo'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await sb().from('profiles').select('id, nombre, apellido, editorial_aprueba')
+        .eq('acceso_editorial', true).eq('activo', true).order('nombre')
+      if (error) throw error
+      return (data ?? []) as MiembroEditorial[]
+    },
+  })
+}
+
+export const nombreCorto = (m?: { nombre: string; apellido: string | null } | null) =>
+  m ? `${m.nombre}${m.apellido ? ` ${m.apellido}` : ''}` : 'Alguien'
+
+/** Asigna (o desasigna con null) una propuesta a un colaborador; le avisa por Telegram. */
+export function useAsignarPropuesta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { propuesta_id: string; asignado_a: string | null; nota?: string }) => {
+      const { data, error } = await createClient().functions.invoke('editorial-ia', { body: { modo: 'asignar', ...v } })
+      if (error) {
+        const ctx = (error as { context?: unknown }).context
+        const msg = ctx instanceof Response ? await ctx.json().then((j: { error?: string }) => j.error).catch(() => null) : null
+        throw new Error(msg ?? error.message)
+      }
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      return data as { ok: boolean; avisado: boolean }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: editorialKeys.propuestas }),
+  })
+}
+
 export function usePropuestas() {
   return useQuery({
     queryKey: editorialKeys.propuestas,
@@ -137,7 +181,7 @@ export function useArticulos() {
     queryKey: editorialKeys.articulos,
     queryFn: async () => {
       const { data, error } = await sb().from('editorial_articulos')
-        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar')
+        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar, creado_por, asignado_a, aprobacion_pedida_at')
         .order('updated_at', { ascending: false }).limit(100)
       if (error) throw error
       return (data ?? []) as Articulo[]
@@ -250,7 +294,7 @@ export function useCambiarEstadoArticulo(id: string) {
     mutationFn: async ({ estado, publicado_url }: { estado: EstadoArticulo; publicado_url?: string | null }) => {
       const ahora = new Date().toISOString()
       const cambios: Record<string, unknown> = { estado, updated_at: ahora }
-      if (estado === 'aprobado') cambios.aprobado_at = ahora
+      if (estado === 'aprobado') { cambios.aprobado_at = ahora; cambios.aprobacion_pedida_at = null }
       if (estado === 'borrador') cambios.aprobado_at = null
       if (estado === 'publicado') { cambios.publicado_at = ahora; cambios.publicado_url = publicado_url ?? null }
       const { error } = await sb().from('editorial_articulos').update(cambios).eq('id', id)

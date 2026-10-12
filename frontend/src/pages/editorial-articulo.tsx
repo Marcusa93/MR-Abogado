@@ -4,7 +4,7 @@ import {
   AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import {
-  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial,
+  useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial, useEquipoEditorial,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
@@ -15,6 +15,7 @@ import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 // Editor de un artículo: Marco edita título, bajada y cuerpo (markdown); cada
 // guardado es una versión restaurable. La IA investiga, redacta y revisa, pero
@@ -36,6 +37,9 @@ export default function EditorialArticuloPage() {
   const enviarContenidos = useEnviarAContenidos()
   const guardarBiblio = useGuardarBibliografia(id)
   const { data: puedeAprobar = false } = usePuedeAprobarEditorial()
+  const { data: equipo = [] } = useEquipoEditorial()
+  const yo = useAuthStore((s) => s.profile?.id)
+  const quien = (autorId: string | null) => (autorId === yo ? 'vos' : equipo.find((m) => m.id === autorId)?.nombre ?? 'edición')
   const [biblioTexto, setBiblioTexto] = useState<string | null>(null)
 
   const [titulo, setTitulo] = useState('')
@@ -423,7 +427,7 @@ export default function EditorialArticuloPage() {
                     <History className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                     <span className="min-w-0 flex-1">
                       <span className="font-medium text-zinc-800 dark:text-zinc-200">v{v.version}</span>
-                      <span className="text-zinc-500"> · {v.origen === 'ia' ? 'IA' : 'tu edición'} · {new Date(v.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-zinc-500"> · {v.origen === 'ia' ? `IA${v.autor_id && v.autor_id !== yo ? ` (pedida por ${quien(v.autor_id)})` : ''}` : quien(v.autor_id)} · {new Date(v.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     </span>
                     {!aprobado && v.version !== art.version && (
                       <button type="button" onClick={() => restaurar(v)} className="flex items-center gap-0.5 text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
