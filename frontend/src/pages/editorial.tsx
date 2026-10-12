@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AlertTriangle, BookOpen, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BookOpen, Sparkles, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
 import {
   useAccesoEditorial, usePropuestas, useArticulos, useEditorialIA, useActualizarPropuesta, useCrearPropuestaManual,
   usePuedeAprobarEditorial, useEquipoEditorial, useAsignarPropuesta, nombreCorto,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type Propuesta, type EstadoArticulo, type MiembroEditorial,
 } from '@/hooks/use-editorial'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
+import { InvestigarConGemini } from '@/components/editorial/investigacion-externa'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -120,6 +121,7 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
   const ia = useEditorialIA()
   const actualizar = useActualizarPropuesta()
   const [abierta, setAbierta] = useState(false)
+  const [gemini, setGemini] = useState(false)
   const o = ORIGEN[p.origen]
   const persona = (id: string | null) => (id ? equipo.find((m) => m.id === id) : undefined)
   const asignado = persona(p.asignado_a)
@@ -222,12 +224,18 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
                 Descartar
               </button>
               {puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
+              <button type="button" onClick={() => setGemini(true)} disabled={ia.isPending}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                title="Investigación con fuentes comprobadas: el sistema arma el pedido para Gemini Deep Research y comprueba cada cita del informe">
+                <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Con Gemini
+              </button>
               <button type="button" onClick={investigar} disabled={ia.isPending}
                 className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]"
                 title="Modo investigación: normas, jurisprudencia de tu base, interpretaciones y tesis. No redacta el artículo todavía.">
                 {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" /> : <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                 {ia.isPending ? 'Investigando…' : 'Investigar'}
               </button>
+              {gemini && <InvestigarConGemini propuestaId={p.id} onClose={() => setGemini(false)} />}
             </>
           )}
           {ia.isPending && (

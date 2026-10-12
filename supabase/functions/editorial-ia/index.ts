@@ -22,6 +22,7 @@ import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 import { EDITORIAL_SYSTEM_PROMPT } from '../_shared/editorial-system-prompt.ts'
 import { jsonrepair } from 'npm:jsonrepair@3.13.1'
 import { tgSendKb } from '../_shared/tareas-telegram.ts'
+import { pedidoDeepResearch, parsearBloques, hallazgoDesdeIA, obtenerFuente, comprobarCita, type Hallazgo } from '../_shared/editorial-investigacion.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -120,6 +121,43 @@ function limpiarBibliografia(v: unknown): string[] {
   if (!Array.isArray(v)) return []
   const unicas = [...new Set(v.map((e) => String(e ?? '').trim()).filter(Boolean))]
   return unicas.slice(0, 60).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+}
+
+/** Compara cada hallazgo pendiente con el texto de su fuente (sin IA). */
+async function comprobarHallazgos(admin: Admin, articuloId: string) {
+  const { data: hs } = await admin.from('editorial_hallazgos').select('id, cita, fuente_id').eq('articulo_id', articuloId).eq('estado', 'pendiente').not('fuente_id', 'is', null)
+  const lista = (hs ?? []) as { id: string; cita: string | null; fuente_id: string }[]
+  if (!lista.length) return
+  const ids = [...new Set(lista.map((h) => h.fuente_id))]
+  const { data: fs } = await admin.from('editorial_fuentes').select('id, estado, texto, error').in('id', ids)
+  const fuentes = new Map(((fs ?? []) as { id: string; estado: string; texto: string | null; error: string | null }[]).map((f) => [f.id, f]))
+  const ahora = new Date().toISOString()
+  for (const h of lista) {
+    const f = fuentes.get(h.fuente_id)
+    if (!f || f.estado === 'pendiente') continue
+    const r = f.estado === 'sin_acceso' || !f.texto
+      ? { estado: /no existe/.test(f.error ?? '') ? 'no_encontrado' : 'sin_acceso', detalle: f.error ?? 'No se pudo abrir la fuente.' }
+      : comprobarCita(h.cita, f.texto)
+    await admin.from('editorial_hallazgos').update({ ...r, verificado_at: ahora }).eq('id', h.id)
+  }
+}
+
+/** Evidencia comprobada para la redacción. */
+async function bloqueEvidencia(admin: Admin, articuloId: string): Promise<string> {
+  const { data } = await admin.from('editorial_hallazgos').select('orden, afirmacion, tipo, fuente, url, cita, vigencia, estado').eq('articulo_id', articuloId).order('orden')
+  const hs = (data ?? []) as { orden: number; afirmacion: string; tipo: string; fuente: string | null; url: string | null; cita: string | null; vigencia: string | null; estado: string }[]
+  if (!hs.length) return ''
+  const hoy = new Date().toLocaleDateString('es-AR')
+  const linea = (h: typeof hs[number]) => `- [H${h.orden}] (${h.tipo}) ${h.afirmacion} — Fuente: ${h.fuente ?? 's/d'}${h.url ? ` <${h.url}>` : ''}` +
+    `${h.vigencia ? ` — Vigencia: ${h.vigencia}` : ''}${h.cita ? `\n  Cita: "${h.cita}"` : ''}`
+  const ok = hs.filter((h) => h.estado === 'comprobado')
+  const parcial = hs.filter((h) => h.estado === 'parcial')
+  const no = hs.filter((h) => !['comprobado', 'parcial'].includes(h.estado))
+  return 'EVIDENCIA DE LA INVESTIGACIÓN EXTERNA (comprobada por el sistema contra cada fuente; fecha de consulta: ' + hoy + ')\n' +
+    `COMPROBADA (podés afirmarla y citarla):\n${ok.map(linea).join('\n') || '(ninguna)'}\n\n` +
+    `PARCIAL (la fuente existe pero la cita no coincide exacta: usala con cautela y marcá [VERIFICAR] si afirmás el detalle):\n${parcial.map(linea).join('\n') || '(ninguna)'}\n\n` +
+    `NO COMPROBADA (no la afirmes; si la mencionás, va con [VERIFICAR: …]):\n${no.map(linea).join('\n') || '(ninguna)'}\n\n` +
+    'La bibliografía debe incluir las fuentes comprobadas que uses, con su URL y la fecha de consulta en formato APA.'
 }
 
 // ── Contexto ────────────────────────────────────────────────────────────────
@@ -546,6 +584,110 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, propuesta_id: (prop as { id: string }).id, titulo: (prop as { titulo: string }).titulo, advertencia: r.advertencia || null })
     }
 
+    // ── investigación externa: pedido para Gemini Deep Research (sin IA) ───
+    if (modo === 'pedido_externo') {
+      let base: Record<string, unknown> | null = null
+      if (body.propuesta_id) {
+        const { data } = await admin.from('editorial_propuestas').select('titulo, problema, pregunta, hipotesis, enfoque').eq('id', String(body.propuesta_id)).maybeSingle()
+        base = data as Record<string, unknown> | null
+      } else if (body.articulo_id) {
+        const { data } = await admin.from('editorial_articulos').select('titulo, propuesta:editorial_propuestas(titulo, problema, pregunta, hipotesis, enfoque)').eq('id', String(body.articulo_id)).maybeSingle()
+        const a = data as { titulo: string; propuesta: Record<string, unknown> | null } | null
+        base = a ? (a.propuesta ?? { titulo: a.titulo }) : null
+      }
+      if (!base) return json(req, { error: 'Propuesta no encontrada' }, 404)
+      return json(req, { ok: true, pedido: pedidoDeepResearch(base as { titulo: string }) })
+    }
+
+    // ── investigación externa: importar el informe ─────────────────────────
+    if (modo === 'importar_informe') {
+      const texto = typeof body.texto === 'string' ? body.texto.trim() : ''
+      if (texto.length < 300) return json(req, { error: 'El informe es muy corto: pegá el texto completo' }, 400)
+      if (texto.length > 400_000) return json(req, { error: 'El informe es demasiado largo' }, 400)
+
+      // Artículo destino: el indicado, o uno nuevo desde la propuesta
+      let articuloId = body.articulo_id ? String(body.articulo_id) : ''
+      if (!articuloId) {
+        const { data: p } = await admin.from('editorial_propuestas').select('*').eq('id', String(body.propuesta_id ?? '')).maybeSingle()
+        if (!p) return json(req, { error: 'Propuesta no encontrada' }, 404)
+        const prop = p as Record<string, unknown>
+        const { data: nuevo, error } = await admin.from('editorial_articulos').insert({
+          propuesta_id: prop.id, estado: 'investigacion', creado_por: userId, asignado_a: prop.asignado_a ?? null,
+          tipo: TIPOS.includes(String(prop.tipo_sugerido) as typeof TIPOS[number]) ? String(prop.tipo_sugerido) : 'analisis_profesional',
+          titulo: String(prop.titulo).slice(0, 300), modelo_ia: MODELO,
+        }).select('id').single()
+        if (error || !nuevo) throw new Error(`No se pudo crear el artículo: ${error?.message}`)
+        articuloId = (nuevo as { id: string }).id
+        await admin.from('editorial_propuestas').update({ estado: 'en_curso', updated_at: new Date().toISOString() }).eq('id', prop.id)
+      }
+
+      // 1) Formato pedido (sin IA). 2) Si vino en prosa, la IA lo pasa a hallazgos sin agregar nada.
+      let hallazgos: Hallazgo[] = parsearBloques(texto)
+      let normalizadoConIA = false
+      if (hallazgos.length < 2) {
+        const r = await llm(admin, userId,
+          'MODO NORMALIZACIÓN DE INFORME. Recibís un informe de investigación jurídica hecho por otra herramienta. ' +
+          'Separalo en hallazgos: cada afirmación jurídica relevante con su fuente. No agregues nada que no esté en el informe, ' +
+          'no corrijas ni completes datos. Si el informe numera las fuentes al final, asociá cada afirmación con la URL que le corresponde. ' +
+          '"cita" solo si el informe trae un fragmento entre comillas atribuido a esa fuente; copialo exacto. Si no, dejala vacía.\n\n' +
+          `INFORME:\n<<<\n${texto.slice(0, 180_000)}\n>>>\n\n` +
+          `${FORMATO_JSON}\n{ "hallazgos": [{ "afirmacion": "...", "tipo": "norma|fallo|doctrina|dato", "fuente": "nombre de la fuente", "url": "...", ` +
+          '"cita": "", "vigencia": "", "confianza": "alta|media|baja", "numero": "", "tribunal": "", "fecha": "", "jurisdiccion": "" }] }',
+          12000)
+        hallazgos = ((Array.isArray(r.hallazgos) ? r.hallazgos : []) as Record<string, unknown>[]).map(hallazgoDesdeIA).filter((h): h is Hallazgo => !!h)
+        normalizadoConIA = true
+      }
+      if (!hallazgos.length) return json(req, { error: 'No se encontraron hallazgos con fuente en el informe' }, 400)
+      hallazgos = hallazgos.slice(0, 120)
+
+      // Reemplaza una importación anterior del mismo artículo
+      await admin.from('editorial_hallazgos').delete().eq('articulo_id', articuloId)
+      await admin.from('editorial_fuentes').delete().eq('articulo_id', articuloId)
+      const urls = [...new Set(hallazgos.map((h) => h.url).filter((u): u is string => !!u))]
+      const fuenteId = new Map<string, string>()
+      if (urls.length) {
+        const { data: fs } = await admin.from('editorial_fuentes').insert(urls.map((url) => ({ articulo_id: articuloId, url }))).select('id, url')
+        for (const f of (fs ?? []) as { id: string; url: string }[]) fuenteId.set(f.url, f.id)
+      }
+      const { error: eh } = await admin.from('editorial_hallazgos').insert(hallazgos.map((h, i) => ({
+        articulo_id: articuloId, orden: i + 1, ...h, fuente_id: h.url ? fuenteId.get(h.url) ?? null : null,
+        estado: h.url ? 'pendiente' : 'sin_fuente', detalle: h.url ? null : 'El informe no indica de dónde sale.',
+      })))
+      if (eh) throw new Error(`No se pudieron guardar los hallazgos: ${eh.message}`)
+      await admin.from('editorial_articulos').update({
+        informe_externo: texto, informe_cargado_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }).eq('id', articuloId)
+      return json(req, { ok: true, articulo_id: articuloId, hallazgos: hallazgos.length, fuentes: urls.length, normalizado_con_ia: normalizadoConIA })
+    }
+
+    // ── investigación externa: visitar fuentes y comprobar citas (por tandas) ──
+    if (modo === 'verificar_fuentes') {
+      const articuloId = String(body.articulo_id ?? '')
+      const { data: pend } = await admin.from('editorial_fuentes').select('id, url').eq('articulo_id', articuloId).eq('estado', 'pendiente').limit(6)
+      await Promise.all(((pend ?? []) as { id: string; url: string }[]).map(async (f) => {
+        const r = await obtenerFuente(f.url)
+        await admin.from('editorial_fuentes').update(r.ok
+          ? { estado: 'ok', texto: r.texto, titulo: r.titulo, error: null, obtenida_at: new Date().toISOString() }
+          : { estado: 'sin_acceso', error: r.error, obtenida_at: new Date().toISOString() }).eq('id', f.id)
+      }))
+      await comprobarHallazgos(admin, articuloId)
+      const { count } = await admin.from('editorial_fuentes').select('id', { count: 'exact', head: true }).eq('articulo_id', articuloId).eq('estado', 'pendiente')
+      return json(req, { ok: true, procesadas: (pend ?? []).length, pendientes: count ?? 0 })
+    }
+
+    // ── investigación externa: texto de una fuente que no se pudo abrir ───
+    if (modo === 'texto_fuente') {
+      const texto = typeof body.texto === 'string' ? body.texto.trim() : ''
+      if (texto.length < 200) return json(req, { error: 'Pegá el texto completo de la fuente' }, 400)
+      const { data: f } = await admin.from('editorial_fuentes').select('id, articulo_id').eq('id', String(body.fuente_id ?? '')).maybeSingle()
+      if (!f) return json(req, { error: 'Fuente no encontrada' }, 404)
+      const fuente = f as { id: string; articulo_id: string }
+      await admin.from('editorial_fuentes').update({ estado: 'manual', texto: texto.slice(0, 3_000_000), error: null, obtenida_at: new Date().toISOString() }).eq('id', fuente.id)
+      await admin.from('editorial_hallazgos').update({ estado: 'pendiente' }).eq('fuente_id', fuente.id)
+      await comprobarHallazgos(admin, fuente.articulo_id)
+      return json(req, { ok: true })
+    }
+
     if (modo === 'investigar') {
       const { data: p } = await admin.from('editorial_propuestas').select('*').eq('id', String(body.propuesta_id ?? '')).maybeSingle()
       if (!p) return json(req, { error: 'Propuesta no encontrada' }, 404)
@@ -603,11 +745,13 @@ Deno.serve(async (req) => {
       const indicaciones = typeof body.indicaciones === 'string' ? body.indicaciones.slice(0, 3000) : ''
       const prop = art.propuesta
       const s = prop?.movement_id ? await cargarSentencia(admin, String(prop.movement_id)) : null
+      const evidencia = await bloqueEvidencia(admin, String(art.id))
 
       const r = await llm(admin, userId,
         `MODO REDACCIÓN. Tipo: ${TIPO_LABEL[tipo]}.\n\n` +
         (prop ? `PROPUESTA:\n${JSON.stringify({ titulo: prop.titulo, problema: prop.problema, pregunta: prop.pregunta, hipotesis: prop.hipotesis, enfoque: prop.enfoque }, null, 2)}\n\n` : '') +
         (art.investigacion ? `INVESTIGACIÓN PREVIA:\n${String(art.investigacion).slice(0, 20000)}\n\n` : '') +
+        (evidencia ? `${evidencia}\n\n` : '') +
         (s ? `${bloqueSentencia(s)}\n\n` : '') +
         (String(art.cuerpo ?? '').trim() ? `BORRADOR ACTUAL (mejoralo; respetá lo que Marco haya editado):\nTítulo: ${art.titulo}\nBajada: ${art.bajada ?? ''}\n${String(art.cuerpo).slice(0, 20000)}\n\n` : '') +
         (indicaciones ? `INDICACIONES DE MARCO (prioritarias):\n${indicaciones}\n\n` : '') +

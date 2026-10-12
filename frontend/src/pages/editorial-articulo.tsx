@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle, ArrowLeft, BookOpen, MoreHorizontal, X, GitCompare, MessageSquareWarning, RefreshCw, Undo2, CheckCircle2, ClipboardCheck, Copy, Download, Eye, FileText, History, Loader2, PenLine, RotateCcw, Save, Send, ShieldAlert, Sparkles,
 } from 'lucide-react'
@@ -14,6 +14,7 @@ import { HojaEditor } from '@/components/editorial/hoja-editor'
 import { DictarBoton } from '@/components/shared/dictar-boton'
 import { CompararVersiones } from '@/components/editorial/comparar-versiones'
 import { VerificacionCitas } from '@/components/editorial/verificacion-citas'
+import { HallazgosPanel } from '@/components/editorial/investigacion-externa'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -48,7 +49,9 @@ export default function EditorialArticuloPage() {
   const [leidaAntes, setLeidaAntes] = useState<number | null | undefined>(undefined)
   const [comparar, setComparar] = useState<{ titulo: string; antes: { etiqueta: string; texto: string }; despues: { etiqueta: string; texto: string } } | null>(null)
   const [devolviendo, setDevolviendo] = useState(false)
-  const [seccion, setSeccion] = useState<Panel | 'articulo'>('articulo')
+  const [searchParams] = useSearchParams()
+  const seccionInicial = searchParams.get('seccion') as Panel | null
+  const [seccion, setSeccion] = useState<Panel | 'articulo'>(seccionInicial ?? 'articulo')
   const [iaAbierta, setIaAbierta] = useState(false)
   // Alto de la barra fija: la barra de herramientas del editor se pega justo debajo
   const barraRef = useRef<HTMLDivElement>(null)
@@ -76,7 +79,7 @@ export default function EditorialArticuloPage() {
   const [cuerpo, setCuerpo] = useState('')
   const [cargado, setCargado] = useState<string | null>(null)
   const [vista, setVista] = useState<'editar' | 'previa'>('previa')
-  const [panel, setPanel] = useState<Panel>('investigacion')
+  const [panel, setPanel] = useState<Panel>(seccionInicial ?? 'investigacion')
   const [tipo, setTipo] = useState<TipoArticulo>('analisis_profesional')
   const [indicaciones, setIndicaciones] = useState('')
   const [pidiendo, setPidiendo] = useState<string | null>(null)
@@ -496,9 +499,23 @@ export default function EditorialArticuloPage() {
             ))}
           </div>
           <div className="lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-1">
-            {panel === 'investigacion' && (art.investigacion
-              ? <MarkdownView texto={art.investigacion} className="text-sm" />
-              : <p className="text-sm text-zinc-500">Sin investigación.</p>)}
+            {panel === 'investigacion' && (
+              <div className="space-y-4">
+                <HallazgosPanel articuloId={id} informeCargado={!!art.informe_cargado_at} puedeCargar={!aprobado} />
+                {art.investigacion && (
+                  <div className="border-t border-zinc-200 pt-3 dark:border-white/10">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Investigación de la IA (sin fuentes comprobadas)</p>
+                    <MarkdownView texto={art.investigacion} className="text-sm" />
+                  </div>
+                )}
+                {art.informe_externo && (
+                  <details className="border-t border-zinc-200 pt-3 dark:border-white/10">
+                    <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Informe original de Gemini</summary>
+                    <MarkdownView texto={art.informe_externo} className="mt-2 text-sm" />
+                  </details>
+                )}
+              </div>
+            )}
             {panel === 'revision' && (art.revision_critica
               ? <MarkdownView texto={art.revision_critica} className="text-sm" />
               : <p className="text-sm text-zinc-500">Todavía no hay revisión. Pedila con "Revisión crítica", arriba del texto.</p>)}

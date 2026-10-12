@@ -77,6 +77,8 @@ export interface Articulo {
   devuelto_at: string | null
   verificacion_citas: CitaVerificada[]
   citas_verificadas_at: string | null
+  informe_externo: string | null
+  informe_cargado_at: string | null
   created_at: string
   updated_at: string
 }
@@ -354,6 +356,97 @@ export async function marcarLeido(articuloId: string, profileId: string, version
     { articulo_id: articuloId, profile_id: profileId, version, leido_at: new Date().toISOString() },
     { onConflict: 'articulo_id,profile_id' },
   )
+}
+
+export type EstadoHallazgo = 'pendiente' | 'comprobado' | 'parcial' | 'no_encontrado' | 'sin_acceso' | 'sin_fuente'
+
+export interface HallazgoEditorial {
+  id: string
+  fuente_id: string | null
+  orden: number
+  afirmacion: string
+  tipo: 'norma' | 'fallo' | 'doctrina' | 'dato'
+  fuente: string | null
+  url: string | null
+  cita: string | null
+  vigencia: string | null
+  confianza: string | null
+  numero: string | null
+  tribunal: string | null
+  fecha: string | null
+  jurisdiccion: string | null
+  estado: EstadoHallazgo
+  detalle: string | null
+}
+
+export interface FuenteEditorial {
+  id: string
+  url: string
+  titulo: string | null
+  estado: 'pendiente' | 'ok' | 'sin_acceso' | 'manual'
+  error: string | null
+  en_base: boolean
+}
+
+/** Hallazgos de la investigación externa (Gemini Deep Research), con su comprobación. */
+export function useHallazgos(articuloId: string) {
+  return useQuery({
+    queryKey: ['editorial', 'hallazgos', articuloId],
+    queryFn: async () => {
+      const [{ data: hs, error: e1 }, { data: fs, error: e2 }] = await Promise.all([
+        sb().from('editorial_hallazgos').select('*').eq('articulo_id', articuloId).order('orden'),
+        sb().from('editorial_fuentes').select('id, url, titulo, estado, error, en_base').eq('articulo_id', articuloId),
+      ])
+      if (e1) throw e1
+      if (e2) throw e2
+      return { hallazgos: (hs ?? []) as HallazgoEditorial[], fuentes: (fs ?? []) as FuenteEditorial[] }
+    },
+  })
+}
+
+/** Llama a editorial-ia sin invalidar todo el módulo (para tandas largas). */
+export async function llamarEditorial<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await createClient().functions.invoke('editorial-ia', { body })
+  if (error) {
+    const ctx = (error as { context?: unknown }).context
+    if (ctx instanceof Response) {
+      const msg = await ctx.json().then((j: { error?: string }) => j.error).catch(() => null)
+      throw new Error(msg ?? error.message)
+    }
+    throw new Error('Se cortó la conexión. Si el proceso terminó, el resultado aparece al recargar.')
+  }
+  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+  return data as T
+}
+
+/** Suma a la base de normativa o jurisprudencia una fuente comprobada. */
+export function useSumarFuenteABase(articuloId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ h }: { h: HallazgoEditorial }) => {
+      if (!h.fuente_id) throw new Error('Sin fuente')
+      const { data: f, error } = await sb().from('editorial_fuentes').select('texto, url').eq('id', h.fuente_id).single()
+      if (error) throw error
+      const texto = String((f as { texto: string | null }).texto ?? '')
+      if (texto.length < 200) throw new Error('La fuente no tiene texto suficiente')
+      const fn = h.tipo === 'fallo' ? 'jurisprudencia-ingest' : 'normativa-ingest'
+      // La base guarda fecha tipo date: solo se manda si es una fecha completa
+      const iso = /^\d{4}-\d{2}-\d{2}$/.test(h.fecha ?? '') ? h.fecha
+        : (() => { const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(h.fecha ?? ''); return m ? `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}` : null })()
+      const body = h.tipo === 'fallo'
+        ? { mode: 'paste', texto, caratula: h.fuente ?? h.afirmacion.slice(0, 200), tribunal: h.tribunal, fecha: iso, jurisdiccion: h.jurisdiccion, numero: h.numero, sumario: h.afirmacion }
+        : { mode: 'paste', texto, titulo: h.fuente ?? h.afirmacion.slice(0, 200), tipo: 'norma', numero: h.numero, fecha: iso, jurisdiccion: h.jurisdiccion, fuente: (f as { url: string }).url }
+      const { data, error: e2 } = await createClient().functions.invoke(fn, { body })
+      if (e2) {
+        const ctx = (e2 as { context?: unknown }).context
+        const msg = ctx instanceof Response ? await ctx.json().then((j: { error?: string }) => j.error).catch(() => null) : null
+        throw new Error(msg ?? e2.message)
+      }
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      await sb().from('editorial_fuentes').update({ en_base: true }).eq('id', h.fuente_id)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['editorial', 'hallazgos', articuloId] }),
+  })
 }
 
 /** Guarda la bibliografía APA editada a mano (una entrada por línea). */
