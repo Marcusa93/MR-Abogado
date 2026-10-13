@@ -9,7 +9,7 @@ import {
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, CORTE_CONEXION, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
-import { descargarWord, imprimirPdf } from '@/components/editorial/exportar'
+import { descargarWord, imprimirPdf, descargarWordRevista, imprimirPdfRevista, type RevistaExport } from '@/components/editorial/exportar'
 import { HojaEditor } from '@/components/editorial/hoja-editor'
 import { DictarBoton } from '@/components/shared/dictar-boton'
 import { CompararVersiones } from '@/components/editorial/comparar-versiones'
@@ -220,6 +220,24 @@ export default function EditorialArticuloPage() {
     if (!imprimirPdf(datos)) toast.info('El navegador bloqueó la ventana', 'Tocá PDF de nuevo.')
   }
 
+  const exportarRevista = async (formato: 'word' | 'pdf') => {
+    let revista = (art.formato_revista_version === art.version ? art.formato_revista : null) as RevistaExport['revista'] | null
+    if (!revista) {
+      toast.info('Armando la versión para revista', 'Convierte las citas en notas al pie y escribe el resumen. Tarda un minuto.')
+      setPidiendo('revista')
+      try {
+        const r = await ia.mutateAsync({ modo: 'formato_revista', articulo_id: id })
+        revista = r.revista as RevistaExport['revista']
+      } catch (e) {
+        errorIA('No se pudo armar la versión para revista', 'Formato revista')(e)
+        return
+      } finally { setPidiendo(null) }
+    }
+    const datos: RevistaExport = { titulo: art.titulo, bajada: art.bajada, bibliografia: art.bibliografia ?? [], revista }
+    if (formato === 'word') return descargarWordRevista(datos)
+    if (!imprimirPdfRevista(datos)) toast.info('El navegador bloqueó la ventana', 'Tocá PDF de nuevo: ahora sale enseguida.')
+  }
+
   const textoDe = (t: { titulo: string; bajada: string | null; cuerpo: string }) => `${t.titulo}\n\n${t.bajada ? `${t.bajada}\n\n` : ''}${t.cuerpo}`
   const compararCon = (v: Version) => setComparar({
     titulo: 'Cambios en el artículo',
@@ -314,6 +332,8 @@ export default function EditorialArticuloPage() {
   if (aprobado) {
     principales.push({ key: 'word', label: 'Word', icon: Download, tono: 'ok', onClick: () => { void exportar('word') }, disabled: pidiendo === 'apa', cargando: pidiendo === 'apa', title: 'Times New Roman 12, interlineado 1,5, bibliografía APA al final' })
     principales.push({ key: 'pdf', label: 'PDF', icon: FileText, tono: 'out', onClick: () => { void exportar('pdf') }, disabled: pidiendo === 'apa' })
+    secundarias.push({ key: 'revista-word', label: 'Word formato revista (notas al pie)', icon: FileText, onClick: () => { void exportarRevista('word') }, disabled: pidiendo === 'revista', cargando: pidiendo === 'revista' })
+    secundarias.push({ key: 'revista-pdf', label: 'PDF formato revista', icon: FileText, onClick: () => { void exportarRevista('pdf') }, disabled: pidiendo === 'revista' })
     if (puedeAprobar) secundarias.push({ key: 'editar', label: 'Volver a editar', icon: PenLine, onClick: () => cambiarEstado.mutate({ estado: 'borrador' }, { onSuccess: () => toast.info('Volvió a borrador') }) })
     if (art.estado === 'aprobado' && puedeAprobar) secundarias.push({ key: 'publicado', label: 'Marcar como publicado', icon: CheckCircle2, onClick: () => {
       const url = window.prompt('Link de la publicación (opcional)') ?? null
@@ -340,6 +360,10 @@ export default function EditorialArticuloPage() {
       detalle: 'Word o PDF con formato de escrito (Times New Roman 12, interlineado 1,5) y la bibliografía APA al final.',
       accion: { label: 'Descargar Word', onClick: () => { void exportar('word') }, cargando: pidiendo === 'apa' },
       secundaria: { label: 'PDF', onClick: () => { void exportar('pdf') } } },
+    { key: 'revista', titulo: 'Versión para revista jurídica (opcional)', hecho: false, opcional: true,
+      detalle: 'Con membrete, resumen, palabras clave y las citas como notas al pie, al estilo de La Ley o Rubinzal. La bibliografía va al final.',
+      accion: { label: 'Word formato revista', onClick: () => { void exportarRevista('word') }, cargando: pidiendo === 'revista' },
+      secundaria: { label: 'PDF', onClick: () => { void exportarRevista('pdf') } } },
     { key: 'difundir', titulo: 'Adaptarlo para redes o boletín (opcional)', hecho: Object.keys(art.adaptaciones ?? {}).length > 0, opcional: true,
       detalle: 'Versiones cortas para LinkedIn, Instagram o el boletín, más abajo del texto.',
       accion: { label: 'Ir a adaptaciones', onClick: irAlTexto } },

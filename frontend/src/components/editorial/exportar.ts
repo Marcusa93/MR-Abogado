@@ -110,3 +110,93 @@ export function imprimirPdf(a: ArticuloExport): boolean {
   w.document.close()
   return true
 }
+
+
+// ── Formato revista: notas al pie, resumen, palabras clave y membrete ───────
+
+export interface RevistaExport {
+  titulo: string
+  bajada: string | null
+  bibliografia: string[]
+  revista: { resumen: string; palabras_clave: string[]; cuerpo: string; notas: Record<string, string> }
+  autor?: string
+}
+
+const MEMBRETE = 'ESTUDIO JURÍDICO DR. MARCO ROSSI · San Miguel de Tucumán'
+
+/** Llamada a nota: en Word es una nota al pie real; en el PDF, un superíndice con las notas al final. */
+function conNotas(html: string, paraWord: boolean): string {
+  return html.replace(/\[\^(\d+)\]/g, (_, n: string) => paraWord
+    ? `<a style="mso-footnote-id:ftn${n}" href="#_ftn${n}" name="_ftnref${n}"><span class="MsoFootnoteReference"><span style="mso-special-character:footnote"><![if !supportFootnotes]>[${n}]<![endif]></span></span></a>`
+    : `<sup>${n}</sup>`)
+}
+
+const notaHtml = (t: string) => inline(t).replace(/\[(Falta|Faltan|Año|Ley aprobatoria|[^\]]*verific)[^\]]*\]/gi, (m) => `<span style="background:#fff3a0">${m}</span>`)
+
+const ESTILOS_REVISTA = ESTILOS + `
+  .membrete { text-align: center; font-size: 9pt; letter-spacing: 1pt; color: #444; border-bottom: 0.5pt solid #999; padding-bottom: 6pt; margin-bottom: 24pt; }
+  .resumen-titulo { font-weight: bold; margin-top: 12pt; margin-bottom: 4pt; }
+  .resumen { font-size: 11pt; line-height: 130%; text-align: justify; }
+  .claves { font-size: 11pt; margin-bottom: 24pt; }
+  p.MsoFootnoteText, .nota { font-size: 10pt; line-height: 115%; margin: 0 0 4pt 0; text-align: justify; text-indent: 0; }
+  span.MsoFootnoteReference { vertical-align: super; font-size: 8pt; }
+  .notas-titulo { font-weight: bold; margin-top: 24pt; }
+`
+
+function documentoRevista(a: RevistaExport, paraWord: boolean): string {
+  const r = a.revista
+  const numeros = Object.keys(r.notas).map(Number).sort((x, y) => x - y)
+  // Si la IA repitió título o bajada al comienzo del cuerpo, se sacan (ya van en el encabezado)
+  const plano = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const lineas = r.cuerpo.replace(/\r\n/g, '\n').split('\n')
+  while (lineas.length) {
+    const l = plano(lineas[0]!.replace(/^#+\s*|[*_]/g, ''))
+    if (!l || l === plano(a.titulo) || (a.bajada && l === plano(a.bajada))) lineas.shift()
+    else break
+  }
+  const cuerpo = conNotas(markdownAHtml(lineas.join('\n')), paraWord)
+  const bibliografia = [...a.bibliografia].sort((x, y) => x.localeCompare(y, 'es', { sensitivity: 'base' }))
+  const notasWord = numeros.map((n) =>
+    `<div style="mso-element:footnote" id="ftn${n}"><p class="MsoFootnoteText"><a style="mso-footnote-id:ftn${n}" href="#_ftnref${n}" name="_ftn${n}"><span class="MsoFootnoteReference"><span style="mso-special-character:footnote"><![if !supportFootnotes]>[${n}]<![endif]></span></span></a> ${notaHtml(r.notas[String(n)] ?? '')}</p></div>`).join('\n')
+  const notasPdf = numeros.map((n) => `<p class="nota"><sup>${n}</sup> ${notaHtml(r.notas[String(n)] ?? '')}</p>`).join('\n')
+  const cabecera = paraWord
+    ? '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    : '<!doctype html><html lang="es">'
+  return `${cabecera}
+<head><meta charset="utf-8"><title>${esc(a.titulo)}</title>
+${paraWord ? '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->' : ''}
+<style>${ESTILOS_REVISTA}</style></head>
+<body>
+<p class="membrete">${esc(MEMBRETE)}</p>
+<p class="titulo">${inline(a.titulo)}</p>
+${a.bajada ? `<p class="bajada">${inline(a.bajada)}</p>` : ''}
+<p class="autor">${esc(a.autor ?? 'Marco Rossi')}</p>
+${r.resumen ? `<p class="resumen-titulo">Resumen</p><p class="resumen">${inline(r.resumen)}</p>` : ''}
+${r.palabras_clave.length ? `<p class="claves"><b>Palabras clave:</b> ${esc(r.palabras_clave.join('; '))}.</p>` : ''}
+${cuerpo}
+${paraWord ? '' : (numeros.length ? `<p class="notas-titulo">Notas</p>\n${notasPdf}` : '')}
+${bibliografia.length ? `<p class="referencias">Bibliografía</p>\n${bibliografia.map((x) => `<p class="ref">${inline(x)}</p>`).join('\n')}` : ''}
+${paraWord && numeros.length ? `<div style="mso-element:footnote-list"><br clear="all" style="mso-special-character:line-break"><hr align="left" size="1" width="33%">\n${notasWord}\n</div>` : ''}
+</body></html>`
+}
+
+export function descargarWordRevista(a: RevistaExport) {
+  const blob = new Blob(['﻿', documentoRevista(a, true)], { type: 'application/msword' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${nombreArchivo(a.titulo)}-revista.doc`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+export function imprimirPdfRevista(a: RevistaExport): boolean {
+  const w = window.open('', '_blank')
+  if (!w) return false
+  w.document.write(documentoRevista(a, false).replace('</body>',
+    '<script>window.addEventListener("load", () => setTimeout(() => window.print(), 200))</script></body>'))
+  w.document.close()
+  return true
+}

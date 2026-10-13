@@ -80,6 +80,8 @@ export interface Articulo {
   informe_externo: string | null
   informe_cargado_at: string | null
   eje_id: string | null
+  formato_revista: { resumen: string; palabras_clave: string[]; cuerpo: string; notas: Record<string, string> } | null
+  formato_revista_version: number | null
   created_at: string
   updated_at: string
 }

@@ -51,11 +51,16 @@ interface TelegramSession {
   updated_at: string
 }
 
-interface TelegramPending {
+type TelegramPending = {
   step: 'await_tipo'
   expediente_id: string
   caratula: string | null
   idea_limpia: string
+} | {
+  // Editorial: Marco tocó "Devolver" y el próximo mensaje (texto o audio) son las observaciones
+  step: 'ed_devolver'
+  articulo_id: string
+  titulo: string
 }
 
 async function tgSend(token: string, chatId: number, text: string) {
@@ -163,6 +168,33 @@ function inferirTipoEscrito(texto: string): string | null {
   if (/ampliaci[oó]n\s+de\s+demanda/.test(t)) return 'Ampliación de demanda'
   if (/pronto\s+despacho/.test(t)) return 'Pronto despacho'
   return null
+}
+
+// ── Editorial: llamadas internas a editorial-ia (mismo secreto que los crons) ──
+async function llamarEditorial(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/editorial-ia`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-cron-secret': Deno.env.get('CRON_SECRET') ?? '' },
+    body: JSON.stringify(body),
+  })
+  const out = await res.json().catch(() => ({})) as Record<string, unknown>
+  if (!res.ok || out.error) throw new Error(String(out.error ?? `editorial-ia ${res.status}`))
+  return out
+}
+
+const IDEA_ARTICULO_RE = /^\s*(?:\/art[ií]culo\b|idea\s+para\s+(?:un\s+)?art[ií]culo\b|art[ií]culo\s*[:,.-])\s*/i
+
+async function proponerArticulo(admin: Admin, token: string, chatId: number, idea: string, perfilId?: string) {
+  if (idea.trim().length < 15) {
+    await tgSend(token, chatId, 'Contame la idea del artículo: /articulo seguido del tema, o una nota de voz que empiece con "Artículo…".')
+    return
+  }
+  await tgSend(token, chatId, '📝 Armando la propuesta editorial…')
+  const r = await llamarEditorial({ modo: 'propuesta_idea', texto: idea, ...(perfilId ? { perfil_id: perfilId } : {}) })
+  const p = r.propuesta as { id: string; titulo: string; pregunta: string | null }
+  await tgSendKb(token, chatId, `Propuesta creada: "${p.titulo}"${p.pregunta ? `\n\n${p.pregunta}` : ''}\n\nNo se investigó ni se redactó nada todavía.`,
+    [[{ text: 'Abrir en Editorial', url: `${APP_URL}/editorial` }]])
+  return p
 }
 
 // Helpers de sesión conversacional
@@ -361,9 +393,19 @@ async function handleColaborador(
     await responderHecho(admin, token, chatId, perfil.id, hecho[1], false)
     return
   }
+  if (IDEA_ARTICULO_RE.test(t)) {
+    const { data: acc } = await admin.from('profiles').select('acceso_editorial').eq('id', perfil.id).maybeSingle()
+    if ((acc as { acceso_editorial?: boolean } | null)?.acceso_editorial) {
+      const p = await proponerArticulo(admin, token, chatId, t.replace(IDEA_ARTICULO_RE, ''), perfil.id)
+      const marco = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null
+      if (p && marco) await tgSend(token, marco, `Editorial: ${perfil.nombre ?? 'Un colaborador'} propuso un tema: "${p.titulo}".`)
+      return
+    }
+  }
   if (/^\/(ayuda|help)\b/i.test(t)) {
     await tgSend(token, chatId,
       'Acá te aviso cuando tengas una tarea nueva y cada mañana te mando tus pendientes.\n\n' +
+      '/articulo + tu idea — proponer un tema para Editorial\n' +
       '/tareas — ver tus pendientes\n' +
       '/hecho N — marcar como hecha la tarea N de la lista\n\n' +
       `También las ves en ${APP_URL}/inicio`)
@@ -429,7 +471,8 @@ async function handleGestion(
       '  Ej: /tarea demanda laboral Medina Vives Luciana para Claudio para el viernes alta\n' +
       '/hecho N — marcar como hecha tu tarea N\n' +
       '/audiencias — próximas 7 días\n' +
-      '/sae — notificaciones SAE recientes\n\n' +
+      '/sae — notificaciones SAE recientes\n' +
+      '/articulo [idea] — proponer un tema para Editorial (o un audio que empiece con "Artículo…")\n\n' +
       'Sin / → generás un escrito por expediente.',
     )
     return
@@ -740,6 +783,42 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // Editorial: aprobar o devolver un artículo desde el chat (solo Marco)
+      const ed = /^ed_(aprobar|devolver):([0-9a-f-]{36})$/.exec(cq.data ?? '')
+      if (ed) {
+        if (!esAutorizado(String(cq.from.id))) { await tgAnswerCallback(token, cq.id, 'Solo Marco aprueba artículos.'); return new Response('ok') }
+        const chat = cq.message?.chat.id ?? cq.from.id
+        const { data: a } = await admin.from('editorial_articulos').select('id, titulo, estado, asignado_a, creado_por').eq('id', ed[2]).maybeSingle()
+        const art = a as { id: string; titulo: string; estado: string; asignado_a: string | null; creado_por: string | null } | null
+        if (!art) { await tgAnswerCallback(token, cq.id, 'No encontré el artículo.'); return new Response('ok') }
+        if (ed[1] === 'devolver') {
+          await saveSession(admin, { chat_id: chat, pending: { step: 'ed_devolver', articulo_id: art.id, titulo: art.titulo } })
+          await tgAnswerCallback(token, cq.id, 'Mandame las observaciones')
+          await tgSend(token, chat, `Escribí o dictá las observaciones para devolver "${art.titulo}". (Para no devolverlo: "cancelar")`)
+          return new Response('ok')
+        }
+        if (art.estado !== 'borrador') { await tgAnswerCallback(token, cq.id, `El artículo ya está ${art.estado}.`); return new Response('ok') }
+        const ahora = new Date().toISOString()
+        const { error } = await admin.from('editorial_articulos').update({ estado: 'aprobado', aprobado_at: ahora, aprobacion_pedida_at: null, devuelto_at: null, updated_at: ahora }).eq('id', art.id)
+        if (error) { await tgAnswerCallback(token, cq.id, 'No se pudo aprobar.'); return new Response('ok') }
+        await tgAnswerCallback(token, cq.id, 'Aprobado')
+        await tgSendKb(token, chat, `Aprobado: "${art.titulo}". Ya se puede descargar en Word o PDF.`, [[{ text: 'Abrir', url: `${APP_URL}/editorial/${art.id}` }]])
+        // Aviso a quien lo trabajó y aprendizaje (estilo, línea temática) en segundo plano
+        const quien = art.asignado_a ?? art.creado_por
+        const dir = await directorId()
+        const tareas: Promise<unknown>[] = [llamarEditorial({ modo: 'al_aprobar', articulo_id: art.id }).catch((e) => console.error('[telegram-escrito] al_aprobar', e))]
+        if (quien && quien !== dir) {
+          tareas.push((async () => {
+            const { data: p } = await admin.from('profiles').select('telegram_chat_id').eq('id', quien).maybeSingle()
+            const c = (p as { telegram_chat_id: number | null } | null)?.telegram_chat_id
+            if (c) await tgSend(token, c, `Editorial: Marco aprobó "${art.titulo}". ¡Buen trabajo!`)
+          })())
+        }
+        // @ts-ignore EdgeRuntime existe en Supabase Edge Functions
+        EdgeRuntime.waitUntil(Promise.all(tareas))
+        return new Response('ok')
+      }
+
       const m = /^hecho:([0-9a-f-]{36})$/.exec(cq.data ?? '')
       if (!m) { await tgAnswerCallback(token, cq.id, ''); return new Response('ok') }
       const autorizado = esAutorizado(String(cq.from.id))
@@ -795,15 +874,36 @@ Deno.serve(async (req) => {
     const targetProfile = await directorId()
     if (!targetProfile) { await tgSend(token, chatId, 'No encontré el perfil del director para firmar. Avisale al admin.'); return new Response('ok') }
 
+    // Editorial: ¿estamos esperando las observaciones de una devolución?
+    const sesionEd = await loadSession(admin, chatId)
+    const devolviendo = isPendingValid(sesionEd) && sesionEd.pending.step === 'ed_devolver' ? sesionEd.pending : null
+
     // Texto base: voz → transcripción, o texto directo
     let texto = (msg.text ?? msg.caption ?? '').trim()
     if (msg.voice || msg.audio) {
-      await tgSend(token, chatId, '🎙️ Recibí tu audio. Transcribiendo y buscando el expediente…')
+      await tgSend(token, chatId, devolviendo ? '🎙️ Recibí tus observaciones. Transcribiendo…' : '🎙️ Recibí tu audio. Transcribiendo…')
       const { data, mime } = await tgDownload(token, (msg.voice ?? msg.audio)!.file_id)
       texto = (await transcribeAudio(data, mime, Deno.env.get('GROQ_API_KEY'), Deno.env.get('OPENAI_API_KEY'))).trim()
     }
     if (!texto) {
       await tgSend(token, chatId, 'Mandame una nota de voz o un texto diciendo el expediente (por actor/demandado o número) y qué hay que presentar.')
+      return new Response('ok')
+    }
+
+    if (devolviendo) {
+      await saveSession(admin, { chat_id: chatId, pending: null })
+      if (/^\s*\/?(cancelar|cancel|no)\s*$/i.test(texto)) {
+        await tgSend(token, chatId, 'Listo, no lo devolví.')
+        return new Response('ok')
+      }
+      const r = await llamarEditorial({ modo: 'devolver', articulo_id: devolviendo.articulo_id, observaciones: texto })
+      await tgSend(token, chatId, `Devuelto "${devolviendo.titulo}" con tus observaciones.${r.avisado ? ' Le llegó el aviso por Telegram.' : ''}`)
+      return new Response('ok')
+    }
+
+    // Editorial: idea para un artículo (/articulo … o audio que empieza con "Artículo…")
+    if (IDEA_ARTICULO_RE.test(texto)) {
+      await proponerArticulo(admin, token, chatId, texto.replace(IDEA_ARTICULO_RE, ''))
       return new Response('ok')
     }
 
@@ -843,7 +943,7 @@ Deno.serve(async (req) => {
     // CASO A: respuesta a una confirmación pendiente de tipo de escrito
     // El usuario respondió "Recurso de apelación" o "sí" a nuestra pregunta anterior.
     const tieneNumeroExpediente = /\d{3,}\/\d{2,}|\b\d{4,}\b/.test(texto)
-    if (isPendingValid(session) && !tieneNumeroExpediente) {
+    if (isPendingValid(session) && session.pending.step === 'await_tipo' && !tieneNumeroExpediente) {
       const { expediente_id, caratula, idea_limpia } = session.pending
 
       // Cancelar

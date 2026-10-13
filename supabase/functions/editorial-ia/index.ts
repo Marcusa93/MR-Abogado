@@ -57,7 +57,10 @@ async function llmTexto(admin: Admin, userId: string, instruccion: string, maxTo
   const body = {
     model: MODELO,
     temperature: 0.4,
-    max_tokens: maxTokens,
+    // El modelo razona siempre y ese razonamiento cuenta dentro de max_tokens: se le suma un margen
+    // para que no se coma el espacio de la respuesta (si no, la respuesta llega vacía o cortada)
+    max_tokens: maxTokens + 4000,
+    reasoning: { effort: 'low', exclude: true },
     messages: [
       { role: 'system', content: EDITORIAL_SYSTEM_PROMPT },
       { role: 'user', content: instruccion },
@@ -79,8 +82,11 @@ async function llmTexto(admin: Admin, userId: string, instruccion: string, maxTo
   })
   logLlmCall(admin, userId, FUNCTION_NAME, bytes)
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 200)}`)
-  const out = await res.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[] }
-  return { raw: out.choices?.[0]?.message?.content ?? '', finish: out.choices?.[0]?.finish_reason ?? '' }
+  const out = await res.json() as { choices?: { message?: { content?: string; reasoning?: string }; finish_reason?: string }[]; usage?: unknown }
+  const raw = out.choices?.[0]?.message?.content ?? ''
+  const finish = out.choices?.[0]?.finish_reason ?? ''
+  if (!raw.trim()) console.error('[editorial] respuesta vacía', finish, JSON.stringify(out.usage ?? {}), (out.choices?.[0]?.message?.reasoning ?? '').slice(0, 200))
+  return { raw, finish }
 }
 
 async function llm(admin: Admin, userId: string, instruccion: string, maxTokens: number): Promise<Record<string, unknown>> {
@@ -379,6 +385,13 @@ async function avisarFin(admin: Admin, userId: string, articuloId: string, titul
 /** Quién trabaja un artículo: el asignado o quien lo creó. */
 const responsable = (a: Record<string, unknown>) => (a.asignado_a ?? a.creado_por ?? null) as string | null
 
+async function telegramMarcoKb(texto: string, keyboard: { text: string; url?: string; callback_data?: string }[][]) {
+  const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
+  const chat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null
+  if (!token || !chat) return
+  await tgSendKb(token, chat, texto, keyboard)
+}
+
 async function telegramMarco(texto: string) {
   const token = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
   const chat = Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null
@@ -435,10 +448,16 @@ Deno.serve(async (req) => {
     const esCron = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret
     let userId: string
     if (esCron) {
-      if (!['sentencias', 'radar', 'seguimiento', 'actualizacion'].includes(modo)) return json(req, { error: 'Modo no permitido por cron' }, 403)
+      // Internos: crons y bot de Telegram (idea por audio, aprobar y devolver desde el chat)
+      if (!['sentencias', 'radar', 'seguimiento', 'actualizacion', 'propuesta_idea', 'al_aprobar', 'devolver'].includes(modo)) return json(req, { error: 'Modo no permitido por cron' }, 403)
       const { data } = await admin.from('profiles').select('id').eq('acceso_editorial', true).eq('activo', true).order('editorial_aprueba', { ascending: false }).limit(1).maybeSingle()
       if (!data) return json(req, { ok: true, mensaje: 'Nadie con acceso editorial' })
       userId = (data as { id: string }).id
+      // El bot puede indicar quién habla (colaborador vinculado): solo para proponer ideas
+      if (modo === 'propuesta_idea' && typeof body.perfil_id === 'string') {
+        const { data: p } = await admin.from('profiles').select('id').eq('id', body.perfil_id).eq('acceso_editorial', true).eq('activo', true).maybeSingle()
+        if (p) userId = (p as { id: string }).id
+      }
     } else {
       const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!,
         { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } })
@@ -669,6 +688,25 @@ Deno.serve(async (req) => {
     }
 
     // ── investigar ─────────────────────────────────────────────────────────
+    // ── idea suelta (audio o texto del bot) → propuesta ordenada ───────────
+    if (modo === 'propuesta_idea') {
+      const idea = typeof body.texto === 'string' ? body.texto.trim().slice(0, 6000) : ''
+      if (idea.length < 15) return json(req, { error: 'La idea es muy corta' }, 400)
+      const r = await llm(admin, userId,
+        'MODO PROPUESTA DESDE UNA IDEA. Marco (o un colaborador) dictó una idea suelta para un artículo. Ordenala como propuesta editorial ' +
+        'respetando lo que dijo: no cambies el tema ni la postura; completá solo lo necesario para que sea investigable. ' +
+        'Si menciona normas o fallos, ponelos en "fuentes" como a verificar.\n\n' +
+        `IDEA (transcripta, puede tener errores de dictado):\n<<<\n${idea}\n>>>\n\n` +
+        `MEMORIA EDITORIAL (para no repetir):\n${await memoria(admin)}\n\n` +
+        `${FORMATO_JSON}\n${CAMPOS_PROPUESTA}`,
+        1500)
+      const { data: prop, error } = await admin.from('editorial_propuestas').insert({
+        ...propuestaDesdeIA(r), origen: 'manual', creado_por: userId,
+      }).select('id, titulo, pregunta').single()
+      if (error || !prop) throw new Error(`No se pudo crear la propuesta: ${error?.message}`)
+      return json(req, { ok: true, propuesta: prop })
+    }
+
     // ── asignar un tema a un colaborador (solo quien aprueba: Marco) ──────
     if (modo === 'asignar') {
       const { data: yo } = await admin.from('profiles').select('nombre, editorial_aprueba').eq('id', userId).maybeSingle()
@@ -894,7 +932,7 @@ Deno.serve(async (req) => {
     const { data: a, error: errArt } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     if (errArt) throw new Error(`No se pudo leer el artículo: ${errArt.message}`)
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'depurar', 'al_aprobar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'depurar', 'al_aprobar', 'formato_revista', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -1067,6 +1105,50 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, reglas_nuevas: filas.length, eje_id: eje, tesis: t.length, preguntas: q.length })
     }
 
+    // ── formato revista: notas al pie, resumen y palabras clave ────────────
+    if (modo === 'formato_revista' && art) {
+      if (!String(art.cuerpo ?? '').trim()) return json(req, { error: 'Todavía no hay texto' }, 400)
+      if (art.formato_revista && Number(art.formato_revista_version) === Number(art.version) && !body.rehacer) {
+        return json(req, { ok: true, revista: art.formato_revista, cacheado: true })
+      }
+      const { raw } = await llmTexto(admin, userId,
+        'MODO FORMATO REVISTA JURÍDICA ARGENTINA. Convertí el artículo al formato de citas de las revistas jurídicas argentinas ' +
+        '(La Ley, Rubinzal-Culzoni, revistas universitarias):\n' +
+        '1. Cada cita entre paréntesis en el texto (estilo APA) se reemplaza por una llamada a nota al pie [^n], numeradas desde 1 en orden de aparición.\n' +
+        '2. La nota lleva la referencia completa en estilo argentino: normas ("Ley 26.485, art. 7, B.O. 14/04/2009."), fallos ' +
+        '("CSJN, \'Carátula\', sent. del dd/mm/aaaa, Fallos: tomo:página." o el tribunal de Tucumán con su fecha), doctrina ' +
+        '("APELLIDO, Nombre, Título de la obra, Editorial, Ciudad, año, p. x."). Usá solo los datos que ya estén en el texto o la bibliografía: ' +
+        'si falta un dato (B.O., Fallos, página), omitilo; no lo inventes. Si una fuente se repite, usá "Ob. cit." o "Ídem".\n' +
+        '3. No cambies el texto en nada más: mismas palabras, mismo orden, mismo markdown. El CUERPO empieza con el primer párrafo: ' +
+        'no repitas el título ni la bajada.\n' +
+        '4. Escribí un resumen de 120 a 180 palabras y de 4 a 6 palabras clave.\n\n' +
+        `TÍTULO: ${art.titulo}\nBAJADA: ${art.bajada ?? ''}\n\nARTÍCULO:\n${String(art.cuerpo).slice(0, 40000)}\n\n` +
+        `BIBLIOGRAFÍA:\n${((art.bibliografia as string[] | null) ?? []).join('\n') || '(sin bibliografía)'}\n\n` +
+        'FORMATO DE RESPUESTA (texto plano, sin JSON), exactamente con estos separadores:\n' +
+        '===RESUMEN===\n...\n===PALABRAS_CLAVE===\npalabra; palabra; palabra\n===CUERPO===\n(el artículo con las llamadas [^n])\n' +
+        '===NOTAS===\n[^1]: texto de la nota\n[^2]: texto de la nota\n===FIN===',
+        14000)
+      const parte = (nombre: string) => {
+        const m = new RegExp(`===${nombre}===\\s*([\\s\\S]*?)(?====[A-Z_]+===|$)`).exec(raw)
+        return m ? m[1]!.trim() : ''
+      }
+      const cuerpo = parte('CUERPO')
+      if (cuerpo.length < String(art.cuerpo).length * 0.6) throw new Error('La IA no devolvió el artículo completo en formato revista. Probá de nuevo.')
+      const notas: Record<string, string> = {}
+      for (const l of parte('NOTAS').split('\n')) {
+        const m = /^\s*\[\^(\d+)\]\s*:?\s*(.+)$/.exec(l)
+        if (m) notas[m[1]!] = m[2]!.trim()
+      }
+      const revista = {
+        resumen: parte('RESUMEN'),
+        palabras_clave: parte('PALABRAS_CLAVE').split(/[;,\n]/).map((x) => x.trim()).filter(Boolean).slice(0, 8),
+        cuerpo,
+        notas,
+      }
+      await admin.from('editorial_articulos').update({ formato_revista: revista, formato_revista_version: art.version }).eq('id', art.id)
+      return json(req, { ok: true, revista })
+    }
+
     // ── depurar: sacar lo no verificable y dejar el artículo coherente ────
     if (modo === 'depurar' && art) {
       const cuerpoActual = String(art.cuerpo ?? '')
@@ -1231,8 +1313,16 @@ Deno.serve(async (req) => {
       const quien = autor ? `${(autor as { nombre: string }).nombre} ${(autor as { apellido: string | null }).apellido ?? ''}`.trim() : 'Un colaborador'
       const nota = typeof body.nota === 'string' ? body.nota.slice(0, 500).trim() : ''
       await admin.from('editorial_articulos').update({ aprobacion_pedida_at: new Date().toISOString(), devuelto_at: null }).eq('id', art.id)
-      await telegramMarco(`Editorial: ${quien} te pide que revises y apruebes un artículo.\n\n` +
-        `"${art.titulo}"${nota ? `\n\n${nota}` : ''}\n\n${APP_URL}/editorial/${art.id}`)
+      const cuerpoArt = String(art.cuerpo ?? '')
+      const marcas = (cuerpoArt.match(/\[VERIFICAR/g) ?? []).length
+      const palabrasArt = cuerpoArt.trim() ? cuerpoArt.trim().split(/\s+/).length : 0
+      const sinVerificar = ((art.verificacion_citas as { estado: string }[] | null) ?? []).filter((c) => c.estado === 'no_encontrada').length
+      await telegramMarcoKb(`Editorial: ${quien} te pide que revises y apruebes un artículo.\n\n` +
+        `"${art.titulo}"\n${palabrasArt} palabras · ${marcas ? `${marcas} marcas [VERIFICAR] pendientes` : 'sin marcas [VERIFICAR]'}` +
+        `${art.citas_verificadas_at ? ` · ${sinVerificar ? `${sinVerificar} citas no verificadas` : 'citas verificadas'}` : ' · citas sin verificar'}` +
+        `${nota ? `\n\n${nota}` : ''}\n\nLeelo antes de aprobar.`,
+        [[{ text: 'Abrir y leer', url: `${APP_URL}/editorial/${art.id}` }],
+         [{ text: marcas ? 'Aprobar igual' : 'Aprobar', callback_data: `ed_aprobar:${art.id}` }, { text: 'Devolver con observaciones', callback_data: `ed_devolver:${art.id}` }]])
       return json(req, { ok: true })
     }
 
