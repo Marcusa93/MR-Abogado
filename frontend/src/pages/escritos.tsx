@@ -23,6 +23,8 @@ import {
 } from '@/hooks/use-jurisprudencia'
 import { useSaeMovements } from '@/hooks/use-sae'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from '@/components/expedientes/escrito-preview'
+import { GuiaEscrito } from '@/components/expedientes/guia-escrito'
+import { CaracterSelector, CARACTER_POR_DEFECTO, formulaPresentacion, inferirCaracter, type CaracterEscrito } from '@/components/expedientes/caracter-escrito'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -86,6 +88,11 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   const [tipo, setTipo] = useState('')
   const [ideaLibre, setIdeaLibre] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
+  const [caracter, setCaracter] = useState<CaracterEscrito>(CARACTER_POR_DEFECTO)
+  const [caracterTocado, setCaracterTocado] = useState(false)
+  useEffect(() => {
+    if (!caracterTocado) setCaracter(inferirCaracter(`${tipo} ${ideaLibre}`, CARACTER_POR_DEFECTO))
+  }, [tipo, ideaLibre, caracterTocado])
   const [expedienteId, setExpedienteId] = useState('')
   const [expedienteQuery, setExpedienteQuery] = useState('')
   const [modeloId, setModeloId] = useState('')
@@ -152,6 +159,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
         idea_libre: ideaLibre.trim() || null,
         responde_a_movimiento_id: respondeA || undefined,
         instrucciones: instrucciones.trim() || undefined,
+        caracter,
         template_id: templateId || null,
         modelo_id: modeloId || null,
         borrador_previo: selectedModelo?.contenido_modelo ?? undefined,
@@ -197,6 +205,12 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
               className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none"
             />
             <datalist id="escritos-tipos">{TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}</datalist>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-zinc-300">Me presento como</label>
+            <CaracterSelector value={caracter} expedienteId={expedienteId || null}
+              onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
           </div>
 
           <div>
@@ -1232,6 +1246,10 @@ function EscritoEditor({
       <div className="flex-1 overflow-hidden flex">
         {/* Editor / Preview */}
         <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-4">
+            <GuiaEscrito escrito={escrito} contenido={contenido} abogado={abogado} dirty={dirty} guardando={guardando}
+              onGuardar={() => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); void doGuardar(contenido, tituloLocal, contenidoBeforeSaveRef.current) }} />
+          </div>
           {vista === 'editar' && (
             <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
               {/* Encabezado y carátula */}
@@ -1250,7 +1268,20 @@ function EscritoEditor({
                 </div>
               </div>
 
-              {contenido.presentacion !== undefined && (
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Me presento como</label>
+                <CaracterSelector compacto expedienteId={escrito.expediente_id}
+                  value={contenido.caracter ?? CARACTER_POR_DEFECTO}
+                  onChange={(c) => {
+                    const anterior = contenido.caracter ?? CARACTER_POR_DEFECTO
+                    const actual = contenido.presentacion?.trim() ?? ''
+                    const automatica = !actual || actual === formulaPresentacion(anterior)
+                      || (!contenido.caracter && /^En mi car[aá]cter de apoderad|^Por mi propio derecho/i.test(actual))
+                    updateContenido({ ...contenido, caracter: c, presentacion: automatica ? formulaPresentacion(c) : contenido.presentacion })
+                  }} />
+              </div>
+
+              {(
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Presentación</label>
                   <textarea value={contenido.presentacion ?? ''} rows={2}
@@ -1484,6 +1515,7 @@ export default function EscritosPage() {
   const [refsOpen, setRefsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [filtroExpediente, setFiltroExpediente] = useState('')
+  const [bandeja, setBandeja] = useState<'pendientes' | 'presentar' | 'proveido' | 'cerrados' | 'todos'>('pendientes')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNuevo, setShowNuevo] = useState(false)
   const [showModelos, setShowModelos] = useState(false)
@@ -1504,8 +1536,19 @@ export default function EscritosPage() {
     return Array.from(map.entries()).map(([id, label]) => ({ id, label }))
   }, [escritos])
 
+  // Bandejas según dónde está cada escrito en su recorrido
+  const enBandeja = (e: EscritoConExpediente, b: typeof bandeja) => {
+    const presentado = e.estado === 'presentado' || e.estado === 'presentado_sae'
+    if (b === 'pendientes') return e.estado === 'borrador' || e.estado === 'final'
+    if (b === 'presentar') return e.estado === 'firmado'
+    if (b === 'proveido') return presentado && !e.proveido_movement_id
+    if (b === 'cerrados') return presentado && !!e.proveido_movement_id
+    return true
+  }
+  const conteoBandeja = (b: typeof bandeja) => (escritos as EscritoConExpediente[]).filter((e) => enBandeja(e, b)).length
+
   const escritosFiltrados = useMemo(() => {
-    let list = escritos as EscritoConExpediente[]
+    let list = (escritos as EscritoConExpediente[]).filter((e) => enBandeja(e, bandeja))
     if (filtroExpediente) list = list.filter(e => e.expediente_id === filtroExpediente)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -1515,7 +1558,7 @@ export default function EscritosPage() {
       )
     }
     return list
-  }, [escritos, search, filtroExpediente])
+  }, [escritos, search, filtroExpediente, bandeja]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreated = (escritoId: string) => {
     setShowNuevo(false)
@@ -1572,6 +1615,17 @@ export default function EscritosPage() {
           </div>
         </div>
 
+        {/* Bandejas */}
+        <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
+          {([['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const).map(([b, label]) => (
+            <button key={b} type="button" onClick={() => setBandeja(b)}
+              className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
+                bandeja === b ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:bg-white/5')}>
+              {label} <span className="tabular-nums opacity-70">{conteoBandeja(b)}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Filtro expediente */}
         {expedientesUnicos.length > 0 && (
           <div className="px-3 py-1.5 border-b border-white/5">
@@ -1606,9 +1660,17 @@ export default function EscritosPage() {
                 </span>
                 {e.expediente && <span className="text-[10px] text-zinc-600 truncate">{e.expediente.caratula ?? e.expediente.numero}</span>}
               </div>
-              <p className="text-[10px] text-zinc-700 mt-0.5">
-                {new Date(e.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-              </p>
+              {(() => {
+                const dias = Math.floor((Date.now() - new Date(e.updated_at).getTime()) / 86_400_000)
+                const viejo = dias > 7 && (e.estado === 'borrador' || e.estado === 'final' || e.estado === 'firmado')
+                return (
+                  <p className={cn('text-[10px] mt-0.5', viejo ? 'text-amber-500' : 'text-zinc-700')}>
+                    {e.proveido_movement_id ? 'Proveído recibido' : (e.estado === 'presentado' || e.estado === 'presentado_sae') ? 'Esperando proveído · ' : ''}
+                    {!e.proveido_movement_id && (dias === 0 ? 'hoy' : `hace ${dias} ${dias === 1 ? 'día' : 'días'}`)}
+                    {viejo && ' · sin terminar'}
+                  </p>
+                )
+              })()}
             </button>
           ))}
         </div>
