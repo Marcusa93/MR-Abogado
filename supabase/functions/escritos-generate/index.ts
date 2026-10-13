@@ -634,6 +634,44 @@ type RequestBody = {
   actuaciones_extra_ids?: string[] | null
   /** Si true, la respuesta se envía como SSE (text/event-stream). */
   stream?: boolean
+  /** Carácter de la presentación: apoderado de una parte, por derecho propio o patrocinante (habla la parte). */
+  caracter?: {
+    modo: 'apoderado' | 'derecho_propio' | 'patrocinante'
+    parte: 'actora' | 'demandada' | 'otra'
+    parte_texto?: string
+    patrocinado?: { nombre: string; dni: string; domicilio: string }
+  } | null
+}
+
+type Caracter = NonNullable<RequestBody['caracter']>
+
+function textoParte(c: Caracter): string {
+  return c.parte === 'otra' ? (c.parte_texto?.trim() || 'la parte') : c.parte === 'actora' ? 'la parte actora' : 'la parte demandada'
+}
+
+/** Misma fórmula que el editor (frontend/src/components/expedientes/caracter-escrito.tsx). */
+function formulaPresentacion(c: Caracter): string {
+  if (c.modo === 'derecho_propio') return 'Por mi propio derecho, a V.S. respetuosamente digo:'
+  if (c.modo === 'patrocinante') return 'A V.S. respetuosamente digo:'
+  return `En mi carácter de apoderado de ${textoParte(c)}, a V.S. respetuosamente digo:`
+}
+
+function caracterCtx(c: Caracter | null | undefined): string {
+  if (!c) return ''
+  if (c.modo === 'derecho_propio') {
+    return '## CARÁCTER DE LA PRESENTACIÓN (obligatorio)\nEl abogado se presenta POR SU PROPIO DERECHO (p. ej. reclamo o ejecución de sus honorarios), ' +
+      'no como apoderado de nadie. Escribí en primera persona del abogado actuando para sí mismo ("vengo por mi propio derecho", "mis honorarios"). ' +
+      `No digas que actúa en representación de una parte. "presentacion" debe ser exactamente: "${formulaPresentacion(c)}"`
+  }
+  if (c.modo === 'patrocinante') {
+    const quien = c.patrocinado?.nombre?.trim() || 'la parte'
+    return '## CARÁCTER DE LA PRESENTACIÓN (obligatorio)\nQuien se presenta y habla es la PARTE (' + quien + ', ' + textoParte(c) + '), por su propio derecho y ' +
+      'CON EL PATROCINIO LETRADO del abogado. Todo el escrito va en primera persona de la parte ("vengo", "me presento", "solicito"), ' +
+      'nunca como apoderado. El encabezado con los datos de la parte y del patrocinante lo arma el sistema. ' +
+      `"presentacion" debe ser exactamente: "${formulaPresentacion(c)}"`
+  }
+  return '## CARÁCTER DE LA PRESENTACIÓN (obligatorio)\nEl abogado se presenta como APODERADO de ' + textoParte(c) + '. ' +
+    `"presentacion" debe ser exactamente: "${formulaPresentacion(c)}"`
 }
 
 // ── Core handler (extractable, no referencia req para respuestas) ──────────────
@@ -1001,6 +1039,8 @@ ${aprendizajesCtx}
 
 ${abogadoCtx}
 
+${caracterCtx(body?.caracter)}
+
 ${body?.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
 
 ${borradorPrevioCtx}
@@ -1025,6 +1065,8 @@ ${jurisprudenciaCtx}
 ${aprendizajesCtx}
 
 ${abogadoCtx}
+
+${caracterCtx(body?.caracter)}
 
 ${body?.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.instrucciones.trim()}` : ''}
 
@@ -1167,6 +1209,13 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
     if (!matchesTitulo) {
       console.warn(`[escritos-generate] ⚠️ tipo/titulo mismatch — tipo="${tipoInput}" titulo="${tituloGen}"`)
     }
+  }
+
+  // Carácter elegido: se guarda con el contenido y la fórmula de apertura queda fija (no la decide la IA)
+  if (body?.caracter && contenido && typeof contenido === 'object') {
+    const c = contenido as Record<string, unknown>
+    c.caracter = body.caracter
+    c.presentacion = formulaPresentacion(body.caracter)
   }
 
   onProgress('saving', 'Guardando...')

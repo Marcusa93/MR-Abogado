@@ -12,6 +12,8 @@ export interface EscritoContenido {
   encabezado_juez: string
   caratula: string
   presentacion?: string
+  /** Carácter de la presentación: apoderado, por derecho propio o patrocinante (habla la parte). */
+  caracter?: import('@/components/expedientes/caracter-escrito').CaracterEscrito
   secciones: EscritoSeccion[]
 }
 
@@ -180,6 +182,8 @@ export function useAllEscritos(filtros?: { expedienteId?: string; search?: strin
 export interface GenerateInput {
   expediente_id?: string | null
   tipo: string
+  /** Carácter de la presentación (apoderado / derecho propio / patrocinante) */
+  caracter?: import('@/components/expedientes/caracter-escrito').CaracterEscrito
   titulo?: string
   instrucciones?: string
   template_id?: string | null

@@ -22,6 +22,7 @@ import { useSaeMovements } from '@/hooks/use-sae'
 import { useCreateTarea } from '@/hooks/use-tareas'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
+import { CaracterSelector, CARACTER_POR_DEFECTO, formulaPresentacion, inferirCaracter, type CaracterEscrito } from './caracter-escrito'
 import { DiagnosticoModal } from './diagnostico-modal'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -105,6 +106,13 @@ function NuevoEscritoDialog({
   const [respondeA, setRespondeA] = useState('')
   const [titulo, setTitulo] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
+  // Carácter de la presentación; se sugiere solo (honorarios → derecho propio) hasta que lo toques
+  const [caracter, setCaracter] = useState<CaracterEscrito>(CARACTER_POR_DEFECTO)
+  const [caracterTocado, setCaracterTocado] = useState(false)
+  useEffect(() => {
+    if (caracterTocado) return
+    setCaracter(inferirCaracter(`${tipo} ${idea}`, CARACTER_POR_DEFECTO))
+  }, [tipo, idea, caracterTocado])
   // Modelo de estilo: '' = ninguno, 'NUEVO' = pegar uno nuevo, otro = id de template guardado
   const [modeloSel, setModeloSel] = useState('')
   const [estiloTexto, setEstiloTexto] = useState('')
@@ -228,6 +236,7 @@ function NuevoEscritoDialog({
         escrito_contraparte_texto: contraparteTexto.trim() || undefined,
         titulo: titulo.trim() || undefined,
         instrucciones: instrucciones.trim() || undefined,
+        caracter,
         ...(modeloSel === 'NUEVO'
           ? {
               estilo_texto: estiloTexto.trim() || undefined,
@@ -451,6 +460,12 @@ function NuevoEscritoDialog({
               </p>
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Me presento como</label>
+            <CaracterSelector value={caracter} expedienteId={expedienteId}
+              onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
+          </div>
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-300">
@@ -1316,6 +1331,26 @@ function EscritoEditorModal({
             <input
               value={contenido.caratula}
               onChange={(e) => { setContenido(c => ({ ...c, caratula: e.target.value })); setDirty(true) }}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+            />
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Me presento como</label>
+            <CaracterSelector compacto expedienteId={escrito.expediente_id}
+              value={contenido.caracter ?? CARACTER_POR_DEFECTO}
+              onChange={(c) => {
+                setContenido(prev => {
+                  const anterior = prev.caracter ?? CARACTER_POR_DEFECTO
+                  // Si la presentación era la fórmula automática (o estaba vacía), se actualiza con el nuevo carácter
+                  const automatica = !prev.presentacion?.trim() || prev.presentacion.trim() === formulaPresentacion(anterior)
+                    || (!prev.caracter && /^En mi car[aá]cter de apoderad|^Por mi propio derecho/i.test(prev.presentacion.trim()))
+                  return { ...prev, caracter: c, presentacion: automatica ? formulaPresentacion(c) : prev.presentacion }
+                })
+                setDirty(true)
+              }} />
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Presentación</label>
+            <textarea
+              value={contenido.presentacion ?? ''}
+              onChange={(e) => { setContenido(c => ({ ...c, presentacion: e.target.value })); setDirty(true) }}
+              rows={2}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
             />
           </div>
