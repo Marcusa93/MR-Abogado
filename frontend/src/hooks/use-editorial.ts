@@ -229,9 +229,12 @@ export function useVersiones(id: string) {
 }
 
 /** Llama a la IA editorial (radar, investigar, redactar, revisar, adaptar, chequeo). */
+export const CORTE_CONEXION = 'Se cortó la conexión mientras la IA trabajaba.'
+
 export function useEditorialIA() {
   const qc = useQueryClient()
   return useMutation({
+    meta: { silencioso: true },
     mutationFn: async (body: Record<string, unknown>) => {
       const { data, error } = await createClient().functions.invoke('editorial-ia', { body })
       if (error) {
@@ -242,7 +245,7 @@ export function useEditorialIA() {
         }
         // Se cortó la conexión (red del celular, pantalla bloqueada): la IA
         // puede haber terminado igual del lado del servidor.
-        throw new Error('Se cortó la conexión mientras la IA trabajaba. Si terminó, el resultado aparece en unos segundos; si no, probá de nuevo.')
+        throw new Error(CORTE_CONEXION)
       }
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
       return data as Record<string, unknown>

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 // citas). Resalta las marcas [VERIFICAR: …] para la revisión editorial.
 // Arma elementos de React: nunca inyecta HTML.
 
-function inline(texto: string, keyBase: string): ReactNode[] {
+function inline(texto: string, keyBase: string, hoja = false): ReactNode[] {
   const out: ReactNode[] = []
   const re = /(\[VERIFICAR[^\]]*\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g
   let ultimo = 0
@@ -16,7 +16,9 @@ function inline(texto: string, keyBase: string): ReactNode[] {
     const t = m[0]
     const k = `${keyBase}-${i++}`
     if (t.startsWith('[VERIFICAR')) {
-      out.push(<mark key={k} className="rounded bg-amber-300/40 px-0.5 text-amber-900 dark:bg-amber-400/25 dark:text-amber-200" title="Afirmación a verificar antes de aprobar">{t}</mark>)
+      out.push(<mark key={k} className={hoja
+        ? 'rounded bg-amber-200 px-0.5 font-sans text-[0.85em] text-amber-950'
+        : 'rounded bg-amber-300/40 px-0.5 text-amber-900 dark:bg-amber-400/25 dark:text-amber-200'} title="Afirmación a verificar antes de aprobar">{t}</mark>)
     } else if (t.startsWith('**')) {
       out.push(<strong key={k}>{t.slice(2, -2)}</strong>)
     } else {
@@ -38,14 +40,14 @@ export function MarkdownView({ texto, className, hoja = false }: { texto: string
   const cerrarParrafo = () => {
     if (parrafo.length) {
       const k = `p${bloques.length}`
-      bloques.push(<p key={k} className={hoja ? 'indent-[1.27cm] text-justify' : 'leading-relaxed'}>{inline(parrafo.join(' '), k)}</p>)
+      bloques.push(<p key={k} className={hoja ? 'indent-[1.27cm] text-justify' : 'leading-relaxed'}>{inline(parrafo.join(' '), k, hoja)}</p>)
       parrafo = []
     }
   }
   const cerrarLista = () => {
     if (lista) {
       const k = `l${bloques.length}`
-      const items = lista.items.map((it, i) => <li key={i}>{inline(it, `${k}-${i}`)}</li>)
+      const items = lista.items.map((it, i) => <li key={i}>{inline(it, `${k}-${i}`, hoja)}</li>)
       bloques.push(lista.ordenada
         ? <ol key={k} className="ml-5 list-decimal space-y-1">{items}</ol>
         : <ul key={k} className="ml-5 list-disc space-y-1">{items}</ul>)
@@ -65,7 +67,7 @@ export function MarkdownView({ texto, className, hoja = false }: { texto: string
       const k = `h${bloques.length}`
       bloques.push(
         <p key={k} className={cn('font-semibold', hoja ? 'text-black' : 'text-zinc-900 dark:text-zinc-50', nivel === 1 ? 'text-xl' : nivel === 2 ? 'text-lg' : 'text-base')}>
-          {inline(h[2], k)}
+          {inline(h[2] ?? '', k, hoja)}
         </p>,
       )
     } else if (ul || ol) {
@@ -76,7 +78,7 @@ export function MarkdownView({ texto, className, hoja = false }: { texto: string
     } else if (l.startsWith('>')) {
       cerrarParrafo(); cerrarLista()
       const k = `q${bloques.length}`
-      bloques.push(<blockquote key={k} className={hoja ? 'mx-3 sm:mx-[1.27cm]' : 'border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300'}>{inline(l.replace(/^>\s?/, ''), k)}</blockquote>)
+      bloques.push(<blockquote key={k} className={hoja ? 'mx-3 sm:mx-[1.27cm]' : 'border-l-2 border-zinc-300 pl-3 italic text-zinc-600 dark:border-white/20 dark:text-zinc-300'}>{inline(l.replace(/^>\s?/, ''), k, hoja)}</blockquote>)
     } else {
       cerrarLista()
       parrafo.push(l.trim())

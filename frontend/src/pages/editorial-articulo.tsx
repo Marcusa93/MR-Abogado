@@ -6,7 +6,7 @@ import {
 import {
   useAccesoEditorial, useArticulo, useVersiones, useEditorialIA, useGuardarArticulo, useCambiarEstadoArticulo, useEnviarAContenidos, useGuardarBibliografia, usePuedeAprobarEditorial, useEquipoEditorial,
   useMiLectura, marcarLeido, useActualizacionesArticulo, useActualizarPropuesta, useHallazgos,
-  TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type TipoArticulo, type Version,
+  TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, CORTE_CONEXION, type TipoArticulo, type Version,
 } from '@/hooks/use-editorial'
 import { MarkdownView } from '@/components/editorial/markdown-view'
 import { descargarWord, imprimirPdf } from '@/components/editorial/exportar'
@@ -21,6 +21,7 @@ import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Editor de un artículo: Marco edita título, bajada y cuerpo (markdown); cada
 // guardado es una versión restaurable. La IA investiga, redacta y revisa, pero
@@ -55,6 +56,28 @@ export default function EditorialArticuloPage() {
   const seccionInicial = searchParams.get('seccion') as Panel | null
   const [seccion, setSeccion] = useState<Panel | 'articulo'>(seccionInicial ?? 'articulo')
   const [iaAbierta, setIaAbierta] = useState(false)
+  // Si el celular corta la conexión (pantalla bloqueada, app cerrada), la IA sigue en el servidor:
+  // se espera el resultado consultando el artículo hasta que cambie.
+  const qcArt = useQueryClient()
+  const [esperando, setEsperando] = useState<{ que: string; updatedAt: string; desde: number } | null>(null)
+  useEffect(() => {
+    if (!esperando) return
+    const t = setInterval(() => {
+      if (Date.now() - esperando.desde > 5 * 60_000) {
+        setEsperando(null)
+        toast.info('No llegó el resultado', 'Si no ves el cambio, probá de nuevo.')
+        return
+      }
+      void qcArt.invalidateQueries({ queryKey: ['editorial'] })
+    }, 8000)
+    return () => clearInterval(t)
+  }, [esperando, qcArt])
+  useEffect(() => {
+    if (esperando && art && art.updated_at !== esperando.updatedAt) {
+      toast.success(`${esperando.que}: listo`, 'El resultado ya está en el artículo.')
+      setEsperando(null)
+    }
+  }, [art, esperando])
   const [compararTras, setCompararTras] = useState<{ version: number; antes: { etiqueta: string; texto: string } } | null>(null)
   // Alto de la barra fija: la barra de herramientas del editor se pega justo debajo
   const barraRef = useRef<HTMLDivElement>(null)
@@ -123,6 +146,16 @@ export default function EditorialArticuloPage() {
 
   const aprobado = art.estado === 'aprobado' || art.estado === 'publicado'
 
+  const errorIA = (titulo: string, que: string) => (e: unknown) => {
+    const msg = e instanceof Error ? e.message : ''
+    if (msg === CORTE_CONEXION) {
+      setEsperando({ que, updatedAt: art.updated_at, desde: Date.now() })
+      toast.info('La IA sigue trabajando', 'Se cortó la conexión del celular, pero el trabajo continúa en el servidor. Te avisamos cuando termine.')
+      return
+    }
+    toast.error(titulo, msg || undefined)
+  }
+
   const correrIA = (modo: string, extra: Record<string, unknown>, ok: string) => {
     setPidiendo(modo)
     ia.mutate({ modo, articulo_id: id, ...extra }, {
@@ -131,7 +164,7 @@ export default function EditorialArticuloPage() {
         if (modo === 'revisar') { setPanel('revision'); setSeccion('revision') }
         if (modo === 'redactar') { setIaAbierta(false); setVista('previa') }
       },
-      onError: (e) => toast.error('La IA no pudo completar el pedido', e instanceof Error ? e.message : undefined),
+      onError: errorIA('La IA no pudo completar el pedido', ok.replace(/ listo$| lista$/, '')),
       onSettled: () => setPidiendo(null),
     })
   }
@@ -203,7 +236,7 @@ export default function EditorialArticuloPage() {
         setCompararTras({ version: Number(r.version), antes })
         setVista('previa'); irA('articulo')
       },
-      onError: (e) => toast.error('No se pudo depurar', e instanceof Error ? e.message : undefined),
+      onError: errorIA('No se pudo depurar', 'Depuración'),
       onSettled: () => setPidiendo(null),
     })
   }
@@ -396,6 +429,12 @@ export default function EditorialArticuloPage() {
           ))}
         </div>
       </div>
+
+      {esperando && (
+        <Aviso tono="sky" icon={Loader2} titulo={`${esperando.que}: la IA sigue trabajando en el servidor`}>
+          <p className="text-xs">Podés cerrar la app: te avisamos por Telegram cuando termine y el resultado aparece acá solo.</p>
+        </Aviso>
+      )}
 
       {/* Guía paso a paso */}
       {(art.estado === 'investigacion' || art.estado === 'borrador' || art.estado === 'aprobado') && (

@@ -287,6 +287,15 @@ async function avisarPersona(admin: Admin, profileId: string | null, texto: stri
   return await tgSendKb(token, chat, texto, [[{ text: 'Abrir en Editorial', url }]])
 }
 
+/** Aviso por Telegram a quien pidió un trabajo largo (por si cerró la app mientras tanto). */
+async function avisarFin(admin: Admin, userId: string, articuloId: string, titulo: string, que: string) {
+  const texto = `Editorial: ${que} de "${titulo}" terminó. Ya podés revisarlo en la app.`
+  const url = `${APP_URL}/editorial/${articuloId}`
+  const { data } = await admin.from('profiles').select('editorial_aprueba').eq('id', userId).maybeSingle()
+  if ((data as { editorial_aprueba?: boolean } | null)?.editorial_aprueba) await telegramMarco(`${texto}\n${url}`)
+  else await avisarPersona(admin, userId, texto, url)
+}
+
 /** Quién trabaja un artículo: el asignado o quien lo creó. */
 const responsable = (a: Record<string, unknown>) => (a.asignado_a ?? a.creado_por ?? null) as string | null
 
@@ -838,6 +847,7 @@ Deno.serve(async (req) => {
         a_verificar: Array.isArray(r.a_verificar) ? r.a_verificar.slice(0, 40) : [],
         alertas_confidencialidad: alertas, aprobado_at: null, updated_at: new Date().toISOString(),
       }).eq('id', art.id)
+      await avisarFin(admin, userId, String(art.id), titulo, 'La redacción')
       return json(req, { ok: true, version, alertas: alertas.length })
     }
 
@@ -955,6 +965,7 @@ Deno.serve(async (req) => {
         revision_critica: `**Depuración del ${new Date().toLocaleDateString('es-AR')}** (se quitó lo no verificable)\n\n${cambios.map((c) => `- ${c}`).join('\n')}`,
         citas_verificadas_at: null, updated_at: new Date().toISOString(),
       }).eq('id', art.id)
+      await avisarFin(admin, userId, String(art.id), String(art.titulo), 'La depuración')
       return json(req, { ok: true, version, version_anterior: Number(art.version ?? 0), cambios })
     }
 
@@ -974,6 +985,7 @@ Deno.serve(async (req) => {
         ...(c.a_verificar.length && !(art.a_verificar as unknown[] | null)?.length ? { a_verificar: c.a_verificar } : {}),
         updated_at: new Date().toISOString(),
       }).eq('id', art.id)
+      await avisarFin(admin, userId, String(art.id), String(art.titulo), 'El completado del texto')
       return json(req, { ok: true, version })
     }
 
@@ -1094,6 +1106,8 @@ Deno.serve(async (req) => {
         admin.from('normativa_documentos').select('id, titulo, tipo, numero, fecha, source_url'),
         admin.from('jurisprudencia_documentos').select('id, caratula, tribunal, fecha, source_url'),
       ])
+      const { data: hsOk } = await admin.from('editorial_hallazgos').select('fuente, numero, url, tipo').eq('articulo_id', art.id).eq('estado', 'comprobado')
+      const H = (hsOk ?? []) as { fuente: string | null; numero: string | null; url: string | null; tipo: string }[]
       const N = (normas ?? []) as { id: string; titulo: string; tipo: string | null; numero: string | null; fecha: string | null; source_url: string | null }[]
       const F = (fallos ?? []) as { id: string; caratula: string; tribunal: string | null; fecha: string | null; source_url: string | null }[]
       const palabras = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter((w) => w.length > 3)
@@ -1106,6 +1120,15 @@ Deno.serve(async (req) => {
         let estado: 'encontrada' | 'no_encontrada' | 'manual' = 'manual'
         let documento: { titulo: string; url: string | null } | null = null
         let nota = ''
+        // Primero: ¿está en la evidencia comprobada de la investigación externa?
+        const numC = soloDigitos(String(c.numero ?? ''))
+        const clavesC = palabras(String(c.nombre ?? entrada))
+        const enEvidencia = H.find((h) => (numC.length >= 3 && (soloDigitos(h.numero) === numC || soloDigitos(h.fuente).includes(numC))) ||
+          (tipo === 'fallo' && clavesC.filter((w) => new Set(palabras(h.fuente ?? '')).has(w)).length >= 2))
+        if (enEvidencia && (tipo === 'norma' || tipo === 'fallo')) {
+          resultado.push({ entrada, tipo, estado: 'encontrada' as const, documento: { titulo: `${enEvidencia.fuente ?? 'Fuente'} (investigación comprobada)`, url: enEvidencia.url }, nota: '' })
+          continue
+        }
         if (tipo === 'norma') {
           const num = soloDigitos(String(c.numero ?? ''))
           const hit = num.length >= 3 ? N.find((n) => soloDigitos(n.numero) === num || soloDigitos(n.titulo).includes(num)) : undefined
