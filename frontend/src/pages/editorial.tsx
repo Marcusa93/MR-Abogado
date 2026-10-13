@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AlertTriangle, BookOpen, Sparkles, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BookMarked, Layers, PenLine, BookOpen, Sparkles, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
 import {
   useAccesoEditorial, usePropuestas, useArticulos, useEditorialIA, useActualizarPropuesta, useCrearPropuestaManual,
   usePuedeAprobarEditorial, useEquipoEditorial, useAsignarPropuesta, nombreCorto,
@@ -8,6 +8,7 @@ import {
 } from '@/hooks/use-editorial'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { InvestigarConGemini } from '@/components/editorial/investigacion-externa'
+import { LineasPanel, EstiloPanel, BibliotecaPanel } from '@/components/editorial/paneles-aprendizaje'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -303,7 +304,7 @@ export default function EditorialPage() {
   const { data: puedeAprobar = false } = usePuedeAprobarEditorial()
   const yo = useAuthStore((s) => s.profile?.id)
   const ia = useEditorialIA()
-  const [tab, setTab] = useState<'propuestas' | 'articulos'>('propuestas')
+  const [tab, setTab] = useState<'propuestas' | 'articulos' | 'lineas' | 'estilo' | 'biblioteca'>('propuestas')
   const [nueva, setNueva] = useState(false)
   const [filtroArt, setFiltroArt] = useState<'todos' | 'aprobacion' | 'curso' | 'aprobados'>('todos')
   const [filtroProp, setFiltroProp] = useState<'todas' | 'asignadas' | 'libres'>('todas')
@@ -381,16 +382,26 @@ export default function EditorialPage() {
       )}
 
       {/* Pestañas */}
-      <div className="flex border-b border-zinc-200 dark:border-white/10">
-        {([['propuestas', 'Propuestas', pendientes.length, BookOpen], ['articulos', 'Artículos', articulos.length, FileText]] as const).map(([id, label, n, Icon]) => (
+      <div className="no-scrollbar -mx-4 flex overflow-x-auto border-b border-zinc-200 px-4 sm:mx-0 sm:px-0 dark:border-white/10">
+        {([
+          ['propuestas', 'Propuestas', pendientes.length, BookOpen],
+          ['articulos', 'Artículos', articulos.length, FileText],
+          ['lineas', 'Líneas', 0, Layers],
+          ['estilo', 'Mi estilo', 0, PenLine],
+          ['biblioteca', 'Fuentes', 0, BookMarked],
+        ] as const).map(([id, label, n, Icon]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
-            className={cn('-mb-px flex min-h-11 flex-1 items-center justify-center gap-1.5 border-b-2 px-4 text-sm font-medium sm:flex-none',
+            className={cn('-mb-px flex min-h-11 shrink-0 items-center justify-center gap-1.5 border-b-2 px-3.5 text-sm font-medium',
               tab === id ? 'border-[var(--brand-accent)] text-zinc-900 dark:border-[var(--brand-ice)] dark:text-zinc-50' : 'border-transparent text-zinc-500 hover:text-zinc-700')}>
             <Icon className="h-4 w-4" /> {label}
             {n > 0 && <span className="rounded-full bg-zinc-500/15 px-1.5 text-[11px] tabular-nums">{n}</span>}
           </button>
         ))}
       </div>
+
+      {tab === 'lineas' && <LineasPanel articulos={articulos} />}
+      {tab === 'estilo' && <EstiloPanel puedeEditar={puedeAprobar} />}
+      {tab === 'biblioteca' && <BibliotecaPanel />}
 
       {tab === 'propuestas' && (
         <div className="space-y-3">

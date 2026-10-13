@@ -22,7 +22,7 @@ import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 import { EDITORIAL_SYSTEM_PROMPT } from '../_shared/editorial-system-prompt.ts'
 import { jsonrepair } from 'npm:jsonrepair@3.13.1'
 import { tgSendKb } from '../_shared/tareas-telegram.ts'
-import { pedidoDeepResearch, parsearBloques, hallazgoDesdeIA, obtenerFuente, comprobarCita, type Hallazgo } from '../_shared/editorial-investigacion.ts'
+import { pedidoDeepResearch, parsearBloques, hallazgoDesdeIA, obtenerFuente, comprobarCita, normalizar, type Hallazgo } from '../_shared/editorial-investigacion.ts'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Admin = SupabaseClient<any, any, any>
@@ -130,29 +130,108 @@ function limpiarBibliografia(v: unknown): string[] {
 }
 
 /** Compara cada hallazgo pendiente con el texto de su fuente (sin IA). */
+const claveEvidencia = (url: string | null, cita: string | null) => `${normalizar(url ?? '')}|${normalizar(cita ?? '').slice(0, 300)}`
+
 async function comprobarHallazgos(admin: Admin, articuloId: string) {
-  const { data: hs } = await admin.from('editorial_hallazgos').select('id, cita, fuente_id').eq('articulo_id', articuloId).eq('estado', 'pendiente').not('fuente_id', 'is', null)
-  const lista = (hs ?? []) as { id: string; cita: string | null; fuente_id: string }[]
-  if (!lista.length) return
-  const ids = [...new Set(lista.map((h) => h.fuente_id))]
-  const { data: fs } = await admin.from('editorial_fuentes').select('id, estado, texto, error').in('id', ids)
-  const fuentes = new Map(((fs ?? []) as { id: string; estado: string; texto: string | null; error: string | null }[]).map((f) => [f.id, f]))
-  const ahora = new Date().toISOString()
-  for (const h of lista) {
-    const f = fuentes.get(h.fuente_id)
-    if (!f || f.estado === 'pendiente') continue
-    const r = f.estado === 'sin_acceso' || !f.texto
-      ? { estado: /no existe/.test(f.error ?? '') ? 'no_encontrado' : 'sin_acceso', detalle: f.error ?? 'No se pudo abrir la fuente.' }
-      : comprobarCita(h.cita, f.texto)
-    await admin.from('editorial_hallazgos').update({ ...r, verificado_at: ahora }).eq('id', h.id)
+  const { data: hs } = await admin.from('editorial_hallazgos').select('id, cita, url, fuente_id').eq('articulo_id', articuloId).eq('estado', 'pendiente').not('fuente_id', 'is', null)
+  const lista = (hs ?? []) as { id: string; cita: string | null; url: string | null; fuente_id: string }[]
+  if (lista.length) {
+    const ids = [...new Set(lista.map((h) => h.fuente_id))]
+    const { data: fs } = await admin.from('editorial_fuentes').select('id, estado, texto, error').in('id', ids)
+    const fuentes = new Map(((fs ?? []) as { id: string; estado: string; texto: string | null; error: string | null }[]).map((f) => [f.id, f]))
+    // Lo que ya se comprobó en otro artículo no depende de que la página abra hoy
+    const { data: yaEnBiblio } = await admin.from('editorial_evidencia').select('clave').in('clave', lista.map((h) => claveEvidencia(h.url, h.cita)))
+    const biblio = new Set(((yaEnBiblio ?? []) as { clave: string }[]).map((e) => e.clave))
+    const ahora = new Date().toISOString()
+    for (const h of lista) {
+      const f = fuentes.get(h.fuente_id)
+      if (!f || f.estado === 'pendiente') continue
+      let r: { estado: string; detalle: string } = f.estado === 'sin_acceso' || !f.texto
+        ? { estado: /no existe/.test(f.error ?? '') ? 'no_encontrado' : 'sin_acceso', detalle: f.error ?? 'No se pudo abrir la fuente.' }
+        : comprobarCita(h.cita, f.texto)
+      if (r.estado !== 'comprobado' && h.cita && biblio.has(claveEvidencia(h.url, h.cita))) {
+        r = { estado: 'comprobado', detalle: 'Ya estaba comprobado en un artículo anterior (biblioteca de evidencia).' }
+      }
+      await admin.from('editorial_hallazgos').update({ ...r, verificado_at: ahora }).eq('id', h.id)
+    }
   }
+  await guardarEnBiblioteca(admin, articuloId)
+}
+
+/** Suma a la biblioteca compartida todo hallazgo comprobado del artículo. */
+async function guardarEnBiblioteca(admin: Admin, articuloId: string) {
+  const { data } = await admin.from('editorial_hallazgos')
+    .select('afirmacion, tipo, fuente, numero, tribunal, fecha, jurisdiccion, url, cita, vigencia')
+    .eq('articulo_id', articuloId).eq('estado', 'comprobado').not('url', 'is', null)
+  const hs = (data ?? []) as Record<string, string | null>[]
+  if (!hs.length) return
+  const filas = hs.filter((h) => h.cita).map((h) => ({ ...h, clave: claveEvidencia(h.url, h.cita), articulo_origen_id: articuloId }))
+  const { data: existentes } = await admin.from('editorial_evidencia').select('clave').in('clave', filas.map((f) => f.clave))
+  const ya = new Set(((existentes ?? []) as { clave: string }[]).map((e) => e.clave))
+  const nuevas = filas.filter((f) => !ya.has(f.clave))
+  if (nuevas.length) await admin.from('editorial_evidencia').insert(nuevas)
+}
+
+/** Evidencia de la biblioteca relacionada con un tema (por palabras en común), excluyendo un artículo. */
+async function evidenciaRelacionada(admin: Admin, tema: string, excluirArticulo?: string, max = 15) {
+  const claves = new Set(normalizar(tema).split(' ').filter((w) => w.length > 4))
+  if (!claves.size) return []
+  const { data } = await admin.from('editorial_evidencia').select('tipo, afirmacion, fuente, url, cita, vigencia, articulo_origen_id').limit(800)
+  return ((data ?? []) as { tipo: string; afirmacion: string; fuente: string | null; url: string | null; cita: string | null; vigencia: string | null; articulo_origen_id: string | null }[])
+    .filter((e) => e.articulo_origen_id !== excluirArticulo)
+    .map((e) => ({ e, n: normalizar(`${e.afirmacion} ${e.fuente ?? ''}`).split(' ').filter((w) => claves.has(w)).length }))
+    .filter((x) => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, max).map((x) => x.e)
+}
+
+/** Preguntas abiertas por línea temática, para que el radar proponga continuaciones de las series. */
+async function preguntasAbiertas(admin: Admin): Promise<string> {
+  const { data } = await admin.from('editorial_tesis').select('texto, eje:editorial_ejes(nombre)').eq('tipo', 'pregunta').eq('vigente', true).is('propuesta_id', null).limit(30)
+  const q = (data ?? []) as unknown as { texto: string; eje: { nombre: string } | null }[]
+  if (!q.length) return ''
+  return 'PREGUNTAS ABIERTAS DE LAS LÍNEAS TEMÁTICAS (si alguna tiene novedades que la vuelvan oportuna, proponela como continuación de la serie):\n' +
+    q.map((x) => `- [${x.eje?.nombre ?? 'sin línea'}] ${x.texto}`).join('\n') + '\n\n'
+}
+
+/** Guía de estilo de Marco (reglas activas, las más confirmadas primero). */
+async function guiaEstilo(admin: Admin): Promise<string> {
+  const { data } = await admin.from('editorial_estilo').select('regla, antes, despues').eq('activa', true).order('veces', { ascending: false }).limit(30)
+  const reglas = (data ?? []) as { regla: string; antes: string | null; despues: string | null }[]
+  if (!reglas.length) return ''
+  return 'GUÍA DE ESTILO DE MARCO (aprendida de sus correcciones; respetala por encima de tus preferencias):\n' +
+    reglas.map((r) => `- ${r.regla}${r.antes && r.despues ? ` (en lugar de "${r.antes}" → "${r.despues}")` : ''}`).join('\n')
+}
+
+/** Línea temática del artículo: tesis ya sostenidas, preguntas abiertas y otros artículos de la serie. */
+async function memoriaEje(admin: Admin, articuloId: string): Promise<string> {
+  const { data: a } = await admin.from('editorial_articulos').select('eje_id').eq('id', articuloId).maybeSingle()
+  const ejeId = (a as { eje_id: string | null } | null)?.eje_id
+  if (!ejeId) return ''
+  const [{ data: eje }, { data: tesis }, { data: otros }] = await Promise.all([
+    admin.from('editorial_ejes').select('nombre, descripcion').eq('id', ejeId).maybeSingle(),
+    admin.from('editorial_tesis').select('tipo, texto').eq('eje_id', ejeId).eq('vigente', true).neq('articulo_id', articuloId).limit(40),
+    admin.from('editorial_articulos').select('titulo, estado').eq('eje_id', ejeId).neq('id', articuloId).in('estado', ['aprobado', 'publicado']).limit(15),
+  ])
+  const e = eje as { nombre: string; descripcion: string | null } | null
+  const t = (tesis ?? []) as { tipo: string; texto: string }[]
+  const o = (otros ?? []) as { titulo: string }[]
+  return `LÍNEA TEMÁTICA: ${e?.nombre ?? ''}${e?.descripcion ? ` — ${e.descripcion}` : ''}\n` +
+    `Tesis que Marco ya sostuvo en esta línea (no las contradigas sin decirlo; podés remitir a ellas):\n${t.filter((x) => x.tipo === 'tesis').map((x) => `- ${x.texto}`).join('\n') || '(ninguna todavía)'}\n` +
+    `Artículos anteriores de la línea:\n${o.map((x) => `- "${x.titulo}"`).join('\n') || '(ninguno)'}`
 }
 
 /** Evidencia comprobada para la redacción. */
 async function bloqueEvidencia(admin: Admin, articuloId: string): Promise<string> {
   const { data } = await admin.from('editorial_hallazgos').select('orden, afirmacion, tipo, fuente, url, cita, vigencia, estado').eq('articulo_id', articuloId).order('orden')
   const hs = (data ?? []) as { orden: number; afirmacion: string; tipo: string; fuente: string | null; url: string | null; cita: string | null; vigencia: string | null; estado: string }[]
-  if (!hs.length) return ''
+  // Evidencia comprobada en artículos anteriores sobre el mismo tema
+  const { data: a } = await admin.from('editorial_articulos').select('titulo, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(problema, pregunta)').eq('id', articuloId).maybeSingle()
+  const art = a as { titulo: string; propuesta: { problema: string | null; pregunta: string | null } | null } | null
+  const previas = art ? await evidenciaRelacionada(admin, `${art.titulo} ${art.propuesta?.problema ?? ''} ${art.propuesta?.pregunta ?? ''}`, articuloId) : []
+  const bloquePrevias = previas.length
+    ? '\n\nEVIDENCIA COMPROBADA EN ARTÍCULOS ANTERIORES (biblioteca del estudio; podés citarla):\n' +
+      previas.map((e) => `- (${e.tipo}) ${e.afirmacion} — Fuente: ${e.fuente ?? 's/d'}${e.url ? ` <${e.url}>` : ''}${e.cita ? `\n  Cita: "${e.cita}"` : ''}`).join('\n')
+    : ''
+  if (!hs.length) return bloquePrevias.trim()
   const hoy = new Date().toLocaleDateString('es-AR')
   const linea = (h: typeof hs[number]) => `- [H${h.orden}] (${h.tipo}) ${h.afirmacion} — Fuente: ${h.fuente ?? 's/d'}${h.url ? ` <${h.url}>` : ''}` +
     `${h.vigencia ? ` — Vigencia: ${h.vigencia}` : ''}${h.cita ? `\n  Cita: "${h.cita}"` : ''}`
@@ -163,7 +242,7 @@ async function bloqueEvidencia(admin: Admin, articuloId: string): Promise<string
     `COMPROBADA (podés afirmarla y citarla):\n${ok.map(linea).join('\n') || '(ninguna)'}\n\n` +
     `PARCIAL (la fuente existe pero la cita no coincide exacta: usala con cautela y marcá [VERIFICAR] si afirmás el detalle):\n${parcial.map(linea).join('\n') || '(ninguna)'}\n\n` +
     `NO COMPROBADA (no la afirmes; si la mencionás, va con [VERIFICAR: …]):\n${no.map(linea).join('\n') || '(ninguna)'}\n\n` +
-    'La bibliografía debe incluir las fuentes comprobadas que uses, con su URL y la fecha de consulta en formato APA.'
+    'La bibliografía debe incluir las fuentes comprobadas que uses, con su URL y la fecha de consulta en formato APA.' + bloquePrevias
 }
 
 /** Pide la parte que faltó de un artículo cortado y los datos finales (referencias, bibliografía). */
@@ -175,6 +254,7 @@ async function continuarArticulo(admin: Admin, userId: string, art: { id: string
     'MODO CONTINUACIÓN. El borrador de abajo quedó cortado (puede terminar en mitad de una palabra). ' +
     'Escribí SOLO la continuación desde el punto exacto del corte, sin repetir nada de lo anterior, hasta el cierre del artículo. ' +
     'Si el corte quedó en mitad de una palabra, empezá completándola. Mantené el registro y las reglas de citas.\n\n' +
+    ((await guiaEstilo(admin)) + '\n\n') +
     (evidencia ? `${evidencia}\n\n` : '') +
     `TÍTULO: ${art.titulo}\nBAJADA: ${art.bajada ?? ''}\n\nBORRADOR HASTA EL CORTE (últimos 12.000 caracteres):\n<<<\n${cuerpo.slice(-12000)}\n>>>\n\n` +
     `${NORMAS_APA}\n\n` +
@@ -570,6 +650,7 @@ Deno.serve(async (req) => {
         `Normativa incorporada:\n${c.join('\n') || '(nada nuevo)'}\n\n` +
         'FUENTE C — no hay acceso a noticias en esta corrida: no inventes acontecimientos públicos.\n\n' +
         `MEMORIA EDITORIAL (no repetir):\n${(await memoria(admin))}\n\n` +
+        (await preguntasAbiertas(admin)) +
         'Proponé entre 0 y 5 temas, solo si hay fundamentos suficientes. Si las novedades no lo justifican, podés proponer un problema de ' +
         'interés permanente o profundizar una línea anterior, y decirlo. No uses datos identificatorios de partes.\n\n' +
         `${FORMATO_JSON}\n{ "comentario": "una o dos oraciones sobre el panorama de la semana", "temas": [ ${CAMPOS_PROPUESTA} ] }`,
@@ -658,7 +739,13 @@ Deno.serve(async (req) => {
         base = a ? (a.propuesta ?? { titulo: a.titulo }) : null
       }
       if (!base) return json(req, { error: 'Propuesta no encontrada' }, 404)
-      return json(req, { ok: true, pedido: pedidoDeepResearch(base as { titulo: string }) })
+      const b = base as { titulo: string; problema?: string | null; pregunta?: string | null }
+      const previas = await evidenciaRelacionada(admin, `${b.titulo} ${b.problema ?? ''} ${b.pregunta ?? ''}`, undefined, 20)
+      const yaVerificado = previas.length
+        ? '\n\nYA VERIFICADO EN INVESTIGACIONES ANTERIORES (no hace falta volver a buscarlo; concentrate en lo que falta):\n' +
+          previas.map((e) => `- ${e.fuente ?? e.afirmacion}${e.url ? ` — ${e.url}` : ''}`).join('\n')
+        : ''
+      return json(req, { ok: true, pedido: pedidoDeepResearch(b) + yaVerificado, ya_verificadas: previas.length })
     }
 
     // ── investigación externa: importar el informe ─────────────────────────
@@ -725,8 +812,15 @@ Deno.serve(async (req) => {
     // ── investigación externa: visitar fuentes y comprobar citas (por tandas) ──
     if (modo === 'verificar_fuentes') {
       const articuloId = String(body.articulo_id ?? '')
-      const { data: pend } = await admin.from('editorial_fuentes').select('id, url').eq('articulo_id', articuloId).eq('estado', 'pendiente').limit(6)
-      await Promise.all(((pend ?? []) as { id: string; url: string }[]).map(async (f) => {
+      const { data: pend } = await admin.from('editorial_fuentes').select('id, url').eq('articulo_id', articuloId).eq('estado', 'pendiente').limit(3)
+      // Se marcan antes de abrirlas: si un archivo pesado agota la función, no queda trabada en "pendiente"
+      const tomadas = ((pend ?? []) as { id: string; url: string }[])
+      if (tomadas.length) {
+        await admin.from('editorial_fuentes').update({
+          estado: 'sin_acceso', error: 'La lectura no terminó (archivo demasiado pesado). Pegá el texto de la fuente.', obtenida_at: new Date().toISOString(),
+        }).in('id', tomadas.map((f) => f.id))
+      }
+      await Promise.all(tomadas.map(async (f) => {
         const r = await obtenerFuente(f.url)
         await admin.from('editorial_fuentes').update(r.ok
           ? { estado: 'ok', texto: r.texto, titulo: r.titulo, error: null, obtenida_at: new Date().toISOString() }
@@ -800,7 +894,7 @@ Deno.serve(async (req) => {
     const { data: a, error: errArt } = await admin.from('editorial_articulos').select('*, propuesta:editorial_propuestas!editorial_articulos_propuesta_id_fkey(*)').eq('id', String(body.articulo_id ?? '')).maybeSingle()
     if (errArt) throw new Error(`No se pudo leer el artículo: ${errArt.message}`)
     const art = a as (Record<string, unknown> & { propuesta: Record<string, unknown> | null }) | null
-    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'depurar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
+    if (!art && ['redactar', 'revisar', 'adaptar', 'apa', 'refinar', 'pedir_aprobacion', 'devolver', 'verificar_citas', 'continuar', 'resolver_marcas', 'depurar', 'al_aprobar', 'chequeo'].includes(modo)) return json(req, { error: 'Artículo no encontrado' }, 404)
 
     // ── redactar ───────────────────────────────────────────────────────────
     if (modo === 'redactar' && art) {
@@ -809,9 +903,11 @@ Deno.serve(async (req) => {
       const prop = art.propuesta
       const s = prop?.movement_id ? await cargarSentencia(admin, String(prop.movement_id)) : null
       const evidencia = await bloqueEvidencia(admin, String(art.id))
+      const [estilo, lineaEje] = await Promise.all([guiaEstilo(admin), memoriaEje(admin, String(art.id))])
 
       const r = await llm(admin, userId,
         `MODO REDACCIÓN. Tipo: ${TIPO_LABEL[tipo]}.\n\n` +
+        (estilo ? `${estilo}\n\n` : '') + (lineaEje ? `${lineaEje}\n\n` : '') +
         (prop ? `PROPUESTA:\n${JSON.stringify({ titulo: prop.titulo, problema: prop.problema, pregunta: prop.pregunta, hipotesis: prop.hipotesis, enfoque: prop.enfoque }, null, 2)}\n\n` : '') +
         (art.investigacion ? `INVESTIGACIÓN PREVIA:\n${String(art.investigacion).slice(0, 20000)}\n\n` : '') +
         (evidencia ? `${evidencia}\n\n` : '') +
@@ -898,6 +994,79 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, propuestas: props })
     }
 
+    // ── al aprobar: aprender del estilo de Marco y ubicar el artículo en su línea ──
+    if (modo === 'al_aprobar' && art) {
+      if (!['aprobado', 'publicado'].includes(String(art.estado))) return json(req, { error: 'El artículo no está aprobado' }, 400)
+      // Primer borrador de la IA vs versión final aprobada
+      const { data: vs } = await admin.from('editorial_versiones').select('version, origen, modo, cuerpo').eq('articulo_id', art.id).order('version')
+      const versiones = (vs ?? []) as { version: number; origen: string; modo: string | null; cuerpo: string }[]
+      const borradorIA = [...versiones].reverse().find((v) => v.origen === 'ia' && v.version < Number(art.version)) ?? versiones.find((v) => v.origen === 'ia')
+      const final = String(art.cuerpo ?? '')
+      const huboEdicion = !!borradorIA && borradorIA.cuerpo.trim() !== final.trim() && versiones.some((v) => v.origen === 'marco')
+      const [{ data: reglas }, { data: ejes }] = await Promise.all([
+        admin.from('editorial_estilo').select('id, regla').order('veces', { ascending: false }).limit(60),
+        admin.from('editorial_ejes').select('id, nombre, descripcion'),
+      ])
+      const R = (reglas ?? []) as { id: string; regla: string }[]
+      const E = (ejes ?? []) as { id: string; nombre: string; descripcion: string | null }[]
+
+      const r = await llm(admin, userId,
+        'MODO APRENDIZAJE AL APROBAR. Marco aprobó este artículo.\n\n' +
+        (huboEdicion
+          ? 'TAREA 1 — ESTILO: compará el borrador de la IA con la versión final de Marco y deducí reglas de estilo concretas y reutilizables ' +
+            '(léxico, tono, estructura, cómo abre y cierra, cómo cita, qué evita). Solo reglas que se vean en sus correcciones, no gustos genéricos. ' +
+            'Si una regla ya existe en la guía, no la repitas: indicá su id en "reforzadas".\n\n' +
+            `BORRADOR DE LA IA:\n<<<\n${borradorIA!.cuerpo.slice(0, 18000)}\n>>>\n\nVERSIÓN FINAL DE MARCO:\n<<<\n${final.slice(0, 18000)}\n>>>\n\n` +
+            `GUÍA ACTUAL:\n${R.map((x) => `[${x.id}] ${x.regla}`).join('\n') || '(vacía)'}\n\n`
+          : `TAREA 1 — ESTILO: no hubo correcciones de Marco sobre el borrador; devolvé listas vacías.\n\nARTÍCULO:\n${final.slice(0, 18000)}\n\n`) +
+        'TAREA 2 — LÍNEA TEMÁTICA: ubicá el artículo en una de las líneas existentes o proponé una nueva (nombre corto y amplio, ' +
+        'que sirva para varios artículos futuros, p. ej. "Tutela urgente y proceso", "Violencia y familia").\n' +
+        `LÍNEAS EXISTENTES:\n${E.map((x) => `[${x.id}] ${x.nombre}${x.descripcion ? ` — ${x.descripcion}` : ''}`).join('\n') || '(ninguna)'}\n\n` +
+        'TAREA 3 — MEMORIA: extraé las tesis que el artículo sostiene (1 a 4, una oración cada una) y las preguntas que deja abiertas ' +
+        'y podrían ser un artículo siguiente (0 a 3).\n\n' +
+        `TÍTULO: ${art.titulo}\n\n` +
+        `${FORMATO_JSON}\n{ "reglas_nuevas": [{ "regla": "...", "antes": "ejemplo breve de la IA o vacío", "despues": "cómo lo escribió Marco o vacío" }], ` +
+        '"reforzadas": ["id"], "linea": { "id_existente": "id o vacío", "nombre_nuevo": "si no encaja en ninguna", "descripcion": "una oración" }, ' +
+        '"tesis": ["..."], "preguntas_abiertas": ["..."] }',
+        3500)
+
+      // Estilo
+      const nuevas = (Array.isArray(r.reglas_nuevas) ? r.reglas_nuevas : []) as Record<string, unknown>[]
+      const filas = nuevas.map((x) => ({ regla: String(x.regla ?? '').trim(), antes: String(x.antes ?? '').trim() || null, despues: String(x.despues ?? '').trim() || null, articulo_id: art.id }))
+        .filter((x) => x.regla.length > 8).slice(0, 8)
+      if (filas.length) await admin.from('editorial_estilo').insert(filas)
+      const ids = new Set(R.map((x) => x.id))
+      for (const id of ((Array.isArray(r.reforzadas) ? r.reforzadas : []) as string[]).filter((x) => ids.has(String(x)))) {
+        const { data: cur } = await admin.from('editorial_estilo').select('veces').eq('id', id).maybeSingle()
+        await admin.from('editorial_estilo').update({ veces: Number((cur as { veces: number } | null)?.veces ?? 1) + 1, updated_at: new Date().toISOString() }).eq('id', id)
+      }
+
+      // Línea temática
+      const l = (r.linea ?? {}) as Record<string, unknown>
+      let ejeId = E.find((x) => x.id === String(l.id_existente ?? ''))?.id ?? null
+      if (!ejeId && String(l.nombre_nuevo ?? '').trim()) {
+        const nombre = String(l.nombre_nuevo).trim().slice(0, 80)
+        const { data: ex } = await admin.from('editorial_ejes').select('id').ilike('nombre', nombre).maybeSingle()
+        ejeId = (ex as { id: string } | null)?.id ?? null
+        if (!ejeId) {
+          const { data: ne } = await admin.from('editorial_ejes').insert({ nombre, descripcion: String(l.descripcion ?? '').slice(0, 300) || null }).select('id').single()
+          ejeId = (ne as { id: string } | null)?.id ?? null
+        }
+      }
+      if (ejeId && !art.eje_id) await admin.from('editorial_articulos').update({ eje_id: ejeId }).eq('id', art.id)
+      const eje = (art.eje_id as string | null) ?? ejeId
+
+      // Tesis y preguntas abiertas (reemplaza las de una aprobación anterior del mismo artículo)
+      await admin.from('editorial_tesis').delete().eq('articulo_id', art.id)
+      const t = ((Array.isArray(r.tesis) ? r.tesis : []) as string[]).map((x) => ({ tipo: 'tesis', texto: String(x).trim() }))
+      const q = ((Array.isArray(r.preguntas_abiertas) ? r.preguntas_abiertas : []) as string[]).map((x) => ({ tipo: 'pregunta', texto: String(x).trim() }))
+      const memo = [...t, ...q].filter((x) => x.texto.length > 10).map((x) => ({ ...x, eje_id: eje, articulo_id: art.id }))
+      if (memo.length) await admin.from('editorial_tesis').insert(memo)
+
+      await admin.from('editorial_articulos').update({ aprendido_at: new Date().toISOString() }).eq('id', art.id)
+      return json(req, { ok: true, reglas_nuevas: filas.length, eje_id: eje, tesis: t.length, preguntas: q.length })
+    }
+
     // ── depurar: sacar lo no verificable y dejar el artículo coherente ────
     if (modo === 'depurar' && art) {
       const cuerpoActual = String(art.cuerpo ?? '')
@@ -927,6 +1096,7 @@ Deno.serve(async (req) => {
         '4. Resolvé todas las marcas [VERIFICAR: …]: con respaldo comprobado → citá la fuente y quitá la marca; sin respaldo → reformulá como ' +
         'opinión o inferencia, o eliminá. No dejes ninguna marca.\n' +
         '5. No agregues datos, normas ni fallos nuevos. Conservá el estilo, la estructura, el título y la extensión aproximada.\n\n' +
+        ((await guiaEstilo(admin)) + '\n\n') +
         (evidencia ? `${evidencia}\n\n` : 'No hay investigación externa cargada.\n\n') +
         `BASE DEL ESTUDIO (normas y fallos verificables):\n${base || '(vacía)'}\n\n` +
         (citas ? `RESULTADO DE LA VERIFICACIÓN DE CITAS:\n${citas}\n\n` : '') +
@@ -1033,7 +1203,7 @@ Deno.serve(async (req) => {
       const contexto = typeof body.contexto === 'string' ? body.contexto.slice(0, 30000) : String(art.cuerpo ?? '')
       if (!fragmento.trim() || !instruccion.trim()) return json(req, { error: 'Falta el fragmento o la instrucción' }, 400)
       const r = await llm(admin, userId,
-        'MODO EDICIÓN DE FRAGMENTO.\n\n' +
+        'MODO EDICIÓN DE FRAGMENTO.\n\n' + ((await guiaEstilo(admin)) + '\n\n') +
         `ARTÍCULO COMPLETO (solo de contexto, no lo reescribas):\nTítulo: ${art.titulo}\n\n${contexto}\n\n` +
         `FRAGMENTO A MODIFICAR:\n<<<\n${fragmento}\n>>>\n\nINSTRUCCIÓN DE MARCO:\n${instruccion}\n\n` +
         'Devolvé solo el fragmento reescrito según la instrucción, en el mismo formato markdown, para reemplazarlo tal cual en el texto. ' +
@@ -1107,7 +1277,9 @@ Deno.serve(async (req) => {
         admin.from('jurisprudencia_documentos').select('id, caratula, tribunal, fecha, source_url'),
       ])
       const { data: hsOk } = await admin.from('editorial_hallazgos').select('fuente, numero, url, tipo').eq('articulo_id', art.id).eq('estado', 'comprobado')
-      const H = (hsOk ?? []) as { fuente: string | null; numero: string | null; url: string | null; tipo: string }[]
+      const { data: bib } = await admin.from('editorial_evidencia').select('fuente, numero, url, tipo').limit(800)
+      const H = [...((hsOk ?? []) as { fuente: string | null; numero: string | null; url: string | null; tipo: string }[]),
+        ...((bib ?? []) as { fuente: string | null; numero: string | null; url: string | null; tipo: string }[])]
       const N = (normas ?? []) as { id: string; titulo: string; tipo: string | null; numero: string | null; fecha: string | null; source_url: string | null }[]
       const F = (fallos ?? []) as { id: string; caratula: string; tribunal: string | null; fecha: string | null; source_url: string | null }[]
       const palabras = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter((w) => w.length > 3)

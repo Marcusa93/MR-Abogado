@@ -16,6 +16,7 @@ import { CompararVersiones } from '@/components/editorial/comparar-versiones'
 import { VerificacionCitas } from '@/components/editorial/verificacion-citas'
 import { HallazgosPanel } from '@/components/editorial/investigacion-externa'
 import { MarcasVerificar } from '@/components/editorial/marcas-verificar'
+import { useEjes, useEditarEditorial } from '@/hooks/use-editorial'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -48,6 +49,8 @@ export default function EditorialArticuloPage() {
   const { data: lectura, isFetched: lecturaLista } = useMiLectura(id)
   const { data: actualizaciones = [] } = useActualizacionesArticulo(id)
   const { data: investigacionExterna } = useHallazgos(id)
+  const { data: lineas } = useEjes()
+  const editarEditorial = useEditarEditorial()
   const actualizarPropuesta = useActualizarPropuesta()
   const [leidaAntes, setLeidaAntes] = useState<number | null | undefined>(undefined)
   const [comparar, setComparar] = useState<{ titulo: string; antes: { etiqueta: string; texto: string }; despues: { etiqueta: string; texto: string } } | null>(null)
@@ -441,6 +444,19 @@ export default function EditorialArticuloPage() {
         <GuiaArticulo pasos={pasos} articuloId={id} ocupado={!!pidiendo} />
       )}
 
+      {(lineas?.ejes.length ?? 0) > 0 && (
+        <label className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          Línea temática
+          <select value={art.eje_id ?? ''} disabled={!puedeAprobar && aprobado}
+            onChange={(e) => editarEditorial.mutate({ tabla: 'editorial_articulos', accion: 'update', id, datos: { eje_id: e.target.value || null } },
+              { onSuccess: () => toast.success('Línea temática actualizada') })}
+            className="min-h-8 rounded-lg border border-zinc-200 bg-white px-2 text-base sm:text-xs dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+            <option value="">Sin asignar (se asigna sola al aprobar)</option>
+            {lineas!.ejes.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+          </select>
+        </label>
+      )}
+
       {/* Avisos */}
       {devolviendo && (
         <div className="space-y-2 rounded-xl border border-orange-500/30 bg-orange-500/5 p-3">
@@ -772,7 +788,14 @@ export default function EditorialArticuloPage() {
         onClose={() => setConfirmarAprobar(false)}
         onConfirm={() => {
           cambiarEstado.mutate({ estado: 'aprobado' }, {
-            onSuccess: () => toast.success('Artículo aprobado', 'Ya podés generar las adaptaciones.'),
+            onSuccess: () => {
+              toast.success('Artículo aprobado', 'Ya podés descargarlo. En segundo plano aprendo de tus correcciones y lo ubico en su línea temática.')
+              // Aprendizaje: estilo, línea temática, tesis y preguntas abiertas (no bloquea)
+              ia.mutate({ modo: 'al_aprobar', articulo_id: id }, {
+                onSuccess: (r) => { if (Number(r.reglas_nuevas) > 0) toast.info(`Aprendí ${r.reglas_nuevas} ${Number(r.reglas_nuevas) === 1 ? 'regla nueva' : 'reglas nuevas'} de tu estilo`, 'Las ves en Editorial → Mi estilo.') },
+                onError: () => { /* se reintenta en la próxima aprobación */ },
+              })
+            },
             onError: (e) => toast.error('No se pudo aprobar', e instanceof Error ? e.message : undefined),
           })
           setConfirmarAprobar(false)

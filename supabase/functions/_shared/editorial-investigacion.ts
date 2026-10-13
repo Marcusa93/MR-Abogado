@@ -3,7 +3,7 @@
 // comprobación literal de citas. Nada de esto usa IA salvo la normalización
 // de informes que no respetaron el formato (en editorial-ia).
 
-import { extractText, getDocumentProxy } from 'npm:unpdf@0.12.1'
+import { getDocumentProxy } from 'npm:unpdf@0.12.1'
 
 export interface Hallazgo {
   afirmacion: string
@@ -133,7 +133,8 @@ export function hallazgoDesdeIA(h: Record<string, unknown>): Hallazgo | null {
 
 // ── Fuentes ─────────────────────────────────────────────────────────────────
 
-const MAX_BYTES = 12_000_000
+const MAX_BYTES = 8_000_000
+const MAX_PAGINAS_PDF = 120
 
 function htmlATexto(html: string): string {
   return html
@@ -167,8 +168,18 @@ export async function obtenerFuente(url: string): Promise<{ ok: true; texto: str
     let texto = ''
     let titulo: string | null = null
     if (tipo.includes('pdf') || /\.pdf($|\?)/i.test(res.url)) {
+      // PDF: página por página y con tope, para no agotar la memoria de la función
       const pdf = await getDocumentProxy(buf)
-      texto = (await extractText(pdf, { mergePages: true })).text as unknown as string
+      const paginas = Math.min(pdf.numPages, MAX_PAGINAS_PDF)
+      const partes: string[] = []
+      for (let i = 1; i <= paginas; i++) {
+        const pagina = await pdf.getPage(i)
+        const contenido = await pagina.getTextContent()
+        partes.push((contenido.items as { str?: string }[]).map((it) => it.str ?? '').join(' '))
+        pagina.cleanup()
+      }
+      await pdf.destroy()
+      texto = partes.join('\n')
     } else {
       // Muchos sitios oficiales (InfoLEG) están en latin1 sin declararlo en el encabezado
       const cabecera = new TextDecoder('latin1').decode(buf.slice(0, 4096))

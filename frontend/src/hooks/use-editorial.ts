@@ -79,6 +79,7 @@ export interface Articulo {
   citas_verificadas_at: string | null
   informe_externo: string | null
   informe_cargado_at: string | null
+  eje_id: string | null
   created_at: string
   updated_at: string
 }
@@ -197,7 +198,7 @@ export function useArticulos() {
     queryKey: editorialKeys.articulos,
     queryFn: async () => {
       const { data, error } = await sb().from('editorial_articulos')
-        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar, creado_por, asignado_a, aprobacion_pedida_at, devuelto_at')
+        .select('id, estado, tipo, titulo, bajada, version, updated_at, aprobado_at, alertas_confidencialidad, a_verificar, creado_por, asignado_a, aprobacion_pedida_at, devuelto_at, eje_id')
         .order('updated_at', { ascending: false }).limit(100)
       if (error) throw error
       return (data ?? []) as Articulo[]
@@ -449,6 +450,66 @@ export function useSumarFuenteABase(articuloId: string) {
       await sb().from('editorial_fuentes').update({ en_base: true }).eq('id', h.fuente_id)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['editorial', 'hallazgos', articuloId] }),
+  })
+}
+
+// ── Aprendizaje: líneas temáticas, guía de estilo y biblioteca de evidencia ──
+
+export interface Eje { id: string; nombre: string; descripcion: string | null }
+export interface TesisEje { id: string; eje_id: string | null; articulo_id: string | null; tipo: 'tesis' | 'pregunta'; texto: string; vigente: boolean; propuesta_id: string | null }
+export interface ReglaEstilo { id: string; regla: string; antes: string | null; despues: string | null; origen: 'aprendida' | 'manual'; activa: boolean; veces: number }
+export interface Evidencia { id: string; tipo: string; afirmacion: string; fuente: string | null; url: string | null; cita: string | null; vigencia: string | null; usos: number; verificado_at: string }
+
+export function useEjes() {
+  return useQuery({
+    queryKey: ['editorial', 'ejes'],
+    queryFn: async () => {
+      const [{ data: ejes, error }, { data: tesis, error: e2 }] = await Promise.all([
+        sb().from('editorial_ejes').select('id, nombre, descripcion').order('nombre'),
+        sb().from('editorial_tesis').select('*').eq('vigente', true).order('created_at'),
+      ])
+      if (error) throw error
+      if (e2) throw e2
+      return { ejes: (ejes ?? []) as Eje[], tesis: (tesis ?? []) as TesisEje[] }
+    },
+  })
+}
+
+export function useEstilo() {
+  return useQuery({
+    queryKey: ['editorial', 'estilo'],
+    queryFn: async () => {
+      const { data, error } = await sb().from('editorial_estilo').select('*').order('veces', { ascending: false }).order('created_at')
+      if (error) throw error
+      return (data ?? []) as ReglaEstilo[]
+    },
+  })
+}
+
+export function useEvidencia() {
+  return useQuery({
+    queryKey: ['editorial', 'evidencia'],
+    queryFn: async () => {
+      const { data, error } = await sb().from('editorial_evidencia').select('id, tipo, afirmacion, fuente, url, cita, vigencia, usos, verificado_at').order('verificado_at', { ascending: false }).limit(500)
+      if (error) throw error
+      return (data ?? []) as Evidencia[]
+    },
+  })
+}
+
+/** Escrituras simples del módulo (reglas, ejes, tesis); invalida todo Editorial. */
+export function useEditarEditorial() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (op: { tabla: 'editorial_estilo' | 'editorial_ejes' | 'editorial_tesis' | 'editorial_articulos' | 'editorial_propuestas'; accion: 'insert' | 'update' | 'delete'; id?: string; datos?: Record<string, unknown> }) => {
+      const t = sb().from(op.tabla)
+      const { data, error } = op.accion === 'insert' ? await t.insert(op.datos).select('id').single()
+        : op.accion === 'update' ? await t.update(op.datos).eq('id', op.id)
+        : await t.delete().eq('id', op.id)
+      if (error) throw error
+      return data as { id: string } | null
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['editorial'] }),
   })
 }
 
