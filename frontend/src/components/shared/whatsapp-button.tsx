@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
  * Formats a phone number for WhatsApp API.
  * Handles Argentine numbers: removes spaces/dashes, replaces leading 0 with 54.
  */
-function formatWhatsAppNumber(phone: string): string {
+export function formatWhatsAppNumber(phone: string): string {
   let clean = phone.replace(/[\s\-()]/g, '')
   if (clean.startsWith('0')) clean = '54' + clean.slice(1)
   if (!clean.startsWith('+')) clean = '+' + clean

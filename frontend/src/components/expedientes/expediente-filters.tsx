@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { Search, X, SlidersHorizontal, ChevronDown, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ESTADO_INTERNO_VALUES, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { PRIORIDAD_VALUES, PRIORIDAD_LABELS } from '@/types/enums'
@@ -7,7 +7,7 @@ import { useTeamMembers } from '@/hooks/use-team-members'
 import { useAuthStore } from '@/stores/auth-store'
 import { isDirector } from '@/lib/utils/display-rol'
 import { useTiposProceso } from '@/hooks/use-proceso'
-import type { ExpedientesFilters } from '@/hooks/use-expedientes'
+import { useConteoExpedientesPorAbogado, type ExpedientesFilters } from '@/hooks/use-expedientes'
 
 interface ExpedienteFiltersProps {
   filters: ExpedientesFilters
@@ -40,6 +40,14 @@ export function ExpedienteFilters({
   const { data: tiposProceso = [] } = useTiposProceso()
   const profile = useAuthStore((s) => s.profile)
   const canFilterByAbogado = isDirector(profile)
+  const { data: conteo } = useConteoExpedientesPorAbogado(canFilterByAbogado)
+  const nombrePersona = (m: { nombre?: string | null; apellido?: string | null; email?: string | null }) =>
+    ([m.nombre, m.apellido].filter(Boolean).join(' ') || m.email || '')
+      .toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase())
+  const abogadosConExpedientes = (teamMembers ?? [])
+    .map((m) => ({ m, n: conteo?.porPerfil.get(m.id) ?? 0 }))
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.n - a.n)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   // Materias filtradas por el fuero seleccionado
@@ -93,6 +101,23 @@ export function ExpedienteFilters({
           />
         </div>
 
+        {/* Favoritos — siempre visible */}
+        <button
+          type="button"
+          onClick={() => onChange({ ...filters, favoritos: filters.favoritos ? null : true, page: 1 })}
+          aria-pressed={!!filters.favoritos}
+          className={cn(
+            'flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
+            filters.favoritos
+              ? 'border-amber-400/50 bg-amber-400/10 text-amber-600 dark:text-amber-400'
+              : 'border-zinc-200 bg-white text-zinc-700 hover:text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:text-amber-400',
+          )}
+          title={filters.favoritos ? 'Ver todos los expedientes' : 'Ver solo favoritos'}
+        >
+          <Star className={cn('h-3.5 w-3.5', filters.favoritos && 'fill-current')} />
+          Favoritos
+        </button>
+
         {/* Mobile toggle */}
         <button
           type="button"
@@ -110,6 +135,28 @@ export function ExpedienteFilters({
           <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
         </button>
       </div>
+
+      {/* Ver los expedientes de cada abogado (solo dirección): siempre a la vista */}
+      {canFilterByAbogado && abogadosConExpedientes.length > 0 && (
+        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:flex-wrap sm:px-0">
+          {[{ id: null as string | null, label: 'Todos', n: conteo?.total ?? 0 },
+            ...abogadosConExpedientes.map((x) => ({ id: x.m.id as string | null, label: x.m.id === profile?.id ? `${nombrePersona(x.m)} (vos)` : nombrePersona(x.m), n: x.n }))]
+            .map((op) => {
+              const activo = (filters.abogado_id ?? null) === op.id
+              return (
+                <button key={op.id ?? 'todos'} type="button" onClick={() => onChange({ ...filters, abogado_id: op.id, page: 1 })}
+                  aria-pressed={activo}
+                  className={cn('flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors',
+                    activo
+                      ? 'border-transparent bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
+                      : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10')}>
+                  {op.label}
+                  <span className="text-xs tabular-nums opacity-70">{op.n}</span>
+                </button>
+              )
+            })}
+        </div>
+      )}
 
       {/* Filtros: colapsables en mobile, siempre visibles en sm+ */}
       <div className={cn(
@@ -194,30 +241,6 @@ export function ExpedienteFilters({
             </option>
           ))}
         </select>
-
-        {/* Abogado / vínculo SAE */}
-        {canFilterByAbogado && (
-          <select
-            value={filters.abogado_id ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...filters,
-                abogado_id: e.target.value || null,
-                page: 1,
-              })
-            }
-            className={selectClass}
-          >
-            <option value="">Todos los abogados</option>
-            {teamMembers
-              ?.filter((m) => ['DIRECTOR', 'ADMIN', 'ABOGADO', 'COLABORADOR'].includes(m.rol))
-              .map((m) => (
-                <option key={m.id} value={m.id}>
-                  {[m.apellido, m.nombre].filter(Boolean).join(', ') || m.email}
-                </option>
-              ))}
-          </select>
-        )}
 
         {/* Clear */}
         {activeFilterCount > 0 && (

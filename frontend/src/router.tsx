@@ -3,14 +3,10 @@ import { AuthGuard } from '@/components/auth/auth-guard'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { AppSplash } from '@/components/shared/app-splash'
 import { ErrorBoundary } from '@/components/shared/error-boundary'
-import { useAuthStore } from '@/stores/auth-store'
 
-// Landing condicional por rol.
+// Una sola pantalla de inicio para todos los roles (los bloques cambian según el rol).
 function HomeRedirect() {
-  const profile = useAuthStore((s) => s.profile)
-  if (profile?.rol === 'SECRETARIA') return <Navigate to="/hoy" replace />
-  if (profile?.rol === 'CRITERIO') return <Navigate to="/criterio" replace />
-  return <Navigate to="/mi-trabajo" replace />
+  return <Navigate to="/inicio" replace />
 }
 
 // Lazy load pages with automatic retry on chunk load failure (after deploys)
@@ -72,6 +68,9 @@ const CalculadoraPlazosPage = lazyWithRetry(() => import('@/pages/calculadora-pl
 const CalculadoraDanosPage = lazyWithRetry(() => import('@/pages/calculadora-danos'))
 const CriterioPage = lazyWithRetry(() => import('@/pages/criterio'))
 const MiTrabajoPage = lazyWithRetry(() => import('@/pages/mi-trabajo'))
+const EditorialPage = lazyWithRetry(() => import('@/pages/editorial'))
+const EditorialArticuloPage = lazyWithRetry(() => import('@/pages/editorial-articulo'))
+const SubirDocumentacionPage = lazyWithRetry(() => import('@/pages/subir-documentacion'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
@@ -102,6 +101,15 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <AuthCallbackPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    // Pública: el cliente sube la documentación con el enlace del estudio
+    path: '/subir/:token',
+    element: (
+      <SuspenseWrapper>
+        <SubirDocumentacionPage />
       </SuspenseWrapper>
     ),
   },
@@ -151,7 +159,10 @@ export const router = createBrowserRouter([
       { path: 'aprendizajes', element: <SuspenseWrapper><AprendizajesPage /></SuspenseWrapper> },
       { path: 'buscar-audiencias', element: <SuspenseWrapper><BuscarAudienciasPage /></SuspenseWrapper> },
       { path: 'caja', element: <SuspenseWrapper><CajaPage /></SuspenseWrapper> },
-      { path: 'hoy', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'editorial', element: <SuspenseWrapper><EditorialPage /></SuspenseWrapper> },
+      { path: 'editorial/:id', element: <SuspenseWrapper><EditorialArticuloPage /></SuspenseWrapper> },
+      { path: 'inicio', element: <SuspenseWrapper><HoyPage /></SuspenseWrapper> },
+      { path: 'hoy', element: <Navigate to="/inicio" replace /> },
       { path: 'criterio', element: <SuspenseWrapper><CriterioPage /></SuspenseWrapper> },
       { path: 'mi-trabajo', element: <SuspenseWrapper><MiTrabajoPage /></SuspenseWrapper> },
       { path: 'contenidos', element: <SuspenseWrapper><ContenidosPage /></SuspenseWrapper> },

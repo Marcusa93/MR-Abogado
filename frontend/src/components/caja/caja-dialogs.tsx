@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { SelectorExpediente, SelectorCliente, useExpedienteOpcion, useClienteOpcion, type ExpedienteOpcion, type ClienteOpcion } from '@/components/caja/selectores'
 import { X, Loader2, Plus, AlertTriangle } from 'lucide-react'
 import {
   useCreateGasto, useUpdateGasto, useCreateIngreso, useUpdateIngreso,
-  useCreateAbono, useCreateGastoFijo, useUpdateGastoFijo, useExpedientesLista,
+  useCreateAbono, useCreateGastoFijo, useUpdateGastoFijo,
   GASTO_CATEGORIAS, INGRESO_TIPOS,
   type MonedaCaja, type Gasto, type Ingreso, type GastoFijo,
 } from '@/hooks/use-caja'
@@ -19,7 +20,7 @@ const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
 
 export { fmt }
 
-const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20'
+export const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/20'
 
 // ─── Shell + helpers del formulario ─────────────────────────────────────────
 
@@ -56,18 +57,22 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
   const { user } = useAuth()
   const createGasto = useCreateGasto()
   const updateGasto = useUpdateGasto()
-  const { data: expedientes = [] } = useExpedientesLista()
   const isEditing = Boolean(initial)
   const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
   const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
   const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
   const [categoria, setCategoria] = useState(initial?.categoria ?? 'timbrado')
-  const [expedienteId, setExpedienteId] = useState(initial?.expediente_id ?? '')
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
   const [recuperable, setRecuperable] = useState(initial?.recuperable ?? false)
+  const [expediente, setExpediente] = useState<ExpedienteOpcion | null>(null)
+  const { data: expInicial } = useExpedienteOpcion(initial?.expediente_id)
+  const [expCargado, setExpCargado] = useState(false)
+  useEffect(() => {
+    if (!expCargado && expInicial) { setExpediente(expInicial); setExpCargado(true) }
+  }, [expInicial, expCargado])
 
   const esJudicial = CATEGORIAS_JUDICIALES.has(categoria)
-  const mostrarAlertaExpediente = (esJudicial || recuperable) && !expedienteId
+  const mostrarAlertaExpediente = (esJudicial || recuperable) && !expediente
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +83,7 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
       if (isEditing && initial) {
         await updateGasto.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, categoria,
-          expediente_id: expedienteId || null,
+          expediente_id: expediente?.id ?? null,
           descripcion: descripcion || null, recuperable,
         })
         toast.success('Gasto actualizado')
@@ -86,7 +91,7 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
         if (!user?.id) return
         await createGasto.mutateAsync({
           fecha, monto: n, moneda, categoria,
-          expediente_id: expedienteId || null,
+          expediente_id: expediente?.id ?? null,
           descripcion: descripcion || null,
           comprobante_path: null, recuperable,
           cargado_por: user.id,
@@ -122,20 +127,13 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
           </select>
         </FormRow>
         <FormRow label={esJudicial ? 'Expediente' : 'Expediente (opcional)'}>
-          <select value={expedienteId} onChange={e => setExpedienteId(e.target.value)} className={inputCls}>
-            <option value="">— sin vincular —</option>
-            {expedientes.map(ex => (
-              <option key={ex.id} value={ex.id}>
-                {ex.caratula}{ex.numero_expediente ? ` · ${ex.numero_expediente}` : ''}
-              </option>
-            ))}
-          </select>
+          <SelectorExpediente value={expediente} onChange={setExpediente} />
         </FormRow>
         {mostrarAlertaExpediente && (
           <p className="flex items-start gap-1.5 text-[11px] text-amber-400/90">
             <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
             {recuperable
-              ? 'Si el cliente paga este gasto, vincularlo al expediente facilita el seguimiento.'
+              ? 'Vinculalo a un expediente para que se le cargue al cliente en su cuenta corriente.'
               : 'Este tipo de gasto suele pertenecer a una causa. ¿Corresponde a algún expediente?'}
           </p>
         )}
@@ -166,31 +164,34 @@ const TIPO_HINTS: Record<string, string> = {
 }
 
 const TIPOS_CON_EXPEDIENTE = new Set(['honorario_expediente', 'anticipo', 'pacto_quota_litis'])
-const TIPOS_CON_CLIENTE    = new Set(['honorario_expediente', 'anticipo', 'consulta', 'pacto_quota_litis'])
 
 export function DialogIngreso({ onClose, initial }: { onClose: () => void; initial?: Ingreso }) {
   const { user } = useAuth()
   const createIngreso = useCreateIngreso()
   const updateIngreso = useUpdateIngreso()
   const isEditing = Boolean(initial)
-  const { data: clientesResult } = useClientes({ pageSize: 500 })
-  const clientes = clientesResult?.data ?? []
-  const { data: expedientes = [] } = useExpedientesLista()
   const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
   const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
   const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
   const [tipo, setTipo] = useState(initial?.tipo ?? 'honorario_expediente')
-  const [clienteId, setClienteId] = useState<string>(initial?.cliente_id ?? '')
-  const [expedienteId, setExpedienteId] = useState(initial?.expediente_id ?? '')
+  const [cliente, setCliente] = useState<ClienteOpcion | null>(null)
+  const [expediente, setExpediente] = useState<ExpedienteOpcion | null>(null)
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
 
-  const clientesOrdenados = useMemo(
-    () => [...clientes].sort((a, b) => (a.apellido ?? '').localeCompare(b.apellido ?? '')),
-    [clientes]
-  )
+  const { data: cliInicial } = useClienteOpcion(initial?.cliente_id)
+  const { data: expInicial } = useExpedienteOpcion((initial as { expediente_id?: string | null } | undefined)?.expediente_id)
+  const [iniciales, setIniciales] = useState({ cli: false, exp: false })
+  useEffect(() => {
+    if (!iniciales.cli && cliInicial) { setCliente(cliInicial); setIniciales((v) => ({ ...v, cli: true })) }
+    if (!iniciales.exp && expInicial) { setExpediente(expInicial); setIniciales((v) => ({ ...v, exp: true })) }
+  }, [cliInicial, expInicial, iniciales])
+
+  const elegirExpediente = (e: ExpedienteOpcion | null) => {
+    setExpediente(e)
+    if (e?.cliente_id && !cliente) setCliente({ id: e.cliente_id, label: e.cliente_label ?? 'Cliente del expediente' })
+  }
 
   const necesitaExpediente = TIPOS_CON_EXPEDIENTE.has(tipo)
-  const necesitaCliente    = TIPOS_CON_CLIENTE.has(tipo)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -201,8 +202,8 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
       if (isEditing && initial) {
         await updateIngreso.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, tipo,
-          cliente_id: clienteId || null,
-          expediente_id: expedienteId || null,
+          cliente_id: cliente?.id ?? null,
+          expediente_id: expediente?.id ?? null,
           descripcion: descripcion || null,
         })
         toast.success('Ingreso actualizado')
@@ -210,8 +211,8 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
         if (!user?.id) return
         await createIngreso.mutateAsync({
           fecha, monto: n, moneda, tipo, categoria: null,
-          cliente_id: clienteId || null,
-          expediente_id: expedienteId || null,
+          cliente_id: cliente?.id ?? null,
+          expediente_id: expediente?.id ?? null,
           abono_id: null, periodo_year: null, periodo_month: null,
           descripcion: descripcion || null,
           comprobante_path: null, cargado_por: user.id,
@@ -253,32 +254,24 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
             <p className="text-[11px] text-zinc-500">{TIPO_HINTS[tipo]}</p>
           )}
         </div>
-        {necesitaExpediente && (
-          <FormRow label="Expediente">
-            <select value={expedienteId} onChange={e => setExpedienteId(e.target.value)} className={inputCls}>
-              <option value="">— sin vincular —</option>
-              {expedientes.map(ex => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.caratula}{ex.numero_expediente ? ` · ${ex.numero_expediente}` : ''}
-                </option>
-              ))}
-            </select>
-            {!expedienteId && (
-              <p className="mt-0.5 flex items-start gap-1.5 text-[11px] text-amber-400/90">
-                <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
-                Vincular el expediente facilita el seguimiento financiero del caso.
-              </p>
-            )}
-          </FormRow>
-        )}
-        <FormRow label={necesitaCliente ? 'Cliente' : 'Cliente (opcional)'}>
-          <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={inputCls} required={necesitaCliente && !expedienteId}>
-            <option value="">— sin cliente —</option>
-            {clientesOrdenados.map(c => (
-              <option key={c.id} value={c.id}>{c.apellido}, {c.nombre}</option>
-            ))}
-          </select>
+        <FormRow label="Expediente (opcional)">
+          <SelectorExpediente value={expediente} onChange={elegirExpediente} clienteId={cliente?.id} />
+          {necesitaExpediente && !expediente && (
+            <p className="mt-0.5 flex items-start gap-1.5 text-[11px] text-amber-400/90">
+              <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
+              Vincular el expediente facilita el seguimiento financiero del caso.
+            </p>
+          )}
         </FormRow>
+        <FormRow label="Cliente (opcional)">
+          <SelectorCliente value={cliente} onChange={setCliente} />
+        </FormRow>
+        {!cliente && !expediente && tipo !== 'consulta' && tipo !== 'otro' && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-400/80">
+            <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
+            Sin cliente ni expediente, este pago no entra en ninguna cuenta corriente.
+          </p>
+        )}
         <FormRow label="Descripción (opcional)">
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Ej: anticipo escrito apelación" />
         </FormRow>

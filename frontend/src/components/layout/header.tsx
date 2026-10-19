@@ -7,7 +7,10 @@ import { PushToggle } from './push-toggle'
 import { SaeHealthBadge } from './sae-health-badge'
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
+  '/inicio': 'Inicio',
+  '/editorial': 'Editorial',
+  '/dashboard': 'Indicadores',
+  '/mi-trabajo': 'Asuntos',
   '/expedientes': 'Expedientes',
   '/clientes': 'Clientes',
   '/consultas': 'Consultas',

@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import type { EscritoContenido } from '@/hooks/use-escritos'
+import { textoParte } from './caracter-escrito'
 
 export interface EscritoEncabezadoAbogado {
   nombreCompleto: string         // "MARCO ROSSI"
@@ -23,6 +24,21 @@ function formatCuit(cuit: string | null): string | null {
   const clean = cuit.replace(/\D/g, '')
   if (clean.length !== 11) return cuit
   return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`
+}
+
+/** Datos profesionales del abogado (sin el nombre), para el párrafo de patrocinio. */
+function datosProfesionales(a: EscritoEncabezadoAbogado): string {
+  const parts: string[] = []
+  if (a.matricula) {
+    let matStr = `de la matrícula ${a.matricula}`
+    if (a.matriculaLibro) matStr += ` Libro ${a.matriculaLibro}`
+    if (a.matriculaFolio) matStr += ` Folio ${a.matriculaFolio}`
+    parts.push(matStr)
+  }
+  if (a.domicilioLegal) parts.push(`constituyendo domicilio legal en ${a.domicilioLegal}`)
+  if (a.casilleroNotif) parts.push(`y casillero de notificaciones ${a.casilleroNotif}`)
+  if (a.email) parts.push(`mail: ${a.email}`)
+  return parts.join(', ')
 }
 
 function buildEncabezadoParrafo(a: EscritoEncabezadoAbogado): string {
@@ -95,11 +111,22 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
         </p>
       </div>
 
-      {/* Encabezado del abogado (autogenerado del perfil) */}
-      <p style={{ textIndent: '5cm', margin: '0 0 0.4cm 0' }}>
-        <strong>{abogado.nombreCompleto}</strong>
-        {buildEncabezadoParrafo(abogado).substring(abogado.nombreCompleto.length)}
-      </p>
+      {/* Encabezado: el abogado (apoderado o por derecho propio) o la parte con patrocinio letrado */}
+      {contenido.caracter?.modo === 'patrocinante' ? (
+        <p style={{ textIndent: '5cm', margin: '0 0 0.4cm 0' }}>
+          <strong>{(contenido.caracter.patrocinado?.nombre || '—').toUpperCase()}</strong>
+          {contenido.caracter.patrocinado?.dni ? `, DNI N° ${contenido.caracter.patrocinado.dni}` : ''}
+          {contenido.caracter.patrocinado?.domicilio ? `, con domicilio real en ${contenido.caracter.patrocinado.domicilio}` : ''}
+          {`, ${contenido.caracter.parte === 'otra' ? (contenido.caracter.parte_texto ? `${textoParte(contenido.caracter)}, ` : '') : `en mi carácter de ${contenido.caracter.parte === 'actora' ? 'parte actora' : 'parte demandada'}, `}por mi propio derecho, con el patrocinio letrado del Dr. `}
+          <strong>{abogado.nombreCompleto}</strong>
+          {`, abogado${datosProfesionales(abogado) ? `, ${datosProfesionales(abogado)}` : ''}.`}
+        </p>
+      ) : (
+        <p style={{ textIndent: '5cm', margin: '0 0 0.4cm 0' }}>
+          <strong>{abogado.nombreCompleto}</strong>
+          {buildEncabezadoParrafo(abogado).substring(abogado.nombreCompleto.length)}
+        </p>
+      )}
 
       {/* Presentación — carácter del abogado y fórmula de apertura ante el juez */}
       {contenido.presentacion && (
@@ -128,7 +155,21 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
         </div>
       ))}
 
-      {/* Firma */}
+      {/* Firma: con patrocinio firman la parte y el abogado */}
+      {contenido.caracter?.modo === 'patrocinante' ? (
+        <div style={{ marginTop: '3cm', display: 'flex', justifyContent: 'space-between', gap: '1cm', textAlign: 'center' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0 }}>—</p>
+            <p style={{ margin: 0, fontWeight: 'bold' }}>{(contenido.caracter.patrocinado?.nombre || '—').toUpperCase()}</p>
+            {contenido.caracter.patrocinado?.dni && <p style={{ margin: 0, fontSize: '10pt' }}>DNI N° {contenido.caracter.patrocinado.dni}</p>}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0 }}>—</p>
+            <p style={{ margin: 0, fontWeight: 'bold' }}>{abogado.nombreCompleto}</p>
+            <p style={{ margin: 0, fontSize: '10pt' }}>Abogado patrocinante{abogado.matricula ? ` · Matrícula ${abogado.matricula}` : ''}</p>
+          </div>
+        </div>
+      ) : (
       <div style={{ marginTop: '3cm', textAlign: 'center' }}>
         <p style={{ margin: 0 }}>—</p>
         <p style={{ margin: 0, fontWeight: 'bold' }}>{abogado.nombreCompleto}</p>
@@ -140,6 +181,7 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
           </p>
         )}
       </div>
+      )}
     </div>
   )
 })

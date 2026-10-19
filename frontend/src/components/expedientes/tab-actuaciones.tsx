@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ProcuracionPanel } from '@/components/expedientes/procuracion-panel'
 import { useModalHistory } from '@/hooks/use-modal-history'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
-import { useSaeMovements, useTriggerSaeSync, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, useFetchBodies, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
+import { useSaeMovements, useTriggerSaeSync, useSaeSyncEnCurso, useSaeDocument, useAnalyzeMovements, useSetMovementKey, useSetMovementAudiencia, useSetMovementOle, useDeleteManualActuacion, useFetchBodies, hasAudioAttachment, type SaeMovement } from '@/hooks/use-sae'
 import { ModalNuevaActuacion } from './modal-nueva-actuacion'
 import { formatDate, formatDateTime, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,7 @@ import { SaePdfViewerDialog } from './sae-pdf-viewer-dialog'
 import { CrearTareaDialog } from './crear-tarea-dialog'
 import { CrearTurnoDialog } from './crear-turno-dialog'
 import { SaeIntelligencePanel } from './sae-intelligence-panel'
+import { ProponerArticuloBoton } from '@/components/editorial/proponer-articulo-boton'
 import { extractPdfText } from '@/lib/utils/pdf-text'
 
 type MovementType = Tables<'sae_movements'>['tipo_movimiento']
@@ -466,6 +468,9 @@ function ActuacionRow({
           >
             <ListTodo className="h-3.5 w-3.5" />
           </button>
+          {(movement.tipo_movimiento === 'sentencia' || movement.tipo_movimiento === 'decreto') && (
+            <ProponerArticuloBoton movementId={movement.id} tieneTexto={hasCuerpo} />
+          )}
           {movement.fuente === 'manual' && (
             <button
               type="button"
@@ -867,11 +872,14 @@ interface TabActuacionesProps {
   numeroSae: string | null | undefined
   ultimaSincronizacion: string | null | undefined
   highlightMovementId?: string
+  /** Lleva a la solapa Escritos (para abrir un borrador de la procuración) */
+  onVerEscritos?: () => void
 }
 
-export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId }: TabActuacionesProps) {
+export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, highlightMovementId, onVerEscritos }: TabActuacionesProps) {
   const { data: movements = [], isLoading } = useSaeMovements(expedienteId)
   const sync = useTriggerSaeSync()
+  const sincronizando = useSaeSyncEnCurso(expedienteId)
   const saeDocument = useSaeDocument()
   const analyze = useAnalyzeMovements()
   const setMovementKey = useSetMovementKey()
@@ -1259,21 +1267,24 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
           {numeroSae && (
             <button
               onClick={handleSync}
-              disabled={sync.isPending}
+              disabled={sincronizando}
+              title="Las actuaciones se actualizan solas al abrir el expediente. Usalo para forzar una actualización ahora."
               className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
             >
-              {sync.isPending ? (
+              {sincronizando ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              {sync.isPending ? 'Sincronizando...' : 'Sincronizar'}
+              {sincronizando ? 'Actualizando desde SAE…' : 'Actualizar'}
             </button>
           )}
         </div>
       }
     >
       <div className="space-y-4">
+        <ProcuracionPanel expedienteId={expedienteId} tieneSae={!!numeroSae} onVerEscritos={onVerEscritos} />
+
         {/* ── Stat grid: resumen SAE de un vistazo ── */}
         {movements.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] divide-x divide-y sm:divide-y-0 divide-cyan-500/10 overflow-hidden">
@@ -1453,7 +1464,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
           <EmptyState
             icon={AlertCircle}
             title="Sin actuaciones"
-            description={numeroSae ? 'Presioná Sincronizar para importar las actuaciones desde el SAE, o cargá una manualmente con el botón Nueva.' : 'Cargá la primera actuación con el botón Nueva.'}
+            description={numeroSae ? (sincronizando ? 'Trayendo las actuaciones desde el SAE…' : 'No hay actuaciones importadas del SAE. Podés cargar una manualmente con el botón Nueva.') : 'Cargá la primera actuación con el botón Nueva.'}
           />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">

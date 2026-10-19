@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useAuditLog, useAuditStats, type AuditEntry } from '@/hooks/use-audit-log'
 import { useTeamMembers } from '@/hooks/use-team-members'
@@ -35,6 +37,7 @@ const ACCION_CONFIG: Record<string, { icon: typeof Activity; label: string; colo
   DELETE: { icon: Trash2, label: 'Eliminación', color: 'text-rose-400' },
   STATE_CHANGE: { icon: ArrowRightLeft, label: 'Cambio de estado', color: 'text-violet-400' },
   SENSITIVE_ACCESS: { icon: Eye, label: 'Acceso sensible', color: 'text-rose-400' },
+  VIEW: { icon: Eye, label: 'Consulta', color: 'text-sky-400' },
 }
 
 const TABLA_LABELS: Record<string, string> = {
@@ -45,36 +48,95 @@ const TABLA_LABELS: Record<string, string> = {
   acuerdos_honorarios: 'Honorario',
   cobros: 'Cobro',
   auth: 'Sesión',
+  audiencias: 'Audiencia',
+  escritos: 'Escrito',
+  ingresos: 'Ingreso',
+  gastos: 'Gasto',
+  gastos_fijos: 'Gasto fijo',
+  clientes_abono_mensual: 'Abono mensual',
+  presupuestos: 'Presupuesto',
+  consultas: 'Consulta',
+  expediente_miembros: 'Miembro de expediente',
+  expediente_notas: 'Nota',
+  adjuntos: 'Adjunto',
+  profiles: 'Usuario',
+  sae_credentials: 'Credenciales SAE',
+  honorarios_cargos: 'Cargo de cuenta corriente',
 }
 
-function describeAuditEntry(entry: AuditEntry): string {
+// Nombre legible de los campos que más cambian
+const CAMPO_LABELS: Record<string, string> = {
+  titulo: 'título', descripcion: 'descripción', estado: 'estado', estado_interno: 'estado', prioridad: 'prioridad',
+  fecha_vencimiento: 'vencimiento', asignado_a: 'asignado', asignados: 'asignados', fecha: 'fecha', hora: 'hora',
+  monto: 'monto', moneda: 'moneda', categoria: 'categoría', caratula: 'carátula', numero: 'número',
+  numero_sae: 'número SAE', fuero: 'fuero', deleted_at: 'borrado', rol: 'rol', activo: 'activo',
+  contenido: 'contenido', notas: 'notas', expediente_id: 'expediente', cliente_id: 'cliente',
+  abogado_responsable_id: 'responsable', procuracion_auto: 'procuración automática', telefono: 'teléfono',
+  email: 'email', dni: 'DNI', cuil: 'CUIL', recuperable: 'recuperable', recuperado_at: 'recuperado',
+}
+
+type Datos = Record<string, unknown> | null
+
+/** Nombre del registro a partir de lo guardado (o del contexto "_campo"). */
+function nombreRegistro(entry: AuditEntry): string {
+  const d = { ...(entry.datos_anteriores as Datos ?? {}), ...(entry.datos_nuevos as Datos ?? {}) }
+  const v = d.titulo ?? d._titulo ?? d.caratula ?? d._caratula ?? d.numero
+    ?? ((d.apellido || d._apellido || d.nombre || d._nombre)
+      ? `${d.apellido ?? d._apellido ?? ''} ${d.nombre ?? d._nombre ?? ''}`.trim() : null)
+    ?? d.descripcion ?? d._descripcion
+  return typeof v === 'string' ? v.slice(0, 80) : ''
+}
+
+function camposCambiados(entry: AuditEntry): string[] {
+  const nuevos = entry.datos_nuevos as Datos
+  return nuevos ? Object.keys(nuevos).filter(k => !k.startsWith('_') && k !== 'updated_at') : []
+}
+
+function valorLegible(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—'
+  if (typeof v === 'boolean') return v ? 'sí' : 'no'
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 120)
+  return String(v).slice(0, 200)
+}
+
+function describeAuditEntry(entry: AuditEntry, nombres: Record<string, string>): string {
   const tabla = TABLA_LABELS[entry.tabla] ?? entry.tabla
-  const datos = entry.datos_nuevos as Record<string, unknown> | null
+  const datos = entry.datos_nuevos as Datos
+  const nombre = nombreRegistro(entry) || nombres[entry.registro_id] || ''
+  const cual = nombre ? ` "${nombre}"` : ''
 
   if (entry.accion === 'LOGIN') return 'Inició sesión'
+  if (entry.accion === 'VIEW') return `Abrió ${entry.tabla === 'clientes' ? 'el cliente' : 'el expediente'}${cual}`
 
   if (entry.accion === 'STATE_CHANGE' && entry.tabla === 'expedientes') {
-    const antes = (entry.datos_anteriores as Record<string, unknown>)?.estado_interno ?? '?'
+    const antes = (entry.datos_anteriores as Datos)?.estado_interno ?? '?'
     const despues = datos?.estado_interno ?? '?'
-    const numero = datos?.numero ?? ''
-    return `Cambió estado de expediente ${numero} de "${antes}" a "${despues}"`
+    return `Cambió estado de expediente${cual || ` ${datos?.numero ?? ''}`} de "${antes}" a "${despues}"`
   }
 
-  if (entry.accion === 'INSERT') {
-    const nombre = datos?.numero ?? datos?.nombre ?? datos?.titulo ?? ''
-    return `Creó ${tabla.toLowerCase()}${nombre ? ` "${nombre}"` : ''}`
-  }
+  if (entry.accion === 'INSERT') return `Creó ${tabla.toLowerCase()}${cual}`
 
   if (entry.accion === 'UPDATE') {
-    const campos = datos ? Object.keys(datos).filter(k => k !== 'updated_at').slice(0, 3) : []
-    return `Modificó ${tabla.toLowerCase()}${campos.length ? ` (${campos.join(', ')})` : ''}`
+    const campos = camposCambiados(entry).map(k => CAMPO_LABELS[k] ?? k)
+    return `Modificó ${tabla.toLowerCase()}${cual}${campos.length ? ` (${campos.slice(0, 4).join(', ')}${campos.length > 4 ? '…' : ''})` : ''}`
   }
 
-  if (entry.accion === 'DELETE') {
-    return `Eliminó ${tabla.toLowerCase()}`
-  }
+  if (entry.accion === 'DELETE') return `Eliminó ${tabla.toLowerCase()}${cual}`
 
-  return `${ACCION_CONFIG[entry.accion]?.label ?? entry.accion} en ${tabla.toLowerCase()}`
+  return `${ACCION_CONFIG[entry.accion]?.label ?? entry.accion} en ${tabla.toLowerCase()}${cual}`
+}
+
+/** A dónde lleva el registro (expediente o cliente, directo o por contexto). */
+function enlaceRegistro(entry: AuditEntry): string | null {
+  if (entry.tabla === 'expedientes') return `/expedientes/${entry.registro_id}`
+  if (entry.tabla === 'clientes') return `/clientes/${entry.registro_id}`
+  const d = { ...(entry.datos_anteriores as Datos ?? {}), ...(entry.datos_nuevos as Datos ?? {}) }
+  const exp = d.expediente_id ?? d._expediente_id
+  if (typeof exp === 'string') return `/expedientes/${exp}`
+  const cli = d.cliente_id ?? d._cliente_id
+  if (typeof cli === 'string') return `/clientes/${cli}`
+  return null
 }
 
 function timeAgo(dateStr: string): string {
@@ -131,12 +193,37 @@ export default function ActividadPage() {
   })
 
   const entries = logData?.entries ?? []
+  const [abierto, setAbierto] = useState<number | null>(null)
+
+  // Las consultas (VIEW) solo guardan el id: traer carátula / nombre
+  const idsVista = useMemo(() => ({
+    expedientes: [...new Set(entries.filter(e => e.accion === 'VIEW' && e.tabla === 'expedientes').map(e => e.registro_id))],
+    clientes: [...new Set(entries.filter(e => e.accion === 'VIEW' && e.tabla === 'clientes').map(e => e.registro_id))],
+  }), [entries])
+  const { data: nombres = {} } = useQuery({
+    queryKey: ['audit-nombres', idsVista],
+    enabled: idsVista.expedientes.length + idsVista.clientes.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const supabase = createClient()
+      const out: Record<string, string> = {}
+      if (idsVista.expedientes.length) {
+        const { data } = await supabase.from('expedientes').select('id, caratula, numero').in('id', idsVista.expedientes)
+        for (const e of data ?? []) out[e.id] = (e.caratula ?? e.numero ?? '').slice(0, 80)
+      }
+      if (idsVista.clientes.length) {
+        const { data } = await supabase.from('clientes').select('id, nombre, apellido').in('id', idsVista.clientes)
+        for (const c of data ?? []) out[c.id] = `${c.apellido ?? ''} ${c.nombre ?? ''}`.trim()
+      }
+      return out
+    },
+  })
   const total = logData?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   // Solo ADMIN y DIRECTOR ven actividad del sistema
   if (profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/inicio" replace />
   }
 
   return (
@@ -288,7 +375,11 @@ export default function ActividadPage() {
               const userName = entry.profiles ? `${entry.profiles.nombre} ${entry.profiles.apellido}` : 'Sistema'
 
               return (
-                <div key={entry.id} className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-100 dark:hover:bg-white/[0.02] transition-colors">
+                <div
+                  key={entry.id}
+                  onClick={() => setAbierto(abierto === entry.id ? null : entry.id)}
+                  className={cn('flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-zinc-100 dark:hover:bg-white/[0.02] transition-colors', abierto === entry.id && 'bg-zinc-50 dark:bg-white/[0.02]')}
+                >
                   {/* Icon */}
                   <div className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5', config.color)}>
                     <Icon className="h-3.5 w-3.5" />
@@ -299,7 +390,7 @@ export default function ActividadPage() {
                     <p className="text-sm text-zinc-800 dark:text-zinc-200">
                       <span className="font-medium text-zinc-900 dark:text-zinc-100">{userName}</span>
                       {' '}
-                      <span className="text-zinc-600 dark:text-zinc-300">{describeAuditEntry(entry)}</span>
+                      <span className="text-zinc-600 dark:text-zinc-300">{describeAuditEntry(entry, nombres)}</span>
                     </p>
                     <div className="mt-0.5 flex items-center gap-2">
                       <span className={cn('text-[10px] font-medium', config.color)}>{config.label}</span>
@@ -308,7 +399,23 @@ export default function ActividadPage() {
                           {TABLA_LABELS[entry.tabla] ?? entry.tabla}
                         </span>
                       )}
+                      {enlaceRegistro(entry) && (
+                        <Link to={enlaceRegistro(entry)!} onClick={(e) => e.stopPropagation()} className="text-[10px] text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
+                          Ver
+                        </Link>
+                      )}
                     </div>
+                    {abierto === entry.id && entry.accion === 'UPDATE' && camposCambiados(entry).length > 0 && (
+                      <dl className="mt-2 space-y-1 rounded-lg border border-zinc-200 bg-white/60 p-2 text-xs dark:border-white/10 dark:bg-white/[0.02]">
+                        {camposCambiados(entry).map((k) => (
+                          <div key={k} className="flex flex-wrap gap-x-2">
+                            <dt className="font-medium text-zinc-700 dark:text-zinc-200">{CAMPO_LABELS[k] ?? k}:</dt>
+                            <dd className="text-zinc-500 line-through">{valorLegible((entry.datos_anteriores as Datos)?.[k])}</dd>
+                            <dd className="text-zinc-800 dark:text-zinc-100">→ {valorLegible((entry.datos_nuevos as Datos)?.[k])}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
                   </div>
 
                   {/* Timestamp */}

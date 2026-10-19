@@ -26,6 +26,8 @@ export interface ExpedientesFilters {
   fuero?: string | null
   tipo_proceso_id?: string | null
   search?: string | null
+  /** Solo los expedientes marcados con estrella por el usuario */
+  favoritos?: boolean | null
   page?: number
   pageSize?: number
   sortBy?: SortField
@@ -146,6 +148,22 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
           visibilityIds = ids
         }
 
+        if (visibilityIds.length === 0) {
+          return { data: [], count: 0, page, pageSize, totalPages: 0 }
+        }
+      }
+
+      if (filters.favoritos) {
+        // RLS devuelve solo los favoritos del usuario logueado.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: favs } = await (supabase as any).from('expediente_favoritos').select('expediente_id')
+        const favIds = ((favs ?? []) as { expediente_id: string }[]).map((f) => f.expediente_id)
+        if (visibilityIds) {
+          const visible = new Set(visibilityIds)
+          visibilityIds = favIds.filter((id) => visible.has(id))
+        } else {
+          visibilityIds = favIds
+        }
         if (visibilityIds.length === 0) {
           return { data: [], count: 0, page, pageSize, totalPages: 0 }
         }
@@ -647,6 +665,41 @@ export function useExpedienteTimeline(expedienteId: string | undefined, options?
 
       events.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
       return events
+    },
+  })
+}
+
+
+/**
+ * Cuántos expedientes tiene cada abogado (responsable, creador, miembro o vínculo
+ * SAE propio — el mismo criterio que el filtro por abogado). Solo para directores.
+ */
+export function useConteoExpedientesPorAbogado(enabled: boolean) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['expedientes', 'conteo-por-abogado'],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [exps, miembros, links] = await Promise.all([
+        supabase.from('expedientes').select('id, abogado_responsable_id, created_by').is('deleted_at', null).limit(5000),
+        supabase.from('expediente_miembros').select('expediente_id, profile_id').limit(10000),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from as any)('expediente_sae_links').select('expediente_id, profile_id').limit(10000),
+      ])
+      const vivos = new Set(((exps.data ?? []) as Array<{ id: string }>).map((e) => e.id))
+      const porPerfil = new Map<string, Set<string>>()
+      const sumar = (perfil: string | null | undefined, exp: string) => {
+        if (!perfil || !vivos.has(exp)) return
+        if (!porPerfil.has(perfil)) porPerfil.set(perfil, new Set())
+        porPerfil.get(perfil)!.add(exp)
+      }
+      for (const e of (exps.data ?? []) as Array<{ id: string; abogado_responsable_id: string | null; created_by: string | null }>) {
+        sumar(e.abogado_responsable_id, e.id); sumar(e.created_by, e.id)
+      }
+      for (const m of (miembros.data ?? []) as Array<{ expediente_id: string; profile_id: string }>) sumar(m.profile_id, m.expediente_id)
+      for (const l of ((links.data ?? []) as Array<{ expediente_id: string; profile_id: string }>)) sumar(l.profile_id, l.expediente_id)
+      return { total: vivos.size, porPerfil: new Map([...porPerfil].map(([k, v]) => [k, v.size])) }
     },
   })
 }

@@ -62,7 +62,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           },
         }),
         mutationCache: new MutationCache({
-          onError: (error: Error) => {
+          onError: (error: Error, _vars, _ctx, mutation) => {
+            // Las pantallas que manejan su propio aviso marcan la mutación como silenciosa
+            if ((mutation.meta as { silencioso?: boolean } | undefined)?.silencioso) return
             if (isAuthError(error)) {
               handleAuthError()
               return

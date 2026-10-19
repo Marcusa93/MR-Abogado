@@ -33,6 +33,10 @@ import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useExpediente, useExpedienteTimeline, useDeleteExpediente } from '@/hooks/use-expedientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
+import { useAutoSaeSync } from '@/hooks/use-sae'
+import { useRegistrarAcceso } from '@/hooks/use-audit-log'
+import { FavoritoStar } from '@/components/expedientes/favorito-star'
+import { DocumentacionRequerida } from '@/components/shared/documentacion-requerida'
 import type { Tables } from '@/types/database.types'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { WhatsAppButtons } from '@/components/shared/whatsapp-button'
@@ -107,15 +111,31 @@ export default function ExpedienteDetailPage() {
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const esDirector = profile?.rol === 'DIRECTOR'
-  const visibleTabs = TABS.filter((t) => {
+  const { data: expediente, isLoading, isError } = useExpediente(id!)
+  const tieneSae = !!(expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae
+
+  // En expedientes del SAE, las actuaciones van primero.
+  const tabsFiltradas = TABS.filter((t) => {
     if (t.id === 'caja') return tieneAccesoCaja
     if (t.id === 'novedades') return esDirector
     return true
   })
-
-  const { data: expediente, isLoading, isError } = useExpediente(id!)
+  const visibleTabs = tieneSae
+    ? [...tabsFiltradas.filter((t) => t.id === 'actuaciones'), ...tabsFiltradas.filter((t) => t.id !== 'actuaciones')]
+    : tabsFiltradas
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
+
+  // Registro de actividad: quién abrió el expediente
+  useRegistrarAcceso('expedientes', id)
+
+  // Actuaciones al día sin apretar "Sincronizar"
+  useAutoSaeSync(
+    id,
+    (expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae,
+    (expediente as { ultima_sincronizacion_sae?: string | null } | null | undefined)?.ultima_sincronizacion_sae,
+    (n) => toast.info(`${n} ${n === 1 ? 'actuación nueva' : 'actuaciones nuevas'} desde el SAE`),
+  )
 
   // Leer tab y movement highlight desde URL (?tab=actuaciones&mid=uuid)
   const searchParams = new URLSearchParams(location.search)
@@ -126,6 +146,17 @@ export default function ExpedienteDetailPage() {
     if (urlTab && TABS.some(t => t.id === urlTab)) return urlTab as TabId
     return 'datos'
   })
+  // Pestaña inicial: actuaciones si el expediente es del SAE (salvo que la URL
+  // pida otra). Se decide una vez por expediente, cuando termina de cargar,
+  // para no pisar la pestaña que el usuario elija después.
+  const tabInicialPara = useRef<string | null>(null)
+  useEffect(() => {
+    if (!expediente || !id || tabInicialPara.current === id) return
+    tabInicialPara.current = id
+    if (urlTab && TABS.some(t => t.id === urlTab)) return
+    setActiveTab(tieneSae ? 'actuaciones' : 'datos')
+  }, [expediente, id, urlTab, tieneSae])
+
   const activeTabRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
@@ -213,9 +244,12 @@ export default function ExpedienteDetailPage() {
           {/* Línea 1: carátula + badges */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
-                {expediente.caratula || (expediente as any).numero}
-              </h1>
+              <div className="flex items-start gap-1.5">
+                <FavoritoStar expedienteId={id!} size="md" className="-ml-1.5 shrink-0" />
+                <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
+                  {expediente.caratula || (expediente as any).numero}
+                </h1>
+              </div>
               <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
                 <span className="text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (
@@ -520,6 +554,7 @@ export default function ExpedienteDetailPage() {
             numeroSae={(expediente as any).numero_sae ?? null}
             ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
             highlightMovementId={highlightMovementId}
+            onVerEscritos={() => setActiveTab('escritos')}
           />
         )}
         {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
@@ -548,7 +583,13 @@ export default function ExpedienteDetailPage() {
           </div>
         )}
         {activeTab === 'escritos' && <EscritosNotasTab expedienteId={id!} />}
-        {activeTab === 'documentos' && <DocumentosJuridicosTab expedienteId={id!} />}
+        {activeTab === 'documentos' && (
+          <DocumentosJuridicosTab
+            expedienteId={id!}
+            clienteNombre={(expediente as { clientes?: { nombre?: string | null } | null }).clientes?.nombre ?? null}
+            clienteTelefono={(expediente as { clientes?: { telefono?: string | null } | null }).clientes?.telefono ?? null}
+          />
+        )}
         {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
         {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
         {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} onBriefNeeded={() => setActiveTab('vision-ia')} />}
@@ -722,10 +763,23 @@ function EscritosNotasTab({ expedienteId }: { expedienteId: string }) {
   )
 }
 
-function DocumentosJuridicosTab({ expedienteId }: { expedienteId: string }) {
+function DocumentosJuridicosTab({ expedienteId, clienteNombre, clienteTelefono }: {
+  expedienteId: string
+  clienteNombre: string | null
+  clienteTelefono: string | null
+}) {
   return (
     <SubTabs
       tabs={[
+        {
+          id: 'cliente',
+          label: 'Documentación del cliente',
+          render: () => (
+            <Card title="Documentación del cliente">
+              <DocumentacionRequerida caso={{ expedienteId }} clienteNombre={clienteNombre} clienteTelefono={clienteTelefono} />
+            </Card>
+          ),
+        },
         { id: 'documentos', label: 'Documentos', render: () => <TabDocumentos expedienteId={expedienteId} /> },
         { id: 'normativa', label: 'Normativa', render: () => <TabNormativa expedienteId={expedienteId} /> },
         { id: 'jurisprudencia', label: 'Jurisprudencia', render: () => <TabJurisprudencia expedienteId={expedienteId} /> },

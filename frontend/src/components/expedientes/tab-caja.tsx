@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Wallet, Plus, Loader2, TrendingUp, TrendingDown, Lock, Coins, Pencil, Trash2 } from 'lucide-react'
 import { Card } from './detail-helpers'
+import { CuentaCorriente } from '@/components/caja/cuenta-corriente'
+import { useExpedienteOpcion } from '@/components/caja/selectores'
 import { EmptyState } from '@/components/shared/empty-state'
 import { useCajaPorExpediente, type CajaPorExpedienteGasto, type CajaPorExpedienteIngreso } from '@/hooks/use-caja-expediente'
 import {
@@ -30,6 +32,8 @@ export function TabCaja({ expedienteId }: Props) {
   const { data: tieneAcceso, isLoading: loadingAcceso } = useTieneAccesoCaja()
   const { data, isLoading, isError } = useCajaPorExpediente(expedienteId, Boolean(tieneAcceso))
   const [dialogOpen, setDialogOpen] = useState<null | 'gasto' | 'ingreso'>(null)
+  const { data: expOpcion } = useExpedienteOpcion(expedienteId)
+  const clienteId = expOpcion?.cliente_id ?? null
 
   if (loadingAcceso) {
     return (
@@ -70,6 +74,10 @@ export function TabCaja({ expedienteId }: Props) {
   const balanceArs = data.totales.ingresos_ars - data.totales.gastos_ars
 
   return (
+    <div className="space-y-4">
+    <Card title="Cuenta corriente del cliente en este expediente">
+      <CuentaCorriente clienteId={clienteId} expedienteId={expedienteId} />
+    </Card>
     <Card
       title="Caja del expediente"
       headerRight={
@@ -111,9 +119,10 @@ export function TabCaja({ expedienteId }: Props) {
         </div>
       </div>
 
-      {dialogOpen === 'ingreso' && <DialogIngresoExpediente expedienteId={expedienteId} onClose={() => setDialogOpen(null)} />}
+      {dialogOpen === 'ingreso' && <DialogIngresoExpediente expedienteId={expedienteId} clienteId={clienteId} onClose={() => setDialogOpen(null)} />}
       {dialogOpen === 'gasto' && <DialogGastoExpediente expedienteId={expedienteId} onClose={() => setDialogOpen(null)} />}
     </Card>
+    </div>
   )
 }
 
@@ -306,7 +315,7 @@ function DialogGastoExpediente({ expedienteId, onClose }: { expedienteId: string
   )
 }
 
-function DialogIngresoExpediente({ expedienteId, onClose }: { expedienteId: string; onClose: () => void }) {
+function DialogIngresoExpediente({ expedienteId, clienteId, onClose }: { expedienteId: string; clienteId: string | null; onClose: () => void }) {
   const { user } = useAuth()
   const createIngreso = useCreateIngreso()
   const qc = useQueryClient()
@@ -324,7 +333,7 @@ function DialogIngresoExpediente({ expedienteId, onClose }: { expedienteId: stri
     try {
       await createIngreso.mutateAsync({
         fecha, monto: n, moneda, tipo, categoria: null,
-        cliente_id: null, expediente_id: expedienteId,
+        cliente_id: clienteId, expediente_id: expedienteId,
         abono_id: null, periodo_year: null, periodo_month: null,
         descripcion: descripcion || null, comprobante_path: null,
         cargado_por: user.id,

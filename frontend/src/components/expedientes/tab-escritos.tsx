@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useModalHistory } from '@/hooks/use-modal-history'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card } from './detail-helpers'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
@@ -22,6 +22,8 @@ import { useSaeMovements } from '@/hooks/use-sae'
 import { useCreateTarea } from '@/hooks/use-tareas'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from './escrito-preview'
+import { GuiaEscrito } from './guia-escrito'
+import { CaracterSelector, CARACTER_POR_DEFECTO, formulaPresentacion, inferirCaracter, type CaracterEscrito } from './caracter-escrito'
 import { DiagnosticoModal } from './diagnostico-modal'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
@@ -105,6 +107,13 @@ function NuevoEscritoDialog({
   const [respondeA, setRespondeA] = useState('')
   const [titulo, setTitulo] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
+  // Carácter de la presentación; se sugiere solo (honorarios → derecho propio) hasta que lo toques
+  const [caracter, setCaracter] = useState<CaracterEscrito>(CARACTER_POR_DEFECTO)
+  const [caracterTocado, setCaracterTocado] = useState(false)
+  useEffect(() => {
+    if (caracterTocado) return
+    setCaracter(inferirCaracter(`${tipo} ${idea}`, CARACTER_POR_DEFECTO))
+  }, [tipo, idea, caracterTocado])
   // Modelo de estilo: '' = ninguno, 'NUEVO' = pegar uno nuevo, otro = id de template guardado
   const [modeloSel, setModeloSel] = useState('')
   const [estiloTexto, setEstiloTexto] = useState('')
@@ -228,6 +237,7 @@ function NuevoEscritoDialog({
         escrito_contraparte_texto: contraparteTexto.trim() || undefined,
         titulo: titulo.trim() || undefined,
         instrucciones: instrucciones.trim() || undefined,
+        caracter,
         ...(modeloSel === 'NUEVO'
           ? {
               estilo_texto: estiloTexto.trim() || undefined,
@@ -451,6 +461,12 @@ function NuevoEscritoDialog({
               </p>
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-300">Me presento como</label>
+            <CaracterSelector value={caracter} expedienteId={expedienteId}
+              onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
+          </div>
 
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-300">
@@ -706,127 +722,6 @@ function PresentarSaeDialog({
   )
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Workflow bar: Firmar → Presentar → Comprobante
-// ────────────────────────────────────────────────────────────────────────────
-
-function WorkflowBar({ escrito }: { escrito: Escrito }) {
-  const attach = useAttachSignedPdf()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [openPresentar, setOpenPresentar] = useState(false)
-
-  const handleFile = (file: File) => {
-    attach.mutate(
-      { escrito_id: escrito.id, expediente_id: escrito.expediente_id, file },
-      {
-        onSuccess: ({ hasSignature }) => {
-          if (hasSignature) toast.success('PDF firmado adjuntado')
-          else toast.success('PDF adjuntado (no detecté firma embebida — verificá que esté correctamente firmado)')
-        },
-        onError: (err) => toast.error(err instanceof Error ? err.message : 'No se pudo adjuntar'),
-      }
-    )
-  }
-
-  const isFirmado = escrito.estado === 'firmado' || escrito.estado === 'presentado_sae'
-  const isPresentado = escrito.estado === 'presentado_sae'
-  const comprobante = escrito.presentacion_sae?.nro_comprobante
-
-  return (
-    <div className="border-b border-white/5 bg-white/[0.02] px-5 py-3 flex items-center gap-3 text-xs">
-      {/* Paso 1: Firmar */}
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
-        isFirmado ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-300' : 'border-white/10 text-zinc-400'
-      )}>
-        <ShieldCheck className="h-3.5 w-3.5" />
-        <span className="font-medium">
-          {isFirmado ? 'Firmado' : '1. Firmar'}
-        </span>
-        {escrito.pdf_firmado_at && (
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            · {new Date(escrito.pdf_firmado_at).toLocaleDateString('es-AR')}
-          </span>
-        )}
-      </div>
-
-      {!isFirmado && (
-        <a
-          href="https://firmar.gob.ar/firmador/"
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
-        >
-          firmar.gob.ar <ExternalLink className="h-2.5 w-2.5" />
-        </a>
-      )}
-
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleFile(f)
-          e.target.value = ''
-        }}
-      />
-      {!isPresentado && (
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={attach.isPending}
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10 disabled:opacity-30"
-          title={isFirmado ? 'Reemplazar PDF firmado' : 'Adjuntar PDF firmado'}
-        >
-          {attach.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-          {isFirmado ? 'Reemplazar firmado' : 'Adjuntar firmado'}
-        </button>
-      )}
-
-      <span className="text-zinc-700 dark:text-zinc-200">→</span>
-
-      {/* Paso 2: Presentar */}
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-lg border',
-        isPresentado ? 'border-violet-500/30 bg-violet-500/5 text-violet-300'
-                     : isFirmado ? 'border-white/10 text-zinc-300'
-                     : 'border-white/10 text-zinc-600 dark:text-zinc-300',
-      )}>
-        <Send className="h-3.5 w-3.5" />
-        <span className="font-medium">
-          {isPresentado ? 'Presentado' : '2. Presentar al SAE'}
-        </span>
-        {isPresentado && comprobante && (
-          <span className="text-[10px] font-mono">· {comprobante}</span>
-        )}
-      </div>
-
-      {isFirmado && !isPresentado && (
-        <button
-          onClick={() => setOpenPresentar(true)}
-          className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/25"
-        >
-          <Send className="h-3 w-3" />
-          Presentar ahora
-        </button>
-      )}
-
-      {openPresentar && (
-        <PresentarSaeDialog
-          escrito={escrito}
-          onClose={() => setOpenPresentar(false)}
-          onSuccess={(nro) => {
-            setOpenPresentar(false)
-            toast.success(nro ? `Presentado · Comprobante ${nro}` : 'Presentado al SAE')
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-// Separador clickeable entre párrafos para insertar uno nuevo con IA
 function InsertDivider({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
     <div className="group/div flex items-center gap-1 py-0.5">
@@ -907,12 +802,13 @@ const AI_CHIPS = [
 // ────────────────────────────────────────────────────────────────────────────
 
 function EscritoEditorModal({
-  escrito, onClose, abogado, onRequestDelete,
+  escrito, onClose, abogado, onRequestDelete, onRevisar,
 }: {
   escrito: Escrito
   onClose: () => void
   abogado: EscritoEncabezadoAbogado
   onRequestDelete: () => void
+  onRevisar?: () => void
 }) {
   useModalHistory(onClose)
 
@@ -921,6 +817,11 @@ function EscritoEditorModal({
   const [contenido, setContenido] = useState<EscritoContenido>(escrito.contenido)
   const [titulo, setTitulo] = useState(escrito.titulo)
   const [estado, setEstado] = useState<Escrito['estado']>(escrito.estado)
+  // El estado cambia también desde afuera (PDF firmado adjuntado, marcado como presentado):
+  // se sincroniza para que un guardado posterior no lo pise.
+  useEffect(() => { setEstado(escrito.estado) }, [escrito.estado])
+  const [saeOpen, setSaeOpen] = useState(false)
+  const navigate = useNavigate()
   const [dirty, setDirty] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
   // Tracking del párrafo donde insertar citas. Si no hay foco activo, va al
@@ -1273,8 +1174,19 @@ function EscritoEditorModal({
         </div>
       </div>
 
-      {/* Workflow: Firmar → Presentar */}
-      <WorkflowBar escrito={escrito} />
+      {/* Qué sigue: completar → revisar → PDF → firmar → presentar → proveído */}
+      <div className="border-b border-white/5 px-3 py-2.5 sm:px-5">
+        <GuiaEscrito escrito={escrito} contenido={contenido} abogado={abogado} dirty={dirty}
+          guardando={update.isPending} onGuardar={handleSave} onRevisar={onRevisar}
+          onPresentarSae={() => setSaeOpen(true)}
+          onVerProveido={escrito.expediente_id && escrito.proveido_movement_id
+            ? () => { onClose(); navigate(`/expedientes/${escrito.expediente_id}?tab=actuaciones&mid=${escrito.proveido_movement_id}`) }
+            : undefined} />
+      </div>
+      {saeOpen && (
+        <PresentarSaeDialog escrito={escrito} onClose={() => setSaeOpen(false)}
+          onSuccess={(nro) => { setSaeOpen(false); toast.success('Presentado al SAE', nro ? `Comprobante ${nro}` : undefined) }} />
+      )}
 
       {/* Toggle editor/preview — solo visible en mobile */}
       <div className="flex lg:hidden border-b border-white/10 bg-slate-950">
@@ -1316,6 +1228,26 @@ function EscritoEditorModal({
             <input
               value={contenido.caratula}
               onChange={(e) => { setContenido(c => ({ ...c, caratula: e.target.value })); setDirty(true) }}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+            />
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Me presento como</label>
+            <CaracterSelector compacto expedienteId={escrito.expediente_id}
+              value={contenido.caracter ?? CARACTER_POR_DEFECTO}
+              onChange={(c) => {
+                setContenido(prev => {
+                  const anterior = prev.caracter ?? CARACTER_POR_DEFECTO
+                  // Si la presentación era la fórmula automática (o estaba vacía), se actualiza con el nuevo carácter
+                  const automatica = !prev.presentacion?.trim() || prev.presentacion.trim() === formulaPresentacion(anterior)
+                    || (!prev.caracter && /^En mi car[aá]cter de apoderad|^Por mi propio derecho/i.test(prev.presentacion.trim()))
+                  return { ...prev, caracter: c, presentacion: automatica ? formulaPresentacion(c) : prev.presentacion }
+                })
+                setDirty(true)
+              }} />
+            <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Presentación</label>
+            <textarea
+              value={contenido.presentacion ?? ''}
+              onChange={(e) => { setContenido(c => ({ ...c, presentacion: e.target.value })); setDirty(true) }}
+              rows={2}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
             />
           </div>
@@ -1745,6 +1677,7 @@ export function TabEscritos({ expedienteId }: Props) {
           abogado={abogado}
           onClose={() => setEditingId(null)}
           onRequestDelete={() => setConfirmDelete(editing)}
+          onRevisar={() => { const e = escritos.find((x) => x.id === editingId); if (e) setDiagnosticando(e) }}
         />
       )}
 

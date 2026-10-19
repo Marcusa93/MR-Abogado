@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { ExpedienteFilters } from '@/components/expedientes/expediente-filters'
+import { FavoritoStar } from '@/components/expedientes/favorito-star'
 import { calcularSemaforo } from '@/lib/utils/semaforo'
 import { getExpedienteRowClass } from '@/lib/utils/estado-colors'
 import { formatDateShort } from '@/lib/utils/date-helpers'
@@ -162,6 +163,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
               {title}
             </p>
             <FueroBadge fuero={expediente.fuero} />
+            <FavoritoStar expedienteId={expediente.id} className="-mr-1 -mt-1" />
           </div>
           {expediente.numero && (
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
@@ -215,7 +217,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 // URL ↔ Filter sync helpers
 // ---------------------------------------------------------------------------
 
-const FILTER_PARAMS = ['tipo_tramite_id', 'tipo_proceso_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'sortBy', 'sortOrder', 'page'] as const
+const FILTER_PARAMS = ['tipo_tramite_id', 'tipo_proceso_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'favoritos', 'sortBy', 'sortOrder', 'page'] as const
 
 function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   const f: ExpedientesFilters = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
@@ -233,6 +235,7 @@ function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   if (tipoProceso) f.tipo_proceso_id = tipoProceso
   const search = params.get('search')
   if (search) f.search = search
+  if (params.get('favoritos') === 'true') f.favoritos = true
   const sortBy = params.get('sortBy')
   if (sortBy) f.sortBy = sortBy as SortField
   const sortOrder = params.get('sortOrder')
@@ -589,6 +592,7 @@ export default function ExpedientesPage() {
                       {/* Expediente: avatar + caratula + numero + tipo + fuero */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
+                          <FavoritoStar expedienteId={expediente.id} className="-ml-2 -mr-1" />
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
                             {initials}
                           </div>

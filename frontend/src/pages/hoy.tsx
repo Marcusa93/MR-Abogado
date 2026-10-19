@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Sun, Calendar, CheckSquare, Sparkles, Users, ArrowRight, Plus,
   AlertTriangle, Loader2, Clock, FolderOpen, FileText, RefreshCw, FolderPlus,
-  ChevronDown, ChevronRight, X, Check,
+  ChevronDown, ChevronRight, X, Check, Wallet, BarChart3,
 } from 'lucide-react'
 import { useHoy, type HoyAudiencia, type HoyTarea, type HoyContenido } from '@/hooks/use-hoy'
 import { useConsultas, TIPO_ASUNTO_LABEL, ESTADO_LABEL } from '@/hooks/use-consultas'
@@ -24,6 +24,12 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
 import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
 import { NotificacionesHoyPanel } from '@/components/dashboard/notificaciones-hoy-panel'
+import { TareasAsignadasPanel } from '@/components/dashboard/tareas-asignadas-panel'
+import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
+import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
+import { useTieneAccesoCaja } from '@/hooks/use-caja'
+import { useCuentasSaldos } from '@/hooks/use-cuenta-corriente'
+import { useAccesoEditorial, usePropuestas } from '@/hooks/use-editorial'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -423,89 +429,6 @@ interface TareaActiva {
   expedientes: { caratula: string | null } | null
 }
 
-function useMisTareasActivas(userId: string) {
-  const supabase = createClient()
-  return useQuery<TareaActiva[]>({
-    queryKey: ['mis-tareas-activas', userId],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('tareas')
-        .select('id, titulo, descripcion, prioridad, vence_el, estado, expediente_id, expedientes:expediente_id(caratula)')
-        .eq('assigned_to', userId)
-        .not('estado', 'in', '(completada,COMPLETADA)')
-        .order('vence_el', { ascending: true, nullsFirst: false })
-        .limit(10)
-      if (error) throw error
-      return (data ?? []) as TareaActiva[]
-    },
-    enabled: !!userId,
-    staleTime: 60_000,
-  })
-}
-
-function MisTareasActivas({ userId }: { userId: string }) {
-  const { data: tareas = [], isLoading } = useMisTareasActivas(userId)
-
-  if (isLoading) return null
-  if (tareas.length === 0) return null
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <CheckSquare className="h-4 w-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Mis tareas activas</h3>
-          <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-            {tareas.length}
-          </span>
-        </div>
-        <Link to="/tareas" className="text-[11px] text-emerald-400 hover:text-emerald-300">Ver todas →</Link>
-      </div>
-      <div className="space-y-1.5">
-        {tareas.map(t => {
-          const destino = t.expediente_id ? `/expedientes/${t.expediente_id}` : '/tareas'
-          const vence = t.vence_el
-          const vencida = vence ? new Date(vence + 'T00:00:00') < new Date(new Date().toDateString()) : false
-          return (
-            <Link
-              key={t.id}
-              to={destino}
-              className={cn(
-                'flex items-start gap-3 rounded-lg border px-3 py-2 transition-colors hover:bg-white/[0.04]',
-                vencida ? 'border-rose-500/20 bg-rose-500/[0.04]' : 'border-white/5 bg-white/[0.02]',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-zinc-100 line-clamp-1">{t.titulo}</p>
-                {t.expedientes?.caratula && (
-                  <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1 flex items-center gap-1">
-                    <FolderOpen className="h-2.5 w-2.5" />
-                    {t.expedientes.caratula}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className={cn('rounded-full px-1.5 py-0 text-[10px] font-medium', PRIORIDAD_COLORS[t.prioridad] ?? 'bg-zinc-500/15 text-zinc-400')}>
-                  {t.prioridad}
-                </span>
-                {vence && (
-                  <span className={cn('text-[10px] tabular-nums', vencida ? 'text-rose-400' : 'text-zinc-500')}>
-                    {vencida ? 'vencida' : new Date(vence + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-                  </span>
-                )}
-              </div>
-            </Link>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// MisConsultasAsignadas
-// ---------------------------------------------------------------------------
-
 interface ConsultaAsignada {
   id: string
   nombre: string
@@ -798,12 +721,75 @@ function ContenidosPendientes({ items }: { items: HoyContenido[] }) {
 // Página principal
 // ---------------------------------------------------------------------------
 
+const fmtARS = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+
+/** Propuestas editoriales nuevas (solo quien tiene acceso editorial). */
+function AvisoEditorial() {
+  const { data: propuestas = [] } = usePropuestas()
+  const nuevas = propuestas.filter((p) => p.estado === 'propuesta')
+  if (nuevas.length === 0) return null
+  const deSentencia = nuevas.filter((p) => p.origen === 'sentencia').length
+  return (
+    <Link to="/editorial" className="dashboard-panel flex items-center gap-3 rounded-[1.25rem] px-4 py-3 hover:opacity-90">
+      <FileText className="h-4 w-4 shrink-0 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+      <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">
+        <span className="font-semibold">{nuevas.length} {nuevas.length === 1 ? 'propuesta editorial' : 'propuestas editoriales'}</span>
+        {deSentencia > 0 && ` (${deSentencia} por ${deSentencia === 1 ? 'una sentencia nueva' : 'sentencias nuevas'})`}
+        <span className="text-zinc-500"> · {nuevas[0].titulo.slice(0, 80)}{nuevas.length > 1 ? '…' : ''}</span>
+      </span>
+      <ArrowRight className="h-4 w-4 text-zinc-400" />
+    </Link>
+  )
+}
+
+/** Lo que le deben al estudio (cuentas corrientes). Solo con acceso a caja. */
+function CobrosPendientes() {
+  const { data: saldos = [], isLoading } = useCuentasSaldos()
+  if (isLoading) return null
+  const deuda = saldos.reduce((a, s) => a + Math.max(s.saldo_ars, 0), 0)
+  const vencido = saldos.reduce((a, s) => a + s.vencido_ars, 0)
+  const deudores = saldos.filter((s) => s.saldo_ars > 0 || s.saldo_usd > 0)
+  const top = [...saldos].filter((s) => s.vencido_ars > 0).sort((a, b) => b.vencido_ars - a.vencido_ars).slice(0, 4)
+  return (
+    <div className="dashboard-panel rounded-[1.5rem] px-5 py-4">
+      <div className="flex items-center gap-2">
+        <Wallet className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
+        <h3 className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Cobros pendientes</h3>
+        <Link to="/caja" className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold">
+          Cuentas corrientes <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Te deben</p><p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{fmtARS(deuda)}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Vencido</p><p className={cn('text-sm font-semibold tabular-nums', vencido > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500')}>{fmtARS(vencido)}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Clientes</p><p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{deudores.length}</p></div>
+      </div>
+      {top.length > 0 && (
+        <ul className="mt-3 space-y-1 text-xs">
+          {top.map((s) => (
+            <li key={s.cliente_id} className="flex justify-between gap-2">
+              <Link to={`/clientes/${s.cliente_id}?tab=cuenta`} className="truncate text-zinc-700 hover:underline dark:text-zinc-300">
+                {s.apellido ? `${s.apellido}, ${s.nombre ?? ''}` : (s.nombre ?? 'Cliente')}
+              </Link>
+              <span className="shrink-0 tabular-nums text-rose-500 dark:text-rose-400">{fmtARS(s.vencido_ars)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function HoyPage() {
   const { profile } = useAuth()
   const { data, isLoading, isError, refetch, isFetching } = useHoy()
 
   const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const isSecretaria = profile?.rol === 'SECRETARIA'
+  // Abogados y dirección: plazos procesales por vencer
+  const esLetrado = !isSecretaria && profile?.rol !== 'CRITERIO'
+  const { data: tieneAccesoCaja } = useTieneAccesoCaja()
+  const { data: accesoEditorial } = useAccesoEditorial()
 
   if (isLoading) {
     return (
@@ -816,7 +802,7 @@ export default function HoyPage() {
   if (isError || !data || !data.usuario) {
     return (
       <div className="space-y-4">
-        <Breadcrumb items={[{ label: 'Hoy' }]} />
+        <Breadcrumb items={[{ label: 'Inicio' }]} />
         <p className="text-sm text-red-300">No se pudo cargar la información del día.</p>
       </div>
     )
@@ -828,7 +814,7 @@ export default function HoyPage() {
 
   return (
     <div className="space-y-5 animate-fade-in pb-12">
-      <Breadcrumb items={[{ label: 'Hoy' }]} />
+      <Breadcrumb items={[{ label: 'Inicio' }]} />
 
       {/* ── Saludo compacto ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3">
@@ -860,6 +846,9 @@ export default function HoyPage() {
       {/* ── NOTIFICACIONES — siempre primera sección de contenido ───────── */}
       <NotificacionesHoyPanel />
 
+      {/* ── Editorial: propuestas de artículos (solo Marco) ─────────────── */}
+      {accesoEditorial && <AvisoEditorial />}
+
       {/* ── Audiencias del día — para todos los roles ───────────────────── */}
       {(isSecretaria || data.audiencias_hoy.length > 0) && (
         <AudienciasHoy items={data.audiencias_hoy} />
@@ -868,11 +857,14 @@ export default function HoyPage() {
       {/* ── Actuaciones SAE del día ─────────────────────────────────────── */}
       <ActuacionesRecientesPanel />
 
+      {/* ── Plazos procesales por vencer (abogados y dirección) ─────────── */}
+      {esLetrado && <PlazosProximosPanel />}
+
       {/* ── Cuerpo: 2 columnas en desktop ───────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Columna izquierda: tareas + rutina */}
         <div className="space-y-4">
-          {profile?.id && <MisTareasActivas userId={profile.id} />}
+          {profile?.id && <TareasAsignadasPanel profileId={profile.id} isSelf />}
           {profile?.id && (
             <div>
               <ChecklistHoy perfilId={profile.id} />
@@ -890,6 +882,14 @@ export default function HoyPage() {
         </div>
       </div>
 
+      {/* ── Dirección: equipo y cobros ──────────────────────────────────── */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <CargaEquipoPanel />
+          {tieneAccesoCaja && <CobrosPendientes />}
+        </div>
+      )}
+
       {/* ── Contenidos en curso (SECRETARIA) ────────────────────────────── */}
       {isSecretaria && <ContenidosPendientes items={data.contenidos_pendientes} />}
 
@@ -900,6 +900,7 @@ export default function HoyPage() {
         <QuickAction to="/expedientes/nuevo" icon={FolderPlus} label="Nuevo expediente" color="cyan" />
         <QuickAction to="/agenda" icon={Calendar} label="Agendar turno" color="violet" />
         <QuickAction to="/contenidos" icon={Sparkles} label="Nuevo contenido" color="rose" />
+        {isAdmin && <QuickAction to="/dashboard" icon={BarChart3} label="Indicadores" color="cyan" />}
       </div>
     </div>
   )

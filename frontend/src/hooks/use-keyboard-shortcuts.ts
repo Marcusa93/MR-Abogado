@@ -41,7 +41,7 @@ export function useKeyboardShortcuts() {
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         const key = e.key.toLowerCase()
         const routes: Record<string, string> = {
-          d: '/dashboard',
+          d: '/inicio',
           e: '/expedientes',
           c: '/clientes',
           t: '/tareas',

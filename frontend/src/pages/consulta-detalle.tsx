@@ -24,6 +24,7 @@ import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-
 import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
 import { ConsultaPipeline } from '@/components/consultas/consulta-pipeline'
 import { ConsultaAdjuntos } from '@/components/consultas/consulta-adjuntos'
+import { DocumentacionRequerida } from '@/components/shared/documentacion-requerida'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 import {
@@ -1657,6 +1658,11 @@ export default function ConsultaDetallePage() {
         <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
           <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
           <ConsultaAdjuntos consultaId={consulta.id} />
+        </div>
+
+        {/* Documentación que se le pide al cliente (con enlace para subirla) */}
+        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+          <DocumentacionRequerida caso={{ consultaId: consulta.id }} clienteNombre={consulta.nombre} clienteTelefono={consulta.telefono} />
         </div>
 
         {/* Selector de áreas del derecho */}

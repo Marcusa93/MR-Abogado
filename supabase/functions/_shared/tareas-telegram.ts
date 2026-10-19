@@ -114,7 +114,7 @@ export function formatLista(tareas: TareaPendiente[], encabezado: string): { tex
   const botones: TgButton[] = tareas.slice(0, 20).map((t, i) => ({ text: `Hecho ${i + 1}`, callback_data: `hecho:${t.id}` }))
   const keyboard: TgButton[][] = []
   for (let i = 0; i < botones.length; i += 4) keyboard.push(botones.slice(i, i + 4))
-  keyboard.push([{ text: 'Abrir en la app', url: `${APP_URL}/mi-trabajo` }])
+  keyboard.push([{ text: 'Abrir en la app', url: `${APP_URL}/inicio` }])
   return { text, keyboard }
 }
 

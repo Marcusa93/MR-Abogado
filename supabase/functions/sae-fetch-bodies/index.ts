@@ -34,26 +34,37 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) })
 
   try {
-    const anonClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-    )
-    const { data: { user }, error: authError } = await anonClient.auth.getUser()
-    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
-
     const body = await req.json().catch(() => null) as
-      | { expediente_id?: string; movement_ids?: string[] }
+      | { expediente_id?: string; movement_ids?: string[]; on_behalf_of_user_id?: string }
       | null
     if (!body?.expediente_id) return json(req, { error: 'expediente_id requerido' }, 400)
 
-    // Verify expediente ownership via RLS-respecting client
-    const { data: ownExp, error: ownErr } = await anonClient
-      .from('expedientes')
-      .select('id')
-      .eq('id', body.expediente_id)
-      .maybeSingle()
-    if (ownErr || !ownExp) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    // Llamada interna (procuracion-procesar) con la service role: usa las
+    // credenciales SAE de on_behalf_of_user_id, igual que sae-sync.
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+    const esServicio = bearer !== '' && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    let user: { id: string }
+    if (esServicio) {
+      if (!body.on_behalf_of_user_id) return json(req, { error: 'on_behalf_of_user_id requerido' }, 400)
+      user = { id: body.on_behalf_of_user_id }
+    } else {
+      const anonClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      )
+      const { data: { user: authUser }, error: authError } = await anonClient.auth.getUser()
+      if (authError || !authUser) return json(req, { error: 'No autorizado' }, 401)
+      user = authUser
+
+      // Verify expediente ownership via RLS-respecting client
+      const { data: ownExp, error: ownErr } = await anonClient
+        .from('expedientes')
+        .select('id')
+        .eq('id', body.expediente_id)
+        .maybeSingle()
+      if (ownErr || !ownExp) return json(req, { error: 'Expediente no encontrado o sin permisos' }, 404)
+    }
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,

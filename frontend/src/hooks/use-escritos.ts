@@ -12,6 +12,8 @@ export interface EscritoContenido {
   encabezado_juez: string
   caratula: string
   presentacion?: string
+  /** Carácter de la presentación: apoderado, por derecho propio o patrocinante (habla la parte). */
+  caracter?: import('@/components/expedientes/caracter-escrito').CaracterEscrito
   secciones: EscritoSeccion[]
 }
 
@@ -36,6 +38,11 @@ export interface Escrito {
   pdf_firmado_path: string | null
   pdf_firmado_at: string | null
   firmante_cn: string | null
+  presentado_at?: string | null
+  presentacion_manual?: { medio: string; comprobante?: string | null; nota?: string | null } | null
+  tarea_seguimiento_id?: string | null
+  proveido_movement_id?: string | null
+  proveido_at?: string | null
   presentado_sae_at: string | null
   presentacion_sae: {
     nro_comprobante: string | null
@@ -180,6 +187,8 @@ export function useAllEscritos(filtros?: { expedienteId?: string; search?: strin
 export interface GenerateInput {
   expediente_id?: string | null
   tipo: string
+  /** Carácter de la presentación (apoderado / derecho propio / patrocinante) */
+  caracter?: import('@/components/expedientes/caracter-escrito').CaracterEscrito
   titulo?: string
   instrucciones?: string
   template_id?: string | null
@@ -658,6 +667,54 @@ export function useFetchReferencia() {
       if (error) throw await extractFnError(error)
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
       return data as ReferenciaExterna
+    },
+  })
+}
+
+
+/**
+ * Marca un escrito como presentado por fuera de la app (portal del SAE, mesa de
+ * entradas) y, si se pide, crea la tarea de controlar el proveído.
+ */
+export function useMarcarPresentado() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      escrito: { id: string; titulo: string; expediente_id: string | null }
+      fecha: string            // YYYY-MM-DD
+      medio: string
+      comprobante?: string
+      controlarEl?: string | null   // YYYY-MM-DD de la tarea de seguimiento (null = sin tarea)
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+      let tareaId: string | null = null
+      if (input.controlarEl) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: t, error: et } = await (supabase.from as any)('tareas').insert({
+          titulo: `Controlar proveído: ${input.escrito.titulo}`.slice(0, 200),
+          descripcion: `Escrito presentado el ${input.fecha.split('-').reverse().join('/')} (${input.medio}${input.comprobante ? `, comprobante ${input.comprobante}` : ''}). Se cierra sola cuando llega el proveído al SAE.`,
+          expediente_id: input.escrito.expediente_id, asignado_a: user.id, asignados: [user.id],
+          fecha_vencimiento: input.controlarEl, prioridad: 'MEDIA', estado: 'PENDIENTE', created_by: user.id,
+        }).select('id').single()
+        if (et) throw et
+        tareaId = (t as { id: string }).id
+      }
+      // Hora de presentación: la fecha elegida a las 00:00 AR (para buscar el proveído desde ese día)
+      const presentadoAt = new Date(`${input.fecha}T00:00:00-03:00`).toISOString()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from as any)('escritos').update({
+        estado: 'presentado', presentado_at: presentadoAt,
+        presentacion_manual: { medio: input.medio, comprobante: input.comprobante?.trim() || null },
+        tarea_seguimiento_id: tareaId, updated_at: new Date().toISOString(),
+      }).eq('id', input.escrito.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escritos'] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
+      queryClient.invalidateQueries({ queryKey: ['tareas'] })
     },
   })
 }

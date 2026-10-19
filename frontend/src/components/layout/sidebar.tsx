@@ -33,9 +33,11 @@ import {
   Search,
   Briefcase,
   PenLine,
+  Newspaper,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
+import { useAccesoEditorial } from '@/hooks/use-editorial'
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -58,6 +60,8 @@ interface NavItem {
   hideForCriterio?: boolean
   adminOnly?: boolean
   cajaOnly?: boolean
+  /** Solo con profiles.acceso_editorial (Marco y Claudio) */
+  editorialOnly?: boolean
   /** Si true, este item se oculta a la SECRETARIA. */
   hideForSecretaria?: boolean
   /** Si true, este item solo se muestra a SECRETARIA. */
@@ -77,10 +81,10 @@ const DEFAULT_COLLAPSED: GroupKey[] = ['inteligencia']
 
 const navItems: readonly NavItem[] = [
   // OPERACIÓN — lo cotidiano
-  { href: '/hoy', label: 'Hoy', icon: Sun, group: 'operacion', secretariaOnly: true },
-  { href: '/criterio', label: 'Mi tablero', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
-  { href: '/mi-trabajo', label: 'Mi trabajo', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
+  { href: '/inicio', label: 'Inicio', icon: Sun, group: 'operacion' },
+  { href: '/criterio', label: 'Mis asignaciones', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
+  { href: '/mi-trabajo', label: 'Asuntos', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
+  { href: '/dashboard', label: 'Indicadores', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
@@ -105,6 +109,7 @@ const navItems: readonly NavItem[] = [
   // GESTIÓN — administrativo
   { href: '/caja', label: 'Caja', icon: Wallet, group: 'gestion', cajaOnly: true },
   { href: '/contenidos', label: 'Contenidos', icon: Sparkles, group: 'gestion' },
+  { href: '/editorial', label: 'Editorial', icon: Newspaper, group: 'gestion', editorialOnly: true },
   { href: '/actividad', label: 'Actividad', icon: Activity, group: 'gestion', adminOnly: true },
 
   // SISTEMA
@@ -130,6 +135,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const profile = useAuthStore((s) => s.profile)
   const badges = useSidebarBadges()
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
+  const { data: accesoEditorial } = useAccesoEditorial()
   const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupKey>>(loadCollapsedGroups)
   const openCommandPalette = useUIStore(s => s.openCommandPalette)
 
@@ -173,7 +179,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <Link
-        to="/dashboard"
+        to="/inicio"
         className={cn(
           'flex h-16 items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
           isCollapsed ? 'justify-center' : 'gap-3'
@@ -216,6 +222,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           const visibleItems = navItems.filter((item) => {
             if (item.adminOnly && profile?.rol !== 'ADMIN' && profile?.rol !== 'DIRECTOR') return false
             if (item.cajaOnly && !tieneAccesoCaja) return false
+            if (item.editorialOnly && !accesoEditorial) return false
             if (item.hideForSecretaria && esSecretaria) return false
             if (item.secretariaOnly && !esSecretaria) return false
             if (item.criterioOnly && !esCriterio) return false
