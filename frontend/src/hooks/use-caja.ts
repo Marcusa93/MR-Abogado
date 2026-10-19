@@ -599,3 +599,27 @@ export function useMarcarGastoRecuperado() {
     },
   })
 }
+
+export function useEnviarResumenTelegram() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('No autenticado')
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/caja-resumen-telegram`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(err.error ?? `Error ${res.status}`)
+      }
+      return res.json()
+    },
+  })
+}

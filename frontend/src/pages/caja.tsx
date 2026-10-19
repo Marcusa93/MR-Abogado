@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import {
   Wallet, TrendingUp, TrendingDown, Calendar, Plus, AlertTriangle,
   Loader2, Trash2, Lock, Users, Repeat, Pencil, ChevronLeft, ChevronRight,
-  DollarSign, Search, RotateCcw, CheckCircle2, Sparkles,
+  DollarSign, Search, RotateCcw, CheckCircle2, Sparkles, Send,
 } from 'lucide-react'
 import {
   useTieneAccesoCaja, useCajaResumen, useGastos, useIngresos, useAbonos,
   usePagosPendientes, useCreateGasto, useCreateIngreso,
   useToggleAbono, useDeleteGasto, useDeleteIngreso,
-  useGastosFijosPendientes, useGastosRecuperablesPendientes, useMarcarGastoRecuperado,
+  useGastosFijosPendientes, useGastosFijos, useGastosRecuperablesPendientes, useMarcarGastoRecuperado,
+  useEnviarResumenTelegram,
   GASTO_CATEGORIAS, INGRESO_TIPOS,
   type GastoFilter, type MonedaCaja, type PagoPendiente, type Gasto, type Ingreso,
   type GastoFijo,
@@ -270,13 +271,21 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
   const { data: resumen, isLoading } = useCajaResumen()
   const { data: pendientes = [] } = usePagosPendientes()
   const { data: gastosFijos = [] } = useGastosFijosPendientes()
+  const { data: gastosFijosActivos = [] } = useGastosFijos()
   const { data: cotizacion } = useUsdRate()
+  const enviarTelegram = useEnviarResumenTelegram()
 
   if (isLoading) return <Loader />
   if (!resumen) return null
 
   const mes = resumen.mes_actual
   const balance = mes.ingresos_ars - mes.gastos_ars
+
+  const compromisosFijosARS = gastosFijosActivos
+    .filter(g => g.activo && g.moneda === 'ARS')
+    .reduce((s, g) => s + Number(g.monto), 0)
+  const baseAseguradaARS = Number(resumen.abonos_total_mensual_ars ?? 0)
+  const delta = compromisosFijosARS - baseAseguradaARS
 
   const usdSubIngreso = mes.ingresos_usd > 0
     ? cotizacion
@@ -296,7 +305,24 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           Período: <span className="font-medium text-zinc-700 dark:text-zinc-200">{MES_LABELS[resumen.periodo.month - 1]} {resumen.periodo.year}</span>
         </p>
-        <TipoCambioWidget cotizacion={cotizacion ?? null} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                await enviarTelegram.mutateAsync()
+                toast.success('Resumen enviado a Telegram')
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'No se pudo enviar')
+              }
+            }}
+            disabled={enviarTelegram.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-colors disabled:opacity-50"
+          >
+            {enviarTelegram.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+            Telegram
+          </button>
+          <TipoCambioWidget cotizacion={cotizacion ?? null} />
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -306,6 +332,48 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
         <KPICard label="Balance del mes" value={fmt(balance)} accent={balance >= 0 ? 'emerald' : 'rose'} icon={Wallet} sub={balance >= 0 ? 'A favor' : 'En rojo'} onClick={() => onGoTab('ingresos')} />
         <KPICard label="Abonos activos" value={String(resumen.abonos_activos)} sub={resumen.abonos_total_mensual_ars > 0 ? `${fmt(resumen.abonos_total_mensual_ars)}/mes` : null} accent="cyan" icon={Repeat} onClick={() => onGoTab('abonos')} />
       </div>
+
+      {/* Punto de equilibrio */}
+      {(compromisosFijosARS > 0 || baseAseguradaARS > 0) && (
+        <div className={cn(
+          'rounded-xl border p-4',
+          delta <= 0
+            ? 'border-emerald-500/20 bg-emerald-500/[0.04]'
+            : 'border-amber-500/30 bg-amber-500/[0.04]'
+        )}>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-amber-400" />
+              <h3 className="text-sm font-semibold text-zinc-100">Punto de equilibrio</h3>
+            </div>
+            {delta <= 0 ? (
+              <span className="text-[11px] font-medium text-emerald-300">Fijos cubiertos</span>
+            ) : (
+              <span className="text-[11px] font-medium text-amber-300">Faltan {fmt(delta)}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] text-zinc-500">Base asegurada (abonos)</p>
+              <p className="text-lg font-semibold tabular-nums text-cyan-300">{fmt(baseAseguradaARS)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] text-zinc-500">Compromisos fijos</p>
+              <p className="text-lg font-semibold tabular-nums text-orange-300">{fmt(compromisosFijosARS)}</p>
+            </div>
+          </div>
+          {delta > 0 && (
+            <p className="mt-2 text-xs text-amber-300">
+              Hay que generar <span className="font-semibold">{fmt(delta)}</span> en honorarios para cubrir los gastos fijos del mes.
+            </p>
+          )}
+          {delta <= 0 && (
+            <p className="mt-2 text-xs text-emerald-400/70">
+              Los abonos cubren los fijos. Margen: <span className="font-semibold text-emerald-400">{fmt(-delta)}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Gastos fijos del mes */}
       {gastosFijos.length > 0 && <GastosFijosCard gastosFijos={gastosFijos} />}
