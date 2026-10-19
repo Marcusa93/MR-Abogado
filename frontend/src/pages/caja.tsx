@@ -668,14 +668,18 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
   const [mes, setMes] = useState<Mes>({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const { data: ingresos = [], isLoading } = useIngresos(mes)
   const { data: cotizacion } = useUsdRate()
+  const { data: clientesResult } = useClientes({ pageSize: 500 })
+  const clientes = clientesResult?.data ?? []
   const deleteIngreso = useDeleteIngreso()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
+  const clientesMap = useMemo(
+    () => new Map(clientes.map((c) => [c.id, c])),
+    [clientes]
+  )
+
   const arsEquivalente = (monto: number) =>
     cotizacion ? `≈ ${fmt(Math.round(monto * cotizacion.venta))}` : null
-
-  const ingresoUSD = ingresos.filter(i => i.moneda === 'USD')
-  const totalUSD = ingresoUSD.reduce((s, i) => s + Number(i.monto), 0)
 
   if (isLoading) return <Loader />
 
@@ -691,35 +695,48 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
         <>
           {/* Mobile: cards */}
           <div className="md:hidden space-y-2">
-            {ingresos.map((i) => (
-              <div key={i.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                      <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(i.fecha)}</span>
-                      <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                        {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
-                      </span>
-                    </div>
-                    {i.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{i.descripcion}</p>}
-                  </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <div className="text-right mr-1">
-                      <p className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</p>
-                      {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
-                        <p className="text-[10px] text-amber-400 tabular-nums">{arsEquivalente(Number(i.monto))}</p>
+            {ingresos.map((i) => {
+              const cliente = i.cliente_id ? clientesMap.get(i.cliente_id) : null
+              const esPorAbono = !!i.abono_id
+              const periodo = esPorAbono && i.periodo_month ? `${MES_LABELS[i.periodo_month - 1]} ${i.periodo_year}` : null
+              return (
+                <div key={i.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(i.fecha)}</span>
+                        <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                          {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
+                        </span>
+                        {esPorAbono && (
+                          <span className="inline-flex rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                            {periodo ?? 'abono'}
+                          </span>
+                        )}
+                      </div>
+                      {cliente && (
+                        <p className="text-[11px] text-zinc-400">{cliente.apellido}, {cliente.nombre}</p>
                       )}
+                      {i.descripcion && <p className="text-xs text-zinc-500 line-clamp-1">{i.descripcion}</p>}
                     </div>
-                    <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="text-right mr-1">
+                        <p className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</p>
+                        {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
+                          <p className="text-[10px] text-amber-400 tabular-nums">{arsEquivalente(Number(i.monto))}</p>
+                        )}
+                      </div>
+                      <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Desktop: table */}
@@ -728,40 +745,56 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
               <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
                 <tr>
                   <th className="text-left px-3 py-2">Fecha</th>
-                  <th className="text-left px-3 py-2">Tipo</th>
+                  <th className="text-left px-3 py-2">Tipo / Origen</th>
+                  <th className="text-left px-3 py-2">Cliente</th>
                   <th className="text-left px-3 py-2">Descripción</th>
                   <th className="text-right px-3 py-2">Monto</th>
                   <th className="w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {ingresos.map((i) => (
-                  <tr key={i.id} className="hover:bg-white/[0.02]">
-                    <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
-                    <td className="px-3 py-2">
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                        {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      <p className="font-medium text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
-                      {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
-                        <p className="text-[10px] text-amber-400">{arsEquivalente(Number(i.monto))}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {ingresos.map((i) => {
+                  const cliente = i.cliente_id ? clientesMap.get(i.cliente_id) : null
+                  const esPorAbono = !!i.abono_id
+                  const periodo = esPorAbono && i.periodo_month ? `${MES_LABELS[i.periodo_month - 1]} ${i.periodo_year}` : null
+                  return (
+                    <tr key={i.id} className="hover:bg-white/[0.02]">
+                      <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                            {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
+                          </span>
+                          {esPorAbono && (
+                            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                              {periodo ?? 'abono'}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-zinc-300 text-xs">
+                        {cliente ? `${cliente.apellido}, ${cliente.nombre}` : <span className="text-zinc-600">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <p className="font-medium text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
+                        {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
+                          <p className="text-[10px] text-amber-400">{arsEquivalente(Number(i.monto))}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -932,13 +965,26 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
                       <span className="inline-flex rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
                         {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
                       </span>
-                      {g.recuperable && (
+                      {g.gasto_fijo_id && (
+                        <span className="inline-flex rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-300">
+                          fijo
+                        </span>
+                      )}
+                      {g.recuperable && !g.recuperado_at && (
                         <span className="inline-flex rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                          recup.
+                          a recuperar
+                        </span>
+                      )}
+                      {g.recuperado_at && (
+                        <span className="inline-flex rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 line-through">
+                          recuperado
                         </span>
                       )}
                     </div>
                     {g.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{g.descripcion}</p>}
+                    {g.expediente_id && (
+                      <p className="text-[11px] text-violet-400/70 mt-0.5">Vinculado a expediente</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
                     <span className="text-sm font-semibold text-zinc-100 tabular-nums mr-1">{fmt(Number(g.monto), g.moneda)}</span>
@@ -960,7 +1006,7 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
               <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
                 <tr>
                   <th className="text-left px-3 py-2">Fecha</th>
-                  <th className="text-left px-3 py-2">Categoría</th>
+                  <th className="text-left px-3 py-2">Categoría / Origen</th>
                   <th className="text-left px-3 py-2">Descripción</th>
                   <th className="text-right px-3 py-2">Monto</th>
                   <th className="w-20"></th>
@@ -971,14 +1017,31 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
                   <tr key={g.id} className="hover:bg-white/[0.02]">
                     <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(g.fecha)}</td>
                     <td className="px-3 py-2">
-                      <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
-                        {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
-                      </span>
-                      {g.recuperable && (
-                        <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                          recup.
+                      <div className="flex flex-wrap gap-1">
+                        <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                          {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
                         </span>
-                      )}
+                        {g.gasto_fijo_id && (
+                          <span className="inline-flex items-center rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-300">
+                            fijo
+                          </span>
+                        )}
+                        {g.recuperable && !g.recuperado_at && (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                            a recuperar
+                          </span>
+                        )}
+                        {g.recuperado_at && (
+                          <span className="inline-flex items-center rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                            recuperado
+                          </span>
+                        )}
+                        {g.expediente_id && (
+                          <span className="inline-flex items-center rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                            expediente
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-zinc-400 line-clamp-1">{g.descripcion || '—'}</td>
                     <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</td>

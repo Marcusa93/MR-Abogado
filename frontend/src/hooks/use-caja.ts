@@ -120,6 +120,12 @@ export interface PagoPendiente {
   ultimo_pago: string | null
 }
 
+export interface ExpedienteLite {
+  id: string
+  caratula: string
+  numero_expediente: string | null
+}
+
 export interface CajaResumen {
   periodo: { year: number; month: number }
   mes_actual: {
@@ -330,7 +336,7 @@ export function useUpdateGasto() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; categoria?: string; descripcion?: string | null; recuperable?: boolean }) => {
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; categoria?: string; descripcion?: string | null; recuperable?: boolean; expediente_id?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)('gastos').update(patch).eq('id', id)
       if (error) throw error
@@ -347,7 +353,7 @@ export function useUpdateIngreso() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; tipo?: string; cliente_id?: string | null; descripcion?: string | null }) => {
+    mutationFn: async ({ id, ...patch }: { id: string; fecha?: string; monto?: number; moneda?: MonedaCaja; tipo?: string; cliente_id?: string | null; expediente_id?: string | null; descripcion?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from as any)('ingresos').update(patch).eq('id', id)
       if (error) throw error
@@ -543,6 +549,24 @@ export function useGastosRecuperablesPendientes() {
         .order('fecha', { ascending: false })
       if (error) throw error
       return (data ?? []) as Gasto[]
+    },
+  })
+}
+
+export function useExpedientesLista() {
+  const supabase = createClient()
+  return useQuery<ExpedienteLite[]>({
+    queryKey: ['expedientes-lista-caja'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from as any)('expedientes')
+        .select('id, caratula, numero_expediente')
+        .is('deleted_at', null)
+        .order('caratula', { ascending: true })
+        .limit(500)
+      if (error) throw error
+      return (data ?? []) as ExpedienteLite[]
     },
   })
 }

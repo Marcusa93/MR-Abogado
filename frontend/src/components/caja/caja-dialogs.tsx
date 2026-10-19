@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
-import { X, Loader2, Plus } from 'lucide-react'
+import { X, Loader2, Plus, AlertTriangle } from 'lucide-react'
 import {
   useCreateGasto, useUpdateGasto, useCreateIngreso, useUpdateIngreso,
-  useCreateAbono, useCreateGastoFijo, useUpdateGastoFijo,
+  useCreateAbono, useCreateGastoFijo, useUpdateGastoFijo, useExpedientesLista,
   GASTO_CATEGORIAS, INGRESO_TIPOS,
   type MonedaCaja, type Gasto, type Ingreso, type GastoFijo,
 } from '@/hooks/use-caja'
@@ -50,17 +50,24 @@ export function FormRow({ label, children }: { label: string; children: React.Re
 
 // ─── DialogGasto ─────────────────────────────────────────────────────────────
 
+const CATEGORIAS_JUDICIALES = new Set(['timbrado', 'oficios', 'pericia', 'cedulas', 'viaticos'])
+
 export function DialogGasto({ onClose, initial }: { onClose: () => void; initial?: Gasto }) {
   const { user } = useAuth()
   const createGasto = useCreateGasto()
   const updateGasto = useUpdateGasto()
+  const { data: expedientes = [] } = useExpedientesLista()
   const isEditing = Boolean(initial)
   const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
   const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
   const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
   const [categoria, setCategoria] = useState(initial?.categoria ?? 'timbrado')
+  const [expedienteId, setExpedienteId] = useState(initial?.expediente_id ?? '')
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
   const [recuperable, setRecuperable] = useState(initial?.recuperable ?? false)
+
+  const esJudicial = CATEGORIAS_JUDICIALES.has(categoria)
+  const mostrarAlertaExpediente = (esJudicial || recuperable) && !expedienteId
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,6 +78,7 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
       if (isEditing && initial) {
         await updateGasto.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, categoria,
+          expediente_id: expedienteId || null,
           descripcion: descripcion || null, recuperable,
         })
         toast.success('Gasto actualizado')
@@ -78,7 +86,8 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
         if (!user?.id) return
         await createGasto.mutateAsync({
           fecha, monto: n, moneda, categoria,
-          expediente_id: null, descripcion: descripcion || null,
+          expediente_id: expedienteId || null,
+          descripcion: descripcion || null,
           comprobante_path: null, recuperable,
           cargado_por: user.id,
         })
@@ -112,12 +121,30 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
             {GASTO_CATEGORIAS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </FormRow>
+        <FormRow label={esJudicial ? 'Expediente' : 'Expediente (opcional)'}>
+          <select value={expedienteId} onChange={e => setExpedienteId(e.target.value)} className={inputCls}>
+            <option value="">— sin vincular —</option>
+            {expedientes.map(ex => (
+              <option key={ex.id} value={ex.id}>
+                {ex.caratula}{ex.numero_expediente ? ` · ${ex.numero_expediente}` : ''}
+              </option>
+            ))}
+          </select>
+        </FormRow>
+        {mostrarAlertaExpediente && (
+          <p className="flex items-start gap-1.5 text-[11px] text-amber-400/90">
+            <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
+            {recuperable
+              ? 'Si el cliente paga este gasto, vincularlo al expediente facilita el seguimiento.'
+              : 'Este tipo de gasto suele pertenecer a una causa. ¿Corresponde a algún expediente?'}
+          </p>
+        )}
         <FormRow label="Descripción (opcional)">
           <input type="text" value={descripcion} onChange={e => setDescripcion(e.target.value)} className={inputCls} placeholder="Ej: cédula a Marcheton" />
         </FormRow>
         <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
           <input type="checkbox" checked={recuperable} onChange={e => setRecuperable(e.target.checked)} className="rounded border-white/10 bg-white/5" />
-          Recuperable del cliente
+          El cliente paga este gasto
         </label>
         <button type="submit" disabled={isPending} className="w-full rounded-md bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/25 disabled:opacity-50 flex items-center justify-center gap-2">
           {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -130,6 +157,17 @@ export function DialogGasto({ onClose, initial }: { onClose: () => void; initial
 
 // ─── DialogIngreso ────────────────────────────────────────────────────────────
 
+const TIPO_HINTS: Record<string, string> = {
+  honorario_expediente: 'Pago de honorarios por una causa activa. Vinculá el expediente.',
+  anticipo:             'Adelanto a cuenta de honorarios. Indicá el cliente o el expediente.',
+  consulta:             'Cobro por consulta puntual, sin expediente asociado.',
+  pacto_quota_litis:    'Porcentaje de condena obtenida. Vinculá el expediente.',
+  otro:                 'Ingreso que no encaja en las categorías anteriores.',
+}
+
+const TIPOS_CON_EXPEDIENTE = new Set(['honorario_expediente', 'anticipo', 'pacto_quota_litis'])
+const TIPOS_CON_CLIENTE    = new Set(['honorario_expediente', 'anticipo', 'consulta', 'pacto_quota_litis'])
+
 export function DialogIngreso({ onClose, initial }: { onClose: () => void; initial?: Ingreso }) {
   const { user } = useAuth()
   const createIngreso = useCreateIngreso()
@@ -137,17 +175,22 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
   const isEditing = Boolean(initial)
   const { data: clientesResult } = useClientes({ pageSize: 500 })
   const clientes = clientesResult?.data ?? []
+  const { data: expedientes = [] } = useExpedientesLista()
   const [fecha, setFecha] = useState(initial?.fecha ?? new Date().toISOString().slice(0, 10))
   const [monto, setMonto] = useState(initial ? String(initial.monto) : '')
   const [moneda, setMoneda] = useState<MonedaCaja>(initial?.moneda ?? 'ARS')
   const [tipo, setTipo] = useState(initial?.tipo ?? 'honorario_expediente')
   const [clienteId, setClienteId] = useState<string>(initial?.cliente_id ?? '')
+  const [expedienteId, setExpedienteId] = useState(initial?.expediente_id ?? '')
   const [descripcion, setDescripcion] = useState(initial?.descripcion ?? '')
 
   const clientesOrdenados = useMemo(
     () => [...clientes].sort((a, b) => (a.apellido ?? '').localeCompare(b.apellido ?? '')),
     [clientes]
   )
+
+  const necesitaExpediente = TIPOS_CON_EXPEDIENTE.has(tipo)
+  const necesitaCliente    = TIPOS_CON_CLIENTE.has(tipo)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,6 +202,7 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
         await updateIngreso.mutateAsync({
           id: initial.id, fecha, monto: n, moneda, tipo,
           cliente_id: clienteId || null,
+          expediente_id: expedienteId || null,
           descripcion: descripcion || null,
         })
         toast.success('Ingreso actualizado')
@@ -166,7 +210,8 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
         if (!user?.id) return
         await createIngreso.mutateAsync({
           fecha, monto: n, moneda, tipo, categoria: null,
-          cliente_id: clienteId || null, expediente_id: null,
+          cliente_id: clienteId || null,
+          expediente_id: expedienteId || null,
           abono_id: null, periodo_year: null, periodo_month: null,
           descripcion: descripcion || null,
           comprobante_path: null, cargado_por: user.id,
@@ -196,15 +241,38 @@ export function DialogIngreso({ onClose, initial }: { onClose: () => void; initi
             </select>
           </FormRow>
         </div>
-        <FormRow label="Tipo">
-          <select value={tipo} onChange={e => setTipo(e.target.value)} className={inputCls}>
-            {(isEditing ? INGRESO_TIPOS : INGRESO_TIPOS.filter(t => t.value !== 'abono_mensual')).map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
-        </FormRow>
-        <FormRow label="Cliente (opcional)">
-          <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={inputCls}>
+        <div className="space-y-1">
+          <FormRow label="Tipo">
+            <select value={tipo} onChange={e => setTipo(e.target.value)} className={inputCls}>
+              {(isEditing ? INGRESO_TIPOS : INGRESO_TIPOS.filter(t => t.value !== 'abono_mensual')).map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </FormRow>
+          {TIPO_HINTS[tipo] && (
+            <p className="text-[11px] text-zinc-500">{TIPO_HINTS[tipo]}</p>
+          )}
+        </div>
+        {necesitaExpediente && (
+          <FormRow label="Expediente">
+            <select value={expedienteId} onChange={e => setExpedienteId(e.target.value)} className={inputCls}>
+              <option value="">— sin vincular —</option>
+              {expedientes.map(ex => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.caratula}{ex.numero_expediente ? ` · ${ex.numero_expediente}` : ''}
+                </option>
+              ))}
+            </select>
+            {!expedienteId && (
+              <p className="mt-0.5 flex items-start gap-1.5 text-[11px] text-amber-400/90">
+                <AlertTriangle className="h-3 w-3 mt-px shrink-0" />
+                Vincular el expediente facilita el seguimiento financiero del caso.
+              </p>
+            )}
+          </FormRow>
+        )}
+        <FormRow label={necesitaCliente ? 'Cliente' : 'Cliente (opcional)'}>
+          <select value={clienteId} onChange={e => setClienteId(e.target.value)} className={inputCls} required={necesitaCliente && !expedienteId}>
             <option value="">— sin cliente —</option>
             {clientesOrdenados.map(c => (
               <option key={c.id} value={c.id}>{c.apellido}, {c.nombre}</option>
