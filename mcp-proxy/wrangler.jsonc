@@ -1,0 +1,11 @@
+{
+  // Dominio público del conector de Claude: reenvía todo a la edge function `mcp`.
+  // Claude exige los metadatos OAuth en la raíz de un dominio propio.
+  "$schema": "../frontend/node_modules/wrangler/config-schema.json",
+  "name": "mr-abogado-mcp",
+  "main": "index.js",
+  "compatibility_date": "2026-10-06",
+  "workers_dev": false,
+  "routes": [{ "pattern": "mcp.marcorossi.com.ar", "custom_domain": true }],
+  "observability": { "enabled": true }
+}

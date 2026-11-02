@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { destinoTrasLogin } from '@/lib/utils/volver-login'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, KeyRound, CheckCircle2, AlertCircle, Eye, EyeOff, Scale } from 'lucide-react'
@@ -48,7 +49,7 @@ export default function AuthCallbackPage() {
               setPhase('error')
               return
             }
-            navigate('/', { replace: true })
+            navigate(destinoTrasLogin('/'), { replace: true })
             return
           }
           if (hashType === 'recovery') {
@@ -76,7 +77,7 @@ export default function AuthCallbackPage() {
           }
           // Magic link: redirect to dashboard; recovery: show password form
           if (urlType === 'magiclink') {
-            navigate('/', { replace: true })
+            navigate(destinoTrasLogin('/'), { replace: true })
             return
           }
           setPhase('form')

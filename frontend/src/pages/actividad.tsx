@@ -60,6 +60,7 @@ const TABLA_LABELS: Record<string, string> = {
   expediente_notas: 'Nota',
   adjuntos: 'Adjunto',
   profiles: 'Usuario',
+  mcp: 'Claude (conector)',
   sae_credentials: 'Credenciales SAE',
   honorarios_cargos: 'Cargo de cuenta corriente',
 }

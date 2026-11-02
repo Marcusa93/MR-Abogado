@@ -72,6 +72,7 @@ const EditorialPage = lazyWithRetry(() => import('@/pages/editorial'))
 const EditorialArticuloPage = lazyWithRetry(() => import('@/pages/editorial-articulo'))
 const SubirDocumentacionPage = lazyWithRetry(() => import('@/pages/subir-documentacion'))
 const AuthCallbackPage = lazyWithRetry(() => import('@/pages/auth-callback'))
+const McpAutorizarPage = lazyWithRetry(() => import('@/pages/mcp-autorizar'))
 const ForcePasswordChangePage = lazyWithRetry(() => import('@/pages/force-password-change'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/not-found'))
 
@@ -101,6 +102,15 @@ export const router = createBrowserRouter([
     element: (
       <SuspenseWrapper>
         <AuthCallbackPage />
+      </SuspenseWrapper>
+    ),
+  },
+  {
+    // Permiso del conector de Claude: maneja su propia sesión y vuelve después del login
+    path: '/mcp/autorizar',
+    element: (
+      <SuspenseWrapper>
+        <McpAutorizarPage />
       </SuspenseWrapper>
     ),
   },

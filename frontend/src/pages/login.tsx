@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { destinoTrasLogin } from '@/lib/utils/volver-login'
 import { AppSplash } from '@/components/shared/app-splash'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -55,7 +56,7 @@ export default function LoginPage() {
 
       supabase.rpc('log_login' as any).then(undefined, () => {})
 
-      navigate('/panel', { replace: true })
+      navigate(destinoTrasLogin('/panel'), { replace: true })
     } catch {
       setError('Error inesperado. Intentá nuevamente.')
     } finally {
