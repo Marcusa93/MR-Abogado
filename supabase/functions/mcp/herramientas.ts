@@ -82,8 +82,12 @@ async function exigirExpediente(admin: Admin, p: Perfil, id: string) {
   return data as Record<string, unknown> & { id: string; numero: string | null; numero_sae: string | null; caratula: string | null; cliente_id: string | null }
 }
 
-const nombreCliente = (c: { nombre?: string | null; apellido?: string | null; razon_social?: string | null; tipo_persona?: string | null } | null | undefined) =>
-  !c ? null : c.tipo_persona === 'juridica' && c.razon_social ? c.razon_social : [c.nombre, c.apellido].filter(Boolean).join(' ') || null
+/** Los clientes importados del SAE sin datos tienen de nombre "1723/26 IMPORTADO SAE": no es un nombre. */
+const nombreCliente = (c: { nombre?: string | null; apellido?: string | null; razon_social?: string | null; tipo_persona?: string | null } | null | undefined) => {
+  if (!c) return null
+  const n = c.tipo_persona === 'juridica' && c.razon_social ? c.razon_social : [c.nombre, c.apellido].filter(Boolean).join(' ')
+  return n && !/importado\s+sae/i.test(n) ? n : null
+}
 const nombrePerfil = (p: { nombre?: string | null; apellido?: string | null } | null | undefined) => [p?.nombre, p?.apellido].filter(Boolean).join(' ') || null
 
 /** Fragmento alrededor de la primera palabra encontrada. */
@@ -133,7 +137,7 @@ async function leerCaracter(admin: Admin, a: Args, clienteId: string | null): Pr
   if (modo === 'patrocinante' && clienteId) {
     const { data } = await admin.from('clientes').select('nombre, apellido, razon_social, tipo_persona, dni, domicilio, localidad, provincia').eq('id', clienteId).maybeSingle()
     const cl = data as Record<string, string | null> | null
-    if (cl) c.patrocinado = { nombre: (nombreCliente(cl) ?? '').toUpperCase(), dni: cl.dni ?? '', domicilio: [cl.domicilio, cl.localidad, cl.provincia].filter(Boolean).join(', ') }
+    if (cl) c.patrocinado = { nombre: (nombreCliente(cl) ?? '[COMPLETAR: nombre de la parte]').toUpperCase(), dni: cl.dni ?? '', domicilio: [cl.domicilio, cl.localidad, cl.provincia].filter(Boolean).join(', ') }
   }
   return c
 }
@@ -203,7 +207,7 @@ export const HERRAMIENTAS: Herramienta[] = [
       ])
       return {
         expediente: { ...e, cliente_id: undefined, link: linkExpediente(id) },
-        cliente: cl.data ? { nombre: nombreCliente(cl.data as never), ...(cl.data as Record<string, unknown>), razon_social: undefined, tipo_persona: undefined, apellido: undefined } : null,
+        cliente: cl.data ? { ...(cl.data as Record<string, unknown>), nombre: nombreCliente(cl.data as never) ?? 'Sin cargar (importado del SAE): tomarlo de la carátula', razon_social: undefined, tipo_persona: undefined, apellido: undefined } : null,
         proximas_audiencias: aud.data ?? [],
         tareas_pendientes: tar.data ?? [],
         ultimas_actuaciones: ((mov.data ?? []) as { id: string }[]).map((m) => ({ ...m, link: linkActuacion(id, m.id) })),

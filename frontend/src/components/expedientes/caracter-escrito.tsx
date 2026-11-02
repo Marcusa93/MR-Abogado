@@ -64,7 +64,8 @@ function useClienteExpediente(expedienteId: string | null | undefined) {
       if (!c) return null
       const nombre = c.tipo_persona === 'juridica' && c.razon_social ? c.razon_social : [c.nombre, c.apellido].filter(Boolean).join(' ')
       const domicilio = [c.domicilio, c.localidad, c.provincia].filter(Boolean).join(', ')
-      return { nombre: (nombre ?? '').toUpperCase(), dni: c.dni ?? '', domicilio }
+      // Los importados del SAE sin datos tienen de nombre "1723/26 IMPORTADO SAE": no sirve para el escrito
+      return { nombre: /importado\s+sae/i.test(nombre ?? '') ? '' : (nombre ?? '').toUpperCase(), dni: c.dni ?? '', domicilio }
     },
   })
 }

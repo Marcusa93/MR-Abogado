@@ -117,6 +117,14 @@ deploy + verificación) antes de reportar.
 - Después de deployar una function, verificá con `supabase functions list --project-ref $SUPABASE_PROJECT_ID`
   que la versión subió, o pegale un request de prueba.
 
+## Conector de Claude (MCP)
+
+`https://mcp.marcorossi.com.ar/mcp`: el Worker `mcp-proxy/` (se publica a mano con `wrangler deploy`) reenvía a la edge
+function `mcp`, desplegada con `--no-verify-jwt`. Herramientas en `supabase/functions/mcp/herramientas.ts`; corren con
+service role, así que **cada herramienta nueva tiene que aplicar la visibilidad por expediente y quedar en audit_log**
+(`ejecutarHerramienta` lo hace). Entra quien tiene `profiles.acceso_mcp`; desconectar a alguien: `revoked_at` en sus filas de
+`mcp_oauth_tokens`. Nada de presentar, firmar ni borrar desde el conector.
+
 ## Endurecimiento TS pendiente
 
 Activar `noUncheckedIndexedAccess: true` en `frontend/tsconfig.json` destapa
