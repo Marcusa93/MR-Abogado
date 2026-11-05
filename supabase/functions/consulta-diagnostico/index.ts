@@ -120,7 +120,7 @@ async function generateModulo(
     allAreas: string[]
   },
   openrouterKey: string,
-): Promise<Record<string, unknown> | null> {
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
   const expertise = AREA_EXPERTISE[area] ?? AREA_EXPERTISE['otro']
   const otherAreas = ctx.allAreas
     .filter(a => a !== area)
@@ -158,52 +158,75 @@ ${ctx.notas_libres.trim()}${ctx.documentalCtx}${ctx.contextosCtx}${ctx.normativa
 
 Generá el diagnóstico para el área ${expertise.label}.`
 
-  const llmRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${openrouterKey}`,
-      'HTTP-Referer': 'https://app.marcorossi.com.ar',
-      'X-Title': 'MR Abogado Diagnóstico',
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4.6',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 2000,
-    }),
-  })
-
-  if (!llmRes.ok) {
-    console.error(`[consulta-diagnostico] LLM error para área ${area}: ${await llmRes.text()}`)
-    return null
-  }
-
-  const llmData = await llmRes.json() as {
-    choices?: Array<{ message: { content: string }; finish_reason?: string }>
-    error?: { message?: string }
-  }
-
-  if (llmData.error || !llmData.choices?.length) return null
-
-  const raw = llmData.choices[0].message?.content ?? ''
-  if (!raw.trim()) return null
-
-  let cleaned = raw.replace(/```(?:json)?/gi, '').trim()
-  const braceStart = cleaned.indexOf('{')
-  const braceEnd = cleaned.lastIndexOf('}')
-  if (braceStart !== -1 && braceEnd > braceStart) {
-    cleaned = cleaned.slice(braceStart, braceEnd + 1)
-  }
-
   try {
-    return JSON.parse(cleaned) as Record<string, unknown>
-  } catch {
-    console.error(`[consulta-diagnostico] JSON parse error para área ${area}:`, cleaned.slice(0, 300))
-    return null
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 40_000)
+
+    let llmRes: Response
+    try {
+      llmRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openrouterKey}`,
+          'HTTP-Referer': 'https://app.marcorossi.com.ar',
+          'X-Title': 'MR Abogado Diagnóstico',
+        },
+        body: JSON.stringify({
+          model: 'anthropic/claude-sonnet-4.6',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 4096,
+        }),
+      })
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (!llmRes.ok) {
+      const errText = await llmRes.text()
+      console.error(`[consulta-diagnostico] LLM HTTP ${llmRes.status} para ${area}: ${errText}`)
+      return { ok: false, error: `HTTP ${llmRes.status}: ${errText.slice(0, 300)}` }
+    }
+
+    const llmData = await llmRes.json() as {
+      choices?: Array<{ message: { content: string }; finish_reason?: string }>
+      error?: { message?: string }
+    }
+
+    if (llmData.error) {
+      const msg = llmData.error.message ?? JSON.stringify(llmData.error)
+      console.error(`[consulta-diagnostico] LLM error en respuesta para ${area}:`, msg)
+      return { ok: false, error: msg }
+    }
+    if (!llmData.choices?.length) {
+      return { ok: false, error: 'Respuesta LLM sin choices' }
+    }
+
+    const raw = llmData.choices[0].message?.content ?? ''
+    if (!raw.trim()) return { ok: false, error: 'Respuesta LLM vacía' }
+
+    let cleaned = raw.replace(/```(?:json)?/gi, '').trim()
+    const braceStart = cleaned.indexOf('{')
+    const braceEnd = cleaned.lastIndexOf('}')
+    if (braceStart !== -1 && braceEnd > braceStart) {
+      cleaned = cleaned.slice(braceStart, braceEnd + 1)
+    }
+
+    try {
+      return { ok: true, data: JSON.parse(cleaned) as Record<string, unknown> }
+    } catch {
+      console.error(`[consulta-diagnostico] JSON parse error para ${area}:`, cleaned.slice(0, 300))
+      return { ok: false, error: 'No se pudo parsear JSON de respuesta LLM' }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[consulta-diagnostico] Excepción en generateModulo para ${area}:`, msg)
+    return { ok: false, error: msg }
   }
 }
 
@@ -362,12 +385,23 @@ Deno.serve(async (req) => {
     areas.map(area => generateModulo(area, ctx, openrouterKey))
   )
 
-  const modulos = results
-    .filter(r => r.status === 'fulfilled' && r.value !== null)
-    .map(r => (r as PromiseFulfilledResult<Record<string, unknown>>).value)
+  const modulos: Record<string, unknown>[] = []
+  const errors: string[] = []
+
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      errors.push(String(r.reason))
+    } else if (r.value.ok) {
+      modulos.push(r.value.data)
+    } else {
+      errors.push(r.value.error)
+    }
+  }
 
   if (modulos.length === 0) {
-    return json(req, { error: 'No se pudo generar ningún diagnóstico. Intentá de nuevo.' }, 500)
+    const detalle = errors.length > 0 ? errors[0] : 'Error desconocido en LLM'
+    console.error('[consulta-diagnostico] Todos los módulos fallaron. Errores:', errors)
+    return json(req, { error: `No se pudo generar el diagnóstico: ${detalle}` }, 500)
   }
 
   const diagnostico = { modulos }
