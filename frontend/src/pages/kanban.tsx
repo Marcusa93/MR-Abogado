@@ -162,13 +162,11 @@ function KanbanFiltersBar({
   searchValue: string
   onSearchChange: (v: string) => void
 }) {
-  useAuth() // mantiene la suscripción al store (sin renderizar nada por ahora)
-  // "Mis expedientes": para filtrar por equipo (expediente_miembros) hay que
-  // ampliar la RPC get_kanban_data. Si lo pedís, lo armamos. Hasta entonces el
-  // filtro por responsable está en /expedientes (resuelto via miembros).
+  const { user } = useAuth()
 
   const hasFilters =
     !!filters.prioridad ||
+    !!filters.profileId ||
     !!searchValue
 
   return (
@@ -203,7 +201,23 @@ function KanbanFiltersBar({
         ))}
       </select>
 
-      {/* Filtro por Responsable: vive en /expedientes (vía expediente_miembros) */}
+      {/* Mis causas */}
+      {user && (
+        <button
+          onClick={() => onFiltersChange({
+            ...filters,
+            profileId: filters.profileId ? null : user.id,
+          })}
+          className={cn(
+            'h-8 rounded-lg border px-3 text-xs font-medium transition-colors',
+            filters.profileId
+              ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+              : 'border-white/10 bg-white/5 text-zinc-500 hover:text-zinc-300'
+          )}
+        >
+          Mis causas
+        </button>
+      )}
 
       {/* Clear */}
       {hasFilters && (

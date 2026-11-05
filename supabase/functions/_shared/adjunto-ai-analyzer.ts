@@ -4,7 +4,7 @@
 // datos explícitos.
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4'
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6'
 
 export interface AdjuntoExtracted {
   tipo_documento: 'demanda' | 'contestacion' | 'sentencia' | 'resolucion' | 'apelacion' | 'escrito' | 'cedula' | 'otro'

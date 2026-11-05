@@ -87,7 +87,7 @@ REGLAS:
       'X-Title': 'MR Abogado Extracción Daños',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4',
+      model: 'anthropic/claude-sonnet-4.6',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Relato del caso:\n${relato.trim()}` },

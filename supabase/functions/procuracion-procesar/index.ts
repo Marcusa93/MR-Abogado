@@ -35,7 +35,7 @@ import {
 const FUNCTION_NAME = 'procuracion-procesar'
 // Mismo modelo que escritos-generate: con haiku la lectura procesal era floja
 // (confundía apertura a prueba con ofrecimiento, accionaba sobre escritos de la contraria).
-const MODELO = 'anthropic/claude-sonnet-4'
+const MODELO = 'anthropic/claude-sonnet-4.6'
 const APP_URL = 'https://app.marcorossi.com.ar'
 
 // Topes por corrida (la function corta a los ~150 s)

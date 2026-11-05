@@ -167,7 +167,7 @@ Generá el diagnóstico para el área ${expertise.label}.`
       'X-Title': 'MR Abogado Diagnóstico',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4',
+      model: 'anthropic/claude-sonnet-4.6',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

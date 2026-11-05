@@ -8,7 +8,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4'
+const MODEL = 'anthropic/claude-sonnet-4.6'
 const FUNCTION_NAME = 'chat-adjunto'
 
 const SYSTEM_PROMPT = `Sos un asistente jurídico que responde preguntas sobre UN documento PDF específico de un expediente judicial argentino. Sos el "modo conversación" del documento.

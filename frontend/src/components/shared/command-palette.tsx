@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, X, FolderOpen, Calculator, CalendarDays,
-  ClipboardList, CheckSquare, Plus, Zap, Users,
+  ClipboardList, CheckSquare, Plus, Users,
   ArrowRight,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -47,12 +47,19 @@ interface ExpedienteResult {
   clientes: { nombre: string; apellido: string } | null
 }
 
+interface ClienteResult {
+  id: string
+  nombre: string | null
+  apellido: string | null
+}
+
 type Item =
   | { kind: 'accion'; data: QuickAction }
   | { kind: 'expediente'; data: ExpedienteResult }
+  | { kind: 'cliente'; data: ClienteResult }
 
 // ---------------------------------------------------------------------------
-// Hook de búsqueda de expedientes
+// Hooks de búsqueda
 // ---------------------------------------------------------------------------
 
 function useExpedientesSearch(query: string) {
@@ -68,6 +75,26 @@ function useExpedientesSearch(query: string) {
         .is('deleted_at', null)
         .limit(6)
       return (data ?? []) as ExpedienteResult[]
+    },
+    enabled: query.length >= 2,
+    staleTime: 30_000,
+  })
+}
+
+function useClientesSearch(query: string) {
+  return useQuery({
+    queryKey: ['cmd-palette-clientes', query],
+    queryFn: async (): Promise<ClienteResult[]> => {
+      if (query.length < 2) return []
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('clientes')
+        .select('id, nombre, apellido')
+        .or(`apellido.ilike.%${query}%,nombre.ilike.%${query}%`)
+        .is('deleted_at', null)
+        .order('apellido')
+        .limit(5)
+      return (data ?? []) as ClienteResult[]
     },
     enabled: query.length >= 2,
     staleTime: 30_000,
@@ -106,6 +133,7 @@ export function CommandPalette() {
   }, [open])
 
   const { data: expedientes = [] } = useExpedientesSearch(debouncedQuery)
+  const { data: clientes = [] } = useClientesSearch(debouncedQuery)
 
   const esSecretaria = profile?.rol === 'SECRETARIA'
 
@@ -119,6 +147,7 @@ export function CommandPalette() {
           .filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
           .map(a => ({ kind: 'accion' as const, data: a })),
         ...expedientes.map(e => ({ kind: 'expediente' as const, data: e })),
+        ...clientes.map(c => ({ kind: 'cliente' as const, data: c })),
       ]
 
   const clampedIndex = Math.min(selectedIndex, Math.max(0, items.length - 1))
@@ -128,6 +157,8 @@ export function CommandPalette() {
       navigate(item.data.href)
     } else if (item.kind === 'expediente') {
       navigate(`/expedientes/${item.data.id}`)
+    } else if (item.kind === 'cliente') {
+      navigate(`/clientes/${item.data.id}`)
     }
     closeCommandPalette()
   }, [navigate, closeCommandPalette])
@@ -165,8 +196,10 @@ export function CommandPalette() {
 
   const showAcciones = items.some(i => i.kind === 'accion')
   const showExpedientes = items.some(i => i.kind === 'expediente')
+  const showClientes = items.some(i => i.kind === 'cliente')
   let accionOffset = 0
   let expOffset = items.filter(i => i.kind === 'accion').length
+  let clienteOffset = expOffset + items.filter(i => i.kind === 'expediente').length
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4">
@@ -286,6 +319,47 @@ export function CommandPalette() {
                           )}
                         </p>
                       </div>
+                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                    </button>
+                  )
+                })}
+            </div>
+          )}
+
+          {/* Clientes */}
+          {showClientes && (
+            <div>
+              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Clientes
+              </p>
+              {items
+                .filter(i => i.kind === 'cliente')
+                .map((item, idx) => {
+                  const cli = (item as { kind: 'cliente'; data: ClienteResult }).data
+                  const isSelected = (clienteOffset + idx) === clampedIndex
+                  const label = cli.apellido
+                    ? `${cli.apellido}, ${cli.nombre ?? ''}`.trim()
+                    : (cli.nombre ?? 'Cliente')
+                  return (
+                    <button
+                      key={cli.id}
+                      type="button"
+                      onClick={() => selectItem(item)}
+                      onMouseEnter={() => setSelectedIndex(clienteOffset + idx)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                        isSelected ? 'bg-amber-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
+                      )}
+                    >
+                      <div className={cn(
+                        'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+                        isSelected ? 'bg-amber-500/20' : 'bg-zinc-100 dark:bg-white/10'
+                      )}>
+                        <Users className={cn('h-3.5 w-3.5', isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400')} />
+                      </div>
+                      <span className={cn('text-sm font-medium', isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-700 dark:text-zinc-300')}>
+                        {label}
+                      </span>
                       {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-amber-500 shrink-0" />}
                     </button>
                   )

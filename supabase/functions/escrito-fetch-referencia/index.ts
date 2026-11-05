@@ -8,7 +8,7 @@ import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const FUNCTION_NAME = 'escrito-fetch-referencia'
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') ?? ''
-const MODEL = 'anthropic/claude-haiku-4-5'
+const MODEL = 'anthropic/claude-haiku-4.5'
 const MAX_FETCH_BYTES = 400_000  // 400KB HTML
 const MAX_TEXT_CHARS = 20_000   // 20K chars al LLM
 

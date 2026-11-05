@@ -203,7 +203,7 @@ async function generarPlataforma(
       'X-Title': 'MR Abogado Contenidos',
     },
     body: JSON.stringify({
-      model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-3.5-haiku',
+      model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-haiku-4.5',
       messages: [{ role: 'system', content: systemPrompt + JSON_SUFFIX }, { role: 'user', content: userMsg }],
       temperature: 0.8,
       max_tokens: 1300,

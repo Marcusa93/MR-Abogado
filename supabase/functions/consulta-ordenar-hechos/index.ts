@@ -112,7 +112,7 @@ ${notas}${documentalCtx}`
         'X-Title': 'MR Abogado',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4',
+        model: 'anthropic/claude-sonnet-4.6',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

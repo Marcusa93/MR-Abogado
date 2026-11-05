@@ -7,7 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const DEFAULT_MODEL = 'anthropic/claude-3.5-haiku'
+const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5'
 
 const SYSTEM_PROMPT = `Sos un asistente jurídico. Analizás transcripciones de audiencias judiciales argentinas y extraés información estructurada.
 

@@ -13,12 +13,10 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-// El filtro por responsable vive en /expedientes (resuelto vía expediente_miembros).
-// Si se quiere recuperar acá habría que ampliar la RPC get_kanban_data con un
-// p_profile_id que joinee expediente_miembros — fuera de scope de la vista actual.
 export interface KanbanFilters {
   tipo_tramite_id?: string | null
   prioridad?: Prioridad | null
+  profileId?: string | null
 }
 
 export interface KanbanCard {
@@ -96,6 +94,7 @@ export function useKanbanData(filters: KanbanFilters = {}) {
       const { data: rawData, error } = await (supabase.rpc as any)('get_kanban_data', {
         p_tipo_tramite_id: filters.tipo_tramite_id ?? null,
         p_prioridad: filters.prioridad ?? null,
+        p_profile_id: filters.profileId ?? null,
       })
 
       if (error) throw error

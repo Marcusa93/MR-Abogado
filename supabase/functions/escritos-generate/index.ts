@@ -21,7 +21,7 @@ import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 const FUNCTION_NAME = 'escritos-generate'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_EMBEDDINGS_URL = 'https://openrouter.ai/api/v1/embeddings'
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4'
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 
 // Umbrales calibrados sobre text-embedding-3-small (cosine similarity)

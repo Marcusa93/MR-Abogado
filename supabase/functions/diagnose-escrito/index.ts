@@ -19,7 +19,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4'
+const MODEL = 'anthropic/claude-sonnet-4.6'
 const FUNCTION_NAME = 'diagnose-escrito'
 
 function json(req: Request, body: unknown, status = 200) {

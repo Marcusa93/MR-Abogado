@@ -6,7 +6,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const FUNCTION_NAME = 'escrito-refinar'
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.5'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

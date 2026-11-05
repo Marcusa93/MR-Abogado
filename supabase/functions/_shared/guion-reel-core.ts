@@ -103,7 +103,7 @@ export async function generarGuion(material: string, contexto: string | undefine
       'X-Title': 'MR Abogado Guion Reel',
     },
     body: JSON.stringify({
-      model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-3.5-sonnet',
+      model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-sonnet-4.6',
       messages: [{ role: 'system', content: REEL_SYSTEM }, { role: 'user', content: userMsg }],
       temperature: 0.8,
       max_tokens: 2000,

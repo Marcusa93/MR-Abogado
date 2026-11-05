@@ -27,7 +27,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { BOGABOT_TOOLS, TOOL_HANDLERS, type UserInfo } from '../_shared/bogabot-tools.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4'
+const MODEL = 'anthropic/claude-sonnet-4.6'
 const MAX_ITERATIONS = 6
 const MAX_TOKENS = 2048
 

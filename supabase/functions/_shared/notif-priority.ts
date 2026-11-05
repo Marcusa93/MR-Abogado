@@ -106,7 +106,7 @@ export async function classifyNotifPriority(
         'X-Title': 'MR Abogado System',
       },
       body: JSON.stringify({
-        model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-3-haiku-20240307',
+        model: Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-haiku-4.5',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },

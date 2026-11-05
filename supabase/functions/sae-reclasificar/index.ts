@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
   let clasificadas = 0
   if (!soloEnviar) {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
-    const model = Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-3-haiku-20240307'
+    const model = Deno.env.get('OPENROUTER_MODEL') ?? 'anthropic/claude-haiku-4.5'
 
     if (apiKey) {
       const sinResumen = rows.filter(n => !n.ia_resumen)

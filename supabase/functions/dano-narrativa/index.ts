@@ -93,7 +93,7 @@ Redactá la fundamentación jurídica de esta estimación.`
       'X-Title': 'MR Abogado Fundamentación Daños',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-4',
+      model: 'anthropic/claude-sonnet-4.6',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

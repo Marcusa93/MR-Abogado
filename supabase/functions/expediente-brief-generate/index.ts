@@ -22,7 +22,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4'
+const MODEL = 'anthropic/claude-sonnet-4.6'
 
 const ACTUACIONES_LIMIT = 30
 const ESCRITOS_LIMIT = 20
