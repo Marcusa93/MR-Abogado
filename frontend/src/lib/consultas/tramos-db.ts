@@ -3,9 +3,12 @@
 // dispositivo y se borra al guardar o descartar la entrevista. Si IndexedDB no
 // está disponible (modo privado), todo sigue funcionando en memoria.
 
-export interface TramoGuardado { id: string; consultaId: string; idx: number; blob: Blob; creado: number }
-export interface SegmentoEntrevista { id: string; tramo: number; texto: string; hablante?: 'C' | 'A' | 'O' }
-export interface BorradorEntrevista { consultaId: string; segmentos: SegmentoEntrevista[]; siguienteTramo: number; inicio: number; actualizado: number }
+export type MuestraTono = { t: number; f: number }
+export interface TramoGuardado { id: string; consultaId: string; idx: number; blob: Blob; creado: number; tonos?: MuestraTono[] }
+export interface SegmentoEntrevista { id: string; tramo: number; texto: string; inicio?: number; tono?: number | null; hablante?: 'C' | 'A' | 'O' }
+export interface MarcaEntrevista { id: string; tramo: number; seg: number; nota: string }
+export type ModoEntrevista = 'cliente' | 'terceros' | 'solo'
+export interface BorradorEntrevista { consultaId: string; segmentos: SegmentoEntrevista[]; marcas?: MarcaEntrevista[]; modo?: ModoEntrevista; siguienteTramo: number; inicio: number; actualizado: number }
 
 const DB = 'mr-consulta-entrevista'
 let abierta: Promise<IDBDatabase | null> | null = null

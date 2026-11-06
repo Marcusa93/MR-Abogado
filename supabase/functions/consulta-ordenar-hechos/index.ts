@@ -82,10 +82,21 @@ Deno.serve(async (req) => {
       documentalCtx = `\n\n## Documentación adjunta (analizada por IA)\n${bloques.join('\n\n')}`
     }
 
+    // Entrevistas transcriptas y apuntes: se usan como fuente de los hechos
+    const { data: ctxs } = await serviceClient
+      .from('consulta_contextos' as any)
+      .select('tipo, titulo, contenido')
+      .eq('consulta_id', body.consulta_id)
+      .order('created_at', { ascending: true })
+    if (ctxs && (ctxs as any[]).length > 0) {
+      const textos = (ctxs as any[]).map((c) => `### ${c.titulo} (${c.tipo === 'grabacion' ? 'entrevista transcripta' : c.tipo})\n${String(c.contenido ?? '').slice(0, 40_000)}`)
+      documentalCtx += `\n\n## Entrevistas y apuntes de la consulta\n(Las líneas "★ MARCA" son momentos que el abogado marcó como importantes.)\n${textos.join('\n\n')}`
+    }
+
     const systemPrompt = `Sos un abogado del Estudio Jurídico Dr. Marco Rossi, Tucumán, Argentina.
 Tu tarea es analizar los hechos relatados en una consulta inicial y:
 1. Reorganizarlos en orden cronológico claro, redactándolos en forma de relato jurídico estructurado.
-2. Si hay documentación adjunta analizada, integrar y contrastar con lo relatado: incorporar hechos documentados, señalar inconsistencias o datos adicionales que surjan de los documentos.
+2. Si hay entrevistas transcriptas, usarlas como fuente principal del relato del cliente (pueden traer detalles que no están en los hechos cargados). Si hay documentación adjunta analizada, integrar y contrastar con lo relatado: incorporar hechos documentados, señalar inconsistencias o datos adicionales que surjan de los documentos.
 3. Identificar y sugerir preguntas adicionales que habría que hacerle al cliente para completar el caso.
 
 Área(s) del derecho involucrada(s): ${areas.join(', ')}.
@@ -117,7 +128,7 @@ ${notas}${documentalCtx}`
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.3,
       }),
     })

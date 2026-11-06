@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Mic, FileText, StickyNote, Trash2, PlusCircle, ChevronDown, ChevronUp } from 'lucide-react'
-import { ConsultaGrabadora } from './consulta-grabadora'
+import { Mic, FileText, StickyNote, Trash2, PlusCircle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { ConsultaGrabadora, type ResultadoEntrevista } from './consulta-grabadora'
 import {
   useConsultaContextos, useAddConsultaContexto, useDeleteConsultaContexto,
   type TipoContexto,
@@ -28,9 +28,14 @@ const TIPO_COLOR: Record<TipoContexto, string> = {
 
 interface Props {
   consultaId: string
+  /** Abre la propuesta de incorporar una entrevista a la consulta. */
+  onIncorporar?: (transcripcion: string, marcas: string[]) => void
 }
 
-export function ConsultaContextos({ consultaId }: Props) {
+/** Las marcas quedan en el texto como líneas "★ MARCA: nota". */
+const marcasDe = (texto: string) => [...texto.matchAll(/^★ MARCA:?\s*(.*)$/gm)].map((m) => m[1]?.trim() || 'Momento marcado como importante')
+
+export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
   const { data: contextos = [], isLoading } = useConsultaContextos(consultaId)
   const add = useAddConsultaContexto()
   const del = useDeleteConsultaContexto()
@@ -54,12 +59,13 @@ export function ConsultaContextos({ consultaId }: Props) {
     }
   }
 
-  async function handleTranscript(texto: string, meta: { minutos: number }): Promise<boolean> {
-    const tituloGrab = `Entrevista ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} (${meta.minutos} min)`
+  async function handleTranscript({ texto, minutos, marcas }: ResultadoEntrevista): Promise<boolean> {
+    const tituloGrab = `Entrevista ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} (${minutos} min)`
     try {
       await add.mutateAsync({ consulta_id: consultaId, tipo: 'grabacion', titulo: tituloGrab, contenido: texto })
       setMostrarGrabadora(false)
       toast.success('Transcripción guardada en la consulta')
+      onIncorporar?.(texto, marcas)
       return true
     } catch {
       toast.error('No se pudo guardar la transcripción. Sigue guardada en este dispositivo: reintentá.')
@@ -96,6 +102,12 @@ export function ConsultaContextos({ consultaId }: Props) {
                   <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{c.titulo}</span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">{c.contenido}</p>
+                {c.tipo === 'grabacion' && onIncorporar && (
+                  <button type="button" onClick={() => onIncorporar(c.contenido, marcasDe(c.contenido))}
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400">
+                    <Sparkles className="h-3 w-3" /> Incorporar a la consulta
+                  </button>
+                )}
               </div>
               <button
                 type="button"

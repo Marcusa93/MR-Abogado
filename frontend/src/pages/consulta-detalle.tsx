@@ -20,6 +20,7 @@ import type { TipoIntimacion } from '@/components/consultas/intimacion-pdf-previ
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
 import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
+import { IncorporarEntrevista } from '@/components/consultas/incorporar-entrevista'
 import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-ordenados'
 import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
 import { ConsultaPipeline } from '@/components/consultas/consulta-pipeline'
@@ -1217,6 +1218,7 @@ export default function ConsultaDetallePage() {
   const [diagEdit, setDiagEdit] = useState<DiagnosticoIA | null>(null)
   const [areasActivas, setAreasActivas] = useState<string[]>([])
   const [areasInitialized, setAreasInitialized] = useState(false)
+  const [incorporar, setIncorporar] = useState<{ texto: string; marcas: string[] } | null>(null)
   const [prefilledPresupuesto, setPrefilledPresupuesto] = useState<{ tipo: TipoHonorario; concepto: string } | null>(null)
   const pdfDiagRef = useRef<HTMLDivElement>(null)
   const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
@@ -1651,7 +1653,7 @@ export default function ConsultaDetallePage() {
         {/* Grabaciones, documentos y apuntes adicionales */}
         <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
           <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Contexto adicional (grabaciones, documentos, apuntes)</h3>
-          <ConsultaContextos consultaId={consulta.id} />
+          <ConsultaContextos consultaId={consulta.id} onIncorporar={(texto, marcas) => setIncorporar({ texto, marcas })} />
         </div>
 
         {/* Documentos adjuntos (PDF / imágenes) */}
@@ -1730,6 +1732,19 @@ export default function ConsultaDetallePage() {
           )}
         </div>
       </div>
+
+      {incorporar && (
+        <IncorporarEntrevista
+          consulta={consulta}
+          transcripcion={incorporar.texto}
+          marcas={incorporar.marcas}
+          notas={notas}
+          areas={areasActivas}
+          onAplicado={({ notas: n, areas: a }) => { setNotas(n); setAreasActivas(a) }}
+          onCerrar={() => setIncorporar(null)}
+          onOrdenar={() => { void handleOrdenarHechos() }}
+        />
+      )}
 
       {/* Hechos ordenados con IA */}
       {consulta.hechos_ordenados && (
