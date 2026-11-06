@@ -54,14 +54,16 @@ export function ConsultaContextos({ consultaId }: Props) {
     }
   }
 
-  async function handleTranscript(texto: string) {
-    const tituloGrab = `Grabación ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`
+  async function handleTranscript(texto: string, meta: { minutos: number }): Promise<boolean> {
+    const tituloGrab = `Entrevista ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} (${meta.minutos} min)`
     try {
       await add.mutateAsync({ consulta_id: consultaId, tipo: 'grabacion', titulo: tituloGrab, contenido: texto })
       setMostrarGrabadora(false)
-      toast.success('Grabación guardada como contexto')
+      toast.success('Transcripción guardada en la consulta')
+      return true
     } catch {
-      toast.error('No se pudo guardar la grabación')
+      toast.error('No se pudo guardar la transcripción. Sigue guardada en este dispositivo: reintentá.')
+      return false
     }
   }
 
@@ -126,7 +128,7 @@ export function ConsultaContextos({ consultaId }: Props) {
           )}
         >
           <Mic className="h-3.5 w-3.5" />
-          Grabar conversación
+          Transcribir entrevista
           {mostrarGrabadora ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
         <button
@@ -148,7 +150,7 @@ export function ConsultaContextos({ consultaId }: Props) {
       {/* Grabadora inline */}
       {mostrarGrabadora && (
         <div className="rounded-lg border border-red-200 dark:border-red-500/20 bg-red-50/50 dark:bg-red-500/5 p-4">
-          <ConsultaGrabadora onTranscript={handleTranscript} />
+          <ConsultaGrabadora consultaId={consultaId} onTranscript={handleTranscript} />
         </div>
       )}
 
