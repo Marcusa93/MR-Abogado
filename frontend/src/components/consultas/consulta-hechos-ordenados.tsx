@@ -89,7 +89,7 @@ export function ConsultaHechosOrdenados({
         className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Hechos ordenados con IA</span>
+          <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{hechosOrdenados ? 'Hechos ordenados con IA' : 'Preguntas pendientes'}</span>
           {hechosOrdenadosAt && (
             <span className="text-[10px] text-amber-600 dark:text-amber-400">{timeAgo(hechosOrdenadosAt)}</span>
           )}
@@ -118,7 +118,7 @@ export function ConsultaHechosOrdenados({
             className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-lg bg-amber-100 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/50 transition-colors disabled:opacity-50"
           >
             {ordenar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            Re-ordenar
+            {hechosOrdenados ? 'Re-ordenar' : 'Ordenar'}
           </button>
           {expandido ? <ChevronUp className="h-4 w-4 text-amber-600 dark:text-amber-400" /> : <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
         </div>
@@ -159,10 +159,12 @@ export function ConsultaHechosOrdenados({
                 rows={12}
                 className="w-full text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-300 dark:border-amber-700/50 p-4 resize-y focus:outline-none focus:ring-1 focus:ring-amber-400 dark:focus:ring-amber-600"
               />
-            ) : (
+            ) : hechosEdit ? (
               <div className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-100 dark:border-amber-800/30 p-4">
                 {hechosEdit}
               </div>
+            ) : (
+              <p className="text-xs text-amber-700/80 dark:text-amber-400/80">Todavía no se ordenaron los hechos. Usá "Ordenar hechos con IA" en el paso 2.</p>
             )}
           </div>
 

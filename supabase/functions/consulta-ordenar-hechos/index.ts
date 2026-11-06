@@ -38,13 +38,17 @@ Deno.serve(async (req) => {
     // Obtener consulta (RLS via anonClient para verificar permisos)
     const { data: consulta, error: consultaErr } = await anonClient
       .from('consultas' as any)
-      .select('id, nombre, apellido, tipo_asunto, notas_libres, areas_derecho, assigned_to')
+      .select('id, nombre, apellido, tipo_asunto, notas_libres, areas_derecho, assigned_to, estado, preguntas_sugeridas')
       .eq('id', body.consulta_id)
       .single()
     if (consultaErr || !consulta) return json(req, { error: 'Consulta no encontrada o sin permisos' }, 404)
 
     const notas = (consulta as any).notas_libres ?? ''
-    if (!notas.trim()) return json(req, { error: 'No hay hechos del caso para ordenar' }, 400)
+    // Alcanza con los hechos cargados o con una entrevista/apunte guardado
+    const { count: nContextos } = await serviceClient
+      .from('consulta_contextos' as any).select('id', { count: 'exact', head: true }).eq('consulta_id', body.consulta_id)
+    if (!notas.trim() && !nContextos) return json(req, { error: 'No hay hechos del caso ni entrevista para ordenar' }, 400)
+    const preguntasPrevias: string[] = Array.isArray((consulta as any).preguntas_sugeridas) ? (consulta as any).preguntas_sugeridas : []
 
     const inputBytes = estimateBytes(notas)
     const guard = await checkLlmGuard(serviceClient, user.id, FUNCTION_NAME, inputBytes)
@@ -112,7 +116,10 @@ Devolvé ÚNICAMENTE un objeto JSON válido (sin markdown, sin texto extra) con 
 Tipo de asunto: ${tipoAsunto}
 
 HECHOS RELATADOS POR EL CLIENTE:
-${notas}${documentalCtx}`
+${notas.trim() || '(no se cargaron por escrito: surgen de la entrevista)'}${documentalCtx}${preguntasPrevias.length ? `
+
+PREGUNTAS PENDIENTES ACTUALES (conservá las que sigan sin respuesta, quitá las que ya se respondieron y agregá las nuevas que hagan falta):
+${preguntasPrevias.map((p, i) => `${i + 1}. ${p}`).join('\n')}` : ''}`
 
     const llmRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -178,13 +185,15 @@ ${notas}${documentalCtx}`
       hechos_ordenados: parsed.hechos_ordenados,
       preguntas_sugeridas: parsed.preguntas_sugeridas,
       hechos_ordenados_at: now,
-      estado: 'con_claudio',
-      estado_changed_at: now,
       updated_at: now,
     }
-
-    if (criterioUser) {
-      updatePayload.assigned_to = (criterioUser as any).id
+    // Solo la primera vez (consulta recién ingresada) pasa a Claudio. Re-ordenar
+    // después de una entrevista no debe hacer retroceder el estado ni reasignar.
+    const primeraVez = ['pendiente', 'en_proceso', 'presupuestada'].includes((consulta as any).estado)
+    if (primeraVez) {
+      updatePayload.estado = 'con_claudio'
+      updatePayload.estado_changed_at = now
+      if (criterioUser) updatePayload.assigned_to = (criterioUser as any).id
     }
 
     const { error: updateErr } = await serviceClient
@@ -195,7 +204,7 @@ ${notas}${documentalCtx}`
     if (updateErr) throw updateErr
 
     // Crear alerta TAREA_ASIGNADA para el usuario CRITERIO
-    if (criterioUser) {
+    if (criterioUser && primeraVez) {
       await serviceClient.from('alertas' as any).insert({
         tipo: 'TAREA_ASIGNADA',
         titulo: `Consulta de ${clienteLabel} para revisión`,
@@ -228,7 +237,7 @@ ${notas}${documentalCtx}`
       ok: true,
       hechos_ordenados: parsed.hechos_ordenados,
       preguntas_sugeridas: parsed.preguntas_sugeridas,
-      assigned_to: criterioUser ? (criterioUser as any).id : null,
+      assigned_to: primeraVez && criterioUser ? (criterioUser as any).id : null,
     })
 
   } catch (err) {

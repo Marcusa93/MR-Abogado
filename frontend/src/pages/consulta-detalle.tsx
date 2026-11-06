@@ -21,6 +21,7 @@ import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-pane
 import { DanosCalculosPanel } from '@/components/danos/danos-calculos-panel'
 import { ConsultaContextos } from '@/components/consultas/consulta-contextos'
 import { IncorporarEntrevista } from '@/components/consultas/incorporar-entrevista'
+import { useConsultaContextos } from '@/hooks/use-consulta-contextos'
 import { ConsultaHechosOrdenados } from '@/components/consultas/consulta-hechos-ordenados'
 import { ConsultaSolicitudDocs } from '@/components/consultas/consulta-solicitud-docs'
 import { ConsultaPipeline } from '@/components/consultas/consulta-pipeline'
@@ -1219,6 +1220,8 @@ export default function ConsultaDetallePage() {
   const [areasActivas, setAreasActivas] = useState<string[]>([])
   const [areasInitialized, setAreasInitialized] = useState(false)
   const [incorporar, setIncorporar] = useState<{ texto: string; marcas: string[] } | null>(null)
+  const { data: contextosConsulta = [] } = useConsultaContextos(id ?? '')
+  const hayEntrevista = contextosConsulta.length > 0
   const [prefilledPresupuesto, setPrefilledPresupuesto] = useState<{ tipo: TipoHonorario; concepto: string } | null>(null)
   const pdfDiagRef = useRef<HTMLDivElement>(null)
   const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
@@ -1287,8 +1290,8 @@ export default function ConsultaDetallePage() {
   }, [id, notas, areasActivas, update])
 
   const handleOrdenarHechos = useCallback(async () => {
-    if (!id || !notas.trim()) {
-      toast.error('Escribí los hechos del caso primero')
+    if (!id || (!notas.trim() && !hayEntrevista)) {
+      toast.error('Escribí los hechos del caso o transcribí la entrevista primero')
       return
     }
     // Guardar notas antes de ordenar si hay cambios sin guardar
@@ -1302,16 +1305,16 @@ export default function ConsultaDetallePage() {
       }
     }
     try {
-      await ordenarHechos.mutateAsync(id)
-      toast.success('Hechos ordenados. La consulta fue asignada a Claudio para revisión.')
+      const r = await ordenarHechos.mutateAsync(id)
+      toast.success(r.assigned_to ? 'Hechos ordenados. La consulta fue asignada a Claudio para revisión.' : 'Hechos ordenados.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo ordenar los hechos')
     }
-  }, [id, notas, consulta, areasActivas, update, ordenarHechos])
+  }, [id, notas, consulta, areasActivas, update, ordenarHechos, hayEntrevista])
 
   const handleGenerarDiagnostico = useCallback(async () => {
     if (!consulta || !notas.trim()) {
-      toast.error('Escribí los hechos del caso primero')
+      toast.error(hayEntrevista ? 'Primero incorporá la entrevista a los hechos del caso' : 'Escribí los hechos del caso primero')
       return
     }
     setGenerando(true)
@@ -1345,7 +1348,7 @@ export default function ConsultaDetallePage() {
     } finally {
       setGenerando(false)
     }
-  }, [consulta, notas, supabase, update])
+  }, [consulta, notas, supabase, update, hayEntrevista])
 
   const handleSaveNotasAbogado = useCallback(async () => {
     if (!id) return
@@ -1639,33 +1642,25 @@ export default function ConsultaDetallePage() {
         />
       )}
 
-      {/* Hechos del caso */}
+      {/* 1. Entrevista y apuntes: lo primero cuando el cliente está presente */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Hechos del caso</h2>
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">1. Entrevista</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Transcribí la charla con el cliente o cargá apuntes. Al terminar, lo nuevo se incorpora a los hechos del caso.</p>
+        </div>
+        <ConsultaContextos consultaId={consulta.id} onIncorporar={(texto, marcas) => setIncorporar({ texto, marcas })} />
+      </div>
+
+      {/* 2. Hechos del caso */}
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">2. Hechos del caso</h2>
         <textarea
           value={notas}
           onChange={e => setNotas(e.target.value)}
-          placeholder="Describí los hechos del caso: qué pasó, cuándo, quiénes están involucrados, qué quiere el cliente, montos si aplica…"
+          placeholder="Describí los hechos del caso: qué pasó, cuándo, quiénes están involucrados, qué quiere el cliente, montos si aplica… (lo que surja de la entrevista se agrega acá)"
           rows={8}
           className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
         />
-
-        {/* Grabaciones, documentos y apuntes adicionales */}
-        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
-          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Contexto adicional (grabaciones, documentos, apuntes)</h3>
-          <ConsultaContextos consultaId={consulta.id} onIncorporar={(texto, marcas) => setIncorporar({ texto, marcas })} />
-        </div>
-
-        {/* Documentos adjuntos (PDF / imágenes) */}
-        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
-          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
-          <ConsultaAdjuntos consultaId={consulta.id} />
-        </div>
-
-        {/* Documentación que se le pide al cliente (con enlace para subirla) */}
-        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
-          <DocumentacionRequerida caso={{ consultaId: consulta.id }} clienteNombre={consulta.nombre} clienteTelefono={consulta.telefono} />
-        </div>
 
         {/* Selector de áreas del derecho */}
         <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
@@ -1707,7 +1702,7 @@ export default function ConsultaDetallePage() {
           <button
             type="button"
             onClick={handleOrdenarHechos}
-            disabled={ordenarHechos.isPending || !notas.trim()}
+            disabled={ordenarHechos.isPending || (!notas.trim() && !hayEntrevista)}
             className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
           >
             {ordenarHechos.isPending ? (
@@ -1733,6 +1728,18 @@ export default function ConsultaDetallePage() {
         </div>
       </div>
 
+      {/* 3. Documentación del cliente */}
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">3. Documentación</h2>
+        <div>
+          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
+          <ConsultaAdjuntos consultaId={consulta.id} />
+        </div>
+        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+          <DocumentacionRequerida caso={{ consultaId: consulta.id }} clienteNombre={consulta.nombre} clienteTelefono={consulta.telefono} />
+        </div>
+      </div>
+
       {incorporar && (
         <IncorporarEntrevista
           consulta={consulta}
@@ -1747,10 +1754,10 @@ export default function ConsultaDetallePage() {
       )}
 
       {/* Hechos ordenados con IA */}
-      {consulta.hechos_ordenados && (
+      {(consulta.hechos_ordenados || (consulta.preguntas_sugeridas?.length ?? 0) > 0) && (
         <ConsultaHechosOrdenados
           consultaId={consulta.id}
-          hechosOrdenados={consulta.hechos_ordenados}
+          hechosOrdenados={consulta.hechos_ordenados ?? ''}
           preguntasSugeridas={consulta.preguntas_sugeridas ?? []}
           hechosOrdenadosAt={consulta.hechos_ordenados_at}
         />

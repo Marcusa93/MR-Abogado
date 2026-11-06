@@ -123,7 +123,7 @@ export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
         </div>
       ) : (
         <p className="text-xs text-zinc-400 italic">
-          Sin contexto adicional. Podés grabar la conversación o pegar texto de documentos.
+          Todavía no hay entrevista ni apuntes. Empezá por transcribir la charla con el cliente.
         </p>
       )}
 
@@ -154,7 +154,7 @@ export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
           )}
         >
           <PlusCircle className="h-3.5 w-3.5" />
-          Agregar documento / apunte
+          Agregar apunte o texto
           {mostrarFormulario ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>

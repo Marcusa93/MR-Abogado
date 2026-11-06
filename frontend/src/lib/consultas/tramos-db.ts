@@ -8,7 +8,7 @@ export interface TramoGuardado { id: string; consultaId: string; idx: number; bl
 export interface SegmentoEntrevista { id: string; tramo: number; texto: string; inicio?: number; tono?: number | null; hablante?: 'C' | 'A' | 'O' }
 export interface MarcaEntrevista { id: string; tramo: number; seg: number; nota: string }
 export type ModoEntrevista = 'cliente' | 'terceros' | 'solo'
-export interface BorradorEntrevista { consultaId: string; segmentos: SegmentoEntrevista[]; marcas?: MarcaEntrevista[]; modo?: ModoEntrevista; siguienteTramo: number; inicio: number; actualizado: number }
+export interface BorradorEntrevista { consultaId: string; segmentos: SegmentoEntrevista[]; marcas?: MarcaEntrevista[]; modo?: ModoEntrevista; msGrabados?: number; siguienteTramo: number; inicio: number; actualizado: number }
 
 const DB = 'mr-consulta-entrevista'
 let abierta: Promise<IDBDatabase | null> | null = null

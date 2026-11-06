@@ -139,6 +139,7 @@ export function ConsultaGrabadora({ consultaId, onTranscript }: Props) {
   const persistir = useCallback(() => {
     void guardarBorrador({
       consultaId, segmentos: segsRef.current, marcas: marcasRef.current, modo: modoRef.current,
+      msGrabados: acumulado.current + (desde.current && recRef.current ? Date.now() - desde.current : 0),
       siguienteTramo: siguienteTramo.current, inicio: inicioEntrevista.current, actualizado: Date.now(),
     })
   }, [consultaId])
@@ -319,9 +320,10 @@ export function ConsultaGrabadora({ consultaId, onTranscript }: Props) {
   const pausar = useCallback(() => {
     acumulado.current += Date.now() - desde.current
     liberar()
+    persistir()
     setNivel(0)
     setEstado('pausa')
-  }, [])
+  }, [persistir])
 
   const marcar = useCallback(() => {
     const actual = recRef.current
@@ -380,6 +382,7 @@ export function ConsultaGrabadora({ consultaId, onTranscript }: Props) {
       segsRef.current = b.segmentos; setSegmentos(b.segmentos)
       marcasRef.current = b.marcas ?? []; setMarcas(b.marcas ?? [])
       modoRef.current = b.modo ?? 'cliente'; setModo(b.modo ?? 'cliente')
+      acumulado.current = b.msGrabados ?? 0; setTranscurrido(b.msGrabados ?? 0)
     }
     siguienteTramo.current = Math.max(b?.siguienteTramo ?? 0, ...t.map((x) => x.idx + 1), 0)
     cola.current = t.map((x) => ({ id: x.id, idx: x.idx, blob: x.blob, tonos: x.tonos ?? [] }))
@@ -475,7 +478,7 @@ export function ConsultaGrabadora({ consultaId, onTranscript }: Props) {
       )}
 
       {/* Quiénes hablan */}
-      {(estado === 'idle' || estado === 'pausa') && (
+      {((estado === 'idle' && !recuperable) || estado === 'pausa') && (
         <div className="space-y-1">
           <p className="text-[11px] font-medium text-zinc-500">¿Quiénes hablan?</p>
           <div className="grid grid-cols-1 gap-1 rounded-xl bg-zinc-500/10 p-1 sm:grid-cols-3">
@@ -491,9 +494,9 @@ export function ConsultaGrabadora({ consultaId, onTranscript }: Props) {
       )}
 
       {/* Controles */}
-      {(estado === 'idle' || enCurso) && (
+      {((estado === 'idle' && !recuperable) || enCurso) && (
         <div className="flex flex-wrap items-center gap-2">
-          {estado === 'idle' && (
+          {estado === 'idle' && !recuperable && (
             <button type="button" onClick={arrancar}
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
               <Mic className="h-4 w-4" /> {modo === 'solo' ? 'Empezar dictado' : 'Empezar entrevista'}
