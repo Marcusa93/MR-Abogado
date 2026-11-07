@@ -243,10 +243,11 @@ async function armar(db: SupabaseClient, userId: string, expedienteId: string) {
   const { data: escritosData } = await db.from('escritos')
     .select('titulo, tipo, estado, contenido, presentado_at, created_at')
     .eq('expediente_id', expedienteId).neq('estado', 'borrador').order('created_at', { ascending: true }).limit(40)
-  const escritos = ((escritosData ?? []) as { titulo: string | null; tipo: string | null; estado: string; contenido: string | null; presentado_at: string | null; created_at: string }[])
+  const escritos = ((escritosData ?? []) as { titulo: string | null; tipo: string | null; estado: string; contenido: unknown; presentado_at: string | null; created_at: string }[])
     .map((e) => {
       const principal = /demanda|contesta|agravio|alegato|ofrece prueba/i.test(`${e.titulo} ${e.tipo}`)
-      const cuerpo = principal && e.contenido ? `\n    ${limpiar(e.contenido.replace(/<[^>]+>/g, ' ')).slice(0, 3000)}` : ''
+      const plano = typeof e.contenido === 'string' ? e.contenido : e.contenido ? JSON.stringify(e.contenido).replace(/"[a-z_]+":/gi, ' ') : ''
+      const cuerpo = principal && plano ? `\n    ${limpiar(plano.replace(/<[^>]+>/g, ' ').replace(/[{}\[\]",]/g, ' ')).slice(0, 3000)}` : ''
       return `[${new Date(e.presentado_at ?? e.created_at).toLocaleDateString('es-AR')}] ${e.titulo ?? e.tipo ?? 'Escrito'} (${e.estado})${cuerpo}`
     })
 
