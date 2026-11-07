@@ -34,6 +34,7 @@ import {
   Briefcase,
   PenLine,
   Newspaper,
+  Compass,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
@@ -84,7 +85,7 @@ const navItems: readonly NavItem[] = [
   { href: '/inicio', label: 'Inicio', icon: Sun, group: 'operacion' },
   { href: '/criterio', label: 'Mis asignaciones', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
   { href: '/mi-trabajo', label: 'Asuntos', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
-  { href: '/dashboard', label: 'Indicadores', icon: LayoutDashboard, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
+  { href: '/direccion', label: 'Dirección', icon: Compass, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
   { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
   { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
   { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },

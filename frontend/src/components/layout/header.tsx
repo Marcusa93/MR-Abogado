@@ -10,6 +10,7 @@ const pageTitles: Record<string, string> = {
   '/inicio': 'Inicio',
   '/editorial': 'Editorial',
   '/dashboard': 'Indicadores',
+  '/direccion': 'Dirección',
   '/mi-trabajo': 'Asuntos',
   '/expedientes': 'Expedientes',
   '/clientes': 'Clientes',

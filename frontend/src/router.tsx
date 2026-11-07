@@ -43,6 +43,7 @@ const AgendaPage = lazyWithRetry(() => import('@/pages/agenda'))
 const AgendaSecretariaPage = lazyWithRetry(() => import('@/pages/agenda-secretaria'))
 const AlertasPage = lazyWithRetry(() => import('@/pages/alertas'))
 const InformesPage = lazyWithRetry(() => import('@/pages/informes'))
+const DireccionPage = lazyWithRetry(() => import('@/pages/direccion'))
 const ConfiguracionPage = lazyWithRetry(() => import('@/pages/configuracion'))
 const ActividadPage = lazyWithRetry(() => import('@/pages/actividad'))
 const ImportarExcelPage = lazyWithRetry(() => import('@/pages/importar-excel'))
@@ -157,6 +158,7 @@ export const router = createBrowserRouter([
       { path: 'calculadora-danos', element: <SuspenseWrapper><CalculadoraDanosPage /></SuspenseWrapper> },
       { path: 'alertas', element: <SuspenseWrapper><AlertasPage /></SuspenseWrapper> },
       { path: 'informes', element: <SuspenseWrapper><InformesPage /></SuspenseWrapper> },
+      { path: 'direccion', element: <SuspenseWrapper><DireccionPage /></SuspenseWrapper> },
       { path: 'actividad', element: <SuspenseWrapper><ActividadPage /></SuspenseWrapper> },
       { path: 'configuracion', element: <SuspenseWrapper><ConfiguracionPage /></SuspenseWrapper> },
       { path: 'importar', element: <SuspenseWrapper><ImportarExcelPage /></SuspenseWrapper> },

@@ -900,7 +900,7 @@ export default function HoyPage() {
         <QuickAction to="/expedientes/nuevo" icon={FolderPlus} label="Nuevo expediente" color="cyan" />
         <QuickAction to="/agenda" icon={Calendar} label="Agendar turno" color="violet" />
         <QuickAction to="/contenidos" icon={Sparkles} label="Nuevo contenido" color="rose" />
-        {isAdmin && <QuickAction to="/dashboard" icon={BarChart3} label="Indicadores" color="cyan" />}
+        {isAdmin && <QuickAction to="/direccion" icon={BarChart3} label="Dirección" color="cyan" />}
       </div>
     </div>
   )
