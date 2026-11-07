@@ -26,7 +26,9 @@ import { TabVisionIa } from '@/components/expedientes/tab-vision-ia'
 import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
 import { ExpedienteSimilaresPanel } from '@/components/expedientes/expediente-similares-panel'
-import { ExpedienteBriefPanel } from '@/components/expedientes/expediente-brief-panel'
+import { FichaCaso } from '@/components/expedientes/ficha-caso'
+import { fichaKeys } from '@/hooks/use-ficha'
+import { useQueryClient } from '@tanstack/react-query'
 import { TabCaja } from '@/components/expedientes/tab-caja'
 import { TabProceso } from '@/components/expedientes/tab-proceso'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
@@ -125,6 +127,7 @@ export default function ExpedienteDetailPage() {
     : tabsFiltradas
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
+  const queryClient = useQueryClient()
 
   // Registro de actividad: quién abrió el expediente
   useRegistrarAcceso('expedientes', id)
@@ -134,7 +137,11 @@ export default function ExpedienteDetailPage() {
     id,
     (expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae,
     (expediente as { ultima_sincronizacion_sae?: string | null } | null | undefined)?.ultima_sincronizacion_sae,
-    (n) => toast.info(`${n} ${n === 1 ? 'actuación nueva' : 'actuaciones nuevas'} desde el SAE`),
+    (n) => {
+      toast.info(`${n} ${n === 1 ? 'actuación nueva' : 'actuaciones nuevas'} desde el SAE`)
+      // La ficha se revisa en segundo plano después de sincronizar: buscar la propuesta en un rato
+      for (const ms of [20_000, 50_000]) setTimeout(() => queryClient.invalidateQueries({ queryKey: fichaKeys.propuestas(id!) }), ms)
+    },
   )
 
   // Leer tab y movement highlight desde URL (?tab=actuaciones&mid=uuid)
@@ -468,17 +475,8 @@ export default function ExpedienteDetailPage() {
         })()}
       </div>
 
-      {/* Brief viviente del expediente */}
-      <ExpedienteBriefPanel
-        expedienteId={id!}
-        brief={{
-          ai_brief: (expediente as { ai_brief?: string | null }).ai_brief ?? null,
-          ai_brief_generated_at: (expediente as { ai_brief_generated_at?: string | null }).ai_brief_generated_at ?? null,
-          ai_brief_model: (expediente as { ai_brief_model?: string | null }).ai_brief_model ?? null,
-          ai_brief_pending_refresh: (expediente as { ai_brief_pending_refresh?: boolean }).ai_brief_pending_refresh ?? false,
-          ai_brief_pending_reasons: (expediente as { ai_brief_pending_reasons?: { kind: string; at: string; ref: string | null }[] | null }).ai_brief_pending_reasons ?? null,
-        }}
-      />
+      {/* Ficha del caso: de qué trata y en qué está */}
+      <FichaCaso expedienteId={id!} etapa={(expediente as { etapa_procesal?: string | null }).etapa_procesal ?? null} tieneSae={tieneSae} />
 
       {/* Expedientes parecidos en tu corpus (cross-expediente, colapsable) */}
       <ExpedienteSimilaresPanel expedienteId={id!} />

@@ -490,6 +490,21 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Ficha del caso: proponer cambios por los movimientos nuevos ──────
+      // Si el expediente no tiene ficha, la función no hace nada. Corre en
+      // segundo plano para no demorar la sincronización.
+      if (nuevas > 0) {
+        const tarea = fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/expediente-ficha`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseServiceKey}` },
+          body: JSON.stringify({ accion: 'actualizar', expediente_id, user_id: userId }),
+        }).then((r) => r.text()).catch((e) => console.error('[sae-sync] ficha', e))
+        // deno-lint-ignore no-explicit-any
+        const rt = (globalThis as any).EdgeRuntime
+        if (rt?.waitUntil) rt.waitUntil(tarea)
+        else await tarea
+      }
+
       // ── Actualizar expediente ─────────────────────────────────────────────
       await serviceClient
         .from('expedientes')
