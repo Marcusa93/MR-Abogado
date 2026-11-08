@@ -59,7 +59,7 @@ export function SaeHealthBadge() {
       <span className="font-mono text-[11px] tracking-wide">SAE</span>
       {cred.last_sync_at && (
         <span className="hidden font-mono text-[11px] opacity-70 lg:inline">
-          {new Date(cred.last_sync_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+          {new Date(cred.last_sync_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
         </span>
       )}
     </button>

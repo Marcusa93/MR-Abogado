@@ -84,8 +84,8 @@ function Item({ n }: { n: SaeNotificacion }) {
   }
 
   return (
-    <li className="group relative py-2.5 pl-4">
-      <span className={cn('absolute left-0 top-[18px] h-1.5 w-1.5 rounded-full', urgente ? 'bg-rose-500' : 'bg-cyan-400')} aria-hidden />
+    <li className="group relative py-2 pl-4">
+      <span className={cn('absolute -left-[3.5px] top-[15px] h-1.5 w-1.5 rounded-full', urgente ? 'bg-rose-500' : 'bg-cyan-400')} aria-hidden />
       <div className="flex flex-wrap items-center gap-1.5">
         {n.tipo && (
           <span className={cn('tag-mono', urgente && '!border-rose-500/40 !text-rose-600 dark:!text-rose-300')}>{n.tipo}</span>
@@ -101,32 +101,34 @@ function Item({ n }: { n: SaeNotificacion }) {
           </span>
         )}
         <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{ddmm(n.fecha_emision ?? n.created_at)}</span>
+        <div className="ml-auto flex items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+          {n.expediente_id && (
+            <button
+              type="button"
+              title="Crear tarea"
+              onClick={() => {
+                markRead.mutate(n.id)
+                navigate(`/expedientes/${n.expediente_id}?nueva_tarea=1&titulo=${encodeURIComponent(n.titulo ?? n.tipo ?? 'Notificación SAE')}`)
+              }}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
+            >
+              <ListPlus className="h-3.5 w-3.5" /><span className="hidden md:inline">Tarea</span>
+            </button>
+          )}
+          <button
+            type="button"
+            title="Marcar leída"
+            onClick={() => markRead.mutate(n.id)}
+            disabled={markRead.isPending}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-emerald-300"
+          >
+            <Check className="h-3.5 w-3.5" /><span className="hidden md:inline">Leída</span>
+          </button>
+        </div>
       </div>
       <button type="button" onClick={abrir} className="mt-1 block w-full text-left text-[13.5px] leading-snug text-zinc-800 hover:text-zinc-950 dark:text-zinc-200 dark:hover:text-white">
         <span className="line-clamp-2">{texto}</span>
       </button>
-      <div className="mt-1.5 flex items-center gap-1 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-        {n.expediente_id && (
-          <button
-            type="button"
-            onClick={() => {
-              markRead.mutate(n.id)
-              navigate(`/expedientes/${n.expediente_id}?nueva_tarea=1&titulo=${encodeURIComponent(n.titulo ?? n.tipo ?? 'Notificación SAE')}`)
-            }}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
-          >
-            <ListPlus className="h-3.5 w-3.5" /> Crear tarea
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => markRead.mutate(n.id)}
-          disabled={markRead.isPending}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-600 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-emerald-300"
-        >
-          <Check className="h-3.5 w-3.5" /> Leída
-        </button>
-      </div>
     </li>
   )
 }

@@ -148,7 +148,7 @@ function AlertaRow({
         )}
         <button
           onClick={onMarkRead}
-          className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
+          className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
         >
           Leída
         </button>
@@ -223,7 +223,7 @@ function SeguimientoRow({
         )}
         <button
           onClick={onMarkRead}
-          className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
+          className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
         >
           Leída
         </button>
@@ -310,7 +310,7 @@ function SaeRow({
         {notif.expediente_id && (
           <button
             onClick={onCrearTarea}
-            className="rounded px-2 py-1 text-[10px] font-medium text-amber-300 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 whitespace-nowrap"
+            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
             title="Crear tarea desde esta notificación"
           >
             Crear tarea
@@ -319,7 +319,7 @@ function SaeRow({
         {!notif.leida && (
           <button
             onClick={onMarkRead}
-            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 whitespace-nowrap"
+            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
           >
             Leída
           </button>
@@ -327,7 +327,7 @@ function SaeRow({
         {notif.leida && (
           <button
             onClick={onConstancia}
-            className="rounded px-2 py-1 text-[10px] font-medium text-emerald-300 border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 whitespace-nowrap"
+            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
             title="Constancia legal"
           >
             Constancia

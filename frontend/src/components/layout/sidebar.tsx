@@ -141,12 +141,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   }
 
   const badgeCounts: Record<BadgeKey, number> = {
-    agenda: badges.tareasVencidas,
+    agenda: badges.turnosHoy,
     sae: badges.saeNotifUnread,
   }
 
   const badgeColors: Record<BadgeKey, string> = {
-    agenda: 'bg-rose-500/90 text-white',
+    agenda: 'bg-violet-500 text-white',
     sae: 'bg-cyan-400 text-cyan-950',
   }
 
