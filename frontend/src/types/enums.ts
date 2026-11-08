@@ -78,18 +78,30 @@ export const ESTADOS_PIPELINE: EstadoInterno[] = [
   'FINALIZADO',
 ]
 
+// Igual que cambiar_estado_expediente en la base: se avanza salteando etapas,
+// se rechaza o pausa desde cualquier etapa abierta, y lo cerrado se puede reabrir.
+const ORDEN_PROCESO: EstadoInterno[] = [
+  'NUEVA_CONSULTA', 'PARA_INICIAR', 'INICIADO', 'PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'FINALIZADO',
+]
+const avance = (desde: EstadoInterno): EstadoInterno[] => [
+  ...ORDEN_PROCESO.slice(ORDEN_PROCESO.indexOf(desde) + 1),
+  'NO_VIABLE_RECHAZADO', 'PAUSADO',
+]
+const reapertura = (desde: EstadoInterno): EstadoInterno[] =>
+  [...ORDEN_PROCESO, 'NO_VIABLE_RECHAZADO' as EstadoInterno].filter((s) => s !== desde)
+
 export const VALID_ESTADO_TRANSITIONS: Record<EstadoInterno, EstadoInterno[]> = {
-  NUEVA_CONSULTA: [...ESTADOS_PIPELINE, 'NO_VIABLE_RECHAZADO'],
-  PARA_INICIAR: ESTADOS_PIPELINE.filter(s => s !== 'PARA_INICIAR' as EstadoInterno).concat(['NO_VIABLE_RECHAZADO']),
-  INICIADO: ['PRUEBA', 'ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  PRUEBA: ['ALEGATOS', 'SENTENCIA', 'APELACION', 'CORTE', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  ALEGATOS: ['SENTENCIA', 'APELACION', 'CORTE', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  SENTENCIA: ['APELACION', 'CORTE', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  APELACION: ['CORTE', 'SENTENCIA', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  CORTE: ['SENTENCIA', 'FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'],
-  FINALIZADO: [...ESTADOS_PIPELINE],
-  NO_VIABLE_RECHAZADO: [...ESTADOS_PIPELINE],
-  PAUSADO: [...ESTADOS_PIPELINE, 'NO_VIABLE_RECHAZADO'],
+  NUEVA_CONSULTA: avance('NUEVA_CONSULTA'),
+  PARA_INICIAR: avance('PARA_INICIAR'),
+  INICIADO: avance('INICIADO'),
+  PRUEBA: avance('PRUEBA'),
+  ALEGATOS: avance('ALEGATOS'),
+  SENTENCIA: avance('SENTENCIA'),
+  APELACION: ['SENTENCIA', ...avance('APELACION')],
+  CORTE: ['SENTENCIA', ...avance('CORTE')],
+  FINALIZADO: reapertura('FINALIZADO'),
+  NO_VIABLE_RECHAZADO: reapertura('NO_VIABLE_RECHAZADO'),
+  PAUSADO: reapertura('PAUSADO'),
 }
 
 export function isEstadoTerminal(estado: string): boolean {
