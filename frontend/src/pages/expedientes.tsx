@@ -45,31 +45,11 @@ import {
 } from 'lucide-react'
 import { ESTADOS_PIPELINE, ESTADO_INTERNO_LABELS } from '@/types/enums'
 import { timeAgo } from '@/lib/utils/date-helpers'
+import { useSaeNovedadesPorExpediente } from '@/hooks/use-sae-notificaciones'
 
 // ---------------------------------------------------------------------------
 // Fuero badge
 // ---------------------------------------------------------------------------
-
-const FUERO_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  laboral:        { bg: 'bg-amber-100 dark:bg-amber-900/30',    text: 'text-amber-800 dark:text-amber-300',  label: 'Laboral' },
-  civil:          { bg: 'bg-blue-100 dark:bg-blue-900/30',      text: 'text-blue-800 dark:text-blue-300',    label: 'Civil' },
-  familia:        { bg: 'bg-rose-100 dark:bg-rose-900/30',      text: 'text-rose-800 dark:text-rose-300',    label: 'Familia' },
-  penal:          { bg: 'bg-red-100 dark:bg-red-900/30',        text: 'text-red-800 dark:text-red-300',      label: 'Penal' },
-  previsional:    { bg: 'bg-violet-100 dark:bg-violet-900/30',  text: 'text-violet-800 dark:text-violet-300',label: 'Previsional' },
-  administrativo: { bg: 'bg-teal-100 dark:bg-teal-900/30',     text: 'text-teal-800 dark:text-teal-300',    label: 'Adm.' },
-  comercial:      { bg: 'bg-indigo-100 dark:bg-indigo-900/30',  text: 'text-indigo-800 dark:text-indigo-300',label: 'Comercial' },
-  otro:           { bg: 'bg-zinc-100 dark:bg-zinc-800',         text: 'text-zinc-600 dark:text-zinc-400',    label: 'Otro' },
-}
-
-function FueroBadge({ fuero }: { fuero?: string | null }) {
-  if (!fuero) return null
-  const s = FUERO_STYLE[fuero] ?? FUERO_STYLE.otro
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shrink-0', s.bg, s.text)}>
-      {s.label}
-    </span>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // SAE sync pill — muestra cuándo fue la última sincronización
@@ -127,83 +107,65 @@ function SortHeader({
 // Card view for mobile
 // ---------------------------------------------------------------------------
 
-function ExpedienteCard({ expediente, salud, onClick }: { expediente: any; salud?: SaludExpediente; onClick: () => void }) {
+/** Chip de novedades del SAE sin leer. */
+function NovedadesChip({ n, className }: { n?: number; className?: string }) {
+  if (!n) return null
+  return (
+    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 font-mono text-[10.5px] leading-5 text-cyan-700 dark:text-cyan-300', className)} title="Novedades del SAE sin leer">
+      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />{n} {n === 1 ? 'novedad' : 'novedades'}
+    </span>
+  )
+}
+
+const ESTADO_CORTO: Record<string, string> = {
+  NUEVA_CONSULTA: 'consulta', PARA_INICIAR: 'para iniciar', INICIADO: 'en trámite', PRUEBA: 'prueba', ALEGATOS: 'alegatos',
+  SENTENCIA: 'sentencia', APELACION: 'apelación', CORTE: 'corte', FINALIZADO: 'finalizado', NO_VIABLE_RECHAZADO: 'rechazado', PAUSADO: 'pausado',
+}
+
+function ExpedienteCard({ expediente, salud, novedades, onClick }: { expediente: any; salud?: SaludExpediente; novedades?: number; onClick: () => void }) {
   const cliente = expediente.clientes
-  const tipo = expediente.tipos_tramite
-  const organismo = expediente.organismo
   const clienteFull = cliente ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim() : ''
   const title = expediente.caratula || clienteFull || expediente.numero || '-'
-  const hasSae = !!(expediente.numero_sae || expediente.ultima_sincronizacion_sae)
+  const dias = salud?.dias_sin_movimiento
+  const prioridadAlta = expediente.prioridad === 'ALTA' || expediente.prioridad === 'URGENTE'
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
       className={cn(
-        'group w-full text-left rounded-xl cursor-pointer transition-all',
-        'border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80',
-        'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
-        'border-l-[3px]',
-        getExpedienteRowClass({
-          estado_interno: expediente.estado_interno,
-          audiencias: expediente.audiencias ?? [],
-          tareas: expediente.tareas ?? [],
-        })
+        'app-card group w-full cursor-pointer px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15',
+        novedades ? 'dark:!border-cyan-400/20' : '',
       )}
     >
-      {/* Fila principal */}
-      <div className="flex items-start gap-3 p-4 pb-3">
-        <SaludDot salud={salud} className="mt-1.5" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate flex-1 min-w-0">
-              {title}
-            </p>
-            <FueroBadge fuero={expediente.fuero} />
-            <FavoritoStar expedienteId={expediente.id} className="-mr-1 -mt-1" />
-          </div>
-          {expediente.numero && (
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono mt-0.5 truncate">
-              {expediente.numero}
-              {expediente.numero_sae && (
-                <span className="ml-2 text-amber-600 dark:text-amber-400 font-bold">SAE {expediente.numero_sae}</span>
-              )}
-            </p>
-          )}
-          {clienteFull && title !== clienteFull && (
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-0.5 truncate">{clienteFull}</p>
-          )}
-          <SaludMotivo salud={salud} className="mt-1" />
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            <EstadoBadge estado={expediente.estado_interno} compact />
-            <PrioridadBadge prioridad={expediente.prioridad} compact />
-            {tipo && (
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300">
-                {tipo.nombre}
-              </span>
-            )}
-          </div>
-        </div>
-        {cliente?.telefono && (
-          <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-            <WhatsAppButton phone={cliente.telefono} variant="icon" />
-          </div>
-        )}
+      <div className="flex items-start gap-2.5">
+        <SaludDot salud={salud} className="mt-[7px]" />
+        <p className="line-clamp-2 min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-zinc-900 dark:text-zinc-50">{title}</p>
+        <span onClick={(e) => e.stopPropagation()}><FavoritoStar expedienteId={expediente.id} className="-mr-1 -mt-1" /></span>
       </div>
-
-      {/* Fila de contexto — visible siempre, más info en hover */}
-      {(organismo || hasSae) && (
-        <div className={cn(
-          'flex items-center gap-3 px-4 pb-3 pt-0 border-t border-zinc-100 dark:border-white/5',
-          'text-[11px] text-zinc-400 dark:text-zinc-500',
-        )}>
-          {organismo?.nombre && (
-            <span className="truncate flex-1">{organismo.nombre}</span>
-          )}
-          <SyncPill fecha={expediente.ultima_sincronizacion_sae} className="shrink-0 ml-auto" />
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[18px] font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+        {expediente.numero_sae ? <span>SAE {expediente.numero_sae}</span> : <span>{expediente.numero}</span>}
+        <span className="text-zinc-300 dark:text-zinc-600">·</span>
+        <span>{ESTADO_CORTO[expediente.estado_interno] ?? expediente.estado_interno}</span>
+        {dias != null && expediente.numero_sae && (
+          <>
+            <span className="text-zinc-300 dark:text-zinc-600">·</span>
+            <span className={cn(dias >= 120 ? 'text-rose-600 dark:text-rose-400' : dias >= 60 ? 'text-amber-600 dark:text-amber-400' : '')}>
+              {dias === 0 ? 'mov. hoy' : `${dias} d sin mov.`}
+            </span>
+          </>
+        )}
+        {prioridadAlta && <span className="text-rose-600 dark:text-rose-400">· {String(expediente.prioridad).toLowerCase()}</span>}
+      </div>
+      {(novedades || (salud && salud.motivos.length > 0)) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-[18px]">
+          <NovedadesChip n={novedades} />
+          <SaludMotivo salud={salud} className="min-w-0" />
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -211,10 +173,11 @@ function ExpedienteCard({ expediente, salud, onClick }: { expediente: any; salud
 // Filtros rápidos (un toque)
 // ---------------------------------------------------------------------------
 
-function FiltrosRapidos({ filters, setFilters, saludMap, profileId }: {
+function FiltrosRapidos({ filters, setFilters, saludMap, novedades, profileId }: {
   filters: ExpedientesFilters
   setFilters: React.Dispatch<React.SetStateAction<ExpedientesFilters>>
   saludMap?: Map<string, SaludExpediente>
+  novedades: number
   profileId: string | null
 }) {
   const valores = saludMap ? [...saludMap.values()] : []
@@ -233,6 +196,10 @@ function FiltrosRapidos({ filters, setFilters, saludMap, profileId }: {
       id: 'mios', label: 'Míos', activo: filters.abogado_id === profileId,
       onClick: () => setFilters((p) => ({ ...p, abogado_id: p.abogado_id === profileId ? null : profileId, page: 1 })),
     }] : []),
+    {
+      id: 'novedades', label: 'Con novedades SAE', activo: filters.salud === 'novedades', count: novedades, dot: 'bg-cyan-400',
+      onClick: () => setFilters((p) => ({ ...p, salud: p.salud === 'novedades' ? null : 'novedades', page: 1 })),
+    },
     {
       id: 'urgentes', label: 'Urgentes', activo: filters.salud === 'urgentes', count: n.urgentes, dot: 'bg-rose-500',
       onClick: () => setFilters((p) => ({ ...p, salud: p.salud === 'urgentes' ? null : 'urgentes', page: 1 })),
@@ -258,15 +225,15 @@ function FiltrosRapidos({ filters, setFilters, saludMap, profileId }: {
           onClick={c.onClick}
           aria-pressed={c.activo}
           className={cn(
-            'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+            'flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
             c.activo
-              ? 'border-[var(--brand-navy)] bg-[var(--brand-navy)] text-white dark:border-white dark:bg-white dark:text-[var(--brand-navy)]'
-              : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10',
+              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white/20 dark:bg-white/10 dark:text-white'
+              : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/[0.08] dark:bg-transparent dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-200',
           )}
         >
           {c.dot && <span className={cn('h-2 w-2 rounded-full', c.dot)} />}
           {c.label}
-          {c.count != null && c.count > 0 && <span className={cn('tabular-nums', c.activo ? 'opacity-80' : 'text-zinc-400 dark:text-zinc-500')}>{c.count}</span>}
+          {c.count != null && c.count > 0 && <span className={cn('font-mono text-[10.5px]', c.activo ? 'opacity-80' : 'text-zinc-400 dark:text-zinc-500')}>{c.count}</span>}
         </button>
       ))}
     </div>
@@ -301,7 +268,7 @@ function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   if (search) f.search = search
   if (params.get('favoritos') === 'true') f.favoritos = true
   const salud = params.get('salud')
-  if (salud === 'urgentes' || salud === 'atencion' || salud === 'dormidos') f.salud = salud
+  if (salud === 'urgentes' || salud === 'atencion' || salud === 'dormidos' || salud === 'novedades') f.salud = salud
   const sortBy = params.get('sortBy')
   if (sortBy) f.sortBy = sortBy as SortField
   const sortOrder = params.get('sortOrder')
@@ -347,6 +314,7 @@ export default function ExpedientesPage() {
   const enTablero = viewMode === 'etapas'
   const { data, isLoading, isFetching, isError, error, refetch } = useExpedientes(filters)
   const { data: saludMap } = useExpedientesSalud(null)
+  const { data: novedadesMap } = useSaeNovedadesPorExpediente()
   const { profile } = useAuth()
 
   const handleFilterChange = useCallback((newFilters: ExpedientesFilters) => {
@@ -447,7 +415,7 @@ export default function ExpedientesPage() {
       </div>
 
       {/* Filtros rápidos */}
-      <FiltrosRapidos filters={filters} setFilters={setFilters} saludMap={saludMap} profileId={profile?.id ?? null} />
+      <FiltrosRapidos filters={filters} setFilters={setFilters} saludMap={saludMap} novedades={novedadesMap?.size ?? 0} profileId={profile?.id ?? null} />
 
       {/* Filters */}
       <ExpedienteFilters filters={filters} onChange={handleFilterChange} />
@@ -543,6 +511,7 @@ export default function ExpedientesPage() {
                   key={expediente.id}
                   expediente={expediente}
                   salud={saludMap?.get(expediente.id)}
+                  novedades={novedadesMap?.get(expediente.id)}
                   onClick={() => navigate(`/expedientes/${expediente.id}`)}
                 />
               ))}
@@ -556,6 +525,7 @@ export default function ExpedientesPage() {
                   key={expediente.id}
                   expediente={expediente}
                   salud={saludMap?.get(expediente.id)}
+                  novedades={novedadesMap?.get(expediente.id)}
                   onClick={() => navigate(`/expedientes/${expediente.id}`)}
                 />
               ))}
@@ -623,9 +593,6 @@ export default function ExpedientesPage() {
                   // Find the primary responsible (first member with rol='abogado')
                   const miembros = (expediente.miembros ?? []) as any[]
                   const abogadoMembro = (expediente as any).abogado_responsable ?? miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
-                  const initials = cliente
-                    ? `${(cliente.apellido?.[0] ?? '').toUpperCase()}${(cliente.nombre?.[0] ?? '').toUpperCase()}`
-                    : '??'
                   const salud = saludMap?.get(expediente.id)
 
                   return (
@@ -667,15 +634,12 @@ export default function ExpedientesPage() {
                         <div className="flex items-center gap-3">
                           <FavoritoStar expedienteId={expediente.id} className="-ml-2 -mr-1" />
                           <SaludDot salud={salud} />
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
-                            {initials}
-                          </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
                                 {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
                               </p>
-                              <FueroBadge fuero={(expediente as any).fuero} />
+                              <NovedadesChip n={novedadesMap?.get(expediente.id)} />
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                               {tipo && (
@@ -684,7 +648,7 @@ export default function ExpedientesPage() {
                               {(expediente as any).numero_sae && (
                                 <>
                                   <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                                  <span className="text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">SAE {(expediente as any).numero_sae}</span>
+                                  <span className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400">SAE {(expediente as any).numero_sae}</span>
                                 </>
                               )}
                               {tipo && (expediente as any).numero && (

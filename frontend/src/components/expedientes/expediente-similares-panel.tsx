@@ -48,7 +48,7 @@ export function ExpedienteSimilaresPanel({ expedienteId }: Props) {
     return null
   }
 
-  if (!isLoading && data && data.results.length === 0 && !data.message) return null
+  if (isLoading || !data || data.results.length === 0) return null
 
   return (
     <div className="rounded-xl border border-violet-500/15 bg-violet-500/[0.03] overflow-hidden">

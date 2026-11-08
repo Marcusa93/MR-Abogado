@@ -71,7 +71,7 @@ function agrupar(notifs: SaeNotificacion[]): Grupo[] {
   )
 }
 
-function Item({ n }: { n: SaeNotificacion }) {
+export function NovedadItem({ n }: { n: SaeNotificacion }) {
   const navigate = useNavigate()
   const markRead = useMarkSaeNotifAsRead()
   const urgente = n.prioridad === 'urgente'
@@ -229,7 +229,7 @@ export function NovedadesSae() {
                 {g.items.length > 1 && <span className="shrink-0 font-mono text-[11px] text-cyan-700 dark:text-cyan-300">×{g.items.length}</span>}
               </div>
               <ul className="ml-0.5 mt-0.5 border-l border-zinc-200 dark:border-white/[0.08]">
-                {g.items.map((n) => <Item key={n.id} n={n} />)}
+                {g.items.map((n) => <NovedadItem key={n.id} n={n} />)}
               </ul>
             </div>
           ))}

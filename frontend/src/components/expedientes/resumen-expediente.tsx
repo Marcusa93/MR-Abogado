@@ -7,6 +7,10 @@ import { LineaProceso } from './linea-proceso'
 import { SALUD_STYLE } from './salud-indicador'
 import { useExpedienteSalud } from '@/hooks/use-expediente-salud'
 import { useSaeMovements } from '@/hooks/use-sae'
+import { useSaeNotificacionesExpediente } from '@/hooks/use-sae-notificaciones'
+import { useCambiarEstado } from '@/hooks/use-expedientes'
+import { NovedadItem } from '@/components/inicio/novedades-sae'
+import { toast } from '@/stores/toast-store'
 import { FUERO_LABELS } from '@/types/enums'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -48,6 +52,16 @@ export function ResumenExpediente({ expediente, onIrA }: { expediente: any; onIr
   const tieneSae = !!expediente.numero_sae
   const { data: salud } = useExpedienteSalud(id)
   const { data: movimientos } = useSaeMovements(id)
+  const { data: novedades = [] } = useSaeNotificacionesExpediente(id)
+  const cambiarEstado = useCambiarEstado()
+  const pasarATramite = async () => {
+    try {
+      await cambiarEstado.mutateAsync({ expediente_id: id, nuevo_estado: 'INICIADO', motivo: 'Tiene movimientos en el SAE' })
+      toast.success('Expediente pasado a en trámite')
+    } catch (e) {
+      toast.error('No se pudo cambiar el estado', e instanceof Error ? e.message : undefined)
+    }
+  }
 
   const hoy = hoyISO()
   const audiencias = ((expediente.audiencias ?? []) as any[])
@@ -77,6 +91,20 @@ export function ResumenExpediente({ expediente, onIrA }: { expediente: any; onIr
 
   return (
     <div className="space-y-4">
+      {/* Primero: lo que llegó del SAE y no se leyó */}
+      {novedades.length > 0 && (
+        <section className="app-card px-4 py-3 dark:!border-cyan-400/20">
+          <div className="flex items-center gap-2">
+            <span className="status-dot text-cyan-400" aria-hidden />
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Novedades del SAE</h3>
+            <span className="tag-mono">{novedades.length} sin leer</span>
+          </div>
+          <ul className="ml-0.5 mt-1 border-l border-zinc-200 dark:border-white/[0.08]">
+            {novedades.map((n) => <NovedadItem key={n.id} n={n} />)}
+          </ul>
+        </section>
+      )}
+
       {/* Qué hay que mirar */}
       {salud && salud.motivos.length > 0 && estilo && (
         <div className={cn('app-card border-l-4 px-4 py-3', estilo.borde)}>
@@ -86,6 +114,16 @@ export function ResumenExpediente({ expediente, onIrA }: { expediente: any; onIr
           <ul className="space-y-0.5 text-sm text-zinc-700 dark:text-zinc-300">
             {salud.motivos.map((m) => <li key={m}>· {m}</li>)}
           </ul>
+          {salud.estado_desactualizado && (
+            <button
+              type="button"
+              onClick={pasarATramite}
+              disabled={cambiarEstado.isPending}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+            >
+              Pasar a en trámite
+            </button>
+          )}
         </div>
       )}
       {salud && salud.motivos.length === 0 && salud.semaforo === 'verde' && (

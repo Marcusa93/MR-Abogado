@@ -29,7 +29,7 @@ export interface ExpedientesFilters {
   /** Solo los expedientes marcados con estrella por el usuario */
   favoritos?: boolean | null
   /** Filtro rápido por salud: urgentes (semáforo rojo), atención (amarillo) o dormidos */
-  salud?: 'urgentes' | 'atencion' | 'dormidos' | null
+  salud?: 'urgentes' | 'atencion' | 'dormidos' | 'novedades' | null
   page?: number
   pageSize?: number
   sortBy?: SortField
@@ -172,15 +172,27 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
       }
 
       if (filters.salud) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: salud, error: saludError } = await (supabase.rpc as any)('expedientes_salud', { p_ids: null })
-        if (saludError) throw saludError
-        const rows = (salud ?? []) as { expediente_id: string; semaforo: string; dormido: boolean }[]
-        const saludIds = rows
-          .filter((r) => filters.salud === 'urgentes' ? r.semaforo === 'rojo'
-            : filters.salud === 'atencion' ? r.semaforo === 'amarillo'
-            : r.dormido)
-          .map((r) => r.expediente_id)
+        let saludIds: string[]
+        if (filters.salud === 'novedades') {
+          // Expedientes con notificaciones del SAE sin leer
+          const { data: nov, error: novError } = await supabase
+            .from('sae_notificaciones' as never)
+            .select('expediente_id')
+            .eq('leida', false)
+            .not('expediente_id', 'is', null)
+          if (novError) throw novError
+          saludIds = [...new Set(((nov ?? []) as { expediente_id: string }[]).map((r) => r.expediente_id))]
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: salud, error: saludError } = await (supabase.rpc as any)('expedientes_salud', { p_ids: null })
+          if (saludError) throw saludError
+          const rows = (salud ?? []) as { expediente_id: string; semaforo: string; dormido: boolean }[]
+          saludIds = rows
+            .filter((r) => filters.salud === 'urgentes' ? r.semaforo === 'rojo'
+              : filters.salud === 'atencion' ? r.semaforo === 'amarillo'
+              : r.dormido)
+            .map((r) => r.expediente_id)
+        }
         if (visibilityIds) {
           const visible = new Set(visibilityIds)
           visibilityIds = saludIds.filter((id) => visible.has(id))

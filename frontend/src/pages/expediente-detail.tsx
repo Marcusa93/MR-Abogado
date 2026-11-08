@@ -48,11 +48,9 @@ import {
   Edit,
   Trash2,
   CalendarClock,
-  CheckSquare,
   Loader2,
   AlertCircle,
   Plus,
-  X,
   Download,
   Database,
   PenLine,
@@ -174,7 +172,6 @@ export default function ExpedienteDetailPage() {
   const [estadoDialogOpen, setEstadoDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
   const [moreActionsOpen, setMoreActionsOpen] = useState(false)
   const [seguimientoDialogOpen, setSeguimientoDialogOpen] = useState(false)
   const [turnoDialogOpen, setTurnoDialogOpen] = useState(false)
@@ -249,21 +246,21 @@ export default function ExpedienteDetailPage() {
               <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
                 <span className="text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (
-                  <span className="text-amber-600 dark:text-amber-400 font-mono font-semibold">
-                    SAE · {(expediente as any).numero_sae}
+                  <span className="text-zinc-500 dark:text-zinc-400 font-mono">
+                    · SAE {(expediente as any).numero_sae}
                   </span>
                 )}
               </div>
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <EstadoBadge estado={expediente.estado_interno} />
-                <PrioridadBadge prioridad={expediente.prioridad} />
+                {(expediente.prioridad === 'ALTA' || expediente.prioridad === 'URGENTE') && <PrioridadBadge prioridad={expediente.prioridad} />}
                 {(expediente as any).estado_organismo && (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300"
+                    className="tag-mono"
                     title={`Estado actual en el juzgado según SAE${(expediente as any).estado_organismo_desde ? ` · desde el ${new Date((expediente as any).estado_organismo_desde).toLocaleDateString('es-AR')}` : ''}`}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    {(expediente as any).estado_organismo}
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                    juzgado: {(expediente as any).estado_organismo}
                     {(expediente as any).estado_organismo_desde && (
                       <span className="font-normal opacity-80">
                         · desde {new Date((expediente as any).estado_organismo_desde).toLocaleDateString('es-AR')}
@@ -336,6 +333,13 @@ export default function ExpedienteDetailPage() {
               )}
               {/* CTAs principales — siempre visibles */}
               <button
+                onClick={() => setTareaDialogOpen(true)}
+                className="flex min-h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-zinc-900"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Tarea
+              </button>
+              <button
                 onClick={() => setEstadoDialogOpen(true)}
                 className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
               >
@@ -364,6 +368,14 @@ export default function ExpedienteDetailPage() {
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMoreActionsOpen(false)} />
                     <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+                      <button
+                        onClick={() => { setMoreActionsOpen(false); setTurnoDialogOpen(true) }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                        Nueva audiencia
+                      </button>
+                      <div className="border-t border-zinc-200 dark:border-white/10" />
                       <button
                         onClick={async () => {
                           setMoreActionsOpen(false)
@@ -612,41 +624,6 @@ export default function ExpedienteDetailPage() {
         clienteTelefono={(expediente.clientes as any)?.telefono ?? ''}
         clienteTelefonoAlt={(expediente.clientes as any)?.telefono_alternativo}
       />
-
-      {/* Quick Actions FAB — positioned left of BogaBot button */}
-      <div className="fixed bottom-6 right-24 z-40 flex flex-col-reverse items-end gap-2 max-sm:right-20">
-        {quickActionsOpen && (
-          <div className="mb-2 flex flex-col gap-2 animate-fade-in">
-            {[
-              { label: 'Audiencia', icon: CalendarClock, color: 'bg-amber-500 hover:bg-amber-600', action: () => { setTurnoDialogOpen(true); setQuickActionsOpen(false) } },
-              { label: 'Tarea', icon: CheckSquare, color: 'bg-emerald-500 hover:bg-emerald-600', action: () => { setTareaDialogOpen(true); setQuickActionsOpen(false) } },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                className={cn(
-                  'flex items-center gap-2 rounded-full pl-4 pr-5 py-2.5 text-sm font-medium text-white shadow-lg transition-all',
-                  item.color
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <button
-          onClick={() => setQuickActionsOpen(!quickActionsOpen)}
-          className={cn(
-            'flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200',
-            quickActionsOpen
-              ? 'bg-slate-700 hover:bg-slate-600 rotate-45'
-              : 'bg-gradient-cyan hover:opacity-90'
-          )}
-        >
-          {quickActionsOpen ? <X className="h-6 w-6 text-white" /> : <Plus className="h-6 w-6 text-zinc-950" />}
-        </button>
-      </div>
 
       {/* Confirm Delete Dialog */}
       {confirmDelete && (

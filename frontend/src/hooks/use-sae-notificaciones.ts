@@ -104,6 +104,48 @@ export function useSaeNotifUnreadCount() {
   })
 }
 
+/** Notificaciones del SAE sin leer de un expediente. */
+export function useSaeNotificacionesExpediente(expedienteId: string) {
+  return useQuery<SaeNotificacion[]>({
+    queryKey: ['sae-notificaciones', 'expediente', expedienteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sae_notificaciones' as never)
+        .select('*')
+        .eq('expediente_id', expedienteId)
+        .eq('leida', false)
+        .order('fecha_emision', { ascending: false, nullsFirst: false })
+        .limit(20)
+      if (error) throw error
+      return (data ?? []) as unknown as SaeNotificacion[]
+    },
+    enabled: !!expedienteId,
+    staleTime: 30_000,
+  })
+}
+
+/** Novedades del SAE sin leer, contadas por expediente (para listas y fichas). */
+export function useSaeNovedadesPorExpediente() {
+  return useQuery<Map<string, number>>({
+    queryKey: ['sae-notificaciones', 'por-expediente'],
+    queryFn: async () => {
+      const nowIso = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('sae_notificaciones' as never)
+        .select('expediente_id')
+        .eq('leida', false)
+        .not('expediente_id', 'is', null)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
+      if (error) throw error
+      const map = new Map<string, number>()
+      for (const r of (data ?? []) as { expediente_id: string }[]) map.set(r.expediente_id, (map.get(r.expediente_id) ?? 0) + 1)
+      return map
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+}
+
 // ── Mark as read ──────────────────────────────────────────────
 
 export function useMarkSaeNotifAsRead() {
@@ -129,6 +171,7 @@ export function useMarkSaeNotifAsRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
       qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+      qc.invalidateQueries({ queryKey: ['sidebar-badges'] })
     },
   })
 }
@@ -146,6 +189,7 @@ export function useMarkAllSaeNotifAsRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
       qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+      qc.invalidateQueries({ queryKey: ['sidebar-badges'] })
     },
   })
 }
@@ -276,6 +320,7 @@ export function useSnoozeSaeNotif() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
       qc.invalidateQueries({ queryKey: ['sae-notificaciones-unread-count'] })
+      qc.invalidateQueries({ queryKey: ['sidebar-badges'] })
     },
   })
 }
