@@ -28,6 +28,8 @@ export interface ExpedientesFilters {
   search?: string | null
   /** Solo los expedientes marcados con estrella por el usuario */
   favoritos?: boolean | null
+  /** Filtro rápido por salud: urgentes (semáforo rojo), atención (amarillo) o dormidos */
+  salud?: 'urgentes' | 'atencion' | 'dormidos' | null
   page?: number
   pageSize?: number
   sortBy?: SortField
@@ -169,6 +171,27 @@ export function useExpedientes(filters: ExpedientesFilters = {}) {
         }
       }
 
+      if (filters.salud) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: salud, error: saludError } = await (supabase.rpc as any)('expedientes_salud', { p_ids: null })
+        if (saludError) throw saludError
+        const rows = (salud ?? []) as { expediente_id: string; semaforo: string; dormido: boolean }[]
+        const saludIds = rows
+          .filter((r) => filters.salud === 'urgentes' ? r.semaforo === 'rojo'
+            : filters.salud === 'atencion' ? r.semaforo === 'amarillo'
+            : r.dormido)
+          .map((r) => r.expediente_id)
+        if (visibilityIds) {
+          const visible = new Set(visibilityIds)
+          visibilityIds = saludIds.filter((id) => visible.has(id))
+        } else {
+          visibilityIds = saludIds
+        }
+        if (visibilityIds.length === 0) {
+          return { data: [], count: 0, page, pageSize, totalPages: 0 }
+        }
+      }
+
       let query = supabase
         .from('expedientes')
         .select(
@@ -279,6 +302,7 @@ export function useExpediente(id: string | undefined) {
           *,
           clientes (*),
           tipos_tramite (*),
+          organismo:organismos(id, nombre),
           abogado_responsable:profiles!expedientes_abogado_responsable_id_fkey(id, nombre, apellido, rol),
           miembros:expediente_miembros(rol, perfil:profiles!expediente_miembros_profile_id_fkey(nombre, apellido)),
           audiencias (*),
@@ -371,6 +395,8 @@ export function useCreateExpediente() {
       queryClient.invalidateQueries({ queryKey: ['expedientes-activos-lista'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['kanban'] })
+      queryClient.invalidateQueries({ queryKey: ['expedientes-salud'] })
+      queryClient.invalidateQueries({ queryKey: ['tablero-direccion'] })
     },
   })
 }
@@ -405,6 +431,8 @@ export function useUpdateExpediente() {
       })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['kanban'] })
+      queryClient.invalidateQueries({ queryKey: ['expedientes-salud'] })
+      queryClient.invalidateQueries({ queryKey: ['tablero-direccion'] })
       queryClient.invalidateQueries({ queryKey: ['panel-estudio'] })
     },
   })
@@ -445,6 +473,8 @@ export function useCambiarEstado() {
       })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['kanban'] })
+      queryClient.invalidateQueries({ queryKey: ['expedientes-salud'] })
+      queryClient.invalidateQueries({ queryKey: ['tablero-direccion'] })
     },
   })
 }
@@ -469,6 +499,8 @@ export function useDeleteExpediente() {
       queryClient.invalidateQueries({ queryKey: expedientesKeys.lists() })
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['kanban'] })
+      queryClient.invalidateQueries({ queryKey: ['expedientes-salud'] })
+      queryClient.invalidateQueries({ queryKey: ['tablero-direccion'] })
     },
   })
 }

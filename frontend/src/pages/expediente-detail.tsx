@@ -25,8 +25,7 @@ import { TabJurisprudencia } from '@/components/expedientes/tab-jurisprudencia'
 import { TabVisionIa } from '@/components/expedientes/tab-vision-ia'
 import { DescargarExpedienteDialog } from '@/components/expedientes/descargar-expediente-dialog'
 import ComentariosPanel from '@/components/expedientes/comentarios-panel'
-import { ExpedienteSimilaresPanel } from '@/components/expedientes/expediente-similares-panel'
-import { FichaCaso } from '@/components/expedientes/ficha-caso'
+import { ResumenExpediente } from '@/components/expedientes/resumen-expediente'
 import { fichaKeys } from '@/hooks/use-ficha'
 import { useQueryClient } from '@tanstack/react-query'
 import { TabCaja } from '@/components/expedientes/tab-caja'
@@ -48,33 +47,21 @@ import {
   RefreshCw,
   Edit,
   Trash2,
-  FileText,
   CalendarClock,
   CheckSquare,
-  Paperclip,
-  Video,
-  Clock,
   Loader2,
   AlertCircle,
-  User,
-  Timer,
-  ListTodo,
   Plus,
   X,
   Download,
-  MessageSquareText,
   Database,
-  Star,
   PenLine,
-  BookMarked,
-  Gavel,
-  Sparkles,
   Wallet,
   MoreHorizontal,
-  ScrollText,
   Send,
   Eye,
   EyeOff,
+  LayoutDashboard,
 } from 'lucide-react'
 import { exportTramitePDF } from '@/lib/utils/export-tramite-pdf'
 import { NovedadesPanel } from '@/components/expedientes/novedades-panel'
@@ -86,18 +73,33 @@ import { useToggleSeguimientoActivo } from '@/hooks/use-expediente-seguimiento'
 // ---------------------------------------------------------------------------
 
 const TABS = [
-  { id: 'datos',             label: 'Datos',                shortLabel: 'Datos',      icon: FileText,      activeClasses: 'border-amber-400 text-amber-400',   badgeClasses: 'bg-amber-500/15 text-amber-400' },
-  { id: 'proceso',           label: 'Proceso',              shortLabel: 'Proceso',    icon: Gavel,         activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'actuaciones',       label: 'SAE',                  shortLabel: 'SAE',        icon: Database,      activeClasses: 'border-cyan-400 text-cyan-400',     badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'claves',            label: 'Actuaciones claves',   shortLabel: 'Claves',     icon: Star,          activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'audiencias-grabadas', label: 'Audiencias grabadas', shortLabel: 'Audiencias', icon: Video,        activeClasses: 'border-cyan-400 text-cyan-400',     badgeClasses: 'bg-cyan-500/15 text-cyan-400' },
-  { id: 'agenda',            label: 'Agenda',               shortLabel: 'Agenda',     icon: CalendarClock, activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'escritos',          label: 'Escritos y notas',     shortLabel: 'Escritos',   icon: PenLine,       activeClasses: 'border-rose-400 text-rose-400',     badgeClasses: 'bg-rose-500/15 text-rose-400' },
-  { id: 'documentos',        label: 'Documentos jurídicos', shortLabel: 'Docs.',      icon: Paperclip,     activeClasses: 'border-sky-400 text-sky-400',       badgeClasses: 'bg-sky-500/15 text-sky-400' },
-  { id: 'vision-ia',         label: 'Visión IA',            shortLabel: 'IA',         icon: Sparkles,      activeClasses: 'border-violet-400 text-violet-400', badgeClasses: 'bg-violet-500/15 text-violet-400' },
-  { id: 'caja',              label: 'Caja',                 shortLabel: 'Caja',       icon: Wallet,        activeClasses: 'border-emerald-400 text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-400' },
-  { id: 'novedades',         label: 'Novedades',            shortLabel: 'Novedades',  icon: ScrollText,    activeClasses: 'border-amber-400 text-amber-400',   badgeClasses: 'bg-amber-500/15 text-amber-400' },
+  { id: 'resumen',    label: 'Resumen',               shortLabel: 'Resumen',   icon: LayoutDashboard, activeClasses: 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-cyan-400 dark:text-cyan-300', badgeClasses: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300' },
+  { id: 'expediente', label: 'Expediente',            shortLabel: 'Expediente', icon: Database,       activeClasses: 'border-cyan-500 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
+  { id: 'agenda',     label: 'Agenda y tareas',       shortLabel: 'Agenda',    icon: CalendarClock,   activeClasses: 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  { id: 'escritos',   label: 'Escritos y documentos', shortLabel: 'Escritos',  icon: PenLine,         activeClasses: 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
+  { id: 'caja',       label: 'Caja',                  shortLabel: 'Caja',      icon: Wallet,          activeClasses: 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
 ] as const
+
+// Pestañas anteriores (enlaces guardados, notificaciones, "Redactar respuesta") → pestaña y sub-pestaña nuevas.
+const TAB_ANTERIOR: Record<string, { tab: TabId; sub?: string }> = {
+  datos: { tab: 'expediente', sub: 'datos' },
+  proceso: { tab: 'expediente', sub: 'proceso' },
+  actuaciones: { tab: 'expediente', sub: 'actuaciones' },
+  sae: { tab: 'expediente', sub: 'actuaciones' },
+  claves: { tab: 'expediente', sub: 'claves' },
+  'vision-ia': { tab: 'expediente', sub: 'vision-ia' },
+  novedades: { tab: 'expediente', sub: 'novedades' },
+  'audiencias-grabadas': { tab: 'agenda', sub: 'grabadas' },
+  documentos: { tab: 'escritos', sub: 'documentos' },
+  notas: { tab: 'escritos', sub: 'notas' },
+}
+
+function resolverTab(t: string | null | undefined): { tab: TabId; sub?: string } | null {
+  if (!t) return null
+  if (TAB_ANTERIOR[t]) return TAB_ANTERIOR[t]
+  if (TABS.some((x) => x.id === t)) return { tab: t as TabId }
+  return null
+}
 
 type TabId = (typeof TABS)[number]['id']
 
@@ -117,14 +119,7 @@ export default function ExpedienteDetailPage() {
   const tieneSae = !!(expediente as { numero_sae?: string | null } | null | undefined)?.numero_sae
 
   // En expedientes del SAE, las actuaciones van primero.
-  const tabsFiltradas = TABS.filter((t) => {
-    if (t.id === 'caja') return tieneAccesoCaja
-    if (t.id === 'novedades') return esDirector
-    return true
-  })
-  const visibleTabs = tieneSae
-    ? [...tabsFiltradas.filter((t) => t.id === 'actuaciones'), ...tabsFiltradas.filter((t) => t.id !== 'actuaciones')]
-    : tabsFiltradas
+  const visibleTabs = TABS.filter((t) => t.id !== 'caja' || tieneAccesoCaja)
   const { data: timeline, isLoading: timelineLoading } = useExpedienteTimeline(id!)
   const deleteExpediente = useDeleteExpediente()
   const queryClient = useQueryClient()
@@ -149,20 +144,17 @@ export default function ExpedienteDetailPage() {
   const urlTab = searchParams.get('tab')
   const highlightMovementId = searchParams.get('mid') ?? undefined
 
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
-    if (urlTab && TABS.some(t => t.id === urlTab)) return urlTab as TabId
-    return 'datos'
-  })
-  // Pestaña inicial: actuaciones si el expediente es del SAE (salvo que la URL
-  // pida otra). Se decide una vez por expediente, cuando termina de cargar,
-  // para no pisar la pestaña que el usuario elija después.
-  const tabInicialPara = useRef<string | null>(null)
-  useEffect(() => {
-    if (!expediente || !id || tabInicialPara.current === id) return
-    tabInicialPara.current = id
-    if (urlTab && TABS.some(t => t.id === urlTab)) return
-    setActiveTab(tieneSae ? 'actuaciones' : 'datos')
-  }, [expediente, id, urlTab, tieneSae])
+  const inicial = resolverTab(urlTab)
+  const [activeTab, setActiveTab] = useState<TabId>(inicial?.tab ?? 'resumen')
+  const [subTabs, setSubTabs] = useState<Record<string, string>>(() => (inicial?.sub ? { [inicial.tab]: inicial.sub } : {}))
+  const irA = (t: string, sub?: string) => {
+    const r = resolverTab(t)
+    if (!r) return
+    setActiveTab(r.tab)
+    const s2 = sub ?? r.sub
+    if (s2) setSubTabs((prev) => ({ ...prev, [r.tab]: s2 }))
+  }
+  const setSub = (tab: TabId) => (sub: string) => setSubTabs((prev) => ({ ...prev, [tab]: sub }))
 
   const activeTabRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -174,7 +166,7 @@ export default function ExpedienteDetailPage() {
   const clearPendingTab = useEscritoIntent((s) => s.clearPendingTab)
   useEffect(() => {
     if (pendingTab) {
-      setActiveTab(pendingTab as TabId)
+      irA(pendingTab)
       clearPendingTab()
     }
   }, [pendingTab, clearPendingTab])
@@ -226,15 +218,12 @@ export default function ExpedienteDetailPage() {
   }
 
   // ---- Derived data ----
-  const seguimientos = (expediente.seguimientos ?? []) as Tables<'seguimientos'>[]
   const audiencias = (expediente.audiencias ?? []) as Tables<'audiencias'>[]
   const tareas = (expediente.tareas ?? []) as (Tables<'tareas'> & {
     asignado: Tables<'profiles'> | null
   })[]
 
-  // Find the primary responsible (first member with rol='abogado')
-  const miembros = (expediente.miembros ?? []) as any[]
-  const responsable = miembros.find((m) => m.rol === 'abogado')?.perfil ?? null
+  const tareasPendientes = tareas.filter((t) => t.estado === 'PENDIENTE' || t.estado === 'EN_PROGRESO').length
 
   return (
     <div className="space-y-6 animate-fade-in pb-24 sm:pb-6">
@@ -415,72 +404,6 @@ export default function ExpedienteDetailPage() {
         </div>
       </div>
 
-      {/* Metrics strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {(() => {
-          const tareasPendientes = tareas.filter((t) => t.estado === 'PENDIENTE' || t.estado === 'EN_PROGRESO').length
-          const proximaAudiencia = audiencias
-            .filter((t) => t.estado !== 'CANCELADA' && new Date(t.fecha) >= new Date(new Date().toISOString().slice(0, 10)))
-            .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0]
-          // Use the last real state-change event from historial; fall back to fecha_alta
-          // (NOT updated_at — that changes on any UPDATE like editing carátula or asignar miembro).
-          const lastEstadoEvent = (timeline ?? []).find((e) => e.tipo === 'estado')
-          const lastEstadoDate = lastEstadoEvent?.fecha ?? expediente.fecha_alta
-          const diasEnEstado = lastEstadoDate
-            ? Math.floor((Date.now() - new Date(lastEstadoDate).getTime()) / 86400000)
-            : 0
-
-          return (
-            <>
-              <div className="flex items-center gap-2 app-card px-3 py-2">
-                <Timer className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
-                <div className="min-w-0">
-                  <p className="dashboard-eyebrow">En estado actual</p>
-                  <p className={cn("text-sm font-semibold", diasEnEstado > 60 ? "text-rose-400" : diasEnEstado > 30 ? "text-amber-400" : "text-zinc-800 dark:text-zinc-200")}>
-                    {diasEnEstado} días
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 app-card px-3 py-2">
-                <ListTodo className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
-                <div className="min-w-0">
-                  <p className="dashboard-eyebrow">Tareas pend.</p>
-                  <p className={cn("text-sm font-semibold", tareasPendientes > 0 ? "text-emerald-400" : "text-zinc-600 dark:text-zinc-300")}>
-                    {tareasPendientes} de {tareas.length}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 app-card px-3 py-2">
-                <CalendarClock className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
-                <div className="min-w-0">
-                  <p className="dashboard-eyebrow">Próx. audiencia</p>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
-                    {proximaAudiencia
-                      ? new Date(proximaAudiencia.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-                      : <span className="text-zinc-700 dark:text-zinc-300">—</span>}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 app-card px-3 py-2">
-                <User className="h-4 w-4 text-zinc-700 dark:text-zinc-300 shrink-0" />
-                <div className="min-w-0">
-                  <p className="dashboard-eyebrow">Responsable</p>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
-                    {responsable ? `${responsable.apellido}` : <span className="text-amber-400">Sin asignar</span>}
-                  </p>
-                </div>
-              </div>
-            </>
-          )
-        })()}
-      </div>
-
-      {/* Ficha del caso: de qué trata y en qué está */}
-      <FichaCaso expedienteId={id!} etapa={(expediente as { etapa_procesal?: string | null }).etapa_procesal ?? null} tieneSae={tieneSae} />
-
-      {/* Expedientes parecidos en tu corpus (cross-expediente, colapsable) */}
-      <ExpedienteSimilaresPanel expedienteId={id!} />
-
       {/* Tabs */}
       <div className="relative border-b border-zinc-200 dark:border-white/10 sticky top-0 z-10 bg-[var(--layout-bg)]/95 backdrop-blur-sm -mx-4 px-4 sm:-mx-6 sm:px-6">
         <nav className="flex gap-0.5 overflow-x-auto -mb-px no-scrollbar scroll-smooth">
@@ -488,8 +411,7 @@ export default function ExpedienteDetailPage() {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             let count: number | null = null
-            if (tab.id === 'agenda') count = tareas.length
-            if (tab.id === 'audiencias-grabadas') count = audiencias.length
+            if (tab.id === 'agenda') count = tareasPendientes
 
             return (
               <button
@@ -528,69 +450,116 @@ export default function ExpedienteDetailPage() {
 
       {/* Tab Content */}
       <div className="mt-4">
-        {activeTab === 'datos' && (
-          <div className="space-y-4">
-            <EtapaProcesalPanel expedienteId={id!} etapaActual={(expediente as any).etapa_procesal ?? null} />
-            <TabGeneral expediente={expediente as any} />
-            <Card title="Línea de tiempo">
-              {timelineLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-300" />
-                </div>
-              ) : (
-                <TimelineExpediente events={timeline ?? []} />
-              )}
-            </Card>
-          </div>
-        )}
-        {activeTab === 'proceso' && (
-          <TabProceso expedienteId={id!} expediente={expediente as any} />
-        )}
-        {activeTab === 'actuaciones' && (
-          <TabActuaciones
-            expedienteId={id!}
-            numeroSae={(expediente as any).numero_sae ?? null}
-            ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
-            highlightMovementId={highlightMovementId}
-            onVerEscritos={() => setActiveTab('escritos')}
+        {activeTab === 'resumen' && <ResumenExpediente expediente={expediente} onIrA={irA} />}
+        {activeTab === 'expediente' && (
+          <SubTabs
+            value={subTabs.expediente}
+            onChange={setSub('expediente')}
+            tabs={[
+              {
+                id: 'actuaciones',
+                label: tieneSae ? 'Actuaciones del SAE' : 'Actuaciones',
+                render: () => (
+                  <TabActuaciones
+                    expedienteId={id!}
+                    numeroSae={(expediente as any).numero_sae ?? null}
+                    ultimaSincronizacion={(expediente as any).ultima_sincronizacion_sae ?? null}
+                    highlightMovementId={highlightMovementId}
+                    onVerEscritos={() => irA('escritos', 'escritos')}
+                  />
+                ),
+              },
+              { id: 'claves', label: 'Actuaciones claves', render: () => <TabActuacionesClaves expedienteId={id!} /> },
+              { id: 'proceso', label: 'Proceso', render: () => <TabProceso expedienteId={id!} expediente={expediente as any} /> },
+              { id: 'vision-ia', label: 'Análisis IA', render: () => <TabVisionIa expedienteId={id!} /> },
+              ...(esDirector
+                ? [{ id: 'novedades', label: 'Novedades', render: () => <NovedadesPanel expedienteId={id!} onBriefNeeded={() => irA('vision-ia')} /> }]
+                : []),
+              {
+                id: 'datos',
+                label: 'Datos e historial',
+                render: () => (
+                  <div className="space-y-4">
+                    <EtapaProcesalPanel expedienteId={id!} etapaActual={(expediente as any).etapa_procesal ?? null} />
+                    <TabGeneral expediente={expediente as any} />
+                    <Card title="Historial interno">
+                      {timelineLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-5 w-5 animate-spin text-zinc-700 dark:text-zinc-300" />
+                        </div>
+                      ) : (
+                        <TimelineExpediente events={timeline ?? []} />
+                      )}
+                    </Card>
+                  </div>
+                ),
+              },
+            ]}
           />
         )}
-        {activeTab === 'claves' && <TabActuacionesClaves expedienteId={id!} />}
-        {activeTab === 'audiencias-grabadas' && <TabTurnos audiencias={audiencias} expedienteId={id!} mode="grabadas" />}
         {activeTab === 'agenda' && (
-          <div className="space-y-4">
-            <TabTareas
-              tareas={tareas}
-              expedienteId={id!}
-              expedienteInfo={{
-                id: expediente.id,
-                numero: (expediente as any).numero,
-                caratula: expediente.caratula,
-                clientes: expediente.clientes
-                  ? {
-                      id: expediente.clientes.id,
-                      nombre: expediente.clientes.nombre,
-                      apellido: expediente.clientes.apellido,
-                      dni: expediente.clientes.dni,
-                      cuil: expediente.clientes.cuil,
-                    }
-                  : null,
-              }}
-            />
-            <TabTurnos audiencias={audiencias} expedienteId={id!} mode="agenda" />
-          </div>
-        )}
-        {activeTab === 'escritos' && <EscritosNotasTab expedienteId={id!} />}
-        {activeTab === 'documentos' && (
-          <DocumentosJuridicosTab
-            expedienteId={id!}
-            clienteNombre={(expediente as { clientes?: { nombre?: string | null } | null }).clientes?.nombre ?? null}
-            clienteTelefono={(expediente as { clientes?: { telefono?: string | null } | null }).clientes?.telefono ?? null}
+          <SubTabs
+            value={subTabs.agenda}
+            onChange={setSub('agenda')}
+            tabs={[
+              {
+                id: 'agenda',
+                label: 'Tareas y audiencias',
+                render: () => (
+                  <div className="space-y-4">
+                    <TabTareas
+                      tareas={tareas}
+                      expedienteId={id!}
+                      expedienteInfo={{
+                        id: expediente.id,
+                        numero: (expediente as any).numero,
+                        caratula: expediente.caratula,
+                        clientes: expediente.clientes
+                          ? {
+                              id: expediente.clientes.id,
+                              nombre: expediente.clientes.nombre,
+                              apellido: expediente.clientes.apellido,
+                              dni: expediente.clientes.dni,
+                              cuil: expediente.clientes.cuil,
+                            }
+                          : null,
+                      }}
+                    />
+                    <TabTurnos audiencias={audiencias} expedienteId={id!} mode="agenda" />
+                  </div>
+                ),
+              },
+              { id: 'grabadas', label: 'Audiencias grabadas', render: () => <TabTurnos audiencias={audiencias} expedienteId={id!} mode="grabadas" /> },
+            ]}
           />
         )}
-        {activeTab === 'vision-ia' && <TabVisionIa expedienteId={id!} />}
+        {activeTab === 'escritos' && (
+          <SubTabs
+            value={subTabs.escritos}
+            onChange={setSub('escritos')}
+            tabs={[
+              { id: 'escritos', label: 'Escritos', render: () => <TabEscritos expedienteId={id!} /> },
+              { id: 'notas', label: 'Notas', render: () => <ComentariosPanel expedienteId={id!} /> },
+              {
+                id: 'cliente',
+                label: 'Documentación del cliente',
+                render: () => (
+                  <Card title="Documentación del cliente">
+                    <DocumentacionRequerida
+                      caso={{ expedienteId: id! }}
+                      clienteNombre={(expediente as { clientes?: { nombre?: string | null } | null }).clientes?.nombre ?? null}
+                      clienteTelefono={(expediente as { clientes?: { telefono?: string | null } | null }).clientes?.telefono ?? null}
+                    />
+                  </Card>
+                ),
+              },
+              { id: 'documentos', label: 'Documentos', render: () => <TabDocumentos expedienteId={id!} /> },
+              { id: 'normativa', label: 'Normativa', render: () => <TabNormativa expedienteId={id!} /> },
+              { id: 'jurisprudencia', label: 'Jurisprudencia', render: () => <TabJurisprudencia expedienteId={id!} /> },
+            ]}
+          />
+        )}
         {activeTab === 'caja' && <TabCaja expedienteId={id!} />}
-        {activeTab === 'novedades' && esDirector && <NovedadesPanel expedienteId={id!} onBriefNeeded={() => setActiveTab('vision-ia')} />}
       </div>
 
       {/* Change Estado Dialog */}
@@ -724,21 +693,24 @@ export default function ExpedienteDetailPage() {
 // Sub-solapas (filtro segmentado) para agrupar tabs relacionadas
 // ---------------------------------------------------------------------------
 
-function SubTabs({ tabs }: { tabs: { id: string; label: string; render: () => ReactNode }[] }) {
-  const [sub, setSub] = useState(tabs[0]?.id)
-  const active = tabs.find((t) => t.id === sub) ?? tabs[0]
+function SubTabs({ tabs, value, onChange }: {
+  tabs: { id: string; label: string; render: () => ReactNode }[]
+  value?: string
+  onChange: (id: string) => void
+}) {
+  const active = tabs.find((t) => t.id === value) ?? tabs[0]
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
         {tabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => setSub(t.id)}
+            onClick={() => onChange(t.id)}
             className={cn(
-              'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-              sub === t.id
-                ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-200'
-                : 'border-white/10 bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10',
+              'shrink-0 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+              active?.id === t.id
+                ? 'border-[var(--brand-navy)] bg-[var(--brand-navy)] text-white dark:border-cyan-400/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10',
             )}
           >
             {t.label}
@@ -747,41 +719,5 @@ function SubTabs({ tabs }: { tabs: { id: string; label: string; render: () => Re
       </div>
       <div>{active?.render()}</div>
     </div>
-  )
-}
-
-function EscritosNotasTab({ expedienteId }: { expedienteId: string }) {
-  return (
-    <SubTabs
-      tabs={[
-        { id: 'escritos', label: 'Escritos', render: () => <TabEscritos expedienteId={expedienteId} /> },
-        { id: 'notas', label: 'Notas', render: () => <ComentariosPanel expedienteId={expedienteId} /> },
-      ]}
-    />
-  )
-}
-
-function DocumentosJuridicosTab({ expedienteId, clienteNombre, clienteTelefono }: {
-  expedienteId: string
-  clienteNombre: string | null
-  clienteTelefono: string | null
-}) {
-  return (
-    <SubTabs
-      tabs={[
-        {
-          id: 'cliente',
-          label: 'Documentación del cliente',
-          render: () => (
-            <Card title="Documentación del cliente">
-              <DocumentacionRequerida caso={{ expedienteId }} clienteNombre={clienteNombre} clienteTelefono={clienteTelefono} />
-            </Card>
-          ),
-        },
-        { id: 'documentos', label: 'Documentos', render: () => <TabDocumentos expedienteId={expedienteId} /> },
-        { id: 'normativa', label: 'Normativa', render: () => <TabNormativa expedienteId={expedienteId} /> },
-        { id: 'jurisprudencia', label: 'Jurisprudencia', render: () => <TabJurisprudencia expedienteId={expedienteId} /> },
-      ]}
-    />
   )
 }

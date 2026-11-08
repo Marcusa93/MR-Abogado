@@ -2,13 +2,15 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { EstadoBadge } from '@/components/shared/estado-badge'
 import { PrioridadBadge } from '@/components/shared/prioridad-badge'
-import { SemaforoBadge } from '@/components/shared/semaforo-badge'
+import { SaludDot, SaludMotivo } from '@/components/expedientes/salud-indicador'
+import { TableroEtapas } from '@/components/expedientes/tablero-etapas'
+import { useExpedientesSalud, type SaludExpediente } from '@/hooks/use-expediente-salud'
+import { useAuth } from '@/hooks/use-auth'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { ExpedienteFilters } from '@/components/expedientes/expediente-filters'
 import { FavoritoStar } from '@/components/expedientes/favorito-star'
-import { calcularSemaforo } from '@/lib/utils/semaforo'
 import { getExpedienteRowClass } from '@/lib/utils/estado-colors'
 import { formatDateShort } from '@/lib/utils/date-helpers'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
@@ -36,6 +38,7 @@ import {
   ArrowDown,
   LayoutGrid,
   LayoutList,
+  Columns3,
   X,
   Loader2,
   RefreshCw,
@@ -124,16 +127,10 @@ function SortHeader({
 // Card view for mobile
 // ---------------------------------------------------------------------------
 
-function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () => void }) {
+function ExpedienteCard({ expediente, salud, onClick }: { expediente: any; salud?: SaludExpediente; onClick: () => void }) {
   const cliente = expediente.clientes
   const tipo = expediente.tipos_tramite
   const organismo = expediente.organismo
-  const semaforoColor = calcularSemaforo({
-    estado_interno: expediente.estado_interno,
-    audiencias: expediente.audiencias ?? [],
-    tareas: expediente.tareas ?? [],
-  })
-
   const clienteFull = cliente ? `${cliente.apellido ?? ''} ${cliente.nombre ?? ''}`.trim() : ''
   const title = expediente.caratula || clienteFull || expediente.numero || '-'
   const hasSae = !!(expediente.numero_sae || expediente.ultima_sincronizacion_sae)
@@ -156,7 +153,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
     >
       {/* Fila principal */}
       <div className="flex items-start gap-3 p-4 pb-3">
-        <SemaforoBadge color={semaforoColor} />
+        <SaludDot salud={salud} className="mt-1.5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2 flex-wrap">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate flex-1 min-w-0">
@@ -176,6 +173,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
           {clienteFull && title !== clienteFull && (
             <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-0.5 truncate">{clienteFull}</p>
           )}
+          <SaludMotivo salud={salud} className="mt-1" />
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             <EstadoBadge estado={expediente.estado_interno} compact />
             <PrioridadBadge prioridad={expediente.prioridad} compact />
@@ -210,6 +208,72 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 }
 
 // ---------------------------------------------------------------------------
+// Filtros rápidos (un toque)
+// ---------------------------------------------------------------------------
+
+function FiltrosRapidos({ filters, setFilters, saludMap, profileId }: {
+  filters: ExpedientesFilters
+  setFilters: React.Dispatch<React.SetStateAction<ExpedientesFilters>>
+  saludMap?: Map<string, SaludExpediente>
+  profileId: string | null
+}) {
+  const valores = saludMap ? [...saludMap.values()] : []
+  const n = {
+    urgentes: valores.filter((v) => v.semaforo === 'rojo').length,
+    atencion: valores.filter((v) => v.semaforo === 'amarillo').length,
+    dormidos: valores.filter((v) => v.dormido).length,
+  }
+  const chips: { id: string; label: string; activo: boolean; count?: number; dot?: string; onClick: () => void }[] = [
+    {
+      id: 'todos', label: 'Todos',
+      activo: !filters.salud && !filters.abogado_id && !filters.estado_interno && !filters.favoritos,
+      onClick: () => setFilters((p) => ({ ...p, salud: null, abogado_id: null, estado_interno: null, favoritos: null, page: 1 })),
+    },
+    ...(profileId ? [{
+      id: 'mios', label: 'Míos', activo: filters.abogado_id === profileId,
+      onClick: () => setFilters((p) => ({ ...p, abogado_id: p.abogado_id === profileId ? null : profileId, page: 1 })),
+    }] : []),
+    {
+      id: 'urgentes', label: 'Urgentes', activo: filters.salud === 'urgentes', count: n.urgentes, dot: 'bg-rose-500',
+      onClick: () => setFilters((p) => ({ ...p, salud: p.salud === 'urgentes' ? null : 'urgentes', page: 1 })),
+    },
+    {
+      id: 'atencion', label: 'Requieren atención', activo: filters.salud === 'atencion', count: n.atencion, dot: 'bg-amber-400',
+      onClick: () => setFilters((p) => ({ ...p, salud: p.salud === 'atencion' ? null : 'atencion', page: 1 })),
+    },
+    {
+      id: 'dormidos', label: 'Dormidos', activo: filters.salud === 'dormidos', count: n.dormidos,
+      onClick: () => setFilters((p) => ({ ...p, salud: p.salud === 'dormidos' ? null : 'dormidos', page: 1 })),
+    },
+    {
+      id: 'iniciar', label: 'Para iniciar', activo: filters.estado_interno === 'PARA_INICIAR',
+      onClick: () => setFilters((p) => ({ ...p, estado_interno: p.estado_interno === 'PARA_INICIAR' ? null : 'PARA_INICIAR', page: 1 })),
+    },
+  ]
+  return (
+    <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0">
+      {chips.map((c) => (
+        <button
+          key={c.id}
+          onClick={c.onClick}
+          aria-pressed={c.activo}
+          className={cn(
+            'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+            c.activo
+              ? 'border-[var(--brand-navy)] bg-[var(--brand-navy)] text-white dark:border-white dark:bg-white dark:text-[var(--brand-navy)]'
+              : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10',
+          )}
+        >
+          {c.dot && <span className={cn('h-2 w-2 rounded-full', c.dot)} />}
+          {c.label}
+          {c.count != null && c.count > 0 && <span className={cn('tabular-nums', c.activo ? 'opacity-80' : 'text-zinc-400 dark:text-zinc-500')}>{c.count}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -217,7 +281,7 @@ function ExpedienteCard({ expediente, onClick }: { expediente: any; onClick: () 
 // URL ↔ Filter sync helpers
 // ---------------------------------------------------------------------------
 
-const FILTER_PARAMS = ['tipo_tramite_id', 'tipo_proceso_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'favoritos', 'sortBy', 'sortOrder', 'page'] as const
+const FILTER_PARAMS = ['tipo_tramite_id', 'tipo_proceso_id', 'estado_interno', 'abogado_id', 'prioridad', 'fuero', 'search', 'favoritos', 'salud', 'sortBy', 'sortOrder', 'page'] as const
 
 function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   const f: ExpedientesFilters = { page: 1, pageSize: DEFAULT_PAGE_SIZE }
@@ -236,6 +300,8 @@ function filtersFromParams(params: URLSearchParams): ExpedientesFilters {
   const search = params.get('search')
   if (search) f.search = search
   if (params.get('favoritos') === 'true') f.favoritos = true
+  const salud = params.get('salud')
+  if (salud === 'urgentes' || salud === 'atencion' || salud === 'dormidos') f.salud = salud
   const sortBy = params.get('sortBy')
   if (sortBy) f.sortBy = sortBy as SortField
   const sortOrder = params.get('sortOrder')
@@ -278,7 +344,10 @@ export default function ExpedientesPage() {
     }
   }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const enTablero = viewMode === 'etapas'
   const { data, isLoading, isFetching, isError, error, refetch } = useExpedientes(filters)
+  const { data: saludMap } = useExpedientesSalud(null)
+  const { profile } = useAuth()
 
   const handleFilterChange = useCallback((newFilters: ExpedientesFilters) => {
     setFilters((prev) => ({ ...prev, ...newFilters }))
@@ -310,34 +379,36 @@ export default function ExpedientesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Vista toggle */}
-          <div className="hidden sm:flex items-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-0.5">
-            <button
-              onClick={() => setViewMode('table')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'table'
-                  ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
-                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
-              )}
-              title="Vista tabla"
-              aria-pressed={viewMode === 'table'}
-            >
-              <LayoutList className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={cn(
-                'rounded-md p-1.5 transition-colors',
-                viewMode === 'cards'
-                  ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
-                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
-              )}
-              title="Vista tarjetas"
-              aria-pressed={viewMode === 'cards'}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
+          {/* Vista: lista, tarjetas o tablero por etapa */}
+          <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-0.5">
+            {([
+              { modo: 'table', icon: LayoutList, label: 'Lista', soloDesktop: true },
+              { modo: 'cards', icon: LayoutGrid, label: 'Tarjetas', soloDesktop: false },
+              { modo: 'etapas', icon: Columns3, label: 'Por etapa', soloDesktop: false },
+            ] as const).map(({ modo, icon: Icon, label, soloDesktop }) => {
+              const activo = viewMode === modo
+              return (
+                <button
+                  key={modo}
+                  onClick={() => setViewMode(modo)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                    soloDesktop && 'hidden sm:flex',
+                    activo
+                      ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
+                      : modo === 'cards' && viewMode === 'table'
+                        // En el celular la lista se ve como tarjetas
+                        ? 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10 max-sm:bg-[var(--brand-navy)] max-sm:text-white max-sm:dark:bg-white max-sm:dark:text-[var(--brand-navy)]'
+                        : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
+                  )}
+                  title={label}
+                  aria-pressed={activo}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className={cn(modo !== 'etapas' && 'sr-only')}>{label}</span>
+                </button>
+              )
+            })}
           </div>
           <button
             onClick={async () => {
@@ -375,11 +446,15 @@ export default function ExpedientesPage() {
         </div>
       </div>
 
+      {/* Filtros rápidos */}
+      <FiltrosRapidos filters={filters} setFilters={setFilters} saludMap={saludMap} profileId={profile?.id ?? null} />
+
       {/* Filters */}
       <ExpedienteFilters filters={filters} onChange={handleFilterChange} />
 
-      {/* Table */}
-      {isLoading ? (
+      {enTablero ? (
+        <TableroEtapas filters={filters} />
+      ) : isLoading ? (
         <TableSkeleton rows={8} columns={7} />
       ) : isError ? (
         <ErrorState
@@ -467,6 +542,7 @@ export default function ExpedientesPage() {
                 <ExpedienteCard
                   key={expediente.id}
                   expediente={expediente}
+                  salud={saludMap?.get(expediente.id)}
                   onClick={() => navigate(`/expedientes/${expediente.id}`)}
                 />
               ))}
@@ -479,6 +555,7 @@ export default function ExpedientesPage() {
                 <ExpedienteCard
                   key={expediente.id}
                   expediente={expediente}
+                  salud={saludMap?.get(expediente.id)}
                   onClick={() => navigate(`/expedientes/${expediente.id}`)}
                 />
               ))}
@@ -549,11 +626,7 @@ export default function ExpedientesPage() {
                   const initials = cliente
                     ? `${(cliente.apellido?.[0] ?? '').toUpperCase()}${(cliente.nombre?.[0] ?? '').toUpperCase()}`
                     : '??'
-                  const semaforoColor = calcularSemaforo({
-                    estado_interno: expediente.estado_interno,
-                    audiencias: expediente.audiencias ?? [],
-                    tareas: expediente.tareas ?? [],
-                  })
+                  const salud = saludMap?.get(expediente.id)
 
                   return (
                     <tr
@@ -593,6 +666,7 @@ export default function ExpedientesPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <FavoritoStar expedienteId={expediente.id} className="-ml-2 -mr-1" />
+                          <SaludDot salud={salud} />
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-bold text-amber-400">
                             {initials}
                           </div>
@@ -624,6 +698,7 @@ export default function ExpedientesPage() {
                                 {(expediente as any).organismo.nombre}
                               </p>
                             )}
+                            <SaludMotivo salud={salud} className="mt-0.5 max-w-[420px]" />
                           </div>
                           {cliente?.telefono && (
                             <div onClick={(e) => e.stopPropagation()}>

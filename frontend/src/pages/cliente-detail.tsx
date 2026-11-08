@@ -3,10 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useRegistrarAcceso } from '@/hooks/use-audit-log'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { CuentaCorriente } from '@/components/caja/cuenta-corriente'
+import { SituacionCliente } from '@/components/clientes/situacion-cliente'
 import { ESTADO_CIVIL_LABELS, type EstadoCivil } from '@/types/enums'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
-import { EstadoBadge } from '@/components/shared/estado-badge'
-import { PrioridadBadge } from '@/components/shared/prioridad-badge'
 import { DetailSkeleton } from '@/components/shared/loading-skeleton'
 import { EmptyState } from '@/components/shared/empty-state'
 import { WhatsAppButtons } from '@/components/shared/whatsapp-button'
@@ -14,7 +13,7 @@ import { EditarClienteDialog } from '@/components/clientes/editar-cliente-dialog
 import { useCliente, useDeleteCliente } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
-import { formatDate, daysAgo, timeAgo } from '@/lib/utils/date-helpers'
+import { formatDate, daysAgo } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import {
   Edit,
@@ -27,9 +26,7 @@ import {
   Calendar,
   Heart,
   Briefcase,
-  FileText,
   AlertCircle,
-  ChevronRight,
   Loader2,
   Key,
   Eye,
@@ -103,7 +100,7 @@ function calcularEdad(fechaNacimiento: string | null): string {
 // ─── Tab definitions ──────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'expedientes', label: 'Expedientes', icon: FolderOpen },
+  { id: 'expedientes', label: 'Situación', icon: FolderOpen },
   { id: 'datos',       label: 'Datos',       icon: User },
   { id: 'contacto',    label: 'Contacto',    icon: Phone },
   { id: 'notas',       label: 'Notas',       icon: StickyNote },
@@ -275,7 +272,7 @@ export default function ClienteDetailPage() {
       {/* Tab content */}
       <div>
         {activeTab === 'expedientes' && (
-          <ExpedientesTab expedientes={expedientes} navigate={navigate} />
+          <SituacionCliente clienteId={cliente.id} expedientes={expedientes} tieneAccesoCaja={!!tieneAccesoCaja} />
         )}
         {activeTab === 'datos' && <DatosTab cliente={cliente} />}
         {activeTab === 'contacto' && <ContactoTab cliente={cliente} />}
@@ -335,103 +332,6 @@ export default function ClienteDetailPage() {
 }
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────
-
-function ExpedientesTab({
-  expedientes, navigate,
-}: {
-  expedientes: any[]
-  navigate: (path: string) => void
-}) {
-  if (expedientes.length === 0) {
-    return (
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-8">
-        <EmptyState
-          icon={FolderOpen}
-          title="Sin expedientes"
-          description="Este cliente no tiene expedientes asociados."
-          actionLabel="Crear expediente"
-          onAction={() => navigate('/expedientes/nuevo')}
-        />
-      </div>
-    )
-  }
-
-  // Agrupar por estado
-  const activos = expedientes.filter(e =>
-    !['FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'].includes(e.estado_interno),
-  )
-  const otros = expedientes.filter(e =>
-    ['FINALIZADO', 'NO_VIABLE_RECHAZADO', 'PAUSADO'].includes(e.estado_interno),
-  )
-
-  return (
-    <div className="space-y-4">
-      {activos.length > 0 && (
-        <ExpedientesGroup title="Activos" count={activos.length} expedientes={activos} navigate={navigate} />
-      )}
-      {otros.length > 0 && (
-        <ExpedientesGroup title="Finalizados / Pausados" count={otros.length} expedientes={otros} navigate={navigate} dimmed />
-      )}
-    </div>
-  )
-}
-
-function ExpedientesGroup({
-  title, count, expedientes, navigate, dimmed = false,
-}: {
-  title: string
-  count: number
-  expedientes: any[]
-  navigate: (path: string) => void
-  dimmed?: boolean
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 overflow-hidden">
-      <div className="border-b border-zinc-200 dark:border-white/5 px-4 py-2.5 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          {title}
-          <span className="ml-2 text-zinc-400 normal-case font-normal">({count})</span>
-        </h3>
-      </div>
-      <ul className={cn('divide-y divide-zinc-100 dark:divide-white/5', dimmed && 'opacity-70')}>
-        {expedientes.map(exp => (
-          <li
-            key={exp.id}
-            onClick={() => navigate(`/expedientes/${exp.id}`)}
-            className="px-4 py-3 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-                <FileText className="h-4 w-4 text-amber-500" />
-              </div>
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 break-words line-clamp-2">
-                  {exp.caratula || exp.numero}
-                </p>
-                <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
-                  {exp.numero && <span className="font-mono">{exp.numero}</span>}
-                  {(exp.fecha_alta || exp.fecha_inicio) && (
-                    <>
-                      {exp.numero && <span className="text-zinc-300 dark:text-zinc-600">·</span>}
-                      <span>
-                        {timeAgo(exp.fecha_alta ?? exp.fecha_inicio) ?? formatDate(exp.fecha_alta ?? exp.fecha_inicio)}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <EstadoBadge estado={exp.estado_interno} compact />
-                  <PrioridadBadge prioridad={exp.prioridad} compact />
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0 mt-1" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 function DatosTab({ cliente }: { cliente: any }) {
   return (

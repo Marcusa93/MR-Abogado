@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 type Theme = 'light' | 'dark' | 'system'
-type ExpedientesViewMode = 'table' | 'cards'
+type ExpedientesViewMode = 'table' | 'cards' | 'etapas'
 
 interface UIState {
   sidebarOpen: boolean
