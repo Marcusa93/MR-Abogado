@@ -9,6 +9,9 @@ import {
   useTableroDireccion, tableroDireccionKey,
   type ItemAtencion, type ItemLista, type MiembroEquipo, type TableroDireccion,
 } from '@/hooks/use-tablero-direccion'
+import { useAccesoEditorial } from '@/hooks/use-editorial'
+import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
+import { AvisoEditorial, RutinasEquipo } from '@/components/direccion/paneles-estudio'
 
 // Tablero de dirección: qué hay que resolver, cómo está el equipo y cómo está la plata.
 // Pensado para mirarlo una vez por semana (el mismo resumen llega los lunes por Telegram).
@@ -16,10 +19,11 @@ import {
 const pesos = (n: number) => '$ ' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(n))
 const dolares = (n: number) => 'US$ ' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(n))
 
-const card = 'rounded-2xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-900'
+const card = 'app-card'
 
 export default function DireccionPage() {
   const { data, isLoading, error } = useTableroDireccion()
+  const { data: accesoEditorial } = useAccesoEditorial()
 
   if (isLoading) {
     return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-zinc-400" /></div>
@@ -35,12 +39,15 @@ export default function DireccionPage() {
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Cómo está el estudio hoy</p>
       </div>
 
+      {accesoEditorial && <AvisoEditorial />}
       <Numeros data={data} />
       <ParaResolver items={data.atencion} />
       <div className="grid gap-5 lg:grid-cols-5">
         <div className={cn('min-w-0', data.plata ? 'lg:col-span-3' : 'lg:col-span-5')}><Equipo equipo={data.equipo} /></div>
         {data.plata && <div className="min-w-0 lg:col-span-2"><Plata plata={data.plata} /></div>}
       </div>
+      <CargaEquipoPanel />
+      <RutinasEquipo />
       <DatosFaltantes datos={data.datos} />
     </div>
   )

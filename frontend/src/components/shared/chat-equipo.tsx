@@ -343,7 +343,8 @@ function ChatPanel({ onClose, isMobile = false }: { onClose: () => void; isMobil
 // Floating button (draggable)
 // ---------------------------------------------------------------------------
 
-export function ChatEquipo() {
+/** Chat del estudio. En el encabezado (por defecto) o como burbuja flotante. */
+export function ChatEquipo({ enEncabezado = true }: { enEncabezado?: boolean } = {}) {
   const [open, setOpen] = useState(false)
   const { mensajes, profileId } = useChat()
 
@@ -397,6 +398,39 @@ export function ChatEquipo() {
         left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
         animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
       }
+
+  if (enEncabezado) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            'relative rounded-lg p-2 transition-colors hover:bg-zinc-100 dark:hover:bg-white/5',
+            open ? 'text-[var(--brand-accent)]' : 'text-zinc-600 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100',
+          )}
+          aria-label="Chat del estudio"
+          title="Chat del estudio"
+        >
+          <MessageCircle className="h-5 w-5" />
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded bg-rose-500 px-1 font-mono text-[10px] font-semibold text-white">
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
+        </button>
+        {open && createPortal(
+          <div style={isMobile
+            ? { position: 'fixed', inset: 0, zIndex: 101 }
+            : { position: 'fixed', top: '4rem', right: '1rem', zIndex: 101, animation: 'chat-slide-up 0.2s ease-out both' }}>
+            <ChatPanel onClose={() => setOpen(false)} isMobile={isMobile} />
+            <style>{`@keyframes chat-slide-up { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }`}</style>
+          </div>,
+          document.body,
+        )}
+      </>
+    )
+  }
 
   return createPortal(
     <>

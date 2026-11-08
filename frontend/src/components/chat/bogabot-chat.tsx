@@ -674,8 +674,8 @@ export function BogaBotChat() {
           'fixed z-50 flex items-center gap-2 shadow-lg',
           isDragging ? 'cursor-grabbing shadow-2xl' : 'cursor-grab transition-all duration-200 hover:scale-105',
           isOpen
-            ? 'h-11 w-11 sm:h-12 sm:w-12 justify-center rounded-full bg-zinc-700 hover:bg-zinc-600'
-            : 'rounded-full bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 pl-3 pr-4 py-2.5'
+            ? 'h-11 w-11 sm:h-12 sm:w-12 justify-center rounded-full border border-white/10 bg-zinc-800 hover:bg-zinc-700'
+            : 'rounded-full border border-cyan-400/30 bg-[#0d141b] pl-3 pr-4 py-2.5 shadow-[0_0_0_1px_rgb(92_200_232/8%),0_8px_24px_rgb(0_0_0/35%)] hover:border-cyan-300/50'
         )}
         title="BogaBot Asistente (Alt+N — arrastrá para mover)"
       >
@@ -683,8 +683,8 @@ export function BogaBotChat() {
           <X className="h-5 w-5 text-white" />
         ) : (
           <>
-            <BrainCircuit className="h-5 w-5 text-white" />
-            <span className="text-sm font-semibold text-white hidden sm:inline">BogaBot</span>
+            <BrainCircuit className="h-5 w-5 text-cyan-300" />
+            <span className="text-sm font-medium text-zinc-100 hidden sm:inline">BogaBot</span>
           </>
         )}
       </button>

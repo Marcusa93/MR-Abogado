@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useSaeCredential } from '@/hooks/use-sae'
-import { Database, AlertTriangle, CheckCircle2, CircleDashed, MinusCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, CircleDashed, MinusCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/utils/date-helpers'
 
@@ -51,13 +51,17 @@ export function SaeHealthBadge() {
       onClick={() => navigate('/configuracion?section=sae')}
       title={tooltipParts.join('\n')}
       className={cn(
-        'hidden md:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+        'hidden md:inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors',
         meta.tone,
       )}
     >
-      <Database className="h-3.5 w-3.5" />
       <Icon className="h-3 w-3" />
-      <span className="hidden lg:inline">{meta.label}</span>
+      <span className="font-mono text-[11px] tracking-wide">SAE</span>
+      {cred.last_sync_at && (
+        <span className="hidden font-mono text-[11px] opacity-70 lg:inline">
+          {new Date(cred.last_sync_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
     </button>
   )
 }

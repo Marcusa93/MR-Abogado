@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Sun, Calendar, CheckSquare, Sparkles, Users, ArrowRight, Plus,
-  AlertTriangle, Loader2, Clock, FolderOpen, FileText, RefreshCw, FolderPlus,
-  ChevronDown, ChevronRight, X, Check, Wallet, BarChart3,
+  Calendar, CheckSquare, Sparkles, Users, ArrowRight,
+  Loader2, Clock, FolderOpen, FileText, RefreshCw,
+  Check,
 } from 'lucide-react'
 import { useHoy, type HoyAudiencia, type HoyTarea, type HoyContenido } from '@/hooks/use-hoy'
 import { useConsultas, TIPO_ASUNTO_LABEL, ESTADO_LABEL } from '@/hooks/use-consultas'
@@ -12,24 +11,13 @@ import {
   useTareasRecurrentesHoy,
   useCompletadasHoy,
   useMarcarTareaRecurrente,
-  useTareasRecurrentesAdmin,
-  useCreateTareaRecurrente,
-  useDeleteTareaRecurrente,
   type TareaRecurrente,
 } from '@/hooks/use-tareas-recurrentes'
 import { useAuth } from '@/hooks/use-auth'
 import { createClient } from '@/lib/supabase/client'
-import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
-import { ProximosEventosPanel } from '@/components/dashboard/proximos-eventos-panel'
-import { ActuacionesRecientesPanel } from '@/components/dashboard/sae-actuaciones-recientes-panel'
-import { NotificacionesHoyPanel } from '@/components/dashboard/notificaciones-hoy-panel'
-import { TareasAsignadasPanel } from '@/components/dashboard/tareas-asignadas-panel'
-import { PlazosProximosPanel } from '@/components/dashboard/plazos-proximos-panel'
-import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
-import { useTieneAccesoCaja } from '@/hooks/use-caja'
-import { useCuentasSaldos } from '@/hooks/use-cuenta-corriente'
-import { useAccesoEditorial, usePropuestas } from '@/hooks/use-editorial'
+import { NovedadesSae } from '@/components/inicio/novedades-sae'
+import { ProximosDias } from '@/components/inicio/proximos-dias'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
 
@@ -90,16 +78,6 @@ const ESTADO_CONTENIDO_LABEL: Record<string, string> = {
   archivado: 'Archivado',
 }
 
-const FRECUENCIA_LABEL: Record<string, string> = {
-  diaria: 'Diaria',
-  'lun-vie': 'Lun–Vie',
-  lunes: 'Lunes',
-  martes: 'Martes',
-  miercoles: 'Miércoles',
-  jueves: 'Jueves',
-  viernes: 'Viernes',
-}
-
 // ---------------------------------------------------------------------------
 // Subcomponentes auxiliares
 // ---------------------------------------------------------------------------
@@ -136,61 +114,7 @@ function BadgeProximidad({ minutos }: { minutos: number }) {
   )
 }
 
-function StatChip({ label, value, icon: Icon, color, to }: {
-  label: string; value: number
-  icon: React.ComponentType<{ className?: string }>
-  color: 'cyan'|'emerald'|'amber'|'rose'|'violet'|'muted'
-  to?: string
-}) {
-  const colors = {
-    cyan: 'border-cyan-500/20 bg-cyan-500/[0.04] text-cyan-300',
-    emerald: 'border-emerald-500/20 bg-emerald-500/[0.04] text-emerald-300',
-    amber: 'border-amber-500/20 bg-amber-500/[0.04] text-amber-300',
-    rose: 'border-rose-500/30 bg-rose-500/[0.06] text-rose-300',
-    violet: 'border-violet-500/20 bg-violet-500/[0.04] text-violet-300',
-    muted: 'border-white/10 bg-white/[0.02] text-zinc-400',
-  }[color]
-  const inner = (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wider opacity-80">{label}</p>
-        <Icon className="h-4 w-4 opacity-80" />
-      </div>
-      <p className="mt-1 text-2xl font-extrabold text-zinc-50 tabular-nums">{value.toLocaleString('es-AR')}</p>
-    </>
-  )
-  if (to) {
-    return (
-      <Link to={to} className={cn('rounded-xl border px-4 py-3 hover:opacity-80 transition-opacity', colors)}>
-        {inner}
-      </Link>
-    )
-  }
-  return <div className={cn('rounded-xl border px-4 py-3', colors)}>{inner}</div>
-}
 
-function QuickAction({ to, icon: Icon, label, color }: {
-  to: string
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  color: 'emerald'|'cyan'|'violet'|'rose'
-}) {
-  const cls = {
-    emerald: 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25',
-    cyan: 'bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25',
-    violet: 'bg-violet-500/15 text-violet-300 hover:bg-violet-500/25',
-    rose: 'bg-rose-500/15 text-rose-300 hover:bg-rose-500/25',
-  }[color]
-  return (
-    <Link
-      to={to}
-      className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors', cls)}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </Link>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Checklist hoy — tareas recurrentes
@@ -264,170 +188,9 @@ function ChecklistHoy({ perfilId }: { perfilId: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Admin checklist panel
-// ---------------------------------------------------------------------------
-
-interface PerfilAdmin {
-  id: string
-  nombre: string | null
-  apellido: string | null
-  activo: boolean
-}
-
-function usePerfilesActivos() {
-  const supabase = createClient()
-  return useQuery<PerfilAdmin[]>({
-    queryKey: ['perfiles-activos-admin'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, nombre, apellido, activo')
-        .eq('activo', true)
-        .order('apellido', { ascending: true })
-      if (error) throw error
-      return (data ?? []) as PerfilAdmin[]
-    },
-    staleTime: 5 * 60_000,
-  })
-}
-
-function ColapsableAdminChecklist() {
-  const [open, setOpen] = useState(false)
-  const [addingForPerfil, setAddingForPerfil] = useState<string | null>(null)
-  const [newTitulo, setNewTitulo] = useState('')
-  const [newFrecuencia, setNewFrecuencia] = useState<TareaRecurrente['frecuencia']>('lun-vie')
-
-  const { data: perfiles = [] } = usePerfilesActivos()
-  const { data: tareasAdmin = [] } = useTareasRecurrentesAdmin()
-  const crear = useCreateTareaRecurrente()
-  const borrar = useDeleteTareaRecurrente()
-
-  async function handleCrear(perfilId: string) {
-    if (!newTitulo.trim()) return
-    try {
-      await crear.mutateAsync({ perfil_id: perfilId, titulo: newTitulo.trim(), frecuencia: newFrecuencia })
-      setNewTitulo('')
-      setAddingForPerfil(null)
-    } catch {
-      toast.error('No se pudo crear la tarea')
-    }
-  }
-
-  async function handleBorrar(id: string) {
-    if (!window.confirm('¿Eliminar esta tarea recurrente?')) return
-    try {
-      await borrar.mutateAsync(id)
-    } catch {
-      toast.error('No se pudo eliminar')
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
-      >
-        <span>Gestionar rutinas del equipo</span>
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-      </button>
-
-      {open && (
-        <div className="border-t border-white/10 px-4 pb-4 space-y-4 pt-3">
-          {perfiles.map(perfil => {
-            const tareasPerfil = tareasAdmin.filter(t => t.perfil_id === perfil.id)
-            return (
-              <div key={perfil.id}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-zinc-300">
-                    {[perfil.apellido, perfil.nombre].filter(Boolean).join(', ')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => { setAddingForPerfil(perfil.id); setNewTitulo(''); setNewFrecuencia('lun-vie') }}
-                    className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300"
-                  >
-                    <Plus className="h-3 w-3" /> Nueva tarea
-                  </button>
-                </div>
-                <div className="space-y-1">
-                  {tareasPerfil.map(t => (
-                    <div key={t.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
-                      <span className="flex-1 text-xs text-zinc-200">{t.titulo}</span>
-                      <span className="shrink-0 text-[10px] text-zinc-500">{FRECUENCIA_LABEL[t.frecuencia]}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleBorrar(t.id)}
-                        className="shrink-0 text-zinc-600 hover:text-rose-400 transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {tareasPerfil.length === 0 && (
-                    <p className="text-[11px] text-zinc-600 pl-1">Sin tareas configuradas</p>
-                  )}
-                </div>
-                {addingForPerfil === perfil.id && (
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      type="text"
-                      value={newTitulo}
-                      onChange={e => setNewTitulo(e.target.value)}
-                      placeholder="Título de la tarea"
-                      autoFocus
-                      className="flex-1 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                    <select
-                      value={newFrecuencia}
-                      onChange={e => setNewFrecuencia(e.target.value as TareaRecurrente['frecuencia'])}
-                      className="rounded-lg border border-white/10 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none"
-                    >
-                      {Object.entries(FRECUENCIA_LABEL).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleCrear(perfil.id)}
-                      disabled={crear.isPending || !newTitulo.trim()}
-                      className="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg disabled:opacity-50"
-                    >
-                      {crear.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Agregar'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddingForPerfil(null)}
-                      className="px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-300"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // MisTareasActivas
 // ---------------------------------------------------------------------------
 
-interface TareaActiva {
-  id: string
-  titulo: string
-  descripcion: string | null
-  prioridad: string
-  vence_el: string | null
-  estado: string
-  expediente_id: string | null
-  expedientes: { caratula: string | null } | null
-}
 
 interface ConsultaAsignada {
   id: string
@@ -721,186 +484,76 @@ function ContenidosPendientes({ items }: { items: HoyContenido[] }) {
 // Página principal
 // ---------------------------------------------------------------------------
 
-const fmtARS = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
-
-/** Propuestas editoriales nuevas (solo quien tiene acceso editorial). */
-function AvisoEditorial() {
-  const { data: propuestas = [] } = usePropuestas()
-  const nuevas = propuestas.filter((p) => p.estado === 'propuesta')
-  if (nuevas.length === 0) return null
-  const deSentencia = nuevas.filter((p) => p.origen === 'sentencia').length
-  return (
-    <Link to="/editorial" className="dashboard-panel flex items-center gap-3 rounded-[1.25rem] px-4 py-3 hover:opacity-90">
-      <FileText className="h-4 w-4 shrink-0 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-      <span className="flex-1 text-sm text-zinc-800 dark:text-zinc-200">
-        <span className="font-semibold">{nuevas.length} {nuevas.length === 1 ? 'propuesta editorial' : 'propuestas editoriales'}</span>
-        {deSentencia > 0 && ` (${deSentencia} por ${deSentencia === 1 ? 'una sentencia nueva' : 'sentencias nuevas'})`}
-        <span className="text-zinc-500"> · {nuevas[0].titulo.slice(0, 80)}{nuevas.length > 1 ? '…' : ''}</span>
-      </span>
-      <ArrowRight className="h-4 w-4 text-zinc-400" />
-    </Link>
-  )
-}
-
-/** Lo que le deben al estudio (cuentas corrientes). Solo con acceso a caja. */
-function CobrosPendientes() {
-  const { data: saldos = [], isLoading } = useCuentasSaldos()
-  if (isLoading) return null
-  const deuda = saldos.reduce((a, s) => a + Math.max(s.saldo_ars, 0), 0)
-  const vencido = saldos.reduce((a, s) => a + s.vencido_ars, 0)
-  const deudores = saldos.filter((s) => s.saldo_ars > 0 || s.saldo_usd > 0)
-  const top = [...saldos].filter((s) => s.vencido_ars > 0).sort((a, b) => b.vencido_ars - a.vencido_ars).slice(0, 4)
-  return (
-    <div className="dashboard-panel rounded-[1.5rem] px-5 py-4">
-      <div className="flex items-center gap-2">
-        <Wallet className="h-4 w-4 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" />
-        <h3 className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Cobros pendientes</h3>
-        <Link to="/caja" className="dashboard-link inline-flex items-center gap-1 text-[11px] font-semibold">
-          Cuentas corrientes <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Te deben</p><p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{fmtARS(deuda)}</p></div>
-        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Vencido</p><p className={cn('text-sm font-semibold tabular-nums', vencido > 0 ? 'text-rose-500 dark:text-rose-400' : 'text-zinc-500')}>{fmtARS(vencido)}</p></div>
-        <div><p className="text-[10px] uppercase tracking-wider text-zinc-500">Clientes</p><p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{deudores.length}</p></div>
-      </div>
-      {top.length > 0 && (
-        <ul className="mt-3 space-y-1 text-xs">
-          {top.map((s) => (
-            <li key={s.cliente_id} className="flex justify-between gap-2">
-              <Link to={`/clientes/${s.cliente_id}?tab=cuenta`} className="truncate text-zinc-700 hover:underline dark:text-zinc-300">
-                {s.apellido ? `${s.apellido}, ${s.nombre ?? ''}` : (s.nombre ?? 'Cliente')}
-              </Link>
-              <span className="shrink-0 tabular-nums text-rose-500 dark:text-rose-400">{fmtARS(s.vencido_ars)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
 
 export default function HoyPage() {
   const { profile } = useAuth()
   const { data, isLoading, isError, refetch, isFetching } = useHoy()
+  const qc = useQueryClient()
 
-  const isAdmin = profile?.rol === 'ADMIN' || profile?.rol === 'DIRECTOR'
   const isSecretaria = profile?.rol === 'SECRETARIA'
-  // Abogados y dirección: plazos procesales por vencer
-  const esLetrado = !isSecretaria && profile?.rol !== 'CRITERIO'
-  const { data: tieneAccesoCaja } = useTieneAccesoCaja()
-  const { data: accesoEditorial } = useAccesoEditorial()
+  const esCriterio = profile?.rol === 'CRITERIO'
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+        <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
       </div>
     )
   }
 
   if (isError || !data || !data.usuario) {
-    return (
-      <div className="space-y-4">
-        <Breadcrumb items={[{ label: 'Inicio' }]} />
-        <p className="text-sm text-red-300">No se pudo cargar la información del día.</p>
-      </div>
-    )
+    return <p className="py-10 text-sm text-rose-500">No se pudo cargar la información del día.</p>
   }
 
   const nombre = data.usuario.nombre || 'colega'
   const hoyDate = new Date(data.fecha + 'T12:00:00')
   const dateLabel = hoyDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  return (
-    <div className="space-y-5 animate-fade-in pb-12">
-      <Breadcrumb items={[{ label: 'Inicio' }]} />
+  const actualizar = () => {
+    refetch()
+    qc.invalidateQueries({ queryKey: ['sae-notificaciones'] })
+    qc.invalidateQueries({ queryKey: ['sae-actuaciones-recientes'] })
+    qc.invalidateQueries({ queryKey: ['tareas'] })
+  }
 
-      {/* ── Saludo compacto ─────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Sun className="h-5 w-5 text-amber-400" />
+  return (
+    <div className="mx-auto max-w-6xl space-y-5 pb-12 animate-fade-in">
+      {/* Saludo */}
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">{dateLabel}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             {greeting()}, {nombre}
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 capitalize">{dateLabel}</p>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          title="Actualizar"
-          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors disabled:opacity-40"
-        >
-          <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={actualizar}
+            disabled={isFetching}
+            title="Actualizar"
+            className="rounded-md border border-zinc-200 p-2 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+          >
+            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
+          </button>
+        </div>
       </div>
 
-      {/* ── Stats strip compacto ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatChip label="Audiencias hoy" value={data.audiencias_hoy.length} icon={Calendar} color="cyan" to="/agenda" />
-        <StatChip label="Tareas pendientes" value={data.tareas_hoy_count} icon={CheckSquare} color="emerald" to="/tareas" />
-        <StatChip label="Tareas vencidas" value={data.tareas_vencidas_count} icon={AlertTriangle} color={data.tareas_vencidas_count > 0 ? 'rose' : 'muted'} to="/tareas?vencidas=1" />
-        <StatChip label="Consultas últ. 7d" value={data.consultas_nuevas_count} icon={Users} color="amber" to="/consultas" />
-      </div>
-
-      {/* ── NOTIFICACIONES — siempre primera sección de contenido ───────── */}
-      <NotificacionesHoyPanel />
-
-      {/* ── Editorial: propuestas de artículos (solo Marco) ─────────────── */}
-      {accesoEditorial && <AvisoEditorial />}
-
-      {/* ── Audiencias del día — para todos los roles ───────────────────── */}
-      {(isSecretaria || data.audiencias_hoy.length > 0) && (
-        <AudienciasHoy items={data.audiencias_hoy} />
-      )}
-
-      {/* ── Actuaciones SAE del día ─────────────────────────────────────── */}
-      <ActuacionesRecientesPanel />
-
-      {/* ── Plazos procesales por vencer (abogados y dirección) ─────────── */}
-      {esLetrado && <PlazosProximosPanel />}
-
-      {/* ── Cuerpo: 2 columnas en desktop ───────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Columna izquierda: tareas + rutina */}
-        <div className="space-y-4">
-          {profile?.id && <TareasAsignadasPanel profileId={profile.id} isSelf />}
-          {profile?.id && (
-            <div>
-              <ChecklistHoy perfilId={profile.id} />
-              {isAdmin && <ColapsableAdminChecklist />}
-            </div>
-          )}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        {/* Lo primero: qué pasó en el SAE */}
+        <div className="min-w-0 space-y-5">
+          {!esCriterio && <NovedadesSae />}
+          {isSecretaria && <AudienciasHoy items={data.audiencias_hoy} />}
           {isSecretaria && <TareasPendientes items={data.tareas_pendientes} />}
+          {isSecretaria && <ContenidosPendientes items={data.contenidos_pendientes} />}
         </div>
 
-        {/* Columna derecha: consultas + próximos */}
-        <div className="space-y-4">
+        {/* Lo que viene */}
+        <div className="min-w-0 space-y-5">
+          {profile?.id && <ProximosDias profileId={profile.id} />}
           {profile?.id && <MisConsultasAsignadas userId={profile.id} />}
           {isSecretaria && <ConsultasPendientes />}
-          <ProximosEventosPanel days={30} />
+          {profile?.id && <ChecklistHoy perfilId={profile.id} />}
         </div>
-      </div>
-
-      {/* ── Dirección: equipo y cobros ──────────────────────────────────── */}
-      {isAdmin && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <CargaEquipoPanel />
-          {tieneAccesoCaja && <CobrosPendientes />}
-        </div>
-      )}
-
-      {/* ── Contenidos en curso (SECRETARIA) ────────────────────────────── */}
-      {isSecretaria && <ContenidosPendientes items={data.contenidos_pendientes} />}
-
-      {/* ── Acciones rápidas — al final como barra compacta ─────────────── */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <p className="w-full text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">Acciones rápidas</p>
-        <QuickAction to="/consultas?nueva=1" icon={Plus} label="Nueva consulta" color="emerald" />
-        <QuickAction to="/expedientes/nuevo" icon={FolderPlus} label="Nuevo expediente" color="cyan" />
-        <QuickAction to="/agenda" icon={Calendar} label="Agendar turno" color="violet" />
-        <QuickAction to="/contenidos" icon={Sparkles} label="Nuevo contenido" color="rose" />
-        {isAdmin && <QuickAction to="/direccion" icon={BarChart3} label="Dirección" color="cyan" />}
       </div>
     </div>
   )

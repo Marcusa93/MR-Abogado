@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import {
   Bell, BellOff, CheckCheck, Search, Loader2,
   Clock, CalendarClock, AlertTriangle, FileText, DollarSign, ArrowRightLeft,
-  Monitor, AtSign, FolderOpen, Building2, ExternalLink, Eye,
+  Monitor, AtSign, FolderOpen, Building2, Eye,
 } from 'lucide-react'
 import {
   useAlertas, useMarcarLeida, useMarcarTodasLeidas, useSnoozeAlerta,
@@ -251,10 +251,12 @@ function SaeRow({
     <div className={cn(
       'group rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 transition-colors flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-3',
       isUrgente && !notif.leida
-        ? 'border-rose-500/50 bg-rose-500/[0.08]'
+        ? 'border-rose-500/40 bg-rose-500/[0.05]'
         : selected
           ? 'border-cyan-500/40 bg-cyan-500/[0.06]'
-          : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]',
+          : notif.leida
+            ? 'border-zinc-200 bg-transparent opacity-70 hover:opacity-100 dark:border-white/[0.05]'
+            : 'border-zinc-200 bg-white hover:bg-zinc-50 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]',
     )}>
       <div className="flex items-start gap-2.5 flex-1 min-w-0">
         <input
@@ -264,9 +266,6 @@ function SaeRow({
           onClick={(e) => e.stopPropagation()}
           className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 cursor-pointer shrink-0"
         />
-        <div className="shrink-0 rounded-lg bg-cyan-500/15 p-1.5 text-cyan-300 mt-0.5">
-          <Bell className="h-4 w-4" />
-        </div>
         <div
           className="flex-1 min-w-0 cursor-pointer"
           onClick={() => {
@@ -275,29 +274,29 @@ function SaeRow({
           }}
         >
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            {notif.tipo && (
-              <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">
-                {notif.tipo}
-              </span>
-            )}
+            {!notif.leida && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" title="Sin leer" />}
+            {notif.tipo && <span className="tag-mono">{notif.tipo}</span>}
             {isUrgente && (
-              <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-200">
-                🚨 Urgente{notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
+              <span className="tag-mono !border-rose-500/40 !bg-rose-500/10 !text-rose-600 dark:!text-rose-300">
+                urgente{notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
               </span>
             )}
             {notif.numero_expediente && (
-              <span className="text-[11px] font-mono text-zinc-300 truncate max-w-[180px]">Exp. {notif.numero_expediente}</span>
+              <span className="text-[11px] font-mono text-zinc-400 truncate max-w-[180px]">{notif.numero_expediente}</span>
             )}
           </div>
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">
             {notif.titulo || notif.caratula || 'Notificación SAE'}
           </p>
+          {notif.caratula && notif.caratula !== notif.titulo && (
+            <p className="mt-0.5 text-xs text-zinc-500 line-clamp-1">{notif.caratula}</p>
+          )}
           {notif.ia_resumen && notif.ia_resumen !== notif.titulo && (
-            <p className="mt-0.5 text-xs text-amber-200/80 italic line-clamp-2">{notif.ia_resumen}</p>
+            <p className="mt-1 text-[13px] text-zinc-600 dark:text-zinc-300 line-clamp-2">{notif.ia_resumen}</p>
           )}
           <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10px] text-zinc-500 dark:text-zinc-400">
             {fueroLabel && (
-              <span className="inline-flex items-center gap-1 text-cyan-300 max-w-full truncate">
+              <span className="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-300 max-w-full truncate">
                 <Building2 className="h-3 w-3 shrink-0" />
                 <span className="truncate">{fueroLabel}</span>
               </span>
@@ -346,6 +345,15 @@ function SaeRow({
 
 export default function NotificacionesPage() {
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const bandeja: 'sae' | 'estudio' = params.get('bandeja') === 'estudio' ? 'estudio' : 'sae'
+  const setBandeja = (b: 'sae' | 'estudio') => {
+    const p = new URLSearchParams(params)
+    if (b === 'sae') p.delete('bandeja'); else p.set('bandeja', b)
+    setParams(p, { replace: true })
+    setSelected(new Set())
+  }
+  const [soloSinLeer, setSoloSinLeer] = useState(true)
   const [tab, setTab] = useState<TabKey>('todas')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -364,25 +372,26 @@ export default function NotificacionesPage() {
   const isLoading = loadingAlertas || loadingSae
 
   // ── unify + filter ─────────────────────────────────────
+  const saeSinLeer = saeNotifs.filter((n) => !n.leida).length
   const items: UnifiedItem[] = useMemo(() => {
-    const tabDef = TABS.find(t => t.key === tab)!
     const list: UnifiedItem[] = []
-    if (tabDef.src === 'all' || tabDef.src === 'alertas') {
+    if (bandeja === 'sae') {
+      for (const n of saeNotifs) {
+        if (soloSinLeer && n.leida) continue
+        list.push({ kind: 'sae', data: n, ts: n.fecha_emision ?? n.created_at })
+      }
+    } else {
+      const tabDef = TABS.find(t => t.key === tab)!
       for (const a of alertas) {
         if (tabDef.match && !tabDef.match(a.tipo)) continue
         list.push({ kind: 'alerta', data: a, ts: a.created_at })
-      }
-    }
-    if (tabDef.src === 'all' || tabDef.src === 'sae') {
-      for (const n of saeNotifs) {
-        list.push({ kind: 'sae', data: n, ts: n.fecha_emision ?? n.created_at })
       }
     }
     list.sort((a, b) => b.ts.localeCompare(a.ts))
     const q = search.trim().toLowerCase()
     if (!q) return list
     return list.filter(x => searchText(x).includes(q))
-  }, [tab, alertas, saeNotifs, search])
+  }, [bandeja, soloSinLeer, tab, alertas, saeNotifs, search])
 
   // ── counts per tab ─────────────────────────────────────
   const tabCounts = useMemo(() => {
@@ -391,9 +400,6 @@ export default function NotificacionesPage() {
       let n = 0
       if (t.src === 'all' || t.src === 'alertas') {
         n += alertas.filter(a => !t.match || t.match(a.tipo)).length
-      }
-      if (t.src === 'all' || t.src === 'sae') {
-        n += saeNotifs.filter(s => !s.leida).length
       }
       counts[t.key] = n
     }
@@ -425,8 +431,8 @@ export default function NotificacionesPage() {
   }
 
   const handleMarcarAllAll = () => {
-    marcarTodasLeidas.mutate()
-    markAllSaeRead.mutate()
+    if (bandeja === 'sae') markAllSaeRead.mutate()
+    else marcarTodasLeidas.mutate()
   }
 
   return (
@@ -434,12 +440,11 @@ export default function NotificacionesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-amber-400" />
-            Notificaciones
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Novedades
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-zinc-400">
-            Alertas internas y notificaciones SAE en un solo lugar.
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+            Primero lo que llega del SAE. Los avisos internos del estudio van aparte.
           </p>
         </div>
         <button
@@ -453,31 +458,57 @@ export default function NotificacionesPage() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-white/5">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setTab(t.key); clearSelection() }}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap',
-              tab === t.key
-                ? 'bg-amber-500/15 text-amber-300 border-b-2 border-amber-400 -mb-px'
-                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]',
-            )}
-          >
-            {t.label}
-            {tabCounts[t.key] > 0 && (
-              <span className={cn(
-                'rounded-full px-1.5 py-px text-[9px] font-bold',
-                tab === t.key ? 'bg-amber-500/30 text-amber-100' : 'bg-white/10 text-zinc-400',
-              )}>
-                {tabCounts[t.key]}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Bandejas */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 dark:border-white/10">
+          {([
+            { key: 'sae', label: 'SAE', n: saeSinLeer },
+            { key: 'estudio', label: 'Del estudio', n: alertas.length },
+          ] as const).map((b) => (
+            <button
+              key={b.key}
+              onClick={() => setBandeja(b.key)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
+                bandeja === b.key
+                  ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
+              )}
+            >
+              {b.label}
+              {b.n > 0 && (
+                <span className={cn('rounded px-1 font-mono text-[10px]', b.key === 'sae' ? 'bg-cyan-400 text-cyan-950' : 'bg-zinc-500/20')}>{b.n}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        {bandeja === 'sae' && (
+          <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <input type="checkbox" checked={soloSinLeer} onChange={(e) => setSoloSinLeer(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+            Solo sin leer
+          </label>
+        )}
       </div>
+
+      {bandeja === 'estudio' && (
+        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {TABS.filter(t => t.src !== 'sae').map(t => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); clearSelection() }}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
+                tab === t.key
+                  ? 'bg-zinc-200/70 text-zinc-900 dark:bg-white/10 dark:text-white'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
+              )}
+            >
+              {t.key === 'todas' ? 'Todo' : t.label}
+              {tabCounts[t.key] > 0 && <span className="font-mono text-[10px] text-zinc-400">{tabCounts[t.key]}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search + bulk */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -517,24 +548,8 @@ export default function NotificacionesPage() {
         )}
       </div>
 
-      {/* Atajos rápidos a vistas dedicadas */}
-      <div className="flex items-center gap-2 flex-wrap text-[11px]">
-        <button
-          onClick={() => navigate('/alertas')}
-          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-zinc-400 hover:bg-white/10"
-        >
-          <ExternalLink className="h-2.5 w-2.5" /> Vista de alertas
-        </button>
-        <button
-          onClick={() => navigate('/notificaciones-sae')}
-          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-zinc-400 hover:bg-white/10"
-        >
-          <ExternalLink className="h-2.5 w-2.5" /> Vista SAE
-        </button>
-      </div>
-
       {/* Cabecera informativa del tab seguimiento */}
-      {tab === 'seguimiento' && (
+      {bandeja === 'estudio' && tab === 'seguimiento' && (
         <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.05] px-4 py-3 text-xs text-orange-200/80 leading-relaxed">
           <span className="font-semibold text-orange-300">Seguimiento activo</span> — expedientes marcados con seguimiento que no registran actividad en las últimas 48 horas.
           Podés marcar un expediente para seguimiento desde su página de detalle.
@@ -551,7 +566,7 @@ export default function NotificacionesPage() {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <BellOff className="h-10 w-10 text-zinc-600 dark:text-zinc-300 mb-3" />
             <p className="text-sm text-zinc-400">
-              {search ? 'No hay resultados para tu búsqueda' : 'Sin notificaciones'}
+              {search ? 'No hay resultados para tu búsqueda' : bandeja === 'sae' && soloSinLeer ? 'Está al día con el SAE' : 'Sin notificaciones'}
             </p>
           </div>
         ) : (

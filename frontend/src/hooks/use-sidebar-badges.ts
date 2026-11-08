@@ -73,6 +73,7 @@ export function useSidebarBadges(): SidebarBadges {
         .from('sae_notificaciones' as never)
         .select('id', { count: 'exact', head: true })
         .eq('leida', false)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${new Date().toISOString()}`)
       if (error) return 0
       return count ?? 0
     },

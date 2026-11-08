@@ -3,12 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSidebarBadges } from '@/hooks/use-sidebar-badges'
-import { displayRol } from '@/lib/utils/display-rol'
 import {
   LayoutDashboard,
   FolderOpen,
   Users,
-  Columns3,
   CheckSquare,
   CalendarDays,
   Bell,
@@ -45,9 +43,9 @@ interface SidebarProps {
   onToggle: () => void
 }
 
-type BadgeKey = 'tareas' | 'agenda' | 'notificaciones'
+type BadgeKey = 'agenda' | 'sae'
 
-type GroupKey = 'operacion' | 'casos' | 'inteligencia' | 'gestion' | 'sistema'
+type GroupKey = 'principal' | 'estudio' | 'herramientas'
 
 interface NavItem {
   href: string
@@ -70,54 +68,44 @@ interface NavItem {
 }
 
 const GROUP_LABELS: Record<GroupKey, string> = {
-  operacion: 'Operación',
-  casos: 'Casos',
-  inteligencia: 'Inteligencia',
-  gestion: 'Gestión',
-  sistema: 'Sistema',
+  principal: '',
+  estudio: 'Estudio',
+  herramientas: 'Herramientas',
 }
 
-const GROUP_ORDER: GroupKey[] = ['operacion', 'casos', 'inteligencia', 'gestion', 'sistema']
-const DEFAULT_COLLAPSED: GroupKey[] = ['inteligencia']
+const GROUP_ORDER: GroupKey[] = ['principal', 'estudio', 'herramientas']
+const DEFAULT_COLLAPSED: GroupKey[] = ['herramientas']
 
+// Lo de todos los días queda a la vista; el resto, plegado en Herramientas (y en Cmd+K).
 const navItems: readonly NavItem[] = [
-  // OPERACIÓN — lo cotidiano
-  { href: '/inicio', label: 'Inicio', icon: Sun, group: 'operacion' },
-  { href: '/criterio', label: 'Mis asignaciones', icon: LayoutDashboard, group: 'operacion', criterioOnly: true },
-  { href: '/mi-trabajo', label: 'Asuntos', icon: Briefcase, group: 'operacion', hideForSecretaria: true, hideForCriterio: true },
-  { href: '/direccion', label: 'Dirección', icon: Compass, group: 'operacion', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
-  { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'operacion', badgeKey: 'tareas' },
-  { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'operacion', badgeKey: 'agenda' },
-  { href: '/calculadora-plazos', label: 'Calculadora', icon: Calculator, group: 'operacion', hideForSecretaria: true },
-  { href: '/calculadora-danos', label: 'Estimador de daños', icon: Scale, group: 'operacion', hideForSecretaria: true },
-  { href: '/notificaciones', label: 'Notificaciones', icon: Bell, group: 'operacion', badgeKey: 'notificaciones' },
+  { href: '/inicio', label: 'Inicio', icon: Sun, group: 'principal' },
+  { href: '/notificaciones', label: 'Novedades SAE', icon: Bell, group: 'principal', badgeKey: 'sae' },
+  { href: '/criterio', label: 'Mis asignaciones', icon: LayoutDashboard, group: 'principal', criterioOnly: true },
+  { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'principal' },
+  { href: '/clientes', label: 'Clientes', icon: Users, group: 'principal' },
+  { href: '/consultas', label: 'Consultas', icon: ClipboardList, group: 'principal' },
+  { href: '/agenda', label: 'Agenda', icon: CalendarDays, group: 'principal', badgeKey: 'agenda' },
+  { href: '/escritos', label: 'Escritos', icon: PenLine, group: 'principal', hideForSecretaria: true },
 
-  // CASOS — todo lo del expediente
-  { href: '/consultas', label: 'Consultas', icon: ClipboardList, group: 'casos' },
-  { href: '/clientes', label: 'Clientes', icon: Users, group: 'casos' },
-  { href: '/expedientes', label: 'Expedientes', icon: FolderOpen, group: 'casos' },
-  { href: '/escritos', label: 'Escritos', icon: PenLine, group: 'casos', hideForSecretaria: true },
-  { href: '/contactos-profesionales', label: 'Profesionales', icon: UserCog, group: 'casos', hideForSecretaria: true },
-  // Tablero queda disponible vía URL /kanban pero oculto del menú (vista alternativa de Expedientes)
+  { href: '/direccion', label: 'Dirección', icon: Compass, group: 'estudio', hideForSecretaria: true, hideForCriterio: true, adminOnly: true },
+  { href: '/caja', label: 'Caja', icon: Wallet, group: 'estudio', cajaOnly: true },
 
-  // INTELIGENCIA — corpus IA (cerrado por default)
-  { href: '/buscar-audiencias', label: 'Audiencias', icon: Mic2, group: 'inteligencia', hideForSecretaria: true },
-  { href: '/normativa', label: 'Normativa', icon: BookMarked, group: 'inteligencia', hideForSecretaria: true },
-  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel, group: 'inteligencia', hideForSecretaria: true },
-  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain, group: 'inteligencia', hideForSecretaria: true },
-  { href: '/informes', label: 'Informes', icon: BarChart3, group: 'inteligencia', hideForSecretaria: true },
-
-  // GESTIÓN — administrativo
-  { href: '/caja', label: 'Caja', icon: Wallet, group: 'gestion', cajaOnly: true },
-  { href: '/contenidos', label: 'Contenidos', icon: Sparkles, group: 'gestion' },
-  { href: '/editorial', label: 'Editorial', icon: Newspaper, group: 'gestion', editorialOnly: true },
-  { href: '/actividad', label: 'Actividad', icon: Activity, group: 'gestion', adminOnly: true },
-
-  // SISTEMA
-  { href: '/configuracion', label: 'Configuración', icon: Settings, group: 'sistema' },
+  { href: '/tareas', label: 'Tareas', icon: CheckSquare, group: 'herramientas' },
+  { href: '/mi-trabajo', label: 'Asuntos', icon: Briefcase, group: 'herramientas', hideForSecretaria: true, hideForCriterio: true },
+  { href: '/calculadora-plazos', label: 'Calculadora de plazos', icon: Calculator, group: 'herramientas', hideForSecretaria: true },
+  { href: '/calculadora-danos', label: 'Estimador de daños', icon: Scale, group: 'herramientas', hideForSecretaria: true },
+  { href: '/contactos-profesionales', label: 'Profesionales', icon: UserCog, group: 'herramientas', hideForSecretaria: true },
+  { href: '/buscar-audiencias', label: 'Audiencias grabadas', icon: Mic2, group: 'herramientas', hideForSecretaria: true },
+  { href: '/normativa', label: 'Normativa', icon: BookMarked, group: 'herramientas', hideForSecretaria: true },
+  { href: '/jurisprudencia', label: 'Jurisprudencia', icon: Gavel, group: 'herramientas', hideForSecretaria: true },
+  { href: '/aprendizajes', label: 'Aprendizajes', icon: Brain, group: 'herramientas', hideForSecretaria: true },
+  { href: '/informes', label: 'Informes', icon: BarChart3, group: 'herramientas', hideForSecretaria: true },
+  { href: '/contenidos', label: 'Contenidos', icon: Sparkles, group: 'herramientas' },
+  { href: '/editorial', label: 'Editorial', icon: Newspaper, group: 'herramientas', editorialOnly: true },
+  { href: '/actividad', label: 'Actividad', icon: Activity, group: 'herramientas', adminOnly: true },
 ]
 
-const COLLAPSED_GROUPS_KEY = 'sidebar-collapsed-groups'
+const COLLAPSED_GROUPS_KEY = 'sidebar-collapsed-groups-v2'
 
 function loadCollapsedGroups(): Set<GroupKey> {
   if (typeof window === 'undefined') return new Set(DEFAULT_COLLAPSED)
@@ -153,22 +141,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   }
 
   const badgeCounts: Record<BadgeKey, number> = {
-    tareas: badges.tareasVencidas,
-    agenda: badges.turnosHoy,
-    notificaciones: badges.alertasPendientes + badges.saeNotifUnread,
+    agenda: badges.tareasVencidas,
+    sae: badges.saeNotifUnread,
   }
 
   const badgeColors: Record<BadgeKey, string> = {
-    tareas: 'bg-rose-500 text-white',
-    agenda: 'bg-[var(--brand-accent)] text-white',
-    notificaciones: 'bg-[var(--brand-accent)] text-white',
-  }
-
-  const getInitials = () => {
-    if (!profile) return 'U'
-    const first = profile.nombre?.[0] ?? ''
-    const last = profile.apellido?.[0] ?? ''
-    return (first + last).toUpperCase() || 'U'
+    agenda: 'bg-rose-500/90 text-white',
+    sae: 'bg-cyan-400 text-cyan-950',
   }
 
   return (
@@ -182,7 +161,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       <Link
         to="/inicio"
         className={cn(
-          'flex h-16 items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
+          'flex h-14 items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
           isCollapsed ? 'justify-center' : 'gap-3'
         )}
       >
@@ -216,7 +195,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3 no-scrollbar">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 no-scrollbar">
         {(() => {
           const esSecretaria = profile?.rol === 'SECRETARIA'
           const esCriterio = profile?.rol === 'CRITERIO'
@@ -234,16 +213,16 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           return GROUP_ORDER.map((groupKey) => {
             const items = visibleItems.filter((i) => i.group === groupKey)
             if (items.length === 0) return null
-            const collapsed = collapsedGroups.has(groupKey)
+            const collapsed = groupKey !== 'principal' && collapsedGroups.has(groupKey)
             const hasActive = items.some((i) => pathname.startsWith(i.href))
 
             return (
               <div key={groupKey} className="space-y-0.5">
-                {!isCollapsed && (
+                {!isCollapsed && groupKey !== 'principal' && (
                   <button
                     type="button"
                     onClick={() => toggleGroup(groupKey)}
-                    className="flex w-full items-center gap-1 px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    className="flex w-full items-center gap-1.5 px-3 pt-4 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
                     aria-expanded={!collapsed}
                   >
                     {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -253,6 +232,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     )}
                   </button>
                 )}
+                {isCollapsed && groupKey !== 'principal' && <div className="mx-3 my-2 h-px bg-[var(--sidebar-border)]" />}
                 {(!collapsed || isCollapsed) && items.map((item) => {
                   const isActive = pathname.startsWith(item.href)
                   const Icon = item.icon
@@ -264,18 +244,20 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       title={isCollapsed ? item.label : undefined}
                       data-tour={`nav-${item.href.replace(/^\//, '')}`}
                       className={cn(
-                        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+                        'group relative flex items-center gap-3 rounded-md px-3 py-[7px] text-[13.5px] font-medium transition-colors duration-150',
                         isCollapsed && 'justify-center px-2',
+                        groupKey === 'herramientas' && !isCollapsed && 'py-[5px] text-[13px]',
                         isActive
-                          ? 'bg-[var(--brand-navy)]/10 text-[var(--brand-navy)] dark:bg-[var(--brand-accent)]/15 dark:text-[var(--brand-ice)]'
-                          : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-zinc-200'
+                          ? 'bg-[var(--brand-navy)]/[0.07] text-[var(--brand-navy)] dark:bg-white/[0.06] dark:text-white'
+                          : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-100'
                       )}
                     >
                       <Icon
                         className={cn(
-                          'h-5 w-5 shrink-0 transition-colors',
+                          'h-[18px] w-[18px] shrink-0 transition-colors',
+                          groupKey === 'herramientas' && !isCollapsed && 'h-4 w-4',
                           isActive
-                            ? 'text-[var(--brand-navy)] dark:text-[var(--brand-ice)]'
+                            ? 'text-[var(--brand-navy)] dark:text-[var(--brand-accent)]'
                             : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
                         )}
                       />
@@ -283,7 +265,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
                         <span
                           className={cn(
-                            'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none',
+                            'ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded px-1 font-mono text-[10px] font-semibold leading-none',
                             badgeColors[item.badgeKey],
                             isCollapsed && 'absolute -right-0.5 -top-0.5 h-4 min-w-4 ml-0 text-[9px]'
                           )}
@@ -291,8 +273,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           {badgeCounts[item.badgeKey] > 99 ? '99+' : badgeCounts[item.badgeKey]}
                         </span>
                       )}
-                      {isActive && !isCollapsed && !item.badgeKey && (
-                        <div className="ml-auto h-5 w-1 rounded-full bg-[var(--brand-accent)]" />
+                      {isActive && (
+                        <span className="absolute inset-y-1.5 left-0 w-[2px] rounded-full bg-[var(--brand-accent)]" aria-hidden />
                       )}
                     </Link>
                   )
@@ -304,30 +286,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-[var(--sidebar-border)] p-3">
-        {profile && !isCollapsed && (
-          <div className="mb-2 flex items-center gap-3 rounded-lg px-2 py-2 animate-fade-in">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-navy)]/10 dark:bg-[var(--brand-accent)]/15 text-xs font-bold text-[var(--brand-navy)] dark:text-[var(--brand-ice)]">
-              {getInitials()}
-            </div>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                {profile.nombre} {profile.apellido}
-              </span>
-              <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                {displayRol(profile)}
-              </span>
-            </div>
-          </div>
-        )}
-        {profile && isCollapsed && (
-          <div className="mb-2 flex justify-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-navy)]/10 dark:bg-[var(--brand-accent)]/15 text-xs font-bold text-[var(--brand-navy)] dark:text-[var(--brand-ice)]">
-              {getInitials()}
-            </div>
-          </div>
-        )}
-
+      <div className="border-t border-[var(--sidebar-border)] p-2">
         <div className="flex items-center justify-between">
           {/* Cmd+K trigger */}
           <button
@@ -350,6 +309,18 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             )}
           </button>
 
+          {!isCollapsed && (
+            <Link
+              to="/configuracion"
+              title="Configuración"
+              className={cn(
+                'rounded-lg p-1.5 transition-colors hover:bg-zinc-100 dark:hover:bg-white/5',
+                pathname.startsWith('/configuracion') ? 'text-[var(--brand-accent)]' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200',
+              )}
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
+          )}
           <button
             type="button"
             onClick={onToggle}

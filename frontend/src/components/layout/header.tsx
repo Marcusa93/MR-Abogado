@@ -5,9 +5,11 @@ import { NotificationDropdown } from './notification-dropdown'
 import { HelpButton } from './help-button'
 import { PushToggle } from './push-toggle'
 import { SaeHealthBadge } from './sae-health-badge'
+import { ChatEquipo } from '@/components/shared/chat-equipo'
 
 const pageTitles: Record<string, string> = {
   '/inicio': 'Inicio',
+  '/notificaciones': 'Novedades',
   '/editorial': 'Editorial',
   '/dashboard': 'Indicadores',
   '/direccion': 'Dirección',
@@ -45,7 +47,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
         className="flex shrink-0 items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--header-bg)] px-3 sm:px-6 backdrop-blur-md"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
-          height: 'calc(4rem + env(safe-area-inset-top, 0px))',
+          height: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
         }}
       >
         {/* Left: hamburger + title */}
@@ -60,7 +62,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
               <Menu className="h-5 w-5" />
             </button>
           )}
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{title}</h1>
+          <h1 className="text-[15px] font-medium tracking-tight text-zinc-500 dark:text-zinc-400">{title}</h1>
         </div>
 
         <div className="flex-1" />
@@ -72,6 +74,7 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           </div>
           <PushToggle />
           <HelpButton />
+          <ChatEquipo />
           <NotificationDropdown />
           <UserMenu />
         </div>

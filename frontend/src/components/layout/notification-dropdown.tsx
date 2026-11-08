@@ -415,7 +415,8 @@ export function NotificationDropdown() {
 
   const { data: alertas } = useAlertas()
   const { data: saeUnread = 0 } = useSaeNotifUnreadCount()
-  const { data: saeNotifs = [] } = useSaeNotificaciones({ unreadOnly: true, limit: 5 })
+  const { data: saeNotifs = [] } = useSaeNotificaciones({ unreadOnly: true, limit: 8 })
+  const [verEstudio, setVerEstudio] = useState(false)
   const { data: lastSeen } = useNotifLastSeen()
   const markAsSeen = useMarkNotifsAsSeen()
   const marcarLeida = useMarcarLeida()
@@ -440,7 +441,8 @@ export function NotificationDropdown() {
   }, [isOpen, lastSeen])
 
   const alertCount = alertas?.length ?? 0
-  const totalCount = alertCount + saeUnread
+  // La campana cuenta solo lo del SAE; lo interno del estudio se ve pero no suma.
+  const totalCount = saeUnread
   const displayAlerts = (alertas ?? []).slice(0, 8)
 
   // Ordenar SAE: urgentes primero, luego por fecha
@@ -464,15 +466,10 @@ export function NotificationDropdown() {
     return ts > seenSnapshot
   }
   const newAlerts = displayAlerts.filter(isNewAlert)
-  const oldAlerts = displayAlerts.filter((a) => !isNewAlert(a))
   const newSae = sortedSaeNotifs.filter(isNewSae)
   const oldSae = sortedSaeNotifs.filter((n) => !isNewSae(n))
   const newCount = newAlerts.length + newSae.length
 
-  const handleMarkAllAll = () => {
-    if (alertCount > 0) marcarTodasLeidas.mutate()
-    if (saeUnread > 0) markAllSaeRead.mutate()
-  }
 
   // Close on click outside
   useEffect(() => {
@@ -519,13 +516,14 @@ export function NotificationDropdown() {
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className="relative rounded-lg p-2 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
-        aria-label="Notificaciones"
+        aria-label="Novedades del SAE"
+        title="Novedades del SAE"
       >
         <Bell className="h-5 w-5" />
         {totalCount > 0 && (
           <span className={cn(
-            'absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-zinc-950 animate-pulse-subtle',
-            urgenteSaeCount > 0 ? 'bg-rose-500' : 'bg-amber-500',
+            'absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded px-1 font-mono text-[10px] font-semibold',
+            urgenteSaeCount > 0 ? 'bg-rose-500 text-white' : 'bg-cyan-400 text-cyan-950',
           )}>
             {totalCount > 99 ? '99+' : totalCount}
           </span>
@@ -545,14 +543,14 @@ export function NotificationDropdown() {
           {/* Panel */}
           <div
             ref={panelRef}
-            className="fixed left-3 right-3 top-[4.5rem] z-[100] max-h-[calc(100vh-6rem)] sm:left-auto sm:right-4 sm:w-[380px] overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-2xl animate-fade-in flex flex-col"
+            className="fixed left-3 right-3 top-16 z-[100] max-h-[calc(100vh-6rem)] sm:left-auto sm:right-4 sm:w-[400px] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0f151c] shadow-2xl animate-fade-in flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notificaciones</h3>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Novedades del SAE</h3>
                 {totalCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-[10px] font-bold text-amber-400">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded bg-cyan-500/15 px-1.5 font-mono text-[10px] font-semibold text-cyan-600 dark:text-cyan-300">
                     {totalCount}
                   </span>
                 )}
@@ -564,14 +562,13 @@ export function NotificationDropdown() {
               </div>
               {totalCount > 0 && (
                 <button
-                  onClick={handleMarkAllAll}
+                  onClick={() => markAllSaeRead.mutate()}
                   disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
                   className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
                   title="Marcar todas leídas"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Marcar todas leídas</span>
-                  <span className="sm:hidden">Marcar todas</span>
+                  Leídas
                 </button>
               )}
               <button
@@ -585,16 +582,10 @@ export function NotificationDropdown() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto sm:max-h-[420px]">
-              {displayAlerts.length === 0 && saeNotifs.length === 0 ? (
+              {saeNotifs.length === 0 && !verEstudio ? (
                 <div className="flex flex-col items-center justify-center py-8 px-4">
                   <BellOff className="h-8 w-8 text-zinc-600 dark:text-zinc-300 mb-2" />
-                  <p className="text-xs text-zinc-700 dark:text-zinc-300">Sin notificaciones pendientes</p>
-                  <button
-                    onClick={() => handleNavigate('/alertas')}
-                    className="mt-3 text-[11px] font-medium text-amber-500 hover:text-amber-400 transition-colors"
-                  >
-                    Configurar alertas →
-                  </button>
+                  <p className="text-xs text-zinc-700 dark:text-zinc-300">Sin novedades del SAE por leer</p>
                 </div>
               ) : (
                 <>
@@ -615,7 +606,7 @@ export function NotificationDropdown() {
                         </div>
                         {saeUnread > saeNotifs.length && (
                           <button
-                            onClick={() => handleNavigate('/notificaciones-sae')}
+                            onClick={() => handleNavigate('/notificaciones')}
                             className="text-[10px] text-cyan-300 hover:underline"
                           >
                             Ver todas ({saeUnread})
@@ -650,31 +641,12 @@ export function NotificationDropdown() {
                     </div>
                   )}
 
-                  {/* Internal alertas section */}
-                  {displayAlerts.length > 0 && (
+                  {/* Internal alertas section: plegada, no suma en la campana */}
+                  {verEstudio && displayAlerts.length > 0 && (
                     <div>
-                      {saeNotifs.length > 0 && (
-                        <div className="px-4 py-2 bg-amber-500/5">
-                          <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-300">
-                            Alertas internas
-                          </span>
-                        </div>
-                      )}
-                      {newAlerts.length > 0 && oldAlerts.length > 0 && (
-                        <SeenSeparator label="Nuevas" tone="new" />
-                      )}
+                      <div className="px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">Del estudio</div>
                       {renderAlertList(
-                        newAlerts,
-                        isNewAlert,
-                        (id) => marcarLeida.mutate(id),
-                        (id, until) => snoozeAlerta.mutate({ id, until }),
-                        handleNavigate,
-                      )}
-                      {newAlerts.length > 0 && oldAlerts.length > 0 && (
-                        <SeenSeparator label="Anteriores" tone="old" />
-                      )}
-                      {renderAlertList(
-                        oldAlerts,
+                        displayAlerts,
                         isNewAlert,
                         (id) => marcarLeida.mutate(id),
                         (id, until) => snoozeAlerta.mutate({ id, until }),
@@ -687,31 +659,22 @@ export function NotificationDropdown() {
             </div>
 
             {/* Footer */}
-            {(alertCount > 8 || saeUnread > saeNotifs.length) && (
-              <div className="border-t border-white/10 px-3 py-2.5 flex flex-col gap-1">
-                {alertCount > 0 && (
-                  <button
-                    onClick={() => handleNavigate('/alertas')}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Ver todas las alertas
-                    {alertCount > 8 && (
-                      <span className="text-zinc-600 dark:text-zinc-500">({alertCount - 8} más)</span>
-                    )}
-                  </button>
-                )}
-                {saeUnread > saeNotifs.length && (
-                  <button
-                    onClick={() => handleNavigate('/notificaciones-sae')}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/10 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Ver todas las notificaciones SAE
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="flex items-center justify-between gap-2 border-t border-zinc-200 px-3 py-2 dark:border-white/10">
+              {alertCount > 0 ? (
+                <button
+                  onClick={() => setVerEstudio((v) => !v)}
+                  className="rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+                >
+                  {verEstudio ? 'Ocultar avisos del estudio' : `Avisos del estudio (${alertCount})`}
+                </button>
+              ) : <span />}
+              <button
+                onClick={() => handleNavigate('/notificaciones')}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-cyan-700 hover:bg-cyan-500/10 dark:text-cyan-300"
+              >
+                Ver todo <ExternalLink className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </>,
         document.body
