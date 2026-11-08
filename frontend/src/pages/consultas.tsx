@@ -11,8 +11,8 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import {
-  Plus, Search, Users, Phone, Mail, Calendar,
-  ChevronRight, MessageSquare, Briefcase, LayoutGrid, List, Clock,
+  Plus, Search, Users,
+  ChevronRight, LayoutGrid, List, Clock,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -191,61 +191,34 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
 function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => void }) {
   const nombre = [consulta.apellido, consulta.nombre].filter(Boolean).join(', ')
+  const asignado = consulta.assigned_profile
+    ? [consulta.assigned_profile.nombre, consulta.assigned_profile.apellido].filter(Boolean).join(' ')
+    : null
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        'group w-full text-left rounded-xl p-4 cursor-pointer transition-all',
-        'border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80',
-        'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
-      )}
+      className="app-card group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{nombre}</span>
-            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', ESTADO_STYLE[consulta.estado as ConsultaEstado])}>
-              {ESTADO_LABEL[consulta.estado as ConsultaEstado]}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="flex items-center gap-1">
-              <Briefcase className="h-3 w-3" />
-              {TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto]}
-            </span>
-            {consulta.telefono && (
-              <span className="flex items-center gap-1">
-                <Phone className="h-3 w-3" />
-                {consulta.telefono}
-              </span>
-            )}
-            {consulta.email && (
-              <span className="flex items-center gap-1">
-                <Mail className="h-3 w-3" />
-                {consulta.email}
-              </span>
-            )}
-            {consulta.assigned_profile && (
-              <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                <MessageSquare className="h-3 w-3" />
-                {[consulta.assigned_profile.apellido, consulta.assigned_profile.nombre].filter(Boolean).join(', ')}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-[10px] text-zinc-400 flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {timeAgo(consulta.created_at)}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">{nombre}</span>
+          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', ESTADO_STYLE[consulta.estado as ConsultaEstado])}>
+            {ESTADO_LABEL[consulta.estado as ConsultaEstado]}
           </span>
-          {consulta.diagnostico_at && (
-            <span className="text-[10px] text-green-600 dark:text-green-400">✓ Diagnóstico</span>
-          )}
-          <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
-          <ChevronRight className="h-4 w-4 text-zinc-300 dark:text-zinc-600 mt-1 group-hover:text-zinc-500 dark:group-hover:text-zinc-400 transition-colors" />
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span>{(TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto] ?? '').toLowerCase()}</span>
+          {consulta.telefono && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span>{consulta.telefono}</span></>}
+          {asignado && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="text-zinc-700 dark:text-zinc-300">{asignado}</span></>}
+          {consulta.diagnostico_at && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="text-emerald-600 dark:text-emerald-400">diagnóstico listo</span></>}
         </div>
       </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <span className="font-mono text-[11px] text-zinc-400">{timeAgo(consulta.created_at)}</span>
+        <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-500 dark:text-zinc-600 dark:group-hover:text-zinc-400" />
     </button>
   )
 }
@@ -408,7 +381,7 @@ export default function ConsultasPage() {
           <button
             type="button"
             onClick={() => setShowNueva(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-opacity"
           >
             <Plus className="h-4 w-4" />
             Nueva consulta
@@ -429,7 +402,7 @@ export default function ConsultasPage() {
                 placeholder="Buscar por nombre, apellido o teléfono…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
               />
             </div>
           </div>
@@ -442,10 +415,10 @@ export default function ConsultasPage() {
                 type="button"
                 onClick={() => setEstado(e.value)}
                 className={cn(
-                  'shrink-0 px-3 py-1.5 text-xs font-medium rounded-full transition-colors',
+                  'shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
                   estado === e.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700',
+                    ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white/20 dark:bg-white/10 dark:text-white'
+                    : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/[0.08] dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-200',
                 )}
               >
                 {e.label}

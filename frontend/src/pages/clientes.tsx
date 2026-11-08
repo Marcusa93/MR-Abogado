@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
 import { Link } from 'react-router-dom'
-import { useClientes, useClientesPlaceholderPendientes, clienteNombreDisplay, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
+import { useClientes, useClientesPlaceholderPendientes, type ClientesFilters, type ClienteListItem } from '@/hooks/use-clientes'
 import { exportClientePDF } from '@/lib/utils/export-client-pdf'
 import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { timeAgo } from '@/lib/utils/date-helpers'
@@ -16,14 +16,8 @@ import {
   Plus,
   Search,
   Users,
-  Phone,
-  Mail,
-  CreditCard,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  FolderOpen,
-  Clock,
   Download,
   AlertCircle,
   ArrowRight,
@@ -65,109 +59,46 @@ function ClienteCard({
     ? ((cliente as any).razon_social ?? '—')
     : `${cliente.apellido ?? ''}, ${cliente.nombre ?? ''}`.replace(/^,\s*/, '') || '—'
 
+  const doc = esJuridica ? (cliente.cuil ? `CUIT ${cliente.cuil}` : null) : (cliente.dni ? `DNI ${cliente.dni}` : cliente.cuil ? `CUIL ${cliente.cuil}` : null)
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={cn(
-        'group w-full text-left rounded-xl p-4 cursor-pointer transition-all',
-        'border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80',
-        'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
-      )}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
+      className="app-card group w-full cursor-pointer px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15"
     >
-      <div className="flex items-start justify-between gap-2">
-        {/* Name + identificador */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-              {nombreMostrar}
-            </h3>
-            {esJuridica && (
-              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 uppercase tracking-wider">Jurídica</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
-            <CreditCard className="h-3 w-3 shrink-0" />
-            {esJuridica ? (
-              cliente.cuil && <span className="font-mono">CUIT {cliente.cuil}</span>
-            ) : (
-              <>
-                {cliente.dni && <span className="font-mono">DNI {cliente.dni}</span>}
-                {cliente.cuil && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                    <span className="font-mono">{cliente.cuil}</span>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-          {isPlaceholder && (
-            <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400">
-              Placeholder SAE
-            </span>
-          )}
-        </div>
-
-        {/* Expediente count badge */}
-        <div className={cn(
-          'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border flex-shrink-0',
-          stats.active > 0
-            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20'
-            : stats.total > 0
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
-              : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-white/10',
-        )}>
-          <FolderOpen className="h-2.5 w-2.5" />
-          {stats.total} exp.
-        </div>
-      </div>
-
-      {/* Contact info */}
-      {(cliente.telefono || cliente.email) && (
-        <div className="mt-3 space-y-1">
-          {cliente.telefono && (
-            <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-              <Phone className="h-3 w-3 shrink-0 text-zinc-400" />
-              <span className="flex-1 truncate">{cliente.telefono}</span>
-              <span onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                <WhatsAppButton
-                  phone={cliente.telefono}
-                  variant="icon"
-                  clienteNombre={esJuridica ? ((cliente as any).razon_social ?? '') : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim()}
-                />
-              </span>
-            </div>
-          )}
-          {cliente.email && (
-            <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-              <Mail className="h-3 w-3 shrink-0 text-zinc-400" />
-              <span className="truncate">{cliente.email}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Footer: ultimo contacto + actions */}
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-200 dark:border-white/5 pt-2.5">
-        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 min-w-0">
-          <Clock className="h-3 w-3 shrink-0" />
-          <span className="truncate">
-            {hasUltimoContacto
-              ? `Último contacto: ${timeAgo(cliente.ultimo_contacto!)}`
-              : 'Sin contacto registrado'
-            }
-          </span>
-        </div>
+      <div className="flex items-start gap-2">
+        <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">{nombreMostrar}</h3>
         <button
           onClick={(e) => { e.stopPropagation(); onExportPDF(cliente) }}
-          className="rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+          className="hidden shrink-0 rounded p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-zinc-700 group-hover:opacity-100 sm:block dark:hover:text-zinc-200"
           title="Exportar informe del cliente"
         >
           <Download className="h-3.5 w-3.5" />
         </button>
+        {stats.total > 0 && (
+          <span className={cn('shrink-0 font-mono text-[11px]', stats.active > 0 ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500')}
+            title={`${stats.active} activos de ${stats.total}`}>
+            {stats.total} exp.
+          </span>
+        )}
       </div>
-    </button>
+      <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+        {esJuridica && <span>jurídica</span>}
+        {isPlaceholder ? <span className="text-amber-600 dark:text-amber-400">sin datos reales (importado del SAE)</span> : doc && <span>{doc}</span>}
+        {cliente.telefono && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="truncate">{cliente.telefono}</span></>}
+        {cliente.telefono && (
+          <span onClick={(e) => e.stopPropagation()} className="ml-auto shrink-0">
+            <WhatsAppButton phone={cliente.telefono} variant="icon" clienteNombre={esJuridica ? ((cliente as any).razon_social ?? '') : `${cliente.nombre ?? ''} ${cliente.apellido ?? ''}`.trim()} />
+          </span>
+        )}
+      </div>
+      {hasUltimoContacto && (
+        <p className="mt-1 font-mono text-[11px] text-zinc-400 dark:text-zinc-500">último contacto {timeAgo(cliente.ultimo_contacto!)}</p>
+      )}
+    </div>
   )
 }
 

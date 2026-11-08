@@ -312,7 +312,7 @@ function EditarAudienciaDialog({
           <div>
             <h2 className="text-base font-semibold text-zinc-100">{item.titulo}</h2>
             {item.expedienteCaratula && (
-              <p className="text-xs text-amber-400 mt-0.5 truncate">{item.expedienteCaratula}</p>
+              <p className="text-xs text-zinc-500 mt-0.5 truncate">{item.expedienteCaratula}</p>
             )}
           </div>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
@@ -448,7 +448,7 @@ function EditarReunionDialog({
           </button>
         </div>
 
-        <p className="text-sm text-amber-400 mb-4 truncate">{item.titulo}</p>
+        <p className="text-sm text-zinc-500 mb-4 truncate">{item.titulo}</p>
 
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-300">Nueva fecha y hora</label>
@@ -503,7 +503,7 @@ function AgendaItemCard({
     item.kind === 'audiencia' ? 'text-sky-500' :
     item.kind === 'plazo'     ? 'text-rose-500' :
     item.kind === 'reunion'   ? 'text-teal-500' :
-    'text-amber-500'
+    'text-zinc-400'
 
   const Icon =
     item.kind === 'audiencia' ? Scale :
@@ -684,9 +684,9 @@ function CalendarioMes({
                   className={cn(
                     'min-h-[72px] sm:min-h-[88px] p-1.5 text-left align-top transition-colors relative',
                     isSelected
-                      ? 'bg-amber-500/10 ring-1 ring-inset ring-amber-500/30'
+                      ? 'bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/40'
                       : isHoy
-                      ? 'bg-amber-500/5'
+                      ? 'bg-cyan-500/[0.04]'
                       : isPast && !isWeekend
                       ? 'bg-transparent'
                       : isWeekend
@@ -698,7 +698,7 @@ function CalendarioMes({
                   <div className={cn(
                     'mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium leading-none',
                     isHoy
-                      ? 'bg-amber-500 text-white font-bold'
+                      ? 'bg-cyan-400 text-cyan-950 font-bold'
                       : isPast
                       ? 'text-zinc-400 dark:text-zinc-600'
                       : isWeekend
@@ -724,7 +724,7 @@ function CalendarioMes({
                                 ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
                                 : item.kind === 'reunion'
                                 ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                : 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300'
                             )}
                           >
                             {item.hora ? `${item.hora.slice(0, 5)} ` : ''}{item.titulo}
@@ -747,7 +747,7 @@ function CalendarioMes({
                               item.kind === 'audiencia' ? 'bg-sky-500' :
                               item.kind === 'plazo'     ? 'bg-rose-500' :
                               item.kind === 'reunion'   ? 'bg-teal-500' :
-                              'bg-amber-500'
+                              'bg-zinc-400'
                             )}
                           />
                         ))}
@@ -908,11 +908,8 @@ function AgendaUnificada() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/15 dark:bg-amber-500/10">
-            <CalendarDays className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-          </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Agenda</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Agenda</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {vista === 'lista' ? 'Próximos 45 días' : 'Vista mensual'} · audiencias, tareas y plazos
             </p>
@@ -924,7 +921,7 @@ function AgendaUnificada() {
           <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-500" />Audiencia</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Plazo</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Tarea</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-zinc-400" />Tarea</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal-500" />Reunión</span>
           </div>
 
@@ -958,7 +955,7 @@ function AgendaUnificada() {
               className={cn(
                 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
                 vista === 'lista'
-                  ? 'bg-amber-500 text-white'
+                  ? 'bg-zinc-900 text-white dark:bg-white/10'
                   : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
               )}
             >
@@ -971,7 +968,7 @@ function AgendaUnificada() {
               className={cn(
                 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
                 vista === 'calendario'
-                  ? 'bg-amber-500 text-white'
+                  ? 'bg-zinc-900 text-white dark:bg-white/10'
                   : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
               )}
             >
@@ -1018,11 +1015,11 @@ function AgendaUnificada() {
                 )}>
                   <div className={cn(
                     'h-2 w-2 rounded-full shrink-0',
-                    isHoyLabel(fecha, hoy) ? 'bg-amber-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                    isHoyLabel(fecha, hoy) ? 'bg-cyan-400' : 'bg-zinc-300 dark:bg-zinc-600'
                   )} />
                   <span className={cn(
                     'text-xs font-semibold uppercase tracking-wider',
-                    isHoyLabel(fecha, hoy) ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400'
+                    isHoyLabel(fecha, hoy) ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-500 dark:text-zinc-400'
                   )}>
                     {labelFecha(fecha, hoy)}
                   </span>
