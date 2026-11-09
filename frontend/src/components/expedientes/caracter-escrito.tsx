@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -62,14 +62,16 @@ function useClienteExpediente(expedienteId: string | null | undefined) {
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (createClient() as any).from('expedientes')
-        .select('cliente:clientes(nombre, apellido, dni, domicilio, localidad, provincia, razon_social, tipo_persona)')
+        .select('parte_estudio, parte_estudio_detalle, cliente:clientes(nombre, apellido, dni, domicilio, localidad, provincia, razon_social, tipo_persona)')
         .eq('id', expedienteId).maybeSingle()
-      const c = (data as { cliente: Record<string, string | null> | null } | null)?.cliente
-      if (!c) return null
+      const fila = data as { parte_estudio: string | null; parte_estudio_detalle: string | null; cliente: Record<string, string | null> | null } | null
+      const parte = { parte_estudio: fila?.parte_estudio ?? null, parte_estudio_detalle: fila?.parte_estudio_detalle ?? null }
+      const c = fila?.cliente
+      if (!c) return { ...parte, nombre: '', dni: '', domicilio: '' }
       const nombre = c.tipo_persona === 'juridica' && c.razon_social ? c.razon_social : [c.nombre, c.apellido].filter(Boolean).join(' ')
       const domicilio = [c.domicilio, c.localidad, c.provincia].filter(Boolean).join(', ')
       // Los importados del SAE sin datos tienen de nombre "1723/26 IMPORTADO SAE": no sirve para el escrito
-      return { nombre: /importado\s+sae/i.test(nombre ?? '') ? '' : (nombre ?? '').toUpperCase(), dni: c.dni ?? '', domicilio }
+      return { ...parte, nombre: /importado\s+sae/i.test(nombre ?? '') ? '' : (nombre ?? '').toUpperCase(), dni: c.dni ?? '', domicilio }
     },
   })
 }
@@ -82,7 +84,20 @@ export function CaracterSelector({ value, onChange, expedienteId, compacto = fal
   expedienteId?: string | null
   compacto?: boolean
 }) {
-  const { data: cliente } = useClienteExpediente(expedienteId)
+  const { data: datos } = useClienteExpediente(expedienteId)
+  const cliente = datos && (datos.nombre || datos.dni || datos.domicilio) ? { nombre: datos.nombre, dni: datos.dni, domicilio: datos.domicilio } : null
+
+  // La parte guardada en el expediente es el punto de partida (una vez por expediente)
+  const aplicada = useRef<string | null>(null)
+  useEffect(() => {
+    if (!expedienteId || !datos || aplicada.current === expedienteId) return
+    aplicada.current = expedienteId
+    const pe = datos.parte_estudio
+    if (pe === 'demandada' && value.parte === 'actora') onChange({ ...value, parte: 'demandada' })
+    else if ((pe === 'tercero' || pe === 'otra') && value.parte === 'actora') {
+      onChange({ ...value, parte: 'otra', parte_texto: datos.parte_estudio_detalle ? `de ${datos.parte_estudio_detalle}` : (pe === 'tercero' ? 'del tercero' : '') })
+    }
+  }, [expedienteId, datos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Al elegir patrocinio, se precargan los datos del cliente del expediente
   useEffect(() => {

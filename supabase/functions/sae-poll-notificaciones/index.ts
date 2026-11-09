@@ -32,7 +32,7 @@ import { authenticateWithSae, SaeError, SAE_PORTAL_BASE as PORTAL_BASE, type Sae
 import { sendEmail, escapeHtml } from '../_shared/resend.ts'
 import { FUEROS_SAE, FUEROS_BY_SLUG } from '../_shared/fueros.ts'
 import { classifyNotifPriority, type PriorityClassification } from '../_shared/notif-priority.ts'
-import { calcularVencimiento, fetchFeriadosArgentina, getTucumanProvincialFeriados, type FeriaPeriod } from '../_shared/judicial-calendar.ts'
+import { calcularVencimiento, cargarCalendarioJudicial, type CalendarioJudicial } from '../_shared/judicial-calendar.ts'
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 const MAX_PAGES_PER_FUERO = 20  // safety cap
 const MAX_REDIRECT_HOPS = 20     // SSO puede encadenar 4-6 saltos; 20 da margen ante cambios
@@ -547,6 +547,7 @@ Deno.serve(async (req) => {
     debug: null as FueroResult['debug'] | null,
   }
 
+  let calendario: CalendarioJudicial | null = null
   for (const p of (profiles ?? []) as ProfileRow[]) {
     stats.profiles_checked++
 
@@ -769,29 +770,31 @@ Deno.serve(async (req) => {
     //      Corre en paralelo para todas las nuevas, con timeout por notif.
     //      Si falla, la notif queda sin clasificar.
     const priorities = new Map<string, PriorityClassification>()
-    let feriaPeriodsCache: FeriaPeriod[] | null = null
-    const getFeriasCached = async (): Promise<FeriaPeriod[]> => {
-      if (feriaPeriodsCache !== null) return feriaPeriodsCache
-      const { data } = await admin.from('feria_judicial' as never).select('inicio, fin').order('inicio', { ascending: true })
-      feriaPeriodsCache = (data ?? []) as FeriaPeriod[]
-      return feriaPeriodsCache
+    if (!calendario) calendario = await cargarCalendarioJudicial(admin)
+    const { ferias, feriados: extraHolidays } = calendario
+
+    // Datos del expediente que cambian la lectura: de qué lado estamos y el fuero
+    type DatosExp = { parte_estudio: string | null; parte_estudio_detalle: string | null; datos_plazos_confirmados_at: string | null; fuero: string | null }
+    const datosExp = new Map<string, DatosExp>()
+    const idsExp = [...new Set(expByNumero.values())]
+    if (idsExp.length) {
+      const { data: filas } = await admin.from('expedientes')
+        .select('id, parte_estudio, parte_estudio_detalle, datos_plazos_confirmados_at, fuero').in('id', idsExp)
+      for (const f of (filas ?? []) as (DatosExp & { id: string })[]) datosExp.set(f.id, f)
     }
 
-    // Feriados completos: nacionales (API) + provinciales Tucumán
-    const currentYear = new Date().getFullYear()
-    const [fetchedFeriados, tucumanFeriados] = await Promise.all([
-      fetchFeriadosArgentina(currentYear),
-      Promise.resolve(getTucumanProvincialFeriados(currentYear)),
-    ])
-    const extraHolidays = new Set<string>([...fetchedFeriados, ...tucumanFeriados])
-
     await Promise.all(nuevas.map(async (n) => {
+      const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) ?? null : null
+      const dx = expedienteId ? datosExp.get(expedienteId) : undefined
       const cls = await classifyNotifPriority({
         tipo: n.tipo,
         titulo: n.titulo,
         caratula: n.caratula,
-        fuero: (n.raw as { fuero?: string }).fuero ?? null,
+        fuero: dx?.fuero ?? (n.raw as { fuero?: string }).fuero ?? null,
         oficina: n.oficina,
+        parte: dx?.parte_estudio ?? null,
+        parte_detalle: dx?.parte_estudio_detalle ?? null,
+        parte_confirmada: !!dx?.datos_plazos_confirmados_at,
       })
       if (!cls) return
       priorities.set(n.sae_notif_id, cls)
@@ -799,11 +802,9 @@ Deno.serve(async (req) => {
       // Calcular plazo procesal si el LLM identificó el acto con confianza suficiente
       let plazoSugerido: Record<string, unknown> | null = null
       if (cls.tipo_acto && cls.dias && cls.confianza !== 'baja') {
-        const expedienteId = n.numero_expediente ? expByNumero.get(n.numero_expediente) ?? null : null
         const fechaActuacion = (n as { fecha_emision?: string | null }).fecha_emision?.slice(0, 10)
           ?? new Date().toISOString().slice(0, 10)
         try {
-          const ferias = await getFeriasCached()
           const fechaVencimiento = calcularVencimiento(fechaActuacion, cls.dias, cls.es_habiles ?? true, ferias, extraHolidays)
           if (fechaVencimiento) {
             plazoSugerido = {

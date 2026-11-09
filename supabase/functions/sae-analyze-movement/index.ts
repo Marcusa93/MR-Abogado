@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { analyzeMovementWithAI, shouldAnalyzeMovement } from '../_shared/sae-ai-analyzer.ts'
+import { cargarCalendarioJudicial } from '../_shared/judicial-calendar.ts'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -90,13 +91,7 @@ Deno.serve(async (req) => {
     }
 
     // Leer períodos de feria judicial para el cálculo correcto de plazos
-    const { data: feriaRows } = await serviceClient
-      .from('feria_judicial')
-      .select('inicio, fin')
-    const feriaPeriods = (feriaRows ?? []).map((r: { inicio: string; fin: string }) => ({
-      inicio: r.inicio,
-      fin: r.fin,
-    }))
+    const { ferias: feriaPeriods, feriados } = await cargarCalendarioJudicial(serviceClient)
 
     const results: { id: string; success: boolean; summary?: string; error?: string; skipped?: boolean; auto_tarea_id?: string | null }[] = []
 
@@ -117,6 +112,7 @@ Deno.serve(async (req) => {
           documentText,
           documentFileNames,
           feriaPeriods,
+          feriados,
         })
         // Fetch current auto_tarea_id before updating (dedup check)
         const { data: currentRow } = await serviceClient

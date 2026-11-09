@@ -22,6 +22,12 @@ export interface PriorityClassification {
 
 const SYSTEM_PROMPT = `Sos un asistente jurídico de Tucumán, Argentina. Clasificás notificaciones del portal SAE por urgencia y calculás plazos procesales.
 
+Te indican de qué lado está el estudio (PARTE QUE REPRESENTAMOS). Usalo:
+- Si somos la ACTORA: el traslado de la demanda y la contestación son de la contraria, no corren para nosotros (salvo traslado de una reconvención o de excepciones). "Apersona actor", "téngase por apersonado", "previo denuncie domicilio", "previo poder" son proveídos a nuestro escrito: tipo_acto "otro", sin plazo de traslado.
+- Si somos la DEMANDADA: el traslado de la demanda sí corre para nosotros.
+- El título es corto: no deduzcas un traslado solo porque aparece la palabra "demanda" o "decreto".
+- En MEDIACIÓN no hay traslado de demanda ni plazos procesales del CPCC: tipo_acto null, salvo una audiencia con fecha.
+
 Reglas de prioridad:
 - "urgente": plazos perentorios <= 5 días hábiles (traslados de demanda, intimaciones de pago, audiencias dentro de 7 días, recursos a interponer, oposiciones).
 - "normal": acción esperable pero sin urgencia inmediata (proveídos, decretos de trámite, ofrecimientos de prueba con plazo > 5 días).
@@ -71,6 +77,9 @@ interface NotifInput {
   caratula: string | null
   fuero: string | null
   oficina: string | null
+  parte?: string | null
+  parte_detalle?: string | null
+  parte_confirmada?: boolean
 }
 
 export async function classifyNotifPriority(
@@ -89,6 +98,7 @@ export async function classifyNotifPriority(
     notif.caratula && `CARÁTULA: ${notif.caratula}`,
     notif.fuero && `FUERO: ${notif.fuero}`,
     notif.oficina && `OFICINA: ${notif.oficina}`,
+    `PARTE QUE REPRESENTAMOS: ${notif.parte ? `${notif.parte.toUpperCase()}${notif.parte_detalle ? ` (${notif.parte_detalle})` : ''}${notif.parte_confirmada ? '' : ' — inferido, no confirmado'}` : 'sin dato'}`,
   ].filter(Boolean).join('\n')
 
   if (!userPrompt) return null
@@ -128,6 +138,12 @@ export async function classifyNotifPriority(
 
     const parsed = JSON.parse(content) as Partial<PriorityClassification>
     if (!parsed.prioridad || !['urgente', 'normal', 'info'].includes(parsed.prioridad)) return null
+
+    // El estudio es la actora (confirmado): un traslado de demanda no corre para nosotros
+    const titulo = `${notif.titulo ?? ''} ${notif.tipo ?? ''}`
+    const descartar = (notif.parte === 'actora' && notif.parte_confirmada && parsed.tipo_acto === 'traslado_demanda' && !/reconven|excepci/i.test(titulo))
+      || (/mediaci/i.test(`${notif.fuero ?? ''} ${notif.oficina ?? ''}`) && parsed.tipo_acto === 'traslado_demanda')
+    if (descartar) { parsed.tipo_acto = 'otro'; parsed.dias = null as unknown as number; parsed.confianza = 'baja' }
 
     return {
       prioridad: parsed.prioridad as 'urgente' | 'normal' | 'info',

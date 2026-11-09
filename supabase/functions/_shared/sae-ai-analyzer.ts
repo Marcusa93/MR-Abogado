@@ -110,6 +110,7 @@ interface AnalyzeInput {
   documentFileNames?: string[]
   /** Períodos de feria judicial provenientes de la BD (tabla feria_judicial). */
   feriaPeriods?: FeriaPeriod[]
+  feriados?: Set<string>
 }
 
 // Tope de caracteres del texto fuente que mandamos al LLM. Las actuaciones
@@ -184,7 +185,7 @@ ${cuerpo}${docSection}`
   // Regla: firma → notificación (primer hábil posterior) → primer día procesal (siguiente hábil) → N días.
   const plazosConVencimiento = rawPlazos.map(p => ({
     ...p,
-    vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles, input.feriaPeriods ?? []),
+    vence_aprox: calcularVencimiento(input.fecha, p.dias, p.habiles, input.feriaPeriods ?? [], input.feriados),
   }))
 
   const extracted: AiExtracted = {

@@ -29,7 +29,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 import { redactarPropuesta } from '../_shared/procuracion-redactar.ts'
 import {
-  calcularVencimiento, fetchFeriadosArgentina, getTucumanProvincialFeriados, type FeriaPeriod,
+  calcularVencimiento, cargarCalendarioJudicial, type FeriaPeriod,
 } from '../_shared/judicial-calendar.ts'
 
 const FUNCTION_NAME = 'procuracion-procesar'
@@ -69,6 +69,9 @@ interface Expediente {
   abogado_responsable_id: string | null
   created_by: string | null
   ultima_sincronizacion_sae: string | null
+  parte_estudio: 'actora' | 'demandada' | 'tercero' | 'otra' | null
+  parte_estudio_detalle: string | null
+  datos_plazos_confirmados_at: string | null
   clientes: { nombre: string | null; apellido: string | null } | null
 }
 
@@ -147,6 +150,19 @@ interface Resultado {
   error?: string
 }
 
+function textoParte(exp: Expediente): string {
+  const p = exp.parte_estudio
+  const base = p === 'actora' ? 'ACTORA' : p === 'demandada' ? 'DEMANDADA' : p === 'tercero' ? 'TERCERO' : p === 'otra' ? (exp.parte_estudio_detalle || 'otra') : null
+  if (!base) return 'sin dato (deducilo de la carátula y del cliente)'
+  const det = exp.parte_estudio_detalle && p !== 'otra' ? ` (${exp.parte_estudio_detalle})` : ''
+  return exp.datos_plazos_confirmados_at ? `${base}${det}` : `${base}${det} — inferido de la carátula, no confirmado`
+}
+
+/** Fueros que usan el catálogo del CPCC. */
+function fueroCatalogo(fuero: string | null): string {
+  return ['documentos_locaciones', 'comercial'].includes(fuero ?? '') ? 'civil' : (fuero ?? '')
+}
+
 // Actuaciones de mero trámite del portal: no generan carga para la parte.
 const TRIVIAL_RE = /^(mostrador|cargo\s*-\s*cargo|pase\b|acta de sorteo|cargo inicio digital)/i
 
@@ -188,6 +204,7 @@ async function clasificar(
     `Fuero: ${exp.fuero ?? 'sin dato'}\n` +
     `Carátula: ${exp.caratula ?? exp.numero ?? ''}\n` +
     `Representamos a: ${ctx.cliente || 'nuestro cliente (ver carátula)'}\n` +
+    `Somos la parte: ${textoParte(exp)}\n` +
     `Abogados del estudio (si un escrito dice "POR: <apellido>" de esta lista, lo presentamos nosotros): ${ctx.abogados.join(', ') || 'sin dato'}\n\n` +
     `Diligencias abiertas del expediente:\n${abiertasTxt}\n\n` +
     `Actuación del ${m.fecha} (tipo: ${m.tipo_movimiento ?? 'otro'})\n` +
@@ -213,6 +230,10 @@ async function clasificar(
     '- Mero trámite sin carga ("téngase presente", "agréguese", "por presentado"): requiere_accion=false.\n' +
     '- Escritos nuestros (POR: abogado del estudio): requiere_accion=false, salvo que quede algo pendiente nuestro.\n' +
     '- Nunca propongas que hagamos lo mismo que hizo la contraria.\n' +
+    '- Si somos la parte ACTORA, el traslado de la demanda y la contestación de demanda son de la contraria: no son carga nuestra ' +
+    '(salvo traslado de una reconvención o de excepciones opuestas contra nosotros). "Apersona actor", "previo denuncie domicilio", ' +
+    '"téngase por apersonado" son proveídos a nuestro escrito de inicio, no un traslado.\n' +
+    '- Si somos la parte DEMANDADA, el traslado de la demanda sí es carga nuestra.\n' +
     '- Basate solo en el texto. Si dudás, elegí la lectura que no genera escrito y explicá la duda en "resumen".\n' +
     '- No inventes plazos: catálogo o plazo del texto; si no hay, dias=null.\n' +
     '- "escrito" solo si hay que presentar algo. Si la acción es interna (controlar, llamar, urgir en mesa), escrito=null.\n' +
@@ -528,7 +549,7 @@ Deno.serve(async (req) => {
 
     // ── Expedientes a procurar ────────────────────────────────────────────
     let q = admin.from('expedientes')
-      .select('id, caratula, numero, numero_sae, fuero, procuracion_desde, procuracion_responsable_id, abogado_responsable_id, created_by, ultima_sincronizacion_sae, clientes(nombre, apellido)')
+      .select('id, caratula, numero, numero_sae, fuero, procuracion_desde, procuracion_responsable_id, abogado_responsable_id, created_by, ultima_sincronizacion_sae, parte_estudio, parte_estudio_detalle, datos_plazos_confirmados_at, clientes(nombre, apellido)')
       .eq('procuracion_auto', true)
       .is('deleted_at', null)
     if (soloExpediente) q = q.eq('id', soloExpediente)
@@ -544,11 +565,7 @@ Deno.serve(async (req) => {
     if (!directorId) throw new Error('No se encontró el perfil del director')
 
     // Calendario judicial: ferias + feriados nacionales y de Tucumán
-    const { data: feriaRows } = await admin.from('feria_judicial').select('inicio, fin')
-    const ferias = (feriaRows ?? []) as FeriaPeriod[]
-    const anio = new Date().getFullYear()
-    const [nac1, nac2] = await Promise.all([fetchFeriadosArgentina(anio), fetchFeriadosArgentina(anio + 1)])
-    const feriados = new Set<string>([...nac1, ...nac2, ...getTucumanProvincialFeriados(anio), ...getTucumanProvincialFeriados(anio + 1)])
+    const { ferias, feriados } = await cargarCalendarioJudicial(admin)
 
     const { data: plazosRows } = await admin.from('plazos_procesales')
       .select('tipo_acto, dias, es_habiles, base_legal, fuero').eq('activo', true)
@@ -626,7 +643,7 @@ Deno.serve(async (req) => {
         }
 
         try {
-          const catalogo = catalogoPorFuero.get(exp.fuero ?? '') ?? []
+          const catalogo = catalogoPorFuero.get(fueroCatalogo(exp.fuero)) ?? []
           const guard = await checkLlmGuard(admin, responsable, FUNCTION_NAME, 20_000)
           if (!guard.ok) throw new Error(guard.error ?? 'Límite de IA alcanzado')
           const cliente = `${exp.clientes?.apellido ?? ''} ${exp.clientes?.nombre ?? ''}`.trim()
@@ -650,6 +667,13 @@ Deno.serve(async (req) => {
           }
 
           // 3. Plazo
+          // Traslado de demanda cuando el estudio es la actora (confirmado): no corre para nosotros.
+          if (exp.parte_estudio === 'actora' && exp.datos_plazos_confirmados_at &&
+              /traslado_demanda|contestaci/i.test(c.tipo_acto ?? '') && !/reconven|excepci/i.test(`${m.titulo} ${m.cuerpo ?? ''}`.slice(0, 4000))) {
+            await admin.from('procuracion_eventos').insert({ ...base, estado: 'sin_accion', resumen: `${c.resumen} (Somos la parte actora: el traslado corre para la contraria.)`, tipo_acto: c.tipo_acto, etapa: c.etapa })
+            resultados.push({ expediente: nombreExp, actuacion: m.titulo, estado: 'sin_accion' })
+            continue
+          }
           const delCatalogo = c.tipo_acto ? catalogo.find(p => p.tipo_acto === c.tipo_acto) : undefined
           const dias = delCatalogo?.dias ?? c.dias
           const habiles = delCatalogo?.es_habiles ?? c.es_habiles

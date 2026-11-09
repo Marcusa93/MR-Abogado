@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { DatosPlazosDialog, debePreguntarDatosPlazos, etiquetaParte, type DatosPlazosExpediente } from '@/components/expedientes/datos-plazos'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useEscritoIntent } from '@/stores/escrito-intent-store'
 import { EstadoBadge } from '@/components/shared/estado-badge'
@@ -179,6 +180,12 @@ export default function ExpedienteDetailPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [descargarExpedienteOpen, setDescargarExpedienteOpen] = useState(false)
   const [notificarClienteOpen, setNotificarClienteOpen] = useState(false)
+  // Datos para los plazos (parte que representamos, fuero): se preguntan una sola vez
+  const [datosPlazosOpen, setDatosPlazosOpen] = useState(false)
+  const datosPlazos = expediente as unknown as DatosPlazosExpediente | null | undefined
+  useEffect(() => {
+    if (debePreguntarDatosPlazos(datosPlazos) && profile?.rol !== 'CLIENTE') setDatosPlazosOpen(true)
+  }, [datosPlazos?.id, datosPlazos?.datos_plazos_confirmados_at]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSeguimiento = useToggleSeguimientoActivo()
 
@@ -224,6 +231,7 @@ export default function ExpedienteDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-24 sm:pb-6">
+      {datosPlazosOpen && datosPlazos && <DatosPlazosDialog expediente={datosPlazos} onClose={() => setDatosPlazosOpen(false)} />}
       {/* Breadcrumb + Header */}
       <div>
         <div className="mb-3">
@@ -253,6 +261,12 @@ export default function ExpedienteDetailPage() {
               </div>
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <EstadoBadge estado={expediente.estado_interno} />
+                <button type="button" onClick={() => setDatosPlazosOpen(true)} className="tag-mono hover:opacity-80"
+                  title="Parte que representa el estudio y fuero: se usan para calcular los plazos">
+                  {datosPlazos && etiquetaParte(datosPlazos)
+                    ? <>{etiquetaParte(datosPlazos)}{!datosPlazos.datos_plazos_confirmados_at && <span className="text-amber-500"> · confirmar</span>}</>
+                    : <span className="text-amber-500">¿actora o demandada?</span>}
+                </button>
                 {(expediente.prioridad === 'ALTA' || expediente.prioridad === 'URGENTE') && <PrioridadBadge prioridad={expediente.prioridad} />}
                 {(expediente as any).estado_organismo && (
                   <span

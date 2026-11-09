@@ -122,7 +122,7 @@ export async function fetchFeriadosArgentina(year: number, timeoutMs = 4000): Pr
   try {
     const ctrl = new AbortController()
     const timer = setTimeout(() => ctrl.abort(), timeoutMs)
-    const res = await fetch(`https://api.argentinadatos.com/v1/feriados/${year}`, { signal: ctrl.signal })
+    const res = await fetch(`https://api.argentinadatos.com/v1/feriados/${year}`, { signal: ctrl.signal, headers: { 'User-Agent': 'MR-Abogado/1.0', Accept: 'application/json' } })
     clearTimeout(timer)
     if (!res.ok) return []
     const data = await res.json() as Array<{ fecha?: string }>
@@ -144,6 +144,73 @@ export function getTucumanProvincialFeriados(year: number): string[] {
   ]
 }
 
+// ── Calendario desde la base (tabla dias_inhabiles + feria_judicial) ─────────
+// Fuente de verdad: nacionales (API oficial, se sincronizan solos), provinciales
+// de Tucumán y los días que la Corte declara inhábiles (cargados por el estudio).
+
+const ANIOS_EN_BD = new Set<number>()
+
+export interface CalendarioJudicial {
+  ferias: FeriaPeriod[]
+  feriados: Set<string>
+}
+
+// deno-lint-ignore no-explicit-any
+type Admin = any
+
+/** Trae nacionales de la API y los guarda. Devuelve cuántos guardó. */
+export async function sincronizarFeriadosNacionales(admin: Admin, year: number): Promise<number> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 5000)
+  try {
+    const res = await fetch(`https://api.argentinadatos.com/v1/feriados/${year}`, { signal: ctrl.signal, headers: { 'User-Agent': 'MR-Abogado/1.0', Accept: 'application/json' } })
+    if (!res.ok) return 0
+    const data = await res.json() as Array<{ fecha?: string; nombre?: string; tipo?: string }>
+    const rows = (Array.isArray(data) ? data : [])
+      .filter(f => typeof f.fecha === 'string' && f.fecha.startsWith(String(year)))
+      .map(f => ({ fecha: f.fecha, ambito: 'nacional', descripcion: f.nombre ?? 'Feriado nacional', fuente: 'api', referencia: f.tipo ?? null }))
+    if (!rows.length) return 0
+    const { error } = await admin.from('dias_inhabiles').upsert(rows, { onConflict: 'fecha,ambito', ignoreDuplicates: true })
+    return error ? 0 : rows.length
+  } catch {
+    return 0
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Calendario judicial completo para calcular plazos. Si a un año le faltan los
+ * nacionales, los baja de la API. Si la tabla no responde, cae a la lista fija + API.
+ */
+export async function cargarCalendarioJudicial(admin: Admin): Promise<CalendarioJudicial> {
+  const anio = new Date().getUTCFullYear()
+  const { data: feriaRows } = await admin.from('feria_judicial').select('inicio, fin').order('inicio', { ascending: true })
+  const ferias = (feriaRows ?? []) as FeriaPeriod[]
+  const leer = () => admin.from('dias_inhabiles').select('fecha, ambito, inhabil')
+    .gte('fecha', `${anio - 1}-01-01`).lte('fecha', `${anio + 1}-12-31`)
+  let { data, error } = await leer()
+  if (error) {
+    const [a, b] = await Promise.all([fetchFeriadosArgentina(anio), fetchFeriadosArgentina(anio + 1)])
+    return { ferias, feriados: new Set([...a, ...b, ...getTucumanProvincialFeriados(anio), ...getTucumanProvincialFeriados(anio + 1)]) }
+  }
+  type Fila = { fecha: string; ambito: string; inhabil: boolean }
+  const conNacionales = (filas: Fila[], y: number) => filas.some(f => f.ambito === 'nacional' && f.fecha.startsWith(String(y)))
+  let filas = (data ?? []) as Fila[]
+  const faltan = [anio, anio + 1].filter(y => !conNacionales(filas, y))
+  if (faltan.length) {
+    const n = await Promise.all(faltan.map(y => sincronizarFeriadosNacionales(admin, y)))
+    if (n.some(x => x > 0)) { ({ data } = await leer()); filas = (data ?? []) as Fila[] }
+  }
+  for (const y of [anio - 1, anio, anio + 1]) if (conNacionales(filas, y)) ANIOS_EN_BD.add(y)
+  // Un día marcado "hábil" (inhabil=false) en cualquier ámbito gana sobre los demás
+  const habilitados = new Set(filas.filter(f => !f.inhabil).map(f => f.fecha))
+  const feriados = new Set(filas.filter(f => f.inhabil && !habilitados.has(f.fecha)).map(f => f.fecha))
+  // Años sin datos en la tabla: lista fija de provinciales
+  for (const y of [anio, anio + 1]) if (!ANIOS_EN_BD.has(y)) getTucumanProvincialFeriados(y).forEach(d => feriados.add(d))
+  return { ferias, feriados }
+}
+
 // ── Verificación de feria para una fecha ─────────────────────────────────────
 
 function isInFeria(date: Date, periods: FeriaPeriod[]): boolean {
@@ -158,7 +225,8 @@ export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[], extraHoliday
   if (dow === 0 || dow === 6) return false
   if (isInFeria(date, feriaPeriods)) return false
   const iso = isoUTC(date)
-  if (getHolidays(date.getUTCFullYear()).has(iso)) return false
+  // La lista fija solo se usa para los años que la tabla dias_inhabiles no cubre
+  if (!ANIOS_EN_BD.has(date.getUTCFullYear()) && getHolidays(date.getUTCFullYear()).has(iso)) return false
   if (extraHolidays?.has(iso)) return false
   return true
 }

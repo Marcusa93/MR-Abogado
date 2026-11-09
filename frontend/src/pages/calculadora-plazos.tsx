@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Calculator, Copy, Check, AlertTriangle, Info, BookOpen, ChevronRight } from 'lucide-react'
 import { useFeriasJudiciales } from '@/hooks/use-ferias-judiciales'
+import { useCalendarioJudicial } from '@/hooks/use-calendario-judicial'
+import { CalendarioInhabiles } from '@/components/plazos/calendario-inhabiles'
 import {
   calcularVencimiento,
   isHabilDay,
@@ -77,6 +79,7 @@ function feriaEnPeriodo(desde: string, hasta: string, periods: FeriaPeriod[]): F
 
 export default function CalculadoraPlazos() {
   const { data: ferias = [], isLoading: feriasLoading } = useFeriasJudiciales()
+  const { inhabiles, isLoading: inhabilesLoading } = useCalendarioJudicial()
 
   const [fecha, setFecha] = useState(todayISO())
   const [tipoId, setTipoId] = useState('traslado_demanda')
@@ -90,8 +93,8 @@ export default function CalculadoraPlazos() {
 
   const resultado = useMemo(() => {
     if (!fecha || !dias) return null
-    return calcularVencimiento(fecha, dias, habiles, ferias)
-  }, [fecha, dias, habiles, ferias])
+    return calcularVencimiento(fecha, dias, habiles, ferias, inhabiles)
+  }, [fecha, dias, habiles, ferias, inhabiles])
 
   const today = todayISO()
 
@@ -130,7 +133,7 @@ export default function CalculadoraPlazos() {
             Calculadora de plazos procesales
           </h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            CPCC Tucumán — incluye ferias judiciales y feriados nacionales
+            CPCC Tucumán — descuenta ferias, feriados nacionales y provinciales y días inhábiles judiciales
           </p>
         </div>
       </div>
@@ -221,13 +224,13 @@ export default function CalculadoraPlazos() {
       </div>
 
       {/* Resultado */}
-      {feriasLoading && (
+      {(feriasLoading || inhabilesLoading) && (
         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-6 text-center text-sm text-zinc-500">
           Cargando calendario judicial…
         </div>
       )}
 
-      {!feriasLoading && resultado && (
+      {!feriasLoading && !inhabilesLoading && resultado && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5 overflow-hidden">
 
           {/* Fecha vencimiento — prominente */}
@@ -341,10 +344,11 @@ export default function CalculadoraPlazos() {
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           Cálculo según CPCC Tucumán: la cédula se notifica el primer día hábil posterior a la firma,
           y el plazo comienza a correr desde el día hábil siguiente.
-          Se excluyen sábados, domingos, feriados nacionales y ferias judiciales registradas.
+          Se excluyen sábados, domingos, ferias y los días inhábiles de la lista de abajo.
         </p>
       </div>
 
+      <CalendarioInhabiles />
     </div>
   )
 }

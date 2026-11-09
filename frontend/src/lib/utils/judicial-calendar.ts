@@ -80,23 +80,34 @@ function getHolidays(year: number): Set<string> {
   return holidayCache.get(year)!
 }
 
+/**
+ * Días inhábiles cargados en la base (tabla dias_inhabiles). Para los años que
+ * cubre, reemplaza la lista fija de feriados del código.
+ */
+export interface DiasInhabiles {
+  fechas: Set<string>
+  anios: Set<number>
+}
+
 function isInFeria(date: Date, periods: FeriaPeriod[]): boolean {
   const iso = isoUTC(date)
   return periods.some(p => iso >= p.inicio && iso <= p.fin)
 }
 
-export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[]): boolean {
+export function isHabilDay(date: Date, feriaPeriods: FeriaPeriod[], inhabiles?: DiasInhabiles): boolean {
   const dow = date.getUTCDay()
   if (dow === 0 || dow === 6) return false
   if (isInFeria(date, feriaPeriods)) return false
-  if (getHolidays(date.getUTCFullYear()).has(isoUTC(date))) return false
+  const iso = isoUTC(date)
+  if (inhabiles?.fechas.has(iso)) return false
+  if (!inhabiles?.anios.has(date.getUTCFullYear()) && getHolidays(date.getUTCFullYear()).has(iso)) return false
   return true
 }
 
-function primerHabilDesde(from: Date, feriaPeriods: FeriaPeriod[]): Date {
+function primerHabilDesde(from: Date, feriaPeriods: FeriaPeriod[], inhabiles?: DiasInhabiles): Date {
   let d = new Date(from)
   for (let i = 0; i < 400; i++) {
-    if (isHabilDay(d, feriaPeriods)) return d
+    if (isHabilDay(d, feriaPeriods, inhabiles)) return d
     d = shiftUTC(d, 1)
   }
   return d
@@ -109,6 +120,7 @@ export function calcularVencimiento(
   dias: number,
   habiles: boolean,
   feriaPeriods: FeriaPeriod[],
+  inhabiles?: DiasInhabiles,
 ): ResultadoPlazo | null {
   if (!fechaActuacion || !Number.isInteger(dias) || dias <= 0) return null
   const parts = fechaActuacion.split('-').map(Number)
@@ -117,8 +129,8 @@ export function calcularVencimiento(
   const base = new Date(Date.UTC(y, m - 1, d, 12))
   if (isNaN(base.getTime())) return null
 
-  const notif  = primerHabilDesde(shiftUTC(base, 1), feriaPeriods)
-  const primer = primerHabilDesde(shiftUTC(notif, 1), feriaPeriods)
+  const notif  = primerHabilDesde(shiftUTC(base, 1), feriaPeriods, inhabiles)
+  const primer = primerHabilDesde(shiftUTC(notif, 1), feriaPeriods, inhabiles)
 
   if (!habiles) {
     return {
@@ -132,7 +144,7 @@ export function calcularVencimiento(
   let counted = 0
   const maxIter = dias * 5 + 400
   for (let i = 0; i < maxIter; i++) {
-    if (isHabilDay(current, feriaPeriods)) {
+    if (isHabilDay(current, feriaPeriods, inhabiles)) {
       counted++
       if (counted === dias) {
         return {
@@ -148,14 +160,14 @@ export function calcularVencimiento(
 }
 
 // Cuenta días hábiles entre dos fechas (ambas inclusive)
-export function contarHabiles(desde: string, hasta: string, feriaPeriods: FeriaPeriod[]): number {
+export function contarHabiles(desde: string, hasta: string, feriaPeriods: FeriaPeriod[], inhabiles?: DiasInhabiles): number {
   const [y1, m1, d1] = desde.split('-').map(Number) as [number, number, number]
   const [y2, m2, d2] = hasta.split('-').map(Number) as [number, number, number]
   let cur = new Date(Date.UTC(y1, m1 - 1, d1, 12))
   const end = new Date(Date.UTC(y2, m2 - 1, d2, 12))
   let count = 0
   while (cur <= end) {
-    if (isHabilDay(cur, feriaPeriods)) count++
+    if (isHabilDay(cur, feriaPeriods, inhabiles)) count++
     cur = new Date(cur.getTime() + 86400000)
   }
   return count
