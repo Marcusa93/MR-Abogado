@@ -147,7 +147,7 @@ export function CalendarioInhabiles() {
                           <button type="button" onClick={() => marcar.mutate({ id: d.id, inhabil: !d.inhabil })}
                             title={d.inhabil ? 'Marcar que tribunales trabajó ese día' : 'Volver a contarlo como inhábil'}
                             className="rounded px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-white/5 dark:hover:text-zinc-200">
-                            {d.inhabil ? 'Fue hábil' : 'Es inhábil'}
+                            {d.inhabil ? 'Marcar hábil' : 'Marcar inhábil'}
                           </button>
                           {d.fuente === 'manual' && (
                             <button type="button" title="Borrar" onClick={() => { if (confirm('¿Borrar este día?')) borrar.mutate(d.id) }}
