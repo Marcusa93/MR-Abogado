@@ -37,7 +37,7 @@ const FUERO_OPTIONS: { value: string; label: string }[] = [
 // ---------------------------------------------------------------------------
 
 const inputClass =
-  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
 const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 const errorClass = 'mt-1 text-xs text-rose-500'
 
@@ -160,7 +160,7 @@ export default function NuevoExpedientePage() {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Nuevo Expediente
         </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
@@ -267,7 +267,7 @@ export default function NuevoExpedientePage() {
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
             />
           </div>
         </div>

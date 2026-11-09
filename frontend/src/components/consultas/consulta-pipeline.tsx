@@ -53,7 +53,7 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
   const [notas, setNotas] = useState('')
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-6 space-y-4">
+      <div className="w-full max-w-md bg-white dark:bg-[var(--card)] rounded-xl shadow-xl p-6 space-y-4">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{titulo}</h3>
         <textarea
           value={notas}
@@ -61,7 +61,7 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
           placeholder={placeholder}
           rows={3}
           autoFocus
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
         />
         <div className="flex gap-3 justify-end">
           <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -71,7 +71,7 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
             type="button"
             onClick={() => onConfirm(notas)}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             Confirmar
@@ -98,7 +98,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl p-6 space-y-4">
+      <div className="w-full max-w-md bg-white dark:bg-[var(--card)] rounded-xl shadow-xl p-6 space-y-4">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Asignar tarea</h3>
 
         <div>
@@ -107,7 +107,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             value={destinatarioId}
             onChange={e => setDestinatarioId(e.target.value)}
             autoFocus
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           >
             <option value="">Seleccionar…</option>
             {profiles.map(p => {
@@ -127,7 +127,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             type="text"
             value={titulo}
             onChange={e => setTitulo(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           />
         </div>
 
@@ -138,7 +138,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             onChange={e => setDescripcion(e.target.value)}
             placeholder="Ej: Llamar al cliente para coordinar la firma del poder…"
             rows={3}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
           />
         </div>
 
@@ -150,7 +150,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             type="button"
             onClick={() => destinatarioId && titulo.trim() && onConfirm(destinatarioId, titulo.trim(), descripcion)}
             disabled={loading || !destinatarioId || !titulo.trim()}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
             Asignar
@@ -306,7 +306,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
       {/* Stepper */}
       <div className="flex items-center gap-0">
         {STEPS.map((step, i) => {
@@ -438,7 +438,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
                 type="button"
                 onClick={handleRedactando}
                 disabled={cambiar.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
               >
                 <PenLine className="h-3.5 w-3.5" />
                 Redactar instrumento

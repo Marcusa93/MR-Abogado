@@ -133,7 +133,7 @@ export function IncorporarEntrevista({ consulta, transcripcion, marcas, notas, a
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onCerrar}>
       <div onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:max-w-2xl sm:rounded-2xl dark:bg-zinc-900">
+        className="flex max-h-[92vh] w-full flex-col rounded-t-xl bg-white shadow-xl sm:max-w-2xl sm:rounded-xl dark:bg-[var(--card)]">
         <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/10">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <Sparkles className="h-4 w-4 text-blue-600" /> Incorporar la entrevista a la consulta
@@ -191,7 +191,7 @@ export function IncorporarEntrevista({ consulta, transcripcion, marcas, notas, a
             <>
               <button type="button" onClick={onCerrar} className="min-h-10 rounded-lg px-3 text-sm text-zinc-600 dark:text-zinc-300">Cerrar</button>
               <button type="button" onClick={() => { onCerrar(); onOrdenar() }}
-                className="min-h-10 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-sm font-medium text-white">Ordenar hechos con IA</button>
+                className="min-h-10 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900">Ordenar hechos con IA</button>
             </>
           ) : (
             <>

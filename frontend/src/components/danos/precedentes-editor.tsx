@@ -14,7 +14,7 @@ function formatPesos(n: number): string {
 }
 
 const RUBROS: Precedente['rubro'][] = ['no_patrimonial', 'punitivo', 'patrimonial', 'mixto']
-const inputCls = 'w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50'
+const inputCls = 'w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50'
 
 const EMPTY: PrecedenteInput = {
   tribunal: '', caratula: '', fecha: '', rubro: 'no_patrimonial',
@@ -47,8 +47,8 @@ export function PrecedentesEditor({ onClose, valores }: { onClose: () => void; v
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-xl border border-white/10 bg-white dark:bg-zinc-900 shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 dark:border-white/10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur px-4 py-3">
+      <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-100 dark:border-white/10 bg-white/95 dark:bg-[var(--card)] backdrop-blur px-4 py-3">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <BookMarked className="h-4 w-4 text-amber-500" /> Precedentes de daños
           </h2>

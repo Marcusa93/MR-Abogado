@@ -280,8 +280,8 @@ function NuevoEscritoDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={generate.isPending ? undefined : handleClose} />
 
-      <div className="relative w-full max-w-xl rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/80">
+      <div className="relative w-full max-w-xl rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-[var(--card)]">
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-violet-400" />
@@ -339,7 +339,7 @@ function NuevoEscritoDialog({
                 value={respondeA}
                 onChange={(e) => onSelectProvidencia(e.target.value)}
                 disabled={generate.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               >
                 <option value="">— Sin actuación de referencia —</option>
                 {providencias.map(m => (
@@ -451,7 +451,7 @@ function NuevoEscritoDialog({
                 onChange={(e) => setTipo(e.target.value)}
                 placeholder="ej: Contestación de demanda"
                 disabled={generate.isPending}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               <datalist id="tipos-escrito">
                 {sugerencias.map(s => <option key={s} value={s} />)}
@@ -477,7 +477,7 @@ function NuevoEscritoDialog({
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Si lo dejás vacío, la IA decide el título"
               disabled={generate.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
           </div>
 
@@ -491,7 +491,7 @@ function NuevoEscritoDialog({
               placeholder="ej: contestar negando todos los hechos y oponiendo prescripción"
               rows={4}
               disabled={generate.isPending}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
           </div>
 
@@ -504,7 +504,7 @@ function NuevoEscritoDialog({
               value={modeloSel}
               onChange={(e) => setModeloSel(e.target.value)}
               disabled={generate.isPending}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             >
               <option value="">Sin modelo — estilo por defecto</option>
               {templates.length > 0 && (
@@ -528,14 +528,14 @@ function NuevoEscritoDialog({
                   placeholder="Pegá acá un escrito de ejemplo cuyo estilo y estructura querés imitar…"
                   rows={6}
                   disabled={generate.isPending}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                 />
                 <input
                   value={guardarComo}
                   onChange={(e) => setGuardarComo(e.target.value)}
                   placeholder="Guardar este modelo como… (opcional, ej: Adjunta bono de movilidad)"
                   disabled={generate.isPending}
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                 />
                 {guardarComo.trim() && (
                   <p className="text-[10px] text-emerald-400/80">
@@ -558,7 +558,7 @@ function NuevoEscritoDialog({
           <button
             onClick={handleGenerate}
             disabled={generate.isPending || !puedeGenerar}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {generate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             {generate.isPending ? 'Redactando…' : 'Generar escrito'}
@@ -619,8 +619,8 @@ function PresentarSaeDialog({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={isLoading ? undefined : onClose} />
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/80">
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-[var(--card)]">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Send className="h-4 w-4 text-emerald-400" />
             Presentar al portal del SAE
@@ -711,7 +711,7 @@ function PresentarSaeDialog({
           <button
             onClick={submit}
             disabled={isLoading || !categoria.trim() || !descripcion.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
           >
             {presentar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
             Presentar al SAE
@@ -1101,14 +1101,14 @@ function EscritoEditorModal({
           <input
             value={titulo}
             onChange={(e) => { setTitulo(e.target.value); setDirty(true) }}
-            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-amber-500/40"
+            className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-900 dark:text-zinc-50 focus:outline-none border-b border-transparent focus:border-cyan-500/40"
           />
           <select
             value={estado}
             onChange={(e) => handleChangeEstado(e.target.value as Escrito['estado'])}
             disabled={update.isPending || estado === 'firmado' || estado === 'presentado_sae'}
             className={cn(
-              'h-7 shrink-0 rounded-lg border bg-white dark:bg-zinc-900/80 px-1.5 text-[11px] font-medium focus:outline-none transition-colors',
+              'h-7 shrink-0 rounded-lg border bg-white dark:bg-[var(--card)] px-1.5 text-[11px] font-medium focus:outline-none transition-colors',
               estado === 'borrador'  && 'border-zinc-600/50 text-zinc-300',
               estado === 'final'     && 'border-emerald-500/40 text-emerald-300',
               estado === 'firmado'   && 'border-cyan-500/40 text-cyan-300',
@@ -1222,13 +1222,13 @@ function EscritoEditorModal({
             <input
               value={contenido.encabezado_juez}
               onChange={(e) => { setContenido(c => ({ ...c, encabezado_juez: e.target.value })); setDirty(true) }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             />
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Carátula</label>
             <input
               value={contenido.caratula}
               onChange={(e) => { setContenido(c => ({ ...c, caratula: e.target.value })); setDirty(true) }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             />
             <label className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-2">Me presento como</label>
             <CaracterSelector compacto expedienteId={escrito.expediente_id}
@@ -1248,7 +1248,7 @@ function EscritoEditorModal({
               value={contenido.presentacion ?? ''}
               onChange={(e) => { setContenido(c => ({ ...c, presentacion: e.target.value })); setDirty(true) }}
               rows={2}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             />
           </div>
 
@@ -1259,7 +1259,7 @@ function EscritoEditorModal({
                 <input
                   value={sec.titulo}
                   onChange={(e) => updateSeccion(si, { titulo: e.target.value })}
-                  className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-200 focus:outline-none border-b border-transparent focus:border-amber-500/40"
+                  className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-zinc-200 focus:outline-none border-b border-transparent focus:border-cyan-500/40"
                 />
                 <button
                   type="button"
@@ -1407,7 +1407,7 @@ function EscritoEditorModal({
                         onFocus={() => { setActiveParrafo({ si, pi }); setParrafoAiPanel(null) }}
                         rows={Math.max(2, Math.ceil(p.length / 80))}
                         className={cn(
-                          'w-full rounded border bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-amber-500/40 focus:outline-none resize-none',
+                          'w-full rounded border bg-white/5 px-2 py-1.5 text-xs text-zinc-200 focus:border-cyan-500/40 focus:outline-none resize-none',
                           activeParrafo?.si === si && activeParrafo?.pi === pi
                             ? 'border-amber-500/50'
                             : 'border-white/10'
@@ -1592,7 +1592,7 @@ export function TabEscritos({ expedienteId }: Props) {
         headerRight={
           <button
             onClick={() => setNuevoOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 transition-opacity"
           >
             <Plus className="h-3 w-3" />
             Nuevo escrito

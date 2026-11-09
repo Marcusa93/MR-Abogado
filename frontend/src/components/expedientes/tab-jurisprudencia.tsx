@@ -61,7 +61,7 @@ function FijarDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={fijar.isPending ? undefined : onClose} />
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <Pin className="h-4 w-4 text-violet-400" />
@@ -168,7 +168,7 @@ function FijarDialog({
                 <button
                   onClick={submit}
                   disabled={fijar.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
                 >
                   {fijar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pin className="h-3 w-3" />}
                   Fijar
@@ -199,7 +199,7 @@ export function TabJurisprudencia({ expedienteId }: Props) {
         headerRight={
           <button
             onClick={() => setOpenFijar(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90"
           >
             <Plus className="h-3 w-3" />
             Fijar fallo

@@ -72,7 +72,7 @@ export function ChangePasswordSection() {
               type={showCurrent ? 'text' : 'password'}
               value={currentPwd}
               onChange={(e) => setCurrentPwd(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
             <button
               type="button"
@@ -95,7 +95,7 @@ export function ChangePasswordSection() {
               value={newPwd}
               onChange={(e) => setNewPwd(e.target.value)}
               placeholder="Mínimo 6 caracteres"
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             />
             <button
               type="button"
@@ -117,10 +117,10 @@ export function ChangePasswordSection() {
             value={confirmPwd}
             onChange={(e) => setConfirmPwd(e.target.value)}
             className={cn(
-              'h-9 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/15',
+              'h-9 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/15',
               confirmPwd && confirmPwd !== newPwd
                 ? 'border-rose-500/50 focus:border-rose-500/50'
-                : 'border-white/10 focus:border-amber-500/40'
+                : 'border-white/10 focus:border-cyan-500/40'
             )}
           />
           {confirmPwd && confirmPwd !== newPwd && (

@@ -859,7 +859,7 @@ export function BogaBotChat() {
                   'flex-1 resize-none rounded-xl border bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:bg-white/5 focus:outline-none focus:ring-2 max-h-[100px]',
                   voice.listening
                     ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
-                    : 'border-white/10 focus:border-amber-500/40 focus:ring-amber-500/15'
+                    : 'border-white/10 focus:border-cyan-500/40 focus:ring-cyan-500/15'
                 )}
                 style={{ minHeight: '38px' }}
               />

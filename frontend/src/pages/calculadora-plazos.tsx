@@ -147,7 +147,7 @@ export default function CalculadoraPlazos() {
             type="date"
             value={fecha}
             onChange={e => setFecha(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
           />
           <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
             Firma del escrito o fecha indicada en la cédula
@@ -162,7 +162,7 @@ export default function CalculadoraPlazos() {
           <select
             value={tipoId}
             onChange={e => setTipoId(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
           >
             {TIPOS_PLAZO.map(t => (
               <option key={t.id} value={t.id}>
@@ -187,7 +187,7 @@ export default function CalculadoraPlazos() {
                 max={365}
                 value={diasCustom}
                 onChange={e => setDiasCustom(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-24 rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-24 rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
               />
               <div className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 p-1">
                 <button

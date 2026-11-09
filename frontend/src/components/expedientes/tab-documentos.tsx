@@ -128,7 +128,7 @@ function UploadDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in">
+      <div className="w-full max-w-md rounded-xl bg-white dark:bg-[var(--card)] border border-white/10 p-6 shadow-xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Subir documento</h3>
           <div className="flex items-center gap-2">
@@ -207,7 +207,7 @@ function UploadDialog({
               <input
                 value={nombreArchivo}
                 onChange={(e) => setNombreArchivo(e.target.value)}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                 placeholder="Nombre del archivo..."
               />
             </div>
@@ -219,7 +219,7 @@ function UploadDialog({
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
             >
               <option value="">Sin categoría</option>
               {CATEGORIAS.map((c) => (
@@ -234,7 +234,7 @@ function UploadDialog({
             <input
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               placeholder="Breve descripción del documento..."
             />
           </div>
@@ -823,7 +823,7 @@ export function TabDocumentos({ expedienteId }: { expedienteId: string }) {
       {previewUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className={cn(
-            "relative h-[88vh] mx-4 rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-2xl overflow-hidden flex flex-col transition-[max-width] duration-200",
+            "relative h-[88vh] mx-4 rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl overflow-hidden flex flex-col transition-[max-width] duration-200",
             chatOpen ? "w-full max-w-6xl" : "w-full max-w-4xl"
           )}>
             <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">

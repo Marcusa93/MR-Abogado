@@ -64,11 +64,11 @@ export default function ResolverClientesPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-8 flex justify-center">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-8 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
         </div>
       ) : placeholders.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-8">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-8">
           <EmptyState
             icon={CheckCircle2}
             title="No hay placeholders pendientes"
@@ -78,7 +78,7 @@ export default function ResolverClientesPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Lista de placeholders */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 overflow-hidden">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] overflow-hidden">
             <div className="border-b border-zinc-200 dark:border-white/5 px-4 py-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold">
                 Placeholders SAE pendientes
@@ -131,7 +131,7 @@ export default function ResolverClientesPage() {
           </div>
 
           {/* Panel de merge */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 overflow-hidden">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] overflow-hidden">
             <div className="border-b border-zinc-200 dark:border-white/5 px-4 py-3">
               <h2 className="text-sm font-semibold">Mergear con cliente real</h2>
             </div>

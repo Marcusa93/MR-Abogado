@@ -22,7 +22,7 @@ export default function NotFoundPage() {
         <button
           type="button"
           onClick={() => navigate('/panel')}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-cyan px-5 py-2.5 text-sm font-medium text-zinc-950 transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-cyan px-5 py-2.5 text-sm font-medium text-zinc-950 transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver al panel

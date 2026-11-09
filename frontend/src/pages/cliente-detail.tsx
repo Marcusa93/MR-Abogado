@@ -288,7 +288,7 @@ export default function ClienteDetailPage() {
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 p-6 shadow-xl animate-fade-in">
+          <div className="w-full max-w-sm rounded-xl bg-white dark:bg-[var(--card)] border border-zinc-200 dark:border-white/10 p-6 shadow-xl animate-fade-in">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Eliminar cliente</h3>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               ¿Estás seguro de que querés eliminar a <strong>{cliente.apellido}, {cliente.nombre}</strong>?
@@ -336,7 +336,7 @@ export default function ClienteDetailPage() {
 function DatosTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
           Documentación
         </h3>
@@ -357,7 +357,7 @@ function DatosTab({ cliente }: { cliente: any }) {
           value={cliente.estado_civil ? (ESTADO_CIVIL_LABELS[cliente.estado_civil as EstadoCivil] ?? cliente.estado_civil) : null}
         />
       </div>
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
           Profesional / Sanitario
         </h3>
@@ -371,7 +371,7 @@ function DatosTab({ cliente }: { cliente: any }) {
 function ContactoTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
           Teléfonos y email
         </h3>
@@ -386,7 +386,7 @@ function ContactoTab({ cliente }: { cliente: any }) {
           className="pt-1"
         />
       </div>
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
           Domicilio
         </h3>
@@ -404,7 +404,7 @@ function ContactoTab({ cliente }: { cliente: any }) {
 function NotasTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
           Notas
         </h3>
@@ -417,7 +417,7 @@ function NotasTab({ cliente }: { cliente: any }) {
         )}
       </div>
       {cliente.clave_arca && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-4 space-y-3">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
             Claves de acceso
           </h3>

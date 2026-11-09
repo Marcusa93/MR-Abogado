@@ -140,7 +140,7 @@ export function EtapaProcesalPanel({ expedienteId, etapaActual }: Props) {
               onChange={(e) => setCustom(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') guardarCustom(); if (e.key === 'Escape') { setAddingCustom(false); setCustom('') } }}
               placeholder="Etapa personalizada…"
-              className="h-7 w-40 rounded-full border border-amber-500/30 bg-white/5 px-3 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+              className="h-7 w-40 rounded-full border border-amber-500/30 bg-white/5 px-3 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
             />
             <button onClick={guardarCustom} disabled={update.isPending} className="rounded-full p-1 text-emerald-400 hover:bg-white/10">
               {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}

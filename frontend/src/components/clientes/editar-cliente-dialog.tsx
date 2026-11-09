@@ -6,7 +6,7 @@ import { X, Loader2, Save, User, Building2 } from 'lucide-react'
 import { CuilInput } from '@/components/shared/cuil-input'
 
 const inputClass =
-  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
 const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 const sectionClass = 'text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3'
 const errorClass = 'mt-1 text-xs text-rose-400'
@@ -122,7 +122,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-xl rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-xl rounded-xl bg-white dark:bg-[var(--card)] border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar cliente</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200">
@@ -140,7 +140,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
                 onClick={() => setTipoPersona('fisica')}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                   tipoPersona === 'fisica'
-                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
                     : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
                 }`}
               >
@@ -152,7 +152,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
                 onClick={() => setTipoPersona('juridica')}
                 className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                   tipoPersona === 'juridica'
-                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
                     : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
                 }`}
               >
@@ -285,7 +285,7 @@ export function EditarClienteDialog({ open, onClose, cliente }: Props) {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
             />
           </div>
         </div>

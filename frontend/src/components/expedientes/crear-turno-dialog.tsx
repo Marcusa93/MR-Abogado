@@ -240,7 +240,7 @@ export function CrearTurnoDialog({
   }
 
   const inputClass =
-    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
   const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   const isPending = (createTurno as any).isPending || assignUsers.isPending
@@ -249,7 +249,7 @@ export function CrearTurnoDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={resetAndClose} />
 
-      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <div>
@@ -433,7 +433,7 @@ export function CrearTurnoDialog({
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Informacion adicional del turno..."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
             />
           </div>
 
@@ -456,7 +456,7 @@ export function CrearTurnoDialog({
                       onClick={() => toggleProfile(p.id)}
                       className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
                         selected
-                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                          ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-200'
                           : 'bg-white/5 border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
                       }`}
                     >

@@ -104,7 +104,7 @@ export function ConfirmDialog({
                 'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50',
                 isDanger
                   ? 'bg-rose-600 text-white hover:bg-rose-700'
-                  : 'bg-amber-600 text-white hover:bg-amber-700'
+                  : 'bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900'
               )}
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

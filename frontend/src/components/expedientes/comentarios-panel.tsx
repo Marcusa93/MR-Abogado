@@ -158,14 +158,14 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
   return (
     <div className="space-y-4">
       {/* Input */}
-      <div className="rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80/50 p-4">
+      <div className="rounded-xl border border-white/10 bg-white dark:bg-white/[0.02] p-4">
         <MentionTextarea
           value={contenido}
           onChange={setContenido}
           placeholder="Escribí una nota... usá @ para mencionar a alguien"
           rows={3}
           disabled={createNota.isPending}
-          className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all"
+          className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 disabled:opacity-50 transition-all"
         />
         <div className="mt-3 flex items-center justify-between">
           <button
@@ -201,7 +201,7 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar en las notas…"
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
           />
           {busqueda && (
             <button onClick={() => setBusqueda('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300">

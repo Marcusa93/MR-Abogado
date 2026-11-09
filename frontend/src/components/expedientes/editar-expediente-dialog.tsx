@@ -10,7 +10,7 @@ import type { Prioridad } from '@/types/enums'
 import { X, Loader2, Save, AlertCircle } from 'lucide-react'
 
 const inputClass =
-  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
 const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
 interface Props {
@@ -69,7 +69,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-zinc-900/80 border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-xl bg-white dark:bg-[var(--card)] border border-white/10 p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Editar expediente</h3>
@@ -154,7 +154,7 @@ export function EditarExpedienteDialog({ open, onClose, expediente }: Props) {
             <textarea
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
               rows={3}
               placeholder="Notas sobre el expediente..."
             />

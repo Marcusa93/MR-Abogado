@@ -91,7 +91,7 @@ function ModalShell({
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
     >
-      <div className="relative w-full sm:max-w-md bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl border border-amber-500/30 shadow-2xl animate-fade-in-up overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full sm:max-w-md bg-white dark:bg-[var(--card)] rounded-t-3xl sm:rounded-xl border border-amber-500/30 shadow-2xl animate-fade-in-up overflow-hidden max-h-[90vh] overflow-y-auto">
         <button
           type="button"
           onClick={onDismiss}

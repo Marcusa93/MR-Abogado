@@ -680,7 +680,7 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <CalendarRange className="h-5 w-5 text-emerald-400" />
@@ -1227,8 +1227,8 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sticky top-0 bg-zinc-900/95 backdrop-blur">
+      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#10161d] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sticky top-0 bg-[#10161d] backdrop-blur">
           <h3 className="text-sm font-semibold text-zinc-100">{editing ? 'Editar contenido' : 'Nuevo contenido'}</h3>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200">
             <X className="h-4 w-4" />

@@ -58,7 +58,7 @@ function NormativaTab({ consultaId }: { consultaId: string }) {
           value={query}
           onChange={e => handleChange(e.target.value)}
           placeholder="Buscar ley, código, decreto…"
-          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 animate-spin" />
@@ -131,7 +131,7 @@ function JurisprudenciaTab({ consultaId }: { consultaId: string }) {
           value={query}
           onChange={e => handleChange(e.target.value)}
           placeholder="Buscar por carátula o tribunal…"
-          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 animate-spin" />
@@ -226,7 +226,7 @@ export function ConsultaAnclasPanel({ consultaId }: { consultaId: string }) {
   const totalAnclados = normativa.length + juris.length
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">

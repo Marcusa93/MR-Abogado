@@ -103,7 +103,7 @@ export function AbogadosPanel() {
   if (!visible) return null
 
   return (
-    <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 shadow-sm">
+    <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-sm">
       <header className="border-b border-zinc-200 dark:border-white/5 px-4 py-3 flex items-center gap-2">
         <Briefcase className="h-4 w-4 text-amber-500" />
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">

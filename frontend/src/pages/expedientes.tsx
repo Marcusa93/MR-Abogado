@@ -477,7 +477,7 @@ export default function ExpedientesPage() {
                   pendingBulkEstado.current = estado
                   setBulkConfirm({ estado, label: ESTADO_INTERNO_LABELS[estado as keyof typeof ESTADO_INTERNO_LABELS] ?? estado })
                 }}
-                className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-800 dark:text-zinc-200 focus:border-amber-500/40 focus:outline-none disabled:opacity-50"
+                className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-800 dark:text-zinc-200 focus:border-cyan-500/40 focus:outline-none disabled:opacity-50"
               >
                 <option value="" disabled>Cambiar estado a...</option>
                 {ESTADOS_PIPELINE.map((e) => (
@@ -532,9 +532,9 @@ export default function ExpedientesPage() {
             </div>
 
           {/* Table container — solo sm+ */}
-          <div className={cn("hidden sm:block rounded-xl overflow-auto border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
+          <div className={cn("hidden sm:block rounded-xl overflow-auto border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
             <table className="w-full text-left">
-              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-white dark:bg-zinc-900/80">
+              <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-[var(--card)]">
                 <tr className="border-b border-zinc-200 dark:border-white/5">
                   <th className="w-[40px] px-4 py-3">
                     <input
@@ -547,7 +547,7 @@ export default function ExpedientesPage() {
                           setSelectedIds(new Set())
                         }
                       }}
-                      className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/25 cursor-pointer"
+                      className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-cyan-500/25 cursor-pointer"
                     />
                   </th>
                   <SortHeader
@@ -625,7 +625,7 @@ export default function ExpedientesPage() {
                               return next
                             })
                           }}
-                          className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/25 cursor-pointer"
+                          className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-cyan-500/25 cursor-pointer"
                         />
                       </td>
 

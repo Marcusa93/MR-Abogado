@@ -17,7 +17,7 @@ export function CompararVersiones({ titulo, antes, despues, onClose }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-2xl bg-white shadow-xl dark:bg-zinc-900 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-t-xl bg-white shadow-xl dark:bg-[var(--card)] sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{titulo}</p>

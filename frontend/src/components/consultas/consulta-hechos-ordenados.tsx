@@ -157,7 +157,7 @@ export function ConsultaHechosOrdenados({
                 value={hechosEdit}
                 onChange={e => setHechosEdit(e.target.value)}
                 rows={12}
-                className="w-full text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-300 dark:border-amber-700/50 p-4 resize-y focus:outline-none focus:ring-1 focus:ring-amber-400 dark:focus:ring-amber-600"
+                className="w-full text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-300 dark:border-amber-700/50 p-4 resize-y focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-500"
               />
             ) : hechosEdit ? (
               <div className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-100 dark:border-amber-800/30 p-4">
@@ -196,7 +196,7 @@ export function ConsultaHechosOrdenados({
                     onChange={e => updatePregunta(i, e.target.value)}
                     placeholder="Escribí la pregunta..."
                     className={cn(
-                      'flex-1 text-sm text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900/60 rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-400 dark:focus:ring-amber-600 transition-colors',
+                      'flex-1 text-sm text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900/60 rounded-lg border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-500 transition-colors',
                       p.trim()
                         ? 'border-amber-100 dark:border-amber-800/30 hover:border-amber-200 dark:hover:border-amber-700/50'
                         : 'border-amber-200 dark:border-amber-700/50',

@@ -175,7 +175,7 @@ export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
               <select
                 value={tipo}
                 onChange={e => setTipo(e.target.value as TipoContexto)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 <option value="documento">Documento</option>
                 <option value="apunte">Apunte</option>
@@ -188,7 +188,7 @@ export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
                 value={titulo}
                 onChange={e => setTitulo(e.target.value)}
                 placeholder="Ej: Telegrama de despido"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -199,14 +199,14 @@ export function ConsultaContextos({ consultaId, onIncorporar }: Props) {
               onChange={e => setContenido(e.target.value)}
               placeholder="Pegá el texto del documento o apunte…"
               rows={5}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
             />
           </div>
           <button
             type="button"
             onClick={handleAgregar}
             disabled={!titulo.trim() || !contenido.trim() || add.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
           >
             <PlusCircle className="h-3.5 w-3.5" />
             Guardar contexto

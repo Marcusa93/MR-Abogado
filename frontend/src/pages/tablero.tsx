@@ -102,7 +102,7 @@ function ExpedienteCombobox({ value, onChange }: {
         onChange={e => { if (value) onChange(null); setInputText(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder="Buscar por carátula o número…"
-        className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
       />
       {value && (
         <button type="button" onClick={() => { onChange(null); setInputText('') }} className="shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
@@ -200,13 +200,13 @@ function ComentariosSection({ tareaId }: { tareaId: string }) {
           onChange={e => setTexto(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() } }}
           placeholder="Escribir comentario… (Enter para enviar)"
-          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={!texto.trim() || addComentario.isPending}
-          className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors"
+          className="p-2 rounded-lg bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50 transition-colors"
         >
           {addComentario.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
@@ -286,7 +286,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-lg bg-white dark:bg-[var(--card)] rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
@@ -311,7 +311,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               type="text"
               value={titulo}
               onChange={e => setTitulo(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
           </div>
 
@@ -323,7 +323,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               onChange={e => setDescripcion(e.target.value)}
               rows={3}
               placeholder="Detalles de la tarea…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
             />
           </div>
 
@@ -334,7 +334,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               <select
                 value={asignadoA}
                 onChange={e => setAsignadoA(e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 {members.map(m => (
                   <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>
@@ -346,7 +346,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               <select
                 value={prioridad}
                 onChange={e => setPrioridad(e.target.value as typeof prioridad)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 <option value="BAJA">Baja</option>
                 <option value="MEDIA">Media</option>
@@ -363,7 +363,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               type="date"
               value={fechaVenc}
               onChange={e => setFechaVenc(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
           </div>
 
@@ -389,7 +389,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
               type="button"
               onClick={handleSave}
               disabled={!dirty || updateTarea.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-40"
             >
               {updateTarea.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Guardar
@@ -471,7 +471,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-[var(--card)] rounded-xl shadow-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Nueva tarea</h2>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
@@ -487,7 +487,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
               placeholder="¿Qué hay que hacer?"
               autoFocus
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
           </div>
           <div>
@@ -497,7 +497,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               rows={2}
               placeholder="Detalles opcionales…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -506,7 +506,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               <select
                 value={form.asignado_a}
                 onChange={e => setForm(f => ({ ...f, asignado_a: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 <option value="">— Elegir —</option>
                 {members.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}
@@ -517,7 +517,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               <select
                 value={form.prioridad}
                 onChange={e => setForm(f => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 <option value="BAJA">Baja</option>
                 <option value="MEDIA">Media</option>
@@ -532,7 +532,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
               type="date"
               value={form.fecha_vencimiento}
               onChange={e => setForm(f => ({ ...f, fecha_vencimiento: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
           </div>
           <div>
@@ -554,7 +554,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={create.isPending}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
             >
               {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Crear tarea
@@ -593,7 +593,7 @@ function TareaCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'group w-full text-left rounded-xl border p-3 space-y-2 bg-white dark:bg-zinc-900/80 transition-all',
+        'group w-full text-left rounded-xl border p-3 space-y-2 bg-white dark:bg-[var(--card)] transition-all',
         'hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm',
         vencida ? 'border-red-200 dark:border-red-900/40' : 'border-zinc-200 dark:border-white/10',
         completada && 'opacity-60',
@@ -786,7 +786,7 @@ export default function TableroPage() {
         <button
           type="button"
           onClick={() => setShowNueva(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors shadow-sm"
         >
           <Plus className="h-4 w-4" />
           Nueva tarea
@@ -818,7 +818,7 @@ export default function TableroPage() {
           <select
             value={filtroAsignado}
             onChange={e => setFiltroAsignado(e.target.value)}
-            className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           >
             <option value="">Todos los usuarios</option>
             {members.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}

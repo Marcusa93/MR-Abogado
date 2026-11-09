@@ -28,7 +28,7 @@ const ORDEN_ESTADO: Record<EstadoPrueba, number> = { pendiente: 0, ofrecida: 1, 
 
 const boton = 'inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors disabled:opacity-50'
 const botonSecundario = cn(boton, 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10')
-const botonPrimario = cn(boton, 'bg-blue-600 text-white hover:bg-blue-700')
+const botonPrimario = cn(boton, 'bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900')
 
 export function FichaCaso({ expedienteId, etapa, tieneSae }: { expedienteId: string; etapa: string | null; tieneSae: boolean }) {
   const { data: ficha, isLoading } = useFicha(expedienteId)
@@ -226,7 +226,7 @@ function TextoEditable({ ficha, campo, vacio, grande, sinTitulo, recortar }: {
       <div className="space-y-2">
         {!sinTitulo && <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{ETIQUETA_CAMPO[campo]}</p>}
         <textarea autoFocus value={valor} onChange={(e) => setValor(e.target.value)} rows={Math.min(10, Math.max(3, Math.ceil(valor.length / 90)))}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-blue-500 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100" />
+          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-cyan-500/50 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100" />
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => { setEditando(false); setValor(ficha[campo]) }} className="min-h-9 rounded-lg px-3 text-sm text-zinc-600 dark:text-zinc-300">Cancelar</button>
           <button type="button" className={botonPrimario}
@@ -375,7 +375,7 @@ function Agregar({ expedienteId, pregunta, onCerrar, onPropuesta }: {
       <textarea autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} rows={3}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) enviar() }}
         placeholder={pregunta ? 'Respondé con tus palabras.' : 'Contalo con tus palabras. Ej.: «contestó negando la relación laboral», «se produjo la pericial contable», «la audiencia pasó al 12/3».'}
-        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-blue-500 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100" />
+        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-cyan-500/50 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100" />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {voz.disponible && (
           voz.grabando ? (

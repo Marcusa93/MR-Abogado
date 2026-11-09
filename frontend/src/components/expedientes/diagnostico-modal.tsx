@@ -51,8 +51,8 @@ export function DiagnosticoModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/95 backdrop-blur px-4 py-3">
+      <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#10161d] shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-[#10161d] backdrop-blur px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <FileSearch className="h-5 w-5 text-amber-400 shrink-0" />
             <div className="min-w-0">

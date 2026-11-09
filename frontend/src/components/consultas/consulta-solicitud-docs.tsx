@@ -76,7 +76,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
           placeholder="Ej: DNI del actor, contrato de trabajo firmado, recibos de sueldo últimos 6 meses…"
           rows={2}
           required
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -85,7 +85,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
           <select
             value={responsableId}
             onChange={e => setResponsableId(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           >
             <option value="">Sin asignar</option>
             {profiles.map(p => (
@@ -101,7 +101,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
             type="date"
             value={fechaLimite}
             onChange={e => setFechaLimite(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
         <button
           type="submit"
           disabled={!descripcion.trim() || create.isPending}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
         >
           {create.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Guardar
@@ -216,7 +216,7 @@ export function ConsultaSolicitudDocs({ consultaId }: Props) {
   const total = solicitudes.length
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileSearch className="h-4 w-4 text-zinc-400" />

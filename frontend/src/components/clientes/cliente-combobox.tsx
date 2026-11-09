@@ -97,7 +97,7 @@ export function ClienteCombobox({
         value={displayValue}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50"
+        className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 disabled:opacity-50"
         onFocus={() => { setOpen(true); if (value) setInputValue('') }}
         onChange={(e) => handleSearch(e.target.value)}
       />

@@ -315,7 +315,7 @@ export default function ActividadPage() {
             <select
               value={userId}
               onChange={(e) => { setUserId(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             >
               <option value="">Todos</option>
               {(team ?? []).map((m) => (
@@ -328,7 +328,7 @@ export default function ActividadPage() {
             <select
               value={accion}
               onChange={(e) => { setAccion(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             >
               <option value="">Todas</option>
               {Object.entries(ACCION_CONFIG).map(([k, v]) => (
@@ -342,7 +342,7 @@ export default function ActividadPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => { setDateFrom(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             />
           </div>
           <div>
@@ -351,7 +351,7 @@ export default function ActividadPage() {
               type="date"
               value={dateTo}
               onChange={(e) => { setDateTo(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
             />
           </div>
         </div>

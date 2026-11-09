@@ -181,7 +181,7 @@ export function ActividadDrawer({
           <select
             value={tipo}
             onChange={e => setTipo(e.target.value)}
-            className="w-full text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
           >
             {tipos.map(t => (
               <option key={t} value={t}>{TIPO_LABELS[t] ?? t}</option>
@@ -193,7 +193,7 @@ export function ActividadDrawer({
             onChange={e => setDescripcion(e.target.value)}
             placeholder="Ej: Demanda redactada, TCL enviado, Documentación solicitada, Respuesta recibida…"
             rows={3}
-            className="w-full text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
+            className="w-full text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
           />
 
           <button

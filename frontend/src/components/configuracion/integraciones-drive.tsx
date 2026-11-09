@@ -48,7 +48,7 @@ export function IntegracionesDrive() {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5">
       <div className="flex items-start gap-3 mb-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
           <FolderOpen className="h-5 w-5 text-amber-400" />

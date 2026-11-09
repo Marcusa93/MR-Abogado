@@ -178,7 +178,7 @@ function KanbanFiltersBar({
           placeholder="Buscar nombre o expediente..."
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
         />
       </div>
 
@@ -191,7 +191,7 @@ function KanbanFiltersBar({
             prioridad: (e.target.value || null) as KanbanFilters['prioridad'],
           })
         }
-        className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-700 dark:text-zinc-300 focus:border-amber-500/40 focus:outline-none focus:ring-amber-500/15"
+        className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-700 dark:text-zinc-300 focus:border-cyan-500/40 focus:outline-none focus:ring-cyan-500/15"
       >
         <option value="">Prioridad</option>
         {PRIORIDAD_VALUES.map((p) => (
@@ -365,7 +365,7 @@ function KanbanDraggableCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white dark:bg-zinc-900/80/70 p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
+        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white dark:bg-white/[0.02] p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
         estadoBorder,
         'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5 hover:border-white/[0.12]',
         isDragging && 'opacity-50 shadow-2xl ring-2 ring-amber-500/25'
@@ -455,7 +455,7 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
   return (
     <div
       className={cn(
-        'w-[300px] rounded-xl border-l-[3px] border border-amber-500/30 bg-white dark:bg-white dark:bg-zinc-900/80 p-3 shadow-2xl shadow-amber-500/10',
+        'w-[300px] rounded-xl border-l-[3px] border border-amber-500/30 bg-white dark:bg-[var(--card)] p-3 shadow-2xl shadow-amber-500/10',
         estadoBorder
       )}
     >

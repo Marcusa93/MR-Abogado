@@ -286,7 +286,7 @@ export default function ImportarExcelPage() {
             </button>
             <button
               onClick={handleImport}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-500/15 transition-all hover:shadow-amber-500/30"
+              className="flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-900 shadow-lg shadow-amber-500/15 transition-all hover:shadow-amber-500/30"
             >
               Importar {preview.stats.totalClientes} clientes, {preview.stats.totalExpedientes} expedientes{preview.stats.totalTurnos > 0 ? ` y ${preview.stats.totalTurnos} turnos` : ''}
               <ArrowRight className="h-4 w-4" />

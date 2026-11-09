@@ -98,7 +98,7 @@ export function GuionReelDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900/95 p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#10161d] p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-zinc-50">
             <Clapperboard className="h-5 w-5 text-fuchsia-400" />
@@ -238,7 +238,7 @@ export function GuionReelViewer({ contenido, onClose }: { contenido: Contenido; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl animate-scale-in max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-[#10161d] shadow-2xl animate-scale-in max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-white/10 px-6 py-4">
           <div className="min-w-0">

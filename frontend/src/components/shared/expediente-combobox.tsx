@@ -65,7 +65,7 @@ export function ExpedienteCombobox({
           disabled={disabled}
           placeholder="Buscar expediente..."
           className={cn(
-            'h-9 w-full rounded-lg border bg-white/5 pl-8 pr-8 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15',
+            'h-9 w-full rounded-lg border bg-white/5 pl-8 pr-8 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15',
             error
               ? 'border-rose-500/50'
               : 'border-white/10'
@@ -76,7 +76,7 @@ export function ExpedienteCombobox({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-white dark:bg-zinc-900/80 shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-white dark:bg-[var(--card)] shadow-lg max-h-48 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin text-zinc-600 dark:text-zinc-300" />

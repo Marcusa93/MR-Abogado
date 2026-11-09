@@ -208,7 +208,7 @@ export function CommandPalette() {
         onClick={closeCommandPalette}
       />
 
-      <div className="relative z-10 w-full max-w-xl rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-scale-in">
+      <div className="relative z-10 w-full max-w-xl rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl overflow-hidden animate-scale-in">
 
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-white/10">

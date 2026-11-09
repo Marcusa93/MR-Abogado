@@ -44,7 +44,7 @@ export function ConstanciaModal({
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm print:bg-white print:p-0 print:items-start">
       <div className="relative w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 print:bg-white print:text-black print:border-0 print:max-h-none print:max-w-none print:rounded-none print:shadow-none">
         {/* Header (oculto al imprimir) */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/95 backdrop-blur px-3 sm:px-5 py-2.5 sm:py-3 print:hidden">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-white/10 bg-[#10161d] backdrop-blur px-3 sm:px-5 py-2.5 sm:py-3 print:hidden">
           <div className="flex items-center gap-2 min-w-0">
             <FileCheck2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 shrink-0" />
             <h2 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">Constancia de visualización</h2>

@@ -466,7 +466,7 @@ export function OnboardingTour() {
 
       {/* Tooltip card */}
       <div
-        className="absolute z-10 w-[400px] max-w-[calc(100vw-16px)] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-2xl animate-fade-in"
+        className="absolute z-10 w-[400px] max-w-[calc(100vw-16px)] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl animate-fade-in"
         style={{
           top: pos.top, left: pos.left, transform: pos.transform,
           transition: 'top 0.25s ease, left 0.25s ease',

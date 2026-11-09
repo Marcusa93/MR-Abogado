@@ -125,7 +125,7 @@ export default function ForcePasswordChangePage() {
                       minLength={6}
                       autoFocus
                       disabled={saving}
-                      className="h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-10 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all"
+                      className="h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-10 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 disabled:opacity-50 transition-all"
                     />
                     <button
                       type="button"
@@ -150,10 +150,10 @@ export default function ForcePasswordChangePage() {
                     required
                     minLength={6}
                     disabled={saving}
-                    className={`h-10 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-500/15 disabled:opacity-50 transition-all ${
+                    className={`h-10 w-full rounded-lg border bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 disabled:opacity-50 transition-all ${
                       confirmPwd && confirmPwd !== newPwd
                         ? 'border-rose-500/50 focus:border-rose-500/50'
-                        : 'border-white/10 focus:border-amber-500/40'
+                        : 'border-white/10 focus:border-cyan-500/40'
                     }`}
                   />
                   {confirmPwd && confirmPwd !== newPwd && (
@@ -164,7 +164,7 @@ export default function ForcePasswordChangePage() {
                 <button
                   type="submit"
                   disabled={saving || newPwd.length < 6 || newPwd !== confirmPwd}
-                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-cyan text-sm font-semibold text-zinc-950 transition-all hover:opacity-90 hover:shadow-lg hover:shadow-amber-500/15 focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-cyan text-sm font-semibold text-zinc-950 transition-all hover:opacity-90 hover:shadow-lg hover:shadow-amber-500/15 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? (
                     <>

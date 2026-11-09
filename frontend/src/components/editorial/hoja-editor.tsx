@@ -114,7 +114,7 @@ export function HojaEditor({ articuloId, titulo, bajada, cuerpo, onTitulo, onBaj
   return (
     <div className="space-y-2">
       {/* Barra de herramientas (onMouseDown evita perder la selección del texto) */}
-      <div className="sticky top-[calc(var(--ed-barra,1rem)-1rem)] z-10 flex flex-wrap items-center gap-1 rounded-xl sm:top-[calc(var(--ed-barra,1.5rem)-1.5rem)] lg:top-0 border border-zinc-200 bg-white/95 p-1 backdrop-blur dark:border-white/10 dark:bg-zinc-900/95">
+      <div className="sticky top-[calc(var(--ed-barra,1rem)-1rem)] z-10 flex flex-wrap items-center gap-1 rounded-xl sm:top-[calc(var(--ed-barra,1.5rem)-1.5rem)] lg:top-0 border border-zinc-200 bg-white/95 p-1 backdrop-blur dark:border-white/10 dark:bg-[var(--card)]">
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={() => envolver('**')} title="Negrita"><Bold className="h-3.5 w-3.5" /></button>
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={() => envolver('*')} title="Cursiva"><Italic className="h-3.5 w-3.5" /></button>
         <button type="button" className={boton} onMouseDown={(e) => e.preventDefault()} onClick={subtitulo} title="Subtítulo"><Heading2 className="h-3.5 w-3.5" /></button>

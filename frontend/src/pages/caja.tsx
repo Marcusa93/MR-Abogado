@@ -82,8 +82,7 @@ export default function CajaPage() {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-emerald-400" />
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Caja del estudio
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -152,8 +151,8 @@ export default function CajaPage() {
                 className={cn(
                   'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
-                    ? 'border-emerald-400 text-emerald-400'
-                    : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    ? 'border-cyan-400 text-zinc-900 dark:text-white'
+                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -411,7 +410,7 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
       </div>
 
       {/* Año actual */}
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
         <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Año {resumen.periodo.year}</p>
         <div className="grid grid-cols-3 gap-3">
           <div>
@@ -456,12 +455,6 @@ function TipoCambioWidget({ cotizacion }: { cotizacion: CotizacionUSD | null }) 
 }
 
 function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }>; onClick?: () => void }) {
-  const ring = {
-    emerald: 'from-emerald-500/15 to-emerald-500/5 border-emerald-500/20',
-    rose: 'from-rose-500/15 to-rose-500/5 border-rose-500/20',
-    cyan: 'from-cyan-500/15 to-cyan-500/5 border-cyan-500/20',
-    amber: 'from-amber-500/15 to-amber-500/5 border-amber-500/20',
-  }[accent]
   const iconColor = { emerald: 'text-emerald-400', rose: 'text-rose-400', cyan: 'text-cyan-400', amber: 'text-amber-400' }[accent]
   return (
     <button
@@ -469,16 +462,15 @@ function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: st
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        'rounded-xl border bg-gradient-to-br p-3 sm:p-4 text-left w-full',
-        ring,
-        onClick && 'transition-transform hover:brightness-125 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer',
+        'app-card p-3 sm:p-4 text-left w-full',
+        onClick && 'transition-colors hover:border-white/20 cursor-pointer',
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-zinc-400 leading-tight">{label}</p>
+        <p className="font-mono text-[10px] sm:text-[10.5px] uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-tight">{label}</p>
         <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', iconColor)} />
       </div>
-      <p className="mt-1 text-lg sm:text-2xl font-bold text-zinc-50 tabular-nums break-all">{value}</p>
+      <p className="mt-1 font-mono text-lg sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums break-all">{value}</p>
       {sub && <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{sub}</p>}
     </button>
   )
@@ -490,7 +482,7 @@ function PagosPendientesCard({ pendientes }: { pendientes: PagoPendiente[] }) {
 
   if (pendientes.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
         <div className="flex items-center gap-2 mb-1">
           <Repeat className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Pagos del mes</h3>
@@ -622,7 +614,7 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
         <h3 className="text-sm font-semibold text-zinc-100 mb-1">{titulo}</h3>
         <p className="text-xs text-zinc-500 py-2">Sin movimientos este mes.</p>
       </div>
@@ -630,7 +622,7 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
       <h3 className="text-sm font-semibold text-zinc-100 mb-3">{titulo}</h3>
       <div className="space-y-2">
         {data.map((d, i) => {

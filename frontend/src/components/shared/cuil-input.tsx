@@ -110,8 +110,8 @@ export function CuilInput({
       : result.status === 'invalid'
         ? 'border-rose-500/50 focus:border-rose-500/50 focus:ring-rose-500/20'
         : result.status === 'validating'
-          ? 'border-amber-500/50 focus:border-amber-500/40 focus:ring-amber-500/15'
-          : 'border-white/10 focus:border-amber-500/40 focus:ring-amber-500/15'
+          ? 'border-amber-500/50 focus:border-cyan-500/40 focus:ring-cyan-500/15'
+          : 'border-white/10 focus:border-cyan-500/40 focus:ring-cyan-500/15'
 
   return (
     <div>

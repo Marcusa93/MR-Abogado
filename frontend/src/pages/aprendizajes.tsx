@@ -216,7 +216,7 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
             <button
               onClick={handleGuardarEdicion}
               disabled={editar.isPending}
-              className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
             >
               {editar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
               Guardar

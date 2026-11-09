@@ -126,10 +126,10 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={ingesta.isPending ? undefined : onClose} />
-      <div className="relative w-full max-w-2xl rounded-xl border border-white/10 bg-white dark:bg-zinc-900/90 shadow-xl mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/90 z-10">
+      <div className="relative w-full max-w-2xl rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-[var(--card)] z-10">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-            <Gavel className="h-4 w-4 text-violet-400" />
+            <Gavel className="h-4 w-4 text-zinc-400" />
             Agregar fallo al corpus
           </h2>
           <button onClick={onClose} disabled={ingesta.isPending} className="rounded-lg p-1 text-zinc-400 hover:bg-white/5 disabled:opacity-30">
@@ -152,7 +152,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2 text-xs font-medium transition-colors',
                   mode === t.v
-                    ? 'border-violet-400 text-violet-300'
+                    ? 'border-cyan-400 text-zinc-900 dark:text-white'
                     : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                 )}
               >
@@ -174,7 +174,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://servicios.infoleg.gob.ar/infolegInternet/verNorma.do?id=NNN o https://www.saij.gob.ar/..."
                   disabled={ingesta.isPending}
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
                   Fuentes soportadas: InfoLEG, SAIJ. La carátula y metadata se extraen automáticamente.
@@ -197,7 +197,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                     if (f && !caratula) setCaratula(f.name.replace(/\.(pdf|docx?|txt)$/i, ''))
                   }}
                   disabled={ingesta.isPending}
-                  className="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-violet-300 hover:file:bg-violet-500/20"
+                  className="block w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-200 hover:file:bg-violet-500/20"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">PDF/DOCX nativamente digitales o TXT UTF-8. Máx. 50 MB.</p>
               </div>
@@ -215,7 +215,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                   placeholder="Pegá acá el texto completo del fallo (mínimo 100 caracteres)..."
                   rows={10}
                   disabled={ingesta.isPending}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15 font-mono text-xs leading-relaxed"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 font-mono text-xs leading-relaxed"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
                   El chunker detecta automáticamente encabezado, considerandos y resuelve.
@@ -239,7 +239,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                   value={caratula} onChange={(e) => setCaratula(e.target.value)}
                   placeholder="GIMENEZ, ROSA c/ MERCADO LIBRE S.R.L. s/ DAÑOS Y PERJUICIOS"
                   disabled={ingesta.isPending}
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -249,7 +249,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                     value={tribunal} onChange={(e) => setTribunal(e.target.value)}
                     placeholder="CSJN, CNCom. Sala C…"
                     disabled={ingesta.isPending}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
                 <div>
@@ -258,7 +258,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                     type="date"
                     value={fecha} onChange={(e) => setFecha(e.target.value)}
                     disabled={ingesta.isPending}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
               </div>
@@ -269,7 +269,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                     value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)}
                     placeholder="Nacional, Tucumán…"
                     disabled={ingesta.isPending}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
                 <div>
@@ -277,7 +277,7 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
                   <select
                     value={tipo} onChange={(e) => setTipo(e.target.value)}
                     disabled={ingesta.isPending}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   >
                     {TIPOS.map(t => <option key={t.value} value={t.value} className="bg-zinc-900">{t.label}</option>)}
                   </select>
@@ -287,14 +287,14 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="border-t border-white/5 px-5 py-3 flex items-center justify-end gap-2 sticky bottom-0 bg-white dark:bg-zinc-900/90">
+        <div className="border-t border-white/5 px-5 py-3 flex items-center justify-end gap-2 sticky bottom-0 bg-white dark:bg-[var(--card)]">
           <button onClick={onClose} disabled={ingesta.isPending} className="px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 disabled:opacity-30">
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={!canSubmit || ingesta.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {ingesta.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             {ingesta.isPending ? 'Indexando…' : 'Agregar al corpus'}
@@ -329,9 +329,6 @@ export default function JurisprudenciaPage() {
     <div className="p-5 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-violet-500/10 p-2">
-            <Gavel className="h-5 w-5 text-violet-400" />
-          </div>
           <div>
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Jurisprudencia</h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -341,7 +338,7 @@ export default function JurisprudenciaPage() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />
           Agregar fallo
@@ -355,7 +352,7 @@ export default function JurisprudenciaPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por carátula, tribunal, jurisdicción, sumario…"
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
           />
         </div>
       )}
@@ -381,15 +378,15 @@ export default function JurisprudenciaPage() {
               key={doc.id}
               className="group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors"
             >
-              <FileText className="h-4 w-4 text-violet-400 shrink-0" />
+              <FileText className="h-4 w-4 text-zinc-500 shrink-0" />
               <Link to={`/jurisprudencia/${doc.id}`} className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.caratula}</p>
-                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                <p className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
                   {doc.tribunal && <span>{doc.tribunal}</span>}
                   {doc.jurisdiccion && <span>· {doc.jurisdiccion}</span>}
                   {doc.fecha && <span>· {doc.fecha}</span>}
                   {doc.estado === 'indexado' && (
-                    <span className="text-emerald-400">· {doc.chunk_count} {doc.chunk_count === 1 ? 'chunk' : 'chunks'}</span>
+                    <span className="text-emerald-400">· {doc.chunk_count} {doc.chunk_count === 1 ? "fragmento" : "fragmentos"}</span>
                   )}
                   {doc.estado === 'error' && doc.error_message && (
                     <span className="text-rose-400 italic">· {doc.error_message.slice(0, 80)}</span>

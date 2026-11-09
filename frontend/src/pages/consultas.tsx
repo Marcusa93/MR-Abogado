@@ -92,7 +92,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-[var(--card)] rounded-xl shadow-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Nueva consulta</h2>
           <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xl leading-none">×</button>
@@ -106,7 +106,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                 placeholder="Juan"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 autoFocus
               />
             </div>
@@ -117,7 +117,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 value={form.apellido}
                 onChange={e => setForm(f => ({ ...f, apellido: e.target.value }))}
                 placeholder="García"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -129,7 +129,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 value={form.telefono}
                 onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
                 placeholder="381 4XX-XXXX"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -139,7 +139,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="juan@email.com"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <select
                 value={form.canal}
                 onChange={e => setForm(f => ({ ...f, canal: e.target.value as ConsultaCanal }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 {Object.entries(CANAL_LABEL).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
@@ -161,7 +161,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <select
                 value={form.tipo_asunto}
                 onChange={e => setForm(f => ({ ...f, tipo_asunto: e.target.value as ConsultaTipoAsunto }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               >
                 {Object.entries(TIPO_ASUNTO_LABEL).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
@@ -176,7 +176,7 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
             <button
               type="submit"
               disabled={create.isPending}
-              className="px-5 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
             >
               {create.isPending ? 'Guardando…' : 'Crear consulta'}
             </button>

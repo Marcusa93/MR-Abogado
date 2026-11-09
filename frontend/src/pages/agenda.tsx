@@ -307,7 +307,7 @@ function EditarAudienciaDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-zinc-100">{item.titulo}</h2>
@@ -440,7 +440,7 @@ function EditarReunionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-zinc-100">Reprogramar reunión</h2>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">

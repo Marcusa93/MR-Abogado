@@ -84,10 +84,10 @@ export function SugerirJurisprudenciaDialog({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-3xl rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl mx-4 max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-3xl rounded-xl border border-white/10 bg-[#10161d] shadow-2xl mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
           <h2 className="text-base font-semibold text-zinc-50 flex items-center gap-2">
-            <Gavel className="h-4 w-4 text-violet-400" />
+            <Gavel className="h-4 w-4 text-cyan-400" />
             Jurisprudencia afín
           </h2>
           <button onClick={onClose} className="rounded-lg p-1 text-zinc-400 hover:bg-white/5">
@@ -106,12 +106,12 @@ export function SugerirJurisprudenciaDialog({
               }}
               placeholder="Pegá el párrafo que estás escribiendo, o un concepto: 'daño punitivo plataformas digitales', 'carga dinámica de la prueba'…"
               rows={3}
-              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15 resize-none"
+              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
             />
             <button
               onClick={handleBuscar}
               disabled={buscar.isPending || query.trim().length < 3}
-              className="self-end inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-3 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+              className="self-end inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
             >
               {buscar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
               Buscar
@@ -126,7 +126,7 @@ export function SugerirJurisprudenciaDialog({
                 className={cn(
                   'rounded-full px-2 py-0.5 font-medium border transition-colors',
                   seccion === o.value
-                    ? 'border-violet-400 text-violet-300 bg-violet-500/10'
+                    ? 'border-cyan-400 text-cyan-300 bg-cyan-500/10'
                     : 'border-white/10 text-zinc-500 hover:text-zinc-300 hover:border-white/20'
                 )}
                 title={o.hint}
@@ -171,7 +171,7 @@ export function SugerirJurisprudenciaDialog({
                           <a
                             href={`/jurisprudencia/${r.documento_id}`}
                             target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-0.5 text-violet-300 hover:underline"
+                            className="inline-flex items-center gap-0.5 text-cyan-300 hover:underline"
                             title="Ver fallo completo"
                           >
                             <ExternalLink className="h-2.5 w-2.5" />
@@ -179,13 +179,13 @@ export function SugerirJurisprudenciaDialog({
                         </p>
                       </div>
                     </div>
-                    <p className="text-[11px] text-zinc-300 leading-relaxed italic line-clamp-4 border-l-2 border-violet-500/30 pl-3 mb-2">
+                    <p className="text-[11px] text-zinc-300 leading-relaxed italic line-clamp-4 border-l-2 border-cyan-500/30 pl-3 mb-2">
                       {r.fragmento}
                     </p>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleInsertar(r)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-300 hover:bg-violet-500/20"
+                        className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[10px] font-medium text-cyan-300 hover:bg-cyan-500/20"
                       >
                         <Quote className="h-2.5 w-2.5" />
                         Insertar cita

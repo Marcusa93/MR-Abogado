@@ -64,7 +64,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <button
                 type="button"
                 onClick={this.handleReset}
-                className="inline-flex items-center gap-2 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-cyan px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
               >
                 <RefreshCw className="h-4 w-4" />
                 Reintentar
@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <button
                 type="button"
                 onClick={() => window.location.assign('/')}
-                className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
               >
                 Ir al inicio
               </button>

@@ -76,7 +76,7 @@ function DesarrollarDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] shadow-2xl">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/8">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-0.5">Desarrollar post</p>
@@ -254,7 +254,7 @@ export function IdeasQueue({ ideas }: { ideas: Contenido[] }) {
                 onChange={(e) => setNueva(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') agregar() }}
                 placeholder="Ej: el valor probatorio de un audio de WhatsApp…"
-                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               <button
                 onClick={agregar}

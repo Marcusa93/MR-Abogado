@@ -46,7 +46,7 @@ export function AsignadosSelect({ value, onChange, members, className }: Props) 
             onChange([...value, e.target.value])
             e.target.value = ''
           }}
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         >
           <option value="">+ Agregar persona…</option>
           {available.map(m => (

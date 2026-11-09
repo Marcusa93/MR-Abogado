@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ChevronLeft, Loader2, Gavel, AlertCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { ChevronLeft, Loader2, AlertCircle, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { useJurisprudenciaDocumento, useJurisprudenciaChunks } from '@/hooks/use-jurisprudencia'
 import { cn } from '@/lib/utils'
 
@@ -38,7 +38,7 @@ export default function JurisprudenciaDetailPage() {
     return (
       <div className="p-5 max-w-3xl mx-auto">
         <p className="text-sm text-zinc-400">Fallo no encontrado.</p>
-        <Link to="/jurisprudencia" className="mt-3 inline-flex items-center gap-1 text-xs text-violet-400 hover:underline">
+        <Link to="/jurisprudencia" className="mt-3 inline-flex items-center gap-1 text-xs text-cyan-400 hover:underline">
           <ChevronLeft className="h-3 w-3" /> Volver
         </Link>
       </div>
@@ -53,9 +53,6 @@ export default function JurisprudenciaDetailPage() {
 
       <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-5">
         <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-violet-500/10 p-2 shrink-0">
-            <Gavel className="h-5 w-5 text-violet-400" />
-          </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{doc.caratula}</h1>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2 flex-wrap">
@@ -67,7 +64,7 @@ export default function JurisprudenciaDetailPage() {
             <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-2 flex-wrap">
               <span>Fuente: <span className="text-zinc-300">{doc.source.replace('manual_', '')}</span></span>
               {doc.source_url && (
-                <a href={doc.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-violet-300 hover:underline">
+                <a href={doc.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-cyan-300 hover:underline">
                   <ExternalLink className="h-2.5 w-2.5" />
                   ver original
                 </a>
@@ -75,7 +72,7 @@ export default function JurisprudenciaDetailPage() {
               {doc.source_file_name && <span>· {doc.source_file_name}</span>}
             </p>
             {doc.sumario && (
-              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300 italic border-l-2 border-violet-500/40 pl-3">
+              <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300 italic border-l-2 border-cyan-500/40 pl-3">
                 {doc.sumario}
               </p>
             )}

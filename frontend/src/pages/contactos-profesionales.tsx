@@ -306,14 +306,14 @@ function DetalleDialog({ contactoId, onClose }: { contactoId: string; onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={onClose}>
-      <div className="w-full max-w-3xl rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-3xl rounded-xl border border-white/10 bg-[#10161d] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {isLoading || !data ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4 sticky top-0 bg-zinc-900/95 backdrop-blur">
+            <div className="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4 sticky top-0 bg-[#10161d] backdrop-blur">
               <div className="flex items-start gap-3">
                 <div className={cn(
                   'flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold',
@@ -523,8 +523,8 @@ function ContactoDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sticky top-0 bg-zinc-900/95 backdrop-blur">
+      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#10161d] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sticky top-0 bg-[#10161d] backdrop-blur">
           <h3 className="text-sm font-semibold text-zinc-100">{editing ? 'Editar contacto' : 'Nuevo contacto'}</h3>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200">
             <X className="h-4 w-4" />

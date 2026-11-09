@@ -450,7 +450,7 @@ function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
                 if (e.key === 'Enter') { commitField('next_action', nextAction); e.currentTarget.blur() }
               }}
               placeholder="Ej: 2026-09-15: Enviar TCL al juzgado"
-              className="w-full text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400 transition-colors"
+              className="w-full text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 placeholder:text-zinc-400 transition-colors"
             />
           </div>
 
@@ -478,8 +478,8 @@ function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
               className={cn(
                 'w-full text-sm rounded-xl border px-3 py-2.5 focus:outline-none focus:ring-2 placeholder:text-zinc-400 transition-colors',
                 blocker
-                  ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 focus:ring-amber-400'
-                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:ring-blue-400',
+                  ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 focus:ring-cyan-500'
+                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 focus:ring-cyan-500/30',
               )}
             />
           </div>
@@ -499,7 +499,7 @@ function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
                   if (e.key === 'Enter') { commitField('folder_url', folderUrl); e.currentTarget.blur() }
                 }}
                 placeholder="https://drive.google.com/…"
-                className="flex-1 text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400 transition-colors"
+                className="flex-1 text-sm rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 placeholder:text-zinc-400 transition-colors"
               />
               {folderUrl.trim() && (
                 <a href={folderUrl.trim()} target="_blank" rel="noopener noreferrer"
@@ -576,12 +576,12 @@ function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
       </div>
 
       {/* Nota rápida — sticky al pie */}
-      <div className="border-t border-zinc-100 dark:border-white/5 px-4 py-3 shrink-0 bg-zinc-50/90 dark:bg-zinc-900/90 backdrop-blur-sm">
+      <div className="border-t border-zinc-100 dark:border-white/5 px-4 py-3 shrink-0 bg-zinc-50/90 dark:bg-[var(--card)] backdrop-blur-sm">
         <div className="flex gap-2 items-center">
           <select
             value={notaTipo}
             onChange={e => setNotaTipo(e.target.value)}
-            className="shrink-0 text-xs rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-2 focus:outline-none cursor-pointer">
+            className="shrink-0 text-xs rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-400 px-2 py-2 focus:outline-none cursor-pointer">
             {tipos.map(t => <option key={t} value={t}>{TIPO_LABELS[t] ?? t}</option>)}
           </select>
           <input
@@ -590,7 +590,7 @@ function AsuntoDetailPanel({ item, onClose, onUpdate, sinMovimientoDias }: {
             onChange={e => setNotaText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') submitNota() }}
             placeholder="Nota rápida — Enter para guardar"
-            className="flex-1 min-w-0 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400"
+            className="flex-1 min-w-0 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 placeholder:text-zinc-400"
           />
           <button
             type="button"
@@ -901,7 +901,7 @@ export default function MiTrabajoPage() {
           <div className="flex items-center gap-2 shrink-0">
             <label className="text-xs text-zinc-500 whitespace-nowrap">Ver como:</label>
             <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
-              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
+              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 cursor-pointer">
               {team.map(m => (
                 <option key={m.id} value={m.id}>{m.apellido} {m.nombre}{m.id === profile?.id ? ' (yo)' : ''}</option>
               ))}
@@ -976,19 +976,19 @@ export default function MiTrabajoPage() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar cliente o asunto…"
-                className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-zinc-400" />
+                className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 placeholder:text-zinc-400" />
             </div>
 
             <div className="flex items-center gap-1.5 text-xs text-zinc-500">
               <Clock className="h-3 w-3" />
               <input type="number" min={7} max={365} value={sinMovimientoDias}
                 onChange={e => setSinMovimientoDias(Number(e.target.value) || 30)}
-                className="w-12 text-center rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-xs" />
+                className="w-12 text-center rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 text-xs" />
               <span>días</span>
             </div>
 
             <select value={sortField} onChange={e => setSortField(e.target.value as SortField)}
-              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer">
+              className="text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-700 dark:text-zinc-300 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 cursor-pointer">
               <option value="urgencia">Ordenar: Urgencia</option>
               <option value="sin_movimiento">Sin movimiento</option>
               <option value="cliente">A-Z</option>

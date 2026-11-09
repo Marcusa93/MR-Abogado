@@ -52,7 +52,7 @@ export function SaePdfViewerDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
-        className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl"
+        className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -90,7 +90,7 @@ export function SaePdfViewerDialog({
                   <button
                     onClick={onAnalyzeWithAI}
                     disabled={isAnalyzing}
-                    className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-500/20 transition-colors disabled:opacity-50 mr-1"
+                    className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:bg-cyan-500/20 transition-colors disabled:opacity-50 mr-1"
                     title="Extrae el texto del PDF y lo analiza con IA (resumen, plazos, partes, acción sugerida)"
                   >
                     {isAnalyzing ? (

@@ -27,7 +27,7 @@ export const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-
 export function DialogShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-zinc-900/95 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
           <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
           <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200">

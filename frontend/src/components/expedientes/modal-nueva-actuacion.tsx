@@ -63,7 +63,7 @@ export function ModalNuevaActuacion({ open, onClose, expedienteId }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-white/10 bg-zinc-900 shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-white/10 bg-[#10161d] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
           <h2 className="text-sm font-semibold text-zinc-100">Nueva actuación manual</h2>

@@ -33,7 +33,7 @@ function PreviewModal({
       onClick={onClose}
     >
       <div
-        className="relative max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden bg-zinc-900 shadow-2xl flex flex-col"
+        className="relative max-w-4xl w-full max-h-[90vh] rounded-xl overflow-hidden bg-[#10161d] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0">

@@ -198,7 +198,7 @@ function MarcarPresentadoDialog({ escrito, onClose }: { escrito: Escrito; onClos
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="w-full max-w-md space-y-3 rounded-t-2xl bg-white p-4 shadow-xl dark:bg-zinc-900 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}
+      <div className="w-full max-w-md space-y-3 rounded-t-xl bg-white p-4 shadow-xl dark:bg-[var(--card)] sm:rounded-xl" onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="flex items-start gap-2">
           <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Marcar como presentado</p>

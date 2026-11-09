@@ -95,14 +95,14 @@ export function CrearSeguimientoDialog({
   }
 
   const inputClass =
-    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
   const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={resetAndClose} />
 
-      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4">
+      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <div>
@@ -163,7 +163,7 @@ export function CrearSeguimientoDialog({
                 type="checkbox"
                 checked={crearTareaChecked}
                 onChange={(e) => setCrearTareaChecked(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-amber-500 focus:ring-amber-500/15"
+                className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-amber-500 focus:ring-cyan-500/15"
               />
               Crear tarea de seguimiento para el {proximoSeguimiento}
             </label>
@@ -188,7 +188,7 @@ export function CrearSeguimientoDialog({
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Observaciones adicionales..."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
             />
           </div>
 

@@ -19,7 +19,7 @@ interface Props { expedienteId: string }
 function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={cn(
-      'rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 shadow-sm p-4',
+      'rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-sm p-4',
       className,
     )}>{children}</div>
   )

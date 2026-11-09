@@ -170,7 +170,7 @@ function PresupuestoItemForm({
           value={concepto}
           onChange={e => setConcepto(e.target.value)}
           placeholder="Ej: Parte laboral, consulta penal…"
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         />
       </div>
 
@@ -208,7 +208,7 @@ function PresupuestoItemForm({
                 value={montoBase}
                 onChange={e => setMontoBase(e.target.value)}
                 placeholder="Ej: 5000000"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -219,7 +219,7 @@ function PresupuestoItemForm({
                 value={porcentaje}
                 onChange={e => setPorcentaje(e.target.value)}
                 placeholder="20"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </>
@@ -233,7 +233,7 @@ function PresupuestoItemForm({
               value={montoBase}
               onChange={e => setMontoBase(e.target.value)}
               placeholder="Ej: 500000"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             />
           </div>
         )}
@@ -243,7 +243,7 @@ function PresupuestoItemForm({
             <select
               value={multiplicador}
               onChange={e => setMultiplicador(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             >
               {['0.5', '1', '1.2', '1.5', '2', '2.5', '3'].map(v => (
                 <option key={v} value={v}>{v}×</option>
@@ -279,7 +279,7 @@ function PresupuestoItemForm({
           type="button"
           onClick={handleSave}
           disabled={upsert.isPending || calculado <= 0}
-          className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
         >
           {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {isNew ? 'Agregar' : 'Guardar'}
@@ -478,7 +478,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                   value={destNombre}
                   onChange={e => setDestNombre(e.target.value)}
                   placeholder="Ej: Juan García / Empresa S.A."
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
               <div>
@@ -555,7 +555,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                   value={destDomicilio}
                   onChange={e => setDestDomicilio(e.target.value)}
                   placeholder="Calle y número, ciudad"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
             </div>
@@ -571,7 +571,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                   type="text"
                   value={remNombre}
                   onChange={e => setRemNombre(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
               <div>
@@ -581,7 +581,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                   value={remDni}
                   onChange={e => setRemDni(e.target.value)}
                   placeholder="12.345.678"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
             </div>
@@ -592,7 +592,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                 value={remDomicilio}
                 onChange={e => setRemDomicilio(e.target.value)}
                 placeholder="Calle y número, ciudad"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -607,7 +607,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                 type="button"
                 onClick={handleGenerar}
                 disabled={generando || !destNombre.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-lg disabled:opacity-50 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-900 hover:from-blue-700 hover:to-violet-700 text-white dark:bg-white dark:text-zinc-900 rounded-lg disabled:opacity-50 transition-all"
               >
                 {generando
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Redactando…</>
@@ -623,7 +623,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                 ? 'Por la presente me dirijo a Ud. a fin de INTIMARLE a que…'
                 : 'Usá el botón para redactar con IA o escribí directamente…'
               }
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
             />
             {tipo === 'telegrama_ley' && cuerpo.trim() && (
               <div className="text-right text-[10px] text-zinc-400 mt-1">
@@ -700,7 +700,7 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
         <select
           value={tipo}
           onChange={e => setTipo(e.target.value as typeof tipo)}
-          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-2 py-2 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2 py-2 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         >
           <option value="nota">Nota</option>
           <option value="llamada">Llamada</option>
@@ -713,7 +713,7 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
           onChange={e => setTexto(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
           placeholder="Registrar seguimiento…"
-          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
         />
         <button
           type="button"
@@ -854,7 +854,7 @@ function ModuloDiagnostico({
                 type="text"
                 value={editLocal.fuero}
                 onChange={e => setEditLocal(prev => ({ ...prev, fuero: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
             <div>
@@ -863,7 +863,7 @@ function ModuloDiagnostico({
                 type="text"
                 value={editLocal.pretension}
                 onChange={e => setEditLocal(prev => ({ ...prev, pretension: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
               />
             </div>
           </div>
@@ -873,7 +873,7 @@ function ModuloDiagnostico({
             <select
               value={editLocal.chances_estimadas}
               onChange={e => setEditLocal(prev => ({ ...prev, chances_estimadas: e.target.value as DiagnosticoModulo['chances_estimadas'] }))}
-              className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
             >
               <option value="alta">Alta</option>
               <option value="media">Media</option>
@@ -888,7 +888,7 @@ function ModuloDiagnostico({
               rows={4}
               value={editLocal.observaciones}
               onChange={e => setEditLocal(prev => ({ ...prev, observaciones: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
             />
           </div>
 
@@ -906,7 +906,7 @@ function ModuloDiagnostico({
                       const arr = [...prev.acciones_recomendadas]; arr[i] = e.target.value
                       return { ...prev, acciones_recomendadas: arr }
                     })}
-                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                   />
                   <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
                     <X className="h-3.5 w-3.5" />
@@ -933,7 +933,7 @@ function ModuloDiagnostico({
                       const arr = [...(prev.riesgos ?? [])]; arr[i] = e.target.value
                       return { ...prev, riesgos: arr }
                     })}
-                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                   />
                   <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
                     <X className="h-3.5 w-3.5" />
@@ -952,7 +952,7 @@ function ModuloDiagnostico({
               rows={2}
               value={editLocal.descripcion_honorarios ?? ''}
               onChange={e => setEditLocal(prev => ({ ...prev, descripcion_honorarios: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
             />
           </div>
 
@@ -960,7 +960,7 @@ function ModuloDiagnostico({
             type="button"
             onClick={handleSaveModulo}
             disabled={update.isPending}
-            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
           >
             {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Guardar módulo
@@ -1033,7 +1033,7 @@ function ModuloDiagnostico({
                       type="checkbox"
                       checked={!!checklistEstado[i]}
                       onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-cyan-500/30"
                     />
                     <span className={cn('text-zinc-700 dark:text-zinc-300 leading-snug', checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500')}>
                       {item}
@@ -1138,7 +1138,7 @@ function TareasConsultaSection({ consultaId }: { consultaId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ListTodo className="h-4 w-4 text-amber-500" />
@@ -1497,7 +1497,7 @@ export default function ConsultaDetallePage() {
 
 
       {/* Header */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5">
         {editandoDatos ? (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -1508,7 +1508,7 @@ export default function ConsultaDetallePage() {
                   value={datosEdit.nombre}
                   onChange={e => setDatosEdit(f => ({ ...f, nombre: e.target.value }))}
                   autoFocus
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
               <div>
@@ -1517,7 +1517,7 @@ export default function ConsultaDetallePage() {
                   type="text"
                   value={datosEdit.apellido}
                   onChange={e => setDatosEdit(f => ({ ...f, apellido: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
             </div>
@@ -1528,7 +1528,7 @@ export default function ConsultaDetallePage() {
                   type="tel"
                   value={datosEdit.telefono}
                   onChange={e => setDatosEdit(f => ({ ...f, telefono: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
               <div>
@@ -1537,7 +1537,7 @@ export default function ConsultaDetallePage() {
                   type="email"
                   value={datosEdit.email}
                   onChange={e => setDatosEdit(f => ({ ...f, email: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
             </div>
@@ -1547,7 +1547,7 @@ export default function ConsultaDetallePage() {
                 <select
                   value={datosEdit.canal}
                   onChange={e => setDatosEdit(f => ({ ...f, canal: e.target.value as ConsultaCanal }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 >
                   {Object.entries(CANAL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -1557,7 +1557,7 @@ export default function ConsultaDetallePage() {
                 <select
                   value={datosEdit.tipo_asunto}
                   onChange={e => setDatosEdit(f => ({ ...f, tipo_asunto: e.target.value as ConsultaTipoAsunto }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 >
                   {Object.entries(TIPO_ASUNTO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -1575,7 +1575,7 @@ export default function ConsultaDetallePage() {
                 type="button"
                 onClick={handleSaveDatos}
                 disabled={update.isPending}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
               >
                 {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Guardar
@@ -1643,7 +1643,7 @@ export default function ConsultaDetallePage() {
       )}
 
       {/* 1. Entrevista y apuntes: lo primero cuando el cliente está presente */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">1. Entrevista</h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">Transcribí la charla con el cliente o cargá apuntes. Al terminar, lo nuevo se incorpora a los hechos del caso.</p>
@@ -1652,14 +1652,14 @@ export default function ConsultaDetallePage() {
       </div>
 
       {/* 2. Hechos del caso */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">2. Hechos del caso</h2>
         <textarea
           value={notas}
           onChange={e => setNotas(e.target.value)}
           placeholder="Describí los hechos del caso: qué pasó, cuándo, quiénes están involucrados, qué quiere el cliente, montos si aplica… (lo que surja de la entrevista se agrega acá)"
           rows={8}
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
         />
 
         {/* Selector de áreas del derecho */}
@@ -1703,7 +1703,7 @@ export default function ConsultaDetallePage() {
             type="button"
             onClick={handleOrdenarHechos}
             disabled={ordenarHechos.isPending || (!notas.trim() && !hayEntrevista)}
-            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
+            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-zinc-900 hover:from-amber-600 hover:to-orange-600 text-white dark:bg-white dark:text-zinc-900 rounded-lg transition-all disabled:opacity-50 shadow-sm"
           >
             {ordenarHechos.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin" />Ordenando…</>
@@ -1716,7 +1716,7 @@ export default function ConsultaDetallePage() {
               type="button"
               onClick={handleGenerarDiagnostico}
               disabled={generando || !notas.trim()}
-              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white rounded-lg transition-all disabled:opacity-50 shadow-sm"
+              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-zinc-900 hover:from-blue-700 hover:to-violet-700 text-white dark:bg-white dark:text-zinc-900 rounded-lg transition-all disabled:opacity-50 shadow-sm"
             >
               {generando ? (
                 <><Loader2 className="h-4 w-4 animate-spin" />Analizando…</>
@@ -1729,7 +1729,7 @@ export default function ConsultaDetallePage() {
       </div>
 
       {/* 3. Documentación del cliente */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">3. Documentación</h2>
         <div>
           <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
@@ -1775,7 +1775,7 @@ export default function ConsultaDetallePage() {
 
       {/* Diagnóstico IA */}
       {diag && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico jurídico</h2>
             {/* Botón editar solo para diagnósticos legacy (sin módulos) */}
@@ -1831,7 +1831,7 @@ export default function ConsultaDetallePage() {
                     type="text"
                     value={diagEdit.fuero ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, fuero: e.target.value } : prev)}
-                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                   />
                 </div>
                 <div>
@@ -1840,7 +1840,7 @@ export default function ConsultaDetallePage() {
                     type="text"
                     value={diagEdit.pretension ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, pretension: e.target.value } : prev)}
-                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                   />
                 </div>
               </div>
@@ -1850,7 +1850,7 @@ export default function ConsultaDetallePage() {
                 <select
                   value={diagEdit.chances_estimadas}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, chances_estimadas: e.target.value as DiagnosticoIA['chances_estimadas'] } : prev)}
-                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                 >
                   <option value="alta">Alta</option>
                   <option value="media">Media</option>
@@ -1865,7 +1865,7 @@ export default function ConsultaDetallePage() {
                   rows={5}
                   value={diagEdit.observaciones ?? ''}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, observaciones: e.target.value } : prev)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
                 />
               </div>
 
@@ -1885,7 +1885,7 @@ export default function ConsultaDetallePage() {
                           arr[i] = e.target.value
                           return { ...prev, acciones_recomendadas: arr }
                         })}
-                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                       />
                       <button
                         type="button"
@@ -1922,7 +1922,7 @@ export default function ConsultaDetallePage() {
                           arr[i] = e.target.value
                           return { ...prev, riesgos: arr }
                         })}
-                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                       />
                       <button
                         type="button"
@@ -1949,7 +1949,7 @@ export default function ConsultaDetallePage() {
                   rows={2}
                   value={diagEdit.descripcion_honorarios ?? ''}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, descripcion_honorarios: e.target.value } : prev)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
                 />
               </div>
 
@@ -1968,7 +1968,7 @@ export default function ConsultaDetallePage() {
                   }
                 }}
                 disabled={update.isPending}
-                className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
               >
                 {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Guardar diagnóstico
@@ -2043,7 +2043,7 @@ export default function ConsultaDetallePage() {
                           type="checkbox"
                           checked={!!checklistEstado[i]}
                           onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
-                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-cyan-500/30"
                         />
                         <span className={cn(
                           'text-zinc-700 dark:text-zinc-300 leading-snug',
@@ -2063,7 +2063,7 @@ export default function ConsultaDetallePage() {
 
       {/* Notas del abogado sobre el diagnóstico */}
       {diag && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <NotebookPen className="h-4 w-4 text-violet-500" />
             <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Observaciones del abogado</h2>
@@ -2076,7 +2076,7 @@ export default function ConsultaDetallePage() {
             onChange={e => setNotasAbogado(e.target.value)}
             placeholder="Ej: agregar daño punitivo — el empleador ya fue condenado antes. Considerar art. 80 LCT por falta de entrega de documentación…"
             rows={5}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
           />
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -2111,7 +2111,7 @@ export default function ConsultaDetallePage() {
 
       {/* Presupuesto — solo abogados */}
       {!isSecretaria && diag && (
-        <div ref={presupuestoSectionRef} className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-zinc-900/80 p-5 space-y-4">
+        <div ref={presupuestoSectionRef} className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-[var(--card)] p-5 space-y-4">
           <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Presupuesto de honorarios</h2>
           <PresupuestoSection
             consultaId={consulta.id}
@@ -2163,7 +2163,7 @@ export default function ConsultaDetallePage() {
       <TareasConsultaSection consultaId={consulta.id} />
 
       {/* Actividad / Seguimiento */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/80 p-5 space-y-3">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Seguimiento administrativo</h2>
         <ActividadSection consultaId={consulta.id} />
       </div>

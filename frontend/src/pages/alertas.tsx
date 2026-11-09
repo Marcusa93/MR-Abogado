@@ -233,7 +233,7 @@ function AlertaCard({
                   value={posponerFecha}
                   onChange={(e) => setPosponerFecha(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="h-7 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-amber-500/15"
+                  className="h-7 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-cyan-500/15"
                 />
                 <button
                   onClick={handlePosponer}
@@ -396,7 +396,7 @@ export default function AlertasPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por título, expediente, tipo…"
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
               />
               {search && (
                 <button onClick={() => setSearch('')}

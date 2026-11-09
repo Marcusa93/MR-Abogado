@@ -598,7 +598,7 @@ function ActuacionReader({ movement, onClose }: { movement: SaeMovement; onClose
       onClick={onClose}
     >
       <div
-        className="flex w-full max-h-[92dvh] flex-col rounded-t-2xl bg-zinc-950 shadow-2xl border border-white/8 sm:max-w-2xl sm:rounded-2xl"
+        className="flex w-full max-h-[92dvh] flex-col rounded-t-xl bg-zinc-950 shadow-2xl border border-white/8 sm:max-w-2xl sm:rounded-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle — mobile hint */}

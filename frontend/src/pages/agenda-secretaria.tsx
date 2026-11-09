@@ -227,7 +227,7 @@ function SeguimientoForm({
           <select
             value={canal}
             onChange={(e) => setCanal(e.target.value as CreateSeguimientoInput['canal'])}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
+            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
           >
             <option value="WEB">Web</option>
             <option value="TELEFONO">Tel{'é'}fono</option>
@@ -250,7 +250,7 @@ function SeguimientoForm({
                 setProximoControl(new Date().toISOString().split('T')[0])
               }
             }}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
+            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
           />
         </div>
       </div>
@@ -264,7 +264,7 @@ function SeguimientoForm({
           value={resultado}
           onChange={(e) => setResultado(e.target.value)}
           placeholder="Ej: En proceso, Resolución dictada..."
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
+          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
         />
       </div>
 
@@ -276,7 +276,7 @@ function SeguimientoForm({
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:ring-amber-500/15"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
         />
       </div>
 
@@ -803,7 +803,7 @@ function EditarAudienciaDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-5 shadow-xl">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-zinc-100">Editar audiencia</h2>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">

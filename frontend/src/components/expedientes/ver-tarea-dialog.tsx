@@ -76,7 +76,7 @@ const ESTADO_ICON: Record<string, typeof Circle> = {
 
 const ESTADO_COLORS: Record<string, string> = {
   PENDIENTE: 'text-amber-500',
-  EN_PROGRESO: 'text-blue-500',
+  EN_PROGRESO: 'text-cyan-500',
   COMPLETADA: 'text-emerald-500',
   CANCELADA: 'text-zinc-700 dark:text-zinc-300',
 }
@@ -123,7 +123,7 @@ function CopyableField({
         </span>
         <button
           onClick={onCopy}
-          className="shrink-0 rounded p-1 text-zinc-500 dark:text-zinc-400 hover:text-amber-400 hover:bg-white/5 transition-colors"
+          className="shrink-0 rounded p-1 text-zinc-500 dark:text-zinc-400 hover:text-cyan-400 hover:bg-white/5 transition-colors"
           title={`Copiar ${label}`}
         >
           {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
@@ -222,14 +222,14 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
   const parts = tarea.descripcion ? renderMentionParts(tarea.descripcion) : []
 
   const inputClass =
-    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15'
+    'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
   const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-zinc-900/80 shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-white/5 px-5 py-4 gap-3">
           <div className="min-w-0 flex-1">
@@ -272,13 +272,13 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
           {tarea.expediente ? (
             <button
               onClick={goToExpediente}
-              className="group w-full flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-left hover:bg-amber-500/10 transition-colors"
+              className="group w-full flex items-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.02] px-3 py-2.5 text-left hover:border-cyan-500/40 transition-colors"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-zinc-400">
                 <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-amber-400/80">
+                <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-500">
                   Expediente vinculado
                 </p>
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
@@ -290,7 +290,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                   </p>
                 )}
               </div>
-              <ExternalLink className="h-4 w-4 shrink-0 text-amber-400 opacity-60 group-hover:opacity-100" />
+              <ExternalLink className="h-4 w-4 shrink-0 text-zinc-500 opacity-60 group-hover:opacity-100" />
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-xs text-rose-400">
@@ -344,7 +344,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                     </div>
                     <button
                       onClick={() => setShowClaves((v) => !v)}
-                      className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                      className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
                     >
                       {showClaves ? (
                         <>
@@ -384,13 +384,13 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
                 onChange={setDescripcion}
                 placeholder="Detalles adicionales... usá @ para mencionar"
                 rows={3}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15 resize-none"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
               />
             ) : tarea.descripcion ? (
               <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words">
                 {parts.map((part, i) =>
                   part.type === 'mention' ? (
-                    <span key={i} className="font-medium text-amber-400">
+                    <span key={i} className="font-medium text-cyan-400">
                       {part.content}
                     </span>
                   ) : (
@@ -519,7 +519,7 @@ export function VerTareaDialog({ open, onClose, tarea }: VerTareaDialogProps) {
               useBogaBotStore.getState().openWithInput(`${ctx}. `)
               onClose()
             }}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 transition-colors shrink-0"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/5 transition-colors shrink-0"
             title="Abrir BogaBot con contexto de esta tarea"
           >
             <span className="text-base leading-none">⚖️🤖</span>

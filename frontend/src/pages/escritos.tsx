@@ -173,7 +173,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70">
-      <div className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl overflow-hidden">
+      <div className="w-full sm:max-w-lg rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
           <div>
             <h2 className="text-base font-semibold text-zinc-100">Nuevo escrito</h2>
@@ -191,7 +191,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
               value={ideaLibre} onChange={e => setIdeaLibre(e.target.value)}
               placeholder="Ej: Necesito contestar el traslado de demanda laboral de Juan García, reconviniendo por preaviso..."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none resize-none"
             />
           </div>
 
@@ -202,7 +202,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
             <input
               type="text" list="escritos-tipos" value={tipo} onChange={e => setTipo(e.target.value)}
               placeholder="Contestación de traslado, Demanda, Recurso..."
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none"
+              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
             />
             <datalist id="escritos-tipos">{TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}</datalist>
           </div>
@@ -228,7 +228,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
               value={instrucciones} onChange={e => setInstrucciones(e.target.value)}
               placeholder="Tono, puntos a destacar, normativa a citar..."
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none resize-none"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none resize-none"
             />
           </div>
 
@@ -237,13 +237,13 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
               Expediente <span className="text-zinc-500 font-normal">(opcional)</span>
             </label>
             {expedienteId ? (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                <span className="flex-1 text-sm text-amber-300 truncate">{expedienteQuery}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                <span className="flex-1 text-sm text-cyan-300 truncate">{expedienteQuery}</span>
                 <button
                   type="button"
                   onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
-                  className="text-amber-500 hover:text-amber-300"
+                  className="text-cyan-500 hover:text-cyan-300"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -262,7 +262,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
                     buscarExpedientes(val)
                   }}
                   placeholder="Buscar por carátula..."
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-500/40 focus:outline-none"
+                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
                 />
                 <datalist id="escritos-expedientes">
                   {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
@@ -311,7 +311,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
                 {respondeA && (() => {
                   const m = movimientos.find(mv => mv.id === respondeA)
                   return m?.ai_suggested_action ? (
-                    <p className="mt-1 text-[11px] text-amber-400/70">
+                    <p className="mt-1 text-[11px] text-cyan-400/70">
                       Acción sugerida: {m.ai_suggested_action.titulo}
                     </p>
                   ) : null
@@ -338,7 +338,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
                           if (e.target.checked) setActuacionesExtra(prev => [...prev, m.id])
                           else setActuacionesExtra(prev => prev.filter(id => id !== m.id))
                         }}
-                        className="mt-0.5 accent-amber-500 shrink-0"
+                        className="mt-0.5 accent-cyan-500 shrink-0"
                       />
                       <span className="text-xs text-zinc-300 leading-tight">
                         {m.is_key === true ? '★ ' : ''}{m.fecha?.slice(0, 10)} — {m.tipo_movimiento}{m.titulo ? ` — ${m.titulo.slice(0, 50)}` : ''}
@@ -379,7 +379,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-white/5">
           <button onClick={onClose} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">Cancelar</button>
           <button onClick={handleGenerar} disabled={generate.isPending || transcribir.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
+            className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
             {generate.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -445,10 +445,10 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70">
-      <div className="w-full sm:max-w-2xl max-h-[90vh] rounded-t-2xl sm:rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl flex flex-col">
+      <div className="w-full sm:max-w-2xl max-h-[90vh] rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-3">
-            <Layers className="h-5 w-5 text-amber-400" />
+            <Layers className="h-5 w-5 text-cyan-400" />
             <div>
               <h2 className="text-base font-semibold text-zinc-100">Modelos del estudio</h2>
               <p className="text-xs text-zinc-400">Plantillas estructurales compartidas</p>
@@ -461,7 +461,7 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
           {(['lista', 'upload', 'manual'] as const).map(tab => (
             <button key={tab} onClick={() => { setModo(tab); setModeloExtraido(null) }}
               className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                modo === tab ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'text-zinc-400 hover:text-zinc-200'
+                modo === tab ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'text-zinc-400 hover:text-zinc-200'
               )}>
               {tab === 'lista' && 'Biblioteca'}
               {tab === 'upload' && 'Cargar desde texto'}
@@ -479,7 +479,7 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
                   <Layers className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
                   <p className="text-sm text-zinc-400">No hay modelos cargados aún</p>
                   <button onClick={() => setModo('upload')}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-300">
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-300">
                     <Upload className="h-3.5 w-3.5" /> Cargar primer modelo
                   </button>
                 </div>
@@ -527,7 +527,7 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
                 placeholder="Pegá aquí el texto completo del escrito modelo..."
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none" />
               <button onClick={handleExtraer} disabled={!textoModelo.trim() || extraerModelo.isPending}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
                 {extraerModelo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {extraerModelo.isPending ? 'Extrayendo...' : 'Extraer estructura con IA'}
               </button>
@@ -647,7 +647,7 @@ function ManualModeloEditor({ onGuardar, guardando, nombre, setNombre, tipo, set
       </div>
       <button onClick={() => onGuardar({ titulo, encabezado_juez: encabezado, caratula, secciones })}
         disabled={guardando || !nombre.trim()}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
+        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
         {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Guardar modelo
       </button>
@@ -719,7 +719,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900/80 border-l border-white/5">
+    <div className="flex flex-col h-full bg-[#10161d] border-l border-white/5">
       {/* Tabs */}
       <div className="flex border-b border-white/5 shrink-0">
         {([
@@ -729,7 +729,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
         ] as const).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2',
-              tab === key ? 'border-amber-500 text-amber-300' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              tab === key ? 'border-cyan-500 text-cyan-300' : 'border-transparent text-zinc-500 hover:text-zinc-300'
             )}>
             <Icon className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{label}</span>
@@ -746,10 +746,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 type="text" value={searchJuris} onChange={e => setSearchJuris(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearchJuris()}
                 placeholder="Buscar fallo o describir..."
-                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/30"
+                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
               />
               <button onClick={handleSearchJuris} disabled={searchJurisprudenciaText.isPending || buscarJurisprudenciaSemantica.isPending}
-                className="h-8 px-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs hover:bg-amber-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                className="h-8 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
                 {(searchJurisprudenciaText.isPending || buscarJurisprudenciaSemantica.isPending)
                   ? <Loader2 className="h-3 w-3 animate-spin" />
                   : <Search className="h-3 w-3" />}
@@ -791,10 +791,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                   <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.04] group">
                     <div>
-                      <p className="text-xs font-medium text-zinc-300 group-hover:text-amber-300">{p.label}</p>
+                      <p className="text-xs font-medium text-zinc-300 group-hover:text-cyan-300">{p.label}</p>
                       <p className="text-[10px] text-zinc-600">{p.desc}</p>
                     </div>
-                    <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-amber-400" />
+                    <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-cyan-400" />
                   </a>
                 ))}
               </div>
@@ -811,10 +811,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 type="text" value={searchNorm} onChange={e => setSearchNorm(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearchNorm()}
                 placeholder="Ley, número, decreto..."
-                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/30"
+                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
               />
               <button onClick={handleSearchNorm} disabled={searchNormativa.isPending}
-                className="h-8 px-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs hover:bg-amber-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                className="h-8 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
                 {searchNormativa.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
               </button>
             </div>
@@ -836,7 +836,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                           {copiado === n.id ? 'Copiado' : 'Copiar'}
                         </button>
                         <button onClick={() => onInsertarReferencia(cita)}
-                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/8 px-2 py-0.5 text-[10px] text-amber-400 hover:bg-amber-500/15">
+                          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/8 px-2 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-500/15">
                           <Plus className="h-3 w-3" /> Insertar
                         </button>
                       </div>
@@ -852,10 +852,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
               <a href="http://www.saij.gob.ar" target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.04] group">
                 <div>
-                  <p className="text-xs font-medium text-zinc-300 group-hover:text-amber-300">SAIJ / Infojus</p>
+                  <p className="text-xs font-medium text-zinc-300 group-hover:text-cyan-300">SAIJ / Infojus</p>
                   <p className="text-[10px] text-zinc-600">Sistema Argentino de Información Jurídica</p>
                 </div>
-                <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-amber-400" />
+                <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-cyan-400" />
               </a>
               <p className="text-[10px] text-zinc-600 mt-2">Encontrá la norma y copiá su URL en "Citar URL" para extraerla automáticamente</p>
             </div>
@@ -872,10 +872,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                   type="url" value={urlInput} onChange={e => setUrlInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleFetchUrl()}
                   placeholder="https://..."
-                  className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/30"
+                  className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
                 />
                 <button onClick={handleFetchUrl} disabled={!urlInput.trim() || fetchReferencia.isPending}
-                  className="h-8 px-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs hover:bg-amber-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                  className="h-8 px-2.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
                   {fetchReferencia.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                   {fetchReferencia.isPending ? 'Extrayendo...' : 'Extraer'}
                 </button>
@@ -884,7 +884,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
             </div>
 
             {citaExtraida && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
+              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className={cn('text-[10px] rounded-full px-2 py-0.5 font-semibold',
                     citaExtraida.tipo === 'fallo' ? 'bg-sky-500/15 text-sky-400' :
@@ -894,7 +894,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                     {citaExtraida.tipo}
                   </span>
                   <a href={citaExtraida.fuente_url} target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] text-amber-400/60 hover:text-amber-400 flex items-center gap-0.5">
+                    className="text-[10px] text-cyan-400/60 hover:text-cyan-400 flex items-center gap-0.5">
                     fuente <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 </div>
@@ -947,7 +947,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                     </button>
                   )}
                   <button onClick={() => onInsertarReferencia(citaExtraida.cita_formal + (citaExtraida.extracto ? `\n"${citaExtraida.extracto}"` : ''))}
-                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-amber-500/15 border border-amber-500/30 py-1.5 text-xs text-amber-300 hover:bg-amber-500/25">
+                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/25">
                     <Plus className="h-3 w-3" /> Insertar
                   </button>
                 </div>
@@ -1001,7 +1001,7 @@ function FalloCard({ caratula, tribunal, tipo, score, extracto, onCopiar, onInse
           {copiado ? 'Copiado' : 'Copiar'}
         </button>
         <button onClick={onInsertar}
-          className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/8 px-2 py-0.5 text-[10px] text-amber-400 hover:bg-amber-500/15">
+          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/8 px-2 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-500/15">
           <Plus className="h-3 w-3" /> Insertar
         </button>
       </div>
@@ -1158,11 +1158,11 @@ function EscritoEditor({
               onChange={e => { setTituloLocal(e.target.value); setDirty(true) }}
               onBlur={() => setEditandoTitulo(false)}
               onKeyDown={e => e.key === 'Enter' && setEditandoTitulo(false)}
-              className="flex-1 min-w-0 rounded-md border border-amber-500/40 bg-white/5 px-2 py-1 text-sm font-semibold text-zinc-100 focus:outline-none"
+              className="flex-1 min-w-0 rounded-md border border-cyan-500/40 bg-white/5 px-2 py-1 text-sm font-semibold text-zinc-100 focus:outline-none"
             />
           ) : (
             <button onClick={() => setEditandoTitulo(true)}
-              className="text-sm font-semibold text-zinc-100 hover:text-amber-300 truncate max-w-[180px] sm:max-w-xs text-left flex items-center gap-1">
+              className="text-sm font-semibold text-zinc-100 hover:text-cyan-300 truncate max-w-[180px] sm:max-w-xs text-left flex items-center gap-1">
               <span className="truncate">{tituloLocal || escrito.tipo}</span>
               <Pencil className="h-3 w-3 text-zinc-600 shrink-0" />
             </button>
@@ -1172,7 +1172,7 @@ function EscritoEditor({
           </span>
           {escrito.expediente && (
             <Link to={`/expedientes/${escrito.expediente_id}`}
-              className="hidden sm:inline-flex shrink-0 items-center gap-1 text-[11px] text-amber-400/70 hover:text-amber-300 truncate max-w-[120px]">
+              className="hidden sm:inline-flex shrink-0 items-center gap-1 text-[11px] text-cyan-400/70 hover:text-cyan-300 truncate max-w-[120px]">
               <FolderOpen className="h-3 w-3" />
               <span className="truncate">{escrito.expediente.caratula ?? escrito.expediente.numero}</span>
             </Link>
@@ -1215,7 +1215,7 @@ function EscritoEditor({
               onClick={() => setShowHistorial(v => !v)}
               className={cn('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border',
                 showHistorial
-                  ? 'border-amber-500/30 bg-amber-500/15 text-amber-300'
+                  ? 'border-cyan-500/30 bg-cyan-500/15 text-cyan-300'
                   : 'border-white/10 text-zinc-400 hover:text-zinc-200'
               )}
               title="Ver versiones anteriores"
@@ -1233,7 +1233,7 @@ function EscritoEditor({
             <input type="file" accept="application/pdf" className="hidden" onChange={handleAttachPdf} />
           </label>
           <button onClick={onToggleRefs} title={refsOpen ? 'Cerrar referencias' : 'Referencias y citas'}
-            className={cn('p-1.5 rounded-lg hover:bg-white/5', refsOpen ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-200')}>
+            className={cn('p-1.5 rounded-lg hover:bg-white/5', refsOpen ? 'text-cyan-400' : 'text-zinc-500 hover:text-zinc-200')}>
             {refsOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </button>
           <button onClick={() => setConfirmarEliminar(true)} className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400">
@@ -1339,7 +1339,7 @@ function EscritoEditor({
           )}
 
           {showHistorial && escrito.historial && (
-            <div className="border-t border-white/10 bg-zinc-900/80 p-3 space-y-1">
+            <div className="border-t border-white/10 bg-[#10161d] p-3 space-y-1">
               <p className="text-xs font-medium text-zinc-400 mb-2">Versiones anteriores</p>
               {[...escrito.historial].reverse().map((snap: EscritoSnapshot, i: number) => {
                 const fecha = new Date(snap.saved_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })
@@ -1360,7 +1360,7 @@ function EscritoEditor({
                         })
                         setShowHistorial(false)
                       }}
-                      className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded"
                     >
                       Restaurar
                     </button>
@@ -1429,7 +1429,7 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
         <input value={seccion.titulo} onChange={e => onUpdateTitulo(e.target.value)}
           className="flex-1 bg-transparent text-xs font-semibold text-zinc-300 uppercase tracking-wide focus:outline-none" />
         <button onClick={() => onRefinar(undefined)} title="Refinar sección con IA"
-          className={cn('p-1 rounded hover:bg-white/10', isRefiningSection ? 'text-amber-400' : 'text-zinc-600 hover:text-amber-400')}>
+          className={cn('p-1 rounded hover:bg-white/10', isRefiningSection ? 'text-cyan-400' : 'text-zinc-600 hover:text-cyan-400')}>
           <Wand2 className="h-3.5 w-3.5" />
         </button>
         <button onClick={onRemove} className="p-1 rounded text-zinc-700 hover:text-rose-400">
@@ -1449,7 +1449,7 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
                   placeholder="Párrafo..." />
                 <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => onRefinar(pi)} title="Refinar con IA"
-                    className={cn('p-1 rounded bg-zinc-800 border border-white/8', isRefiningThis ? 'text-amber-400' : 'text-zinc-500 hover:text-amber-400')}>
+                    className={cn('p-1 rounded bg-zinc-800 border border-white/8', isRefiningThis ? 'text-cyan-400' : 'text-zinc-500 hover:text-cyan-400')}>
                     <Wand2 className="h-3 w-3" />
                   </button>
                   <button onClick={() => onRemoveParrafo(pi)} className="p-1 rounded bg-zinc-800 border border-white/8 text-zinc-600 hover:text-rose-400">
@@ -1461,10 +1461,10 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
                     <textarea autoFocus value={refinarInstr} onChange={e => setRefinarInstr(e.target.value)}
                       placeholder="Indicación para la IA..."
                       rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onApplyRefinar(si, pi) } }}
-                      className="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none resize-none" />
+                      className="flex-1 rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-2 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none resize-none" />
                     <div className="flex flex-col gap-1">
                       <button onClick={() => onApplyRefinar(si, pi)} disabled={isRefining || !refinarInstr.trim()}
-                        className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-1.5 text-xs text-amber-300 disabled:opacity-50 inline-flex items-center gap-1">
+                        className="rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-2 py-1.5 text-xs text-cyan-300 disabled:opacity-50 inline-flex items-center gap-1">
                         {isRefining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                         OK
                       </button>
@@ -1481,10 +1481,10 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
               <textarea autoFocus value={refinarInstr} onChange={e => setRefinarInstr(e.target.value)}
                 placeholder="Indicación para refinar la sección completa..."
                 rows={2} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onApplyRefinar(si) } }}
-                className="flex-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none resize-none" />
+                className="flex-1 rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-2 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none resize-none" />
               <div className="flex flex-col gap-1">
                 <button onClick={() => onApplyRefinar(si)} disabled={isRefining || !refinarInstr.trim()}
-                  className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-1.5 text-xs text-amber-300 disabled:opacity-50 inline-flex items-center gap-1">
+                  className="rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-2 py-1.5 text-xs text-cyan-300 disabled:opacity-50 inline-flex items-center gap-1">
                   {isRefining ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} OK
                 </button>
                 <button onClick={onCloseRefinar} className="text-zinc-600 hover:text-zinc-400 p-1"><X className="h-3 w-3" /></button>
@@ -1590,14 +1590,14 @@ export default function EscritosPage() {
         {/* Header sidebar */}
         <div className="flex items-center justify-between px-3 py-3 border-b border-white/5">
           <div className="flex items-center gap-2">
-            <PenLine className="h-4 w-4 text-amber-400" />
+            <PenLine className="h-4 w-4 text-cyan-400" />
             <span className="text-sm font-semibold text-zinc-200">Escritos</span>
           </div>
           <div className="flex gap-1">
             <button onClick={() => setShowModelos(true)} title="Modelos" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <Layers className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setShowNuevo(true)} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-amber-400">
+            <button onClick={() => setShowNuevo(true)} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setSidebarOpen(false)} className="hidden sm:block p-1 rounded text-zinc-700 hover:text-zinc-400">
@@ -1620,7 +1620,7 @@ export default function EscritosPage() {
           {([['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const).map(([b, label]) => (
             <button key={b} type="button" onClick={() => setBandeja(b)}
               className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
-                bandeja === b ? 'bg-amber-500 text-zinc-950' : 'text-zinc-400 hover:bg-white/5')}>
+                bandeja === b ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5')}>
               {label} <span className="tabular-nums opacity-70">{conteoBandeja(b)}</span>
             </button>
           ))}
@@ -1644,14 +1644,14 @@ export default function EscritosPage() {
             <div className="px-3 py-8 text-center">
               <FileText className="h-6 w-6 text-zinc-700 mx-auto mb-2" />
               <p className="text-xs text-zinc-600">No hay escritos</p>
-              <button onClick={() => setShowNuevo(true)} className="mt-2 text-xs text-amber-400 hover:text-amber-300">Crear primero</button>
+              <button onClick={() => setShowNuevo(true)} className="mt-2 text-xs text-cyan-400 hover:text-cyan-300">Crear primero</button>
             </div>
           )}
           {escritosFiltrados.map(e => (
             <button key={e.id} onClick={() => setSelectedId(e.id)}
               className={cn(
                 'w-full text-left px-3 py-2.5 border-b border-white/[0.04]',
-                selectedId === e.id ? 'bg-amber-500/10 border-l-2 border-l-amber-500/50' : 'hover:bg-white/[0.03]'
+                selectedId === e.id ? 'bg-cyan-500/10 border-l-2 border-l-cyan-500/50' : 'hover:bg-white/[0.03]'
               )}>
               <p className="text-xs font-medium text-zinc-300 truncate">{e.titulo || e.tipo}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -1678,7 +1678,7 @@ export default function EscritosPage() {
         {/* FAB móvil */}
         <div className="sm:hidden border-t border-white/5 p-3">
           <button onClick={() => setShowNuevo(true)}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-amber-400 active:bg-amber-600">
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
             <Sparkles className="h-4 w-4" /> Nuevo escrito con IA
           </button>
         </div>
@@ -1708,7 +1708,7 @@ export default function EscritosPage() {
               <p className="text-sm text-zinc-500 mb-6">Redactá con IA, citá jurisprudencia y normativa, usá modelos del estudio. Reemplazá el flujo de Word + Claude.</p>
               <div className="flex flex-col gap-2 items-center">
                 <button onClick={() => setShowNuevo(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-zinc-950 hover:bg-amber-400">
+                  className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
                   <Sparkles className="h-4 w-4" /> Nuevo escrito con IA
                 </button>
                 <button onClick={() => setShowModelos(true)}

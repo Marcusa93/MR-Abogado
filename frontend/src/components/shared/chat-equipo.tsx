@@ -320,7 +320,7 @@ function ChatPanel({ onClose, isMobile = false }: { onClose: () => void; isMobil
           placeholder="Escribí un mensaje… @ para mencionar"
           rows={1}
           style={{ resize: 'none', maxHeight: 80 }}
-          className="flex-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.04] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-400/40 overflow-y-auto"
+          className="flex-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.04] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 overflow-y-auto"
           onInput={(e) => {
             const el = e.currentTarget
             el.style.height = 'auto'

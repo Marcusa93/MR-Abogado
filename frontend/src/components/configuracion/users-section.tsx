@@ -226,7 +226,7 @@ export function UsersSection() {
                     value={inviteForm.email}
                     onChange={(e) => setInviteForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="empleado@email.com"
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
                 <div>
@@ -234,7 +234,7 @@ export function UsersSection() {
                   <select
                     value={inviteForm.rol}
                     onChange={(e) => setInviteForm(f => ({ ...f, rol: e.target.value }))}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   >
                     {assignableRoles.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -246,7 +246,7 @@ export function UsersSection() {
                   <input
                     value={inviteForm.nombre}
                     onChange={(e) => setInviteForm(f => ({ ...f, nombre: e.target.value }))}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
                 <div>
@@ -254,7 +254,7 @@ export function UsersSection() {
                   <input
                     value={inviteForm.apellido}
                     onChange={(e) => setInviteForm(f => ({ ...f, apellido: e.target.value }))}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -263,7 +263,7 @@ export function UsersSection() {
                     value={inviteForm.telefono}
                     onChange={(e) => setInviteForm(f => ({ ...f, telefono: e.target.value }))}
                     placeholder="Opcional"
-                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/15"
+                    className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
                   />
                 </div>
               </div>
@@ -361,7 +361,7 @@ export function UsersSection() {
                       <input
                         value={editForm.nombre}
                         onChange={(e) => setEditForm(f => ({ ...f, nombre: e.target.value }))}
-                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -369,7 +369,7 @@ export function UsersSection() {
                       <input
                         value={editForm.apellido}
                         onChange={(e) => setEditForm(f => ({ ...f, apellido: e.target.value }))}
-                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -377,7 +377,7 @@ export function UsersSection() {
                       <select
                         value={editForm.rol}
                         onChange={(e) => setEditForm(f => ({ ...f, rol: e.target.value }))}
-                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
                       >
                         {assignableRoles.map((r) => (
                           <option key={r.value} value={r.value}>{r.label}</option>
@@ -389,7 +389,7 @@ export function UsersSection() {
                       <input
                         value={editForm.telefono}
                         onChange={(e) => setEditForm(f => ({ ...f, telefono: e.target.value }))}
-                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/40 focus:outline-none"
+                        className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
                       />
                     </div>
                   </div>

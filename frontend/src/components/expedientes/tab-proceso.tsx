@@ -124,7 +124,7 @@ function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     />
   )
 }
@@ -141,7 +141,7 @@ function DateInput({
       type="date"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     />
   )
 }
@@ -161,7 +161,7 @@ function SelectInput({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+      className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
       {placeholder && (
         <option value="" className="text-zinc-400">{placeholder}</option>
@@ -862,7 +862,7 @@ function SentenciasCard({ expedienteId }: { expedienteId: string }) {
                 id="apelada"
                 checked={form.apelada}
                 onChange={(e) => setForm((f) => ({ ...f, apelada: e.target.checked }))}
-                className="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400"
+                className="h-4 w-4 rounded border-white/20 bg-white/5 accent-cyan-500"
               />
               <label htmlFor="apelada" className="text-sm text-zinc-300">
                 Fue apelada

@@ -66,7 +66,7 @@ export function RevisarPropuestaFicha({ expedienteId, ficha, propuestas, onCerra
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onCerrar}>
       <div onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:max-w-xl sm:rounded-2xl dark:bg-zinc-900">
+        className="flex max-h-[92vh] w-full flex-col rounded-t-xl bg-white shadow-xl sm:max-w-xl sm:rounded-xl dark:bg-[var(--card)]">
         <div className="flex items-start gap-2 border-b border-zinc-100 px-4 py-3 dark:border-white/10">
           {actual.origen === 'dictado' ? <Mic className="mt-0.5 h-4 w-4 text-blue-600" /> : <Sparkles className="mt-0.5 h-4 w-4 text-blue-600" />}
           <div className="min-w-0 flex-1">

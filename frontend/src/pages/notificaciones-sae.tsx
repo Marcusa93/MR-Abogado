@@ -481,7 +481,7 @@ export default function NotificacionesSaePage() {
           <button
             onClick={handleSyncNow}
             disabled={trigger.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
             title="Forzar revisión del portal ahora (sin esperar al cron 2x/día)"
           >
             {trigger.isPending

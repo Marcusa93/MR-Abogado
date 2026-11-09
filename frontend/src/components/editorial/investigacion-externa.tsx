@@ -99,7 +99,7 @@ export function InvestigarConGemini({ propuestaId, articuloId, onClose }: { prop
   // Portal: las tarjetas usan backdrop-filter, que encierra a los elementos fixed
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={fase === 'procesando' ? undefined : onClose}>
-      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl dark:bg-zinc-900 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}
+      <div className="flex max-h-[94vh] w-full max-w-2xl flex-col rounded-t-xl bg-white shadow-xl dark:bg-[var(--card)] sm:rounded-xl" onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-start gap-3 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
           <div className="min-w-0 flex-1">

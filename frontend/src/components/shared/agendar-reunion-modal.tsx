@@ -116,14 +116,14 @@ export function AgendarReuniónModal({ open, onClose, defaultFecha }: Props) {
     onClose()
   }
 
-  const inputClass = 'h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-amber-500/50 focus:outline-none focus:ring-2 focus:ring-amber-500/15 placeholder:text-zinc-400'
+  const inputClass = 'h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 placeholder:text-zinc-400'
   const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-zinc-900 border-0 sm:border border-zinc-200 dark:border-white/10 shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md rounded-t-xl sm:rounded-xl bg-white dark:bg-[var(--card)] border-0 sm:border border-zinc-200 dark:border-white/10 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/[0.07] px-5 py-4">
           <div className="flex items-center gap-2.5">

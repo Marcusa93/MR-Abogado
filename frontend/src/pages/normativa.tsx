@@ -99,8 +99,8 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={isPending ? undefined : onClose} />
-      <div className="relative w-full max-w-2xl rounded-xl border border-white/10 bg-white dark:bg-zinc-900/90 shadow-xl mx-4 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-zinc-900/90 z-10">
+      <div className="relative w-full max-w-2xl rounded-xl border border-white/10 bg-white dark:bg-[var(--card)] shadow-xl mx-4 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4 sticky top-0 bg-white dark:bg-[var(--card)] z-10">
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-cyan-400" />
             Agregar norma al corpus
@@ -258,14 +258,14 @@ function IngestaModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="border-t border-white/5 px-5 py-3 flex items-center justify-end gap-2 sticky bottom-0 bg-white dark:bg-zinc-900/90">
+        <div className="border-t border-white/5 px-5 py-3 flex items-center justify-end gap-2 sticky bottom-0 bg-white dark:bg-[var(--card)]">
           <button onClick={onClose} disabled={isPending} className="px-3 py-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 disabled:opacity-30">
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={!canSubmit || isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 px-4 py-2 text-xs font-medium text-zinc-50 hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             {isPending ? 'Indexando…' : 'Agregar al corpus'}
@@ -313,7 +313,7 @@ export default function NormativaPage() {
         </div>
         <button
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-500 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90"
         >
           <Plus className="h-3.5 w-3.5" />
           Agregar norma
@@ -356,12 +356,12 @@ export default function NormativaPage() {
               <FileText className="h-4 w-4 text-cyan-400 shrink-0" />
               <Link to={`/normativa/${doc.id}`} className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{doc.titulo}</p>
-                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                <p className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
                   <span>{doc.tipo}</span>
                   {doc.numero && <span>· {doc.numero}</span>}
                   {doc.jurisdiccion && <span>· {doc.jurisdiccion}</span>}
                   {doc.estado === 'indexado' && (
-                    <span className="text-emerald-400">· {doc.chunk_count} {doc.chunk_count === 1 ? 'chunk' : 'chunks'}</span>
+                    <span className="text-emerald-400">· {doc.chunk_count} {doc.chunk_count === 1 ? "fragmento" : "fragmentos"}</span>
                   )}
                   {doc.estado === 'error' && doc.error_message && (
                     <span className="text-rose-400 italic">· {doc.error_message.slice(0, 80)}</span>

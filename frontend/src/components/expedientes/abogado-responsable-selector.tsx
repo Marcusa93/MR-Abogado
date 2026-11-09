@@ -87,7 +87,7 @@ export function AbogadoResponsableSelector({
             <select
               value={pendingId ?? ''}
               onChange={(e) => setPendingId(e.target.value || null)}
-              className="rounded-lg border border-white/10 bg-white dark:bg-zinc-800 px-2 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="rounded-lg border border-white/10 bg-white dark:bg-white/[0.03] px-2 py-1 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
               <option value="">— Sin asignar —</option>
               {(abogados ?? []).map((a) => (

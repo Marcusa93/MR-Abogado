@@ -130,7 +130,7 @@ export function NotificarClienteModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50 dark:bg-black/70" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/10 px-5 py-4">
@@ -163,7 +163,7 @@ export function NotificarClienteModal({
                   className={cn(
                     'rounded-lg border px-3 py-2 text-left transition-colors',
                     tipo === t.id
-                      ? 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200'
                       : 'border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:bg-zinc-50 dark:hover:bg-white/5'
                   )}
                 >
@@ -183,7 +183,7 @@ export function NotificarClienteModal({
               value={mensaje}
               onChange={e => setMensaje(e.target.value)}
               rows={5}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
             />
           </div>
 
