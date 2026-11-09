@@ -10,14 +10,15 @@ import { cn } from '@/lib/utils'
 // Qué pasa después de generar: guía paso a paso del escrito hasta el proveído.
 // Completar datos → revisión → PDF → firma → presentación → seguimiento.
 
-const PENDIENTE_RE = /\[(?:COMPLETAR|DATO|INDICAR|VERIFICAR|XX+)[^\]]*\]|_{4,}|\bX{3,}\b|…{2,}/i
+// Corchetes con texto en mayúsculas ([NOMBRE DEL CLIENTE], [FECHA DE NOTIFICACIÓN], [COMPLETAR: …]), rayas, XXX.
+const PENDIENTE_RE = /\[(?:COMPLETAR|Completar|completar|DATO|Dato|dato|INDICAR|Indicar|indicar|VERIFICAR|Verificar|verificar|XX+)[^\]]*\]|\[[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 °º/.,;:_()\-]{2,}\]|_{4,}|\bX{3,}\b|…{2,}/
 
 /** Datos que la IA dejó para completar (corchetes, rayas, XXX). */
 export function datosPorCompletar(c: EscritoContenido): string[] {
   const textos = [c.encabezado_juez, c.caratula, c.presentacion ?? '', ...(c.secciones ?? []).flatMap((s) => [s.titulo, ...(s.parrafos ?? [])])]
   const out: string[] = []
   for (const t of textos) {
-    const re = new RegExp(PENDIENTE_RE.source, 'gi')
+    const re = new RegExp(PENDIENTE_RE.source, 'g')
     let m: RegExpExecArray | null
     while ((m = re.exec(t ?? ''))) out.push(m[0])
   }

@@ -40,6 +40,10 @@ export function inferirCaracter(texto: string, actual: CaracterEscrito): Caracte
   if (/honorari|regulaci[oó]n de honorarios|ejecuci[oó]n de honorarios|aportes|ius/i.test(texto) && actual.modo === 'apoderado') {
     return { ...actual, modo: 'derecho_propio' }
   }
+  // Contestar la demanda u oponer excepciones lo hace la demandada
+  if (/contesta\w*\s+(de\s+)?(la\s+)?demanda|opone\s+excepci|excepci[oó]n(es)?\s+previa/i.test(texto) && actual.parte === 'actora' && actual.modo !== 'derecho_propio') {
+    return { ...actual, parte: 'demandada' }
+  }
   return actual
 }
 

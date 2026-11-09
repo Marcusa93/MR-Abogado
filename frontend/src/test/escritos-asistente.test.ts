@@ -39,3 +39,11 @@ describe('detectarCitas', () => {
     expect(r.some((x) => x.texto.toLowerCase().includes('24.240') && !x.respaldada)).toBe(true)
   })
 })
+
+import { datosPorCompletar } from '@/components/expedientes/guia-escrito'
+describe('datosPorCompletar', () => {
+  it('detecta corchetes en mayúsculas y COMPLETAR, no texto común', () => {
+    const c = { ...base, secciones: [{ titulo: 'OBJETO', parrafos: ['Contra [NOMBRE DEL CLIENTE], notificado el [FECHA DE NOTIFICACIÓN], [completar: juzgado], ver [sic] y art. 435.'] }] }
+    expect(datosPorCompletar(c)).toEqual(['[NOMBRE DEL CLIENTE]', '[FECHA DE NOTIFICACIÓN]', '[completar: juzgado]'])
+  })
+})

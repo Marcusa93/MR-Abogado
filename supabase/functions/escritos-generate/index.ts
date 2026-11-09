@@ -672,7 +672,7 @@ const ESQUEMA_SCHEMA = `## Formato de salida (JSON estricto, sin texto fuera del
   "riesgos": ["puntos débiles o riesgos procesales a cuidar"],
   "datos_faltantes": ["datos que el abogado debería completar antes de redactar"]
 }
-Sé concreto y breve: es un esquema para que el abogado lo apruebe, no el escrito.`
+Sé concreto y breve (máximo 6 argumentos, una o dos oraciones cada uno): es un esquema para que el abogado lo apruebe, no el escrito. No incluyas citas textuales largas. Respondé solo el JSON, sin bloque de código.`
 
 function formatEsquema(e: Esquema): string {
   const l: string[] = ['## ESQUEMA APROBADO POR EL ABOGADO (seguilo: estructura, orden y alcance de los argumentos)']
@@ -777,7 +777,7 @@ function parseJsonLlm(raw: string): unknown {
   if (a >= 0 && b > a) {
     try { return JSON.parse(stripped.slice(a, b + 1)) } catch { /* sigue */ }
   }
-  throw new HandlerError('El modelo devolvió JSON inválido', 502)
+  throw new HandlerError('El modelo devolvió una respuesta incompleta. Probá de nuevo.', 502)
 }
 
 // ── Core handler (extractable, no referencia req para respuestas) ──────────────
@@ -1271,7 +1271,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
       ESQUEMA_SCHEMA,
     ].join('\n')
     const userEsquema = userMessage.replace(/Redactá el escrito siguiendo el formato JSON indicado\.\s*$/, 'Armá el ESQUEMA estratégico siguiendo el formato JSON indicado. No redactes el escrito.')
-    const r = await llamarLLM(apiKey, MODEL, sysEsquema, userEsquema, { temperature: 0.3, max_tokens: 2500, timeoutMs: 120_000 })
+    const r = await llamarLLM(apiKey, MODEL, sysEsquema, userEsquema, { temperature: 0.3, max_tokens: 7000, timeoutMs: 120_000 })
     const esquema = parseJsonLlm(r.raw)
     logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
     return { esquema, contexto: contextoIa, uso: r.uso }
@@ -1282,7 +1282,7 @@ Redactá el escrito siguiendo el formato JSON indicado.`
   // 8) Llamar al LLM. Opus puede tardar más en escritos largos: margen amplio.
   const primera = await llamarLLM(apiKey, MODEL, systemPrompt, userMessage, {
     temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
-    max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
+    max_tokens: Math.min(14_000, Math.round(getMaxTokens(tipoInput, !!ideaLibre) * 1.8)),
     timeoutMs: 140_000,
   })
   let uso: UsoLlm = primera.uso
@@ -1322,7 +1322,7 @@ ${erroresEstructura.map(e => `- ${e}`).join('\n')}
 Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "presentacion", una sección "OBJETO" y una sección "PETITORIO" con párrafos numerados en romano.`
     try {
       const retry = await llamarLLM(apiKey, MODEL, systemPrompt, retryMsg, {
-        temperature: 0, max_tokens: getMaxTokens(tipoInput, !!ideaLibre), timeoutMs: 60_000,
+        temperature: 0, max_tokens: Math.min(14_000, Math.round(getMaxTokens(tipoInput, !!ideaLibre) * 1.8)), timeoutMs: 90_000,
       })
       uso = sumarUso(uso, retry.uso)
       try { contenido = parseJsonLlm(retry.raw) } catch { /* mantener el original */ }
