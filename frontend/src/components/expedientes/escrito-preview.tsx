@@ -138,6 +138,7 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
       {/* Secciones */}
       {contenido.secciones?.map((sec, i) => (
         <div key={i}>
+          {sec.titulo?.trim() && (
           <p style={{
             textAlign: 'center',
             fontWeight: 'bold',
@@ -147,6 +148,7 @@ export const EscritoPreview = forwardRef<HTMLDivElement, Props>(({ contenido, ab
             {/* Si la sección viene numerada con punto, mantenerlo */}
             {sec.titulo}
           </p>
+          )}
           {sec.parrafos?.map((p, j) => (
             <p key={j} style={{ textIndent: '5cm', margin: '0 0 0.4cm 0' }}>
               {p}

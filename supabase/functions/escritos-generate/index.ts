@@ -1273,7 +1273,8 @@ Redactá el escrito siguiendo el formato JSON indicado.`
     const userEsquema = userMessage.replace(/Redactá el escrito siguiendo el formato JSON indicado\.\s*$/, 'Armá el ESQUEMA estratégico siguiendo el formato JSON indicado. No redactes el escrito.')
     const r = await llamarLLM(apiKey, MODEL, sysEsquema, userEsquema, { temperature: 0.3, max_tokens: 7000, timeoutMs: 120_000 })
     const esquema = parseJsonLlm(r.raw)
-    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
+    // El costo del esquema va al log; el de la redacción queda en el escrito
+    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes, { costo_usd: r.uso.costo_usd, modelo: MODEL })
     return { esquema, contexto: contextoIa, uso: r.uso }
   }
 
@@ -1363,7 +1364,10 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
       user_id: userId,
       template_id: body?.template_id ?? null,
       titulo: String(tituloFinal),
-      tipo: tipoEfectivo,
+      // Sin tipo indicado, el tipo es el título que eligió la IA (no la instrucción interna)
+      tipo: tipoInput || (String(tituloFinal ?? '').trim()
+        ? String(tituloFinal).trim().toLowerCase().replace(/^./, (c) => c.toUpperCase()).slice(0, 120)
+        : 'Escrito de trámite'),
       contenido,
       // Snapshot inmutable de lo que generó la IA. Sirve para diffear
       // contra la versión final con correcciones del abogado y extraer

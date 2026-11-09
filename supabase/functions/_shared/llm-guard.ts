@@ -104,11 +104,15 @@ export function logLlmCall(
   userId: string,
   functionName: string,
   inputBytes: number,
+  extra?: { costo_usd?: number | null; modelo?: string | null; escrito_id?: string | null },
 ): void {
   ;(adminClient.from('llm_call_log').insert as any)({
     user_id: userId,
     function_name: functionName,
     input_bytes: inputBytes,
+    ...(extra?.costo_usd != null ? { costo_usd: extra.costo_usd } : {}),
+    ...(extra?.modelo ? { modelo: extra.modelo } : {}),
+    ...(extra?.escrito_id ? { escrito_id: extra.escrito_id } : {}),
   })
     .then((res: { error?: { message: string } | null }) => {
       if (res?.error) console.warn('[llm-guard] log insert failed:', res.error.message)

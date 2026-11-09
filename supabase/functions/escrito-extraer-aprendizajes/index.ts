@@ -16,6 +16,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { logLlmCall } from '../_shared/llm-guard.ts'
+import { leerUso } from '../_shared/modelos-ia.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'anthropic/claude-sonnet-5.5'
@@ -96,7 +98,11 @@ interface AprendizajeCandidato {
   target_ref_text?: string
   contenido: string
   confidence: 'baja' | 'media' | 'alta'
+  /** Número de la regla existente que dice lo mismo (si la hay) */
+  repite?: number | null
 }
+
+interface ReglaExistente { id: string; contenido: string; observed_in_cases: number }
 
 const EXTRACTOR_PROMPT = `Sos un asistente que detecta patrones de redacción que prefiere un abogado argentino.
 
@@ -123,10 +129,17 @@ DEVOLVÉ JSON con esta forma:
   ]
 }
 
+REGLAS YA EXISTENTES:
+- Te paso numeradas las reglas que el abogado ya tiene. Si un patrón que detectás dice lo mismo que una existente (aunque con otras palabras), NO lo redactes de nuevo: devolvé { "repite": <número>, "contenido": "<la regla existente>", "target_kind": "estilo", "confidence": "baja" }.
+- Solo proponé reglas nuevas si no están cubiertas por ninguna existente.
+
 Si no hay nada que aprender: { "aprendizajes": [] }
 NO devuelvas comentarios, solo JSON válido.`
 
-async function callExtractor(diff: string): Promise<AprendizajeCandidato[]> {
+async function callExtractor(diff: string, existentes: ReglaExistente[]): Promise<{ candidatos: AprendizajeCandidato[]; costo: number | null }> {
+  const lista = existentes.length
+    ? `## Reglas existentes\n${existentes.map((e, i) => `${i + 1}. ${e.contenido}`).join('\n')}\n\n`
+    : ''
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
@@ -138,23 +151,25 @@ async function callExtractor(diff: string): Promise<AprendizajeCandidato[]> {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 1024,
+      usage: { include: true },
       messages: [
         { role: 'system', content: EXTRACTOR_PROMPT },
-        { role: 'user', content: diff },
+        { role: 'user', content: `${lista}## Cambios del abogado\n${diff}` },
       ],
     }),
   })
   if (!res.ok) throw new Error(`Extractor LLM ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+  const costo = leerUso(data).costo_usd
   const raw = data.choices?.[0]?.message?.content?.trim() ?? '{}'
   // Limpiar fences markdown si vinieron
   const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
   try {
     const parsed = JSON.parse(cleaned) as { aprendizajes?: AprendizajeCandidato[] }
-    return Array.isArray(parsed.aprendizajes) ? parsed.aprendizajes.slice(0, 3) : []
+    return { candidatos: Array.isArray(parsed.aprendizajes) ? parsed.aprendizajes.slice(0, 3) : [], costo }
   } catch (e) {
     console.error('[extractor] JSON parse failed', e, cleaned.slice(0, 300))
-    return []
+    return { candidatos: [], costo }
   }
 }
 
@@ -222,9 +237,20 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     // 4) Pedir al LLM que extraiga aprendizajes
+    const { data: existRows } = await admin
+      .from('aprendizajes_rulebook')
+      .select('id, contenido, observed_in_cases')
+      .eq('owner_id', userId)
+      .eq('is_active', true)
+      .order('observed_in_cases', { ascending: false })
+      .limit(150)
+    const existentes = (existRows ?? []) as ReglaExistente[]
+
     let candidatos: AprendizajeCandidato[]
     try {
-      candidatos = await callExtractor(diff.resumen)
+      const r = await callExtractor(diff.resumen, existentes)
+      candidatos = r.candidatos
+      logLlmCall(admin, userId, 'escrito-extraer-aprendizajes', diff.resumen.length, { costo_usd: r.costo, modelo: MODEL, escrito_id: body.escrito_id })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return json(req, { ok: false, error: msg }, 502)
@@ -242,11 +268,24 @@ Deno.serve(async (req) => {
     const detalles: Array<{ status: 'nuevo' | 'confirmado'; contenido: string; matched_id?: string }> = []
 
     for (const c of candidatos) {
+      // El modelo dice que ya existe: se suma una observación a la existente
+      const rep = typeof c.repite === 'number' ? existentes[c.repite - 1] : undefined
+      if (rep) {
+        const n = (rep.observed_in_cases ?? 1) + 1
+        await admin.from('aprendizajes_rulebook').update({
+          observed_in_cases: n,
+          ...(n >= 3 ? { confidence: 'alta' } : n === 2 ? { confidence: 'media' } : {}),
+          updated_at: new Date().toISOString(),
+        }).eq('id', rep.id)
+        confirmados++
+        detalles.push({ status: 'confirmado', contenido: rep.contenido, matched_id: rep.id })
+        continue
+      }
       const { data: matchId } = await (admin.rpc as any)('aprendizaje_dedupe_o_incrementar', {
         p_owner_id: userId,
         p_target_kind: c.target_kind,
         p_contenido: c.contenido,
-        p_threshold: 0.7,
+        p_threshold: 0.6,
       })
       if (matchId) {
         confirmados++

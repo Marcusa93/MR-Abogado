@@ -258,13 +258,14 @@ Deno.serve(async (req) => {
     const parsed = parseJson(raw) as { respuesta?: string; cambios?: unknown } | null
     if (!parsed) return json(req, { error: 'El modelo devolvió una respuesta ilegible. Probá reformular.' }, 502)
 
-    logLlmCall(admin, user.id, FUNCTION_NAME, inputBytes)
+    const uso = leerUso(payload)
+    logLlmCall(admin, user.id, FUNCTION_NAME, inputBytes, { costo_usd: uso.costo_usd, modelo, escrito_id: body.escrito_id })
     return json(req, {
       respuesta: String(parsed.respuesta ?? '').trim() || 'Listo.',
       cambios: validarCambios(parsed.cambios, body.contenido),
       modelo,
       modelo_nombre: nombreModelo(modelo),
-      uso: leerUso(payload),
+      uso,
     })
   } catch (err) {
     console.error('[escrito-asistente]', err)

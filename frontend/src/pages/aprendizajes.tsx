@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, Sparkles, CheckCheck, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag } from 'lucide-react'
+import { Brain, Sparkles, CheckCheck, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag, Merge } from 'lucide-react'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
   useAprendizajes, useAutoresAprendizajes, useAprobarAprendizaje, useDescartarAprendizaje, useEditarAprendizaje,
@@ -10,6 +10,7 @@ import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
+import { OrdenarAprendizajesDialog } from '@/components/escritos/ordenar-aprendizajes'
 
 type Tab = 'propuestos' | 'activos' | 'archivados' | 'quiz'
 
@@ -499,6 +500,7 @@ export default function AprendizajesPage() {
   const { data: autores = [] } = useAutoresAprendizajes(tab === 'propuestos')
   const aprobar = useAprobarAprendizaje()
   const [aprobandoTodos, setAprobandoTodos] = useState(false)
+  const [ordenar, setOrdenar] = useState(false)
 
   const base = tab === 'propuestos'
     ? { proposed: true, is_active: true }
@@ -581,9 +583,15 @@ export default function AprendizajesPage() {
               Todo el equipo
             </button>
           )}
+          {(tab === 'propuestos' || tab === 'activos') && autorEfectivo !== 'todos' && aprendizajes.length > 3 && (
+            <button type="button" onClick={() => setOrdenar(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5">
+              <Merge className="h-3.5 w-3.5" /> Ordenar repetidos
+            </button>
+          )}
           {tab === 'propuestos' && altaConfianza.length > 1 && (
             <button type="button" onClick={aprobarAltaConfianza} disabled={aprobandoTodos}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5 disabled:opacity-50">
+              className={cn('inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5 disabled:opacity-50', !(autorEfectivo !== 'todos' && aprendizajes.length > 3) && 'ml-auto')}>
               {aprobandoTodos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
               Aprobar los {altaConfianza.length} de confianza alta
             </button>
@@ -618,6 +626,12 @@ export default function AprendizajesPage() {
         <div className="space-y-2">
           {aprendizajes.map(a => <AprendizajeCard key={a.id} a={a} mostrarAutor={autorEfectivo !== yo} />)}
         </div>
+      )}
+      {ordenar && (
+        <OrdenarAprendizajesDialog
+          ownerId={autorEfectivo === yo ? null : autorEfectivo}
+          nombre={autorEfectivo === yo ? undefined : otros.find(o => o.id === autorEfectivo)?.nombre}
+          onClose={() => setOrdenar(false)} />
       )}
     </div>
   )

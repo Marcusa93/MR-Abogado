@@ -6,9 +6,11 @@ import {
   Save, Upload, Wand2, Mic, Square, Layers, BookOpen, Gavel,
   PanelLeftClose, PanelLeftOpen,
   ArrowLeft, Link2, ExternalLink, Copy, ClipboardCheck,
-  SlidersHorizontal, Eye, ListChecks, MessageSquare,
+  SlidersHorizontal, Eye, ListChecks, MessageSquare, BarChart3,
 } from 'lucide-react'
 import { PerfilRedaccionDialog } from '@/components/escritos/perfil-redaccion-dialog'
+import { NuevoDesdePlantilla, GuardarPlantillaDialog } from '@/components/escritos/plantilla-nuevo'
+import { UsoIADialog } from '@/components/escritos/uso-ia'
 import { ContextoIAVista, EsquemaEditor } from '@/components/escritos/contexto-ia'
 import { AsistentePanel, type FocoAsistente } from '@/components/escritos/asistente-panel'
 import { PanelEscrito, revisionDesactualizada, useCitasDetectadas } from '@/components/escritos/panel-escrito'
@@ -113,6 +115,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   const [respondeA, setRespondeA] = useState('')
   const [actuacionesExtra, setActuacionesExtra] = useState<string[]>([])
   const [calidad, setCalidad] = useState<Calidad>('auto')
+  const [modo, setModo] = useState<'ia' | 'plantilla'>('ia')
   const esFondo = RE_FONDO.test(`${tipo} ${ideaLibre}`)
   const [esquemaPrimero, setEsquemaPrimero] = useState<boolean | null>(null)
   const usarEsquema = esquemaPrimero ?? esFondo
@@ -210,17 +213,72 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
 
   const ocupado = generate.isPending || transcribir.isPending || armarEsquema.isPending
 
+  const pickerExpediente = (
+  <div>
+    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
+      Expediente <span className="text-zinc-500 font-normal">(opcional)</span>
+    </label>
+    {expedienteId ? (
+      <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+        <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+        <span className="flex-1 text-sm text-cyan-300 truncate">{expedienteQuery}</span>
+        <button
+          type="button"
+          onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
+          className="text-cyan-500 hover:text-cyan-300"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    ) : (
+      <>
+        <input
+          type="text" list="escritos-expedientes" value={expedienteQuery}
+          onChange={e => {
+            const val = e.target.value
+            setExpedienteQuery(val)
+            const match = expedientes.find(ex => ex.label === val)
+            setExpedienteId(match?.id ?? '')
+            setRespondeA('')
+            setActuacionesExtra([])
+            buscarExpedientes(val)
+          }}
+          placeholder="Buscar por carátula..."
+          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
+        />
+        <datalist id="escritos-expedientes">
+          {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
+        </datalist>
+      </>
+    )}
+  </div>
+  )
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70">
       <div className={cn('w-full rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl overflow-hidden', esquema ? 'sm:max-w-2xl' : 'sm:max-w-lg')}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
           <div>
             <h2 className="text-base font-semibold text-zinc-100">{esquema ? 'Esquema del escrito' : 'Nuevo escrito'}</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : 'Describí lo que necesitás o elegí el tipo'}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : modo === 'plantilla' ? 'Escritos de trámite con los datos del expediente, al instante.' : 'Describí lo que necesitás o elegí el tipo'}</p>
           </div>
           <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 p-1"><X className="h-4 w-4" /></button>
         </div>
 
+        {!esquema && (
+          <div className="px-5 pt-3">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/[0.04] p-1 text-[12.5px]">
+              {([['ia', 'Redactar con IA'], ['plantilla', 'Plantilla de trámite, sin IA']] as const).map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setModo(k)}
+                  className={cn('rounded-md px-2 py-1.5 font-medium', modo === k ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200')}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {modo === 'plantilla' && !esquema ? (
+          <NuevoDesdePlantilla expedienteId={expedienteId} pickerExpediente={pickerExpediente} onCreated={onCreated} onClose={onClose} />
+        ) : (<>
         {esquema ? (
           <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
             <EsquemaEditor esquema={esquema} onChange={setEsquema} />
@@ -277,44 +335,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
             />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Expediente <span className="text-zinc-500 font-normal">(opcional)</span>
-            </label>
-            {expedienteId ? (
-              <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
-                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-                <span className="flex-1 text-sm text-cyan-300 truncate">{expedienteQuery}</span>
-                <button
-                  type="button"
-                  onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
-                  className="text-cyan-500 hover:text-cyan-300"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="text" list="escritos-expedientes" value={expedienteQuery}
-                  onChange={e => {
-                    const val = e.target.value
-                    setExpedienteQuery(val)
-                    const match = expedientes.find(ex => ex.label === val)
-                    setExpedienteId(match?.id ?? '')
-                    setRespondeA('')
-                    setActuacionesExtra([])
-                    buscarExpedientes(val)
-                  }}
-                  placeholder="Buscar por carátula..."
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
-                />
-                <datalist id="escritos-expedientes">
-                  {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
-                </datalist>
-              </>
-            )}
-          </div>
+          {pickerExpediente}
 
           {expedienteId && movimientos.length > 0 && (() => {
             const respondibles = movimientos.filter(m =>
@@ -481,6 +502,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
             )}
           </button>
         </div>
+        </>)}
       </div>
     </div>
   )
@@ -1122,6 +1144,7 @@ function EscritoEditor({
   const [panelDer, setPanelDer] = useState<'asistente' | 'referencias'>('asistente')
   const [foco, setFoco] = useState<FocoAsistente | null>(null)
   const [antesDeFirmar, setAntesDeFirmar] = useState<null | (() => void)>(null)
+  const [guardarPlantilla, setGuardarPlantilla] = useState(false)
   const attachPdf = useAttachSignedPdf()
   const historialMutation = useEscritoHistorial()
   const revisar = useRevisarEscrito()
@@ -1318,6 +1341,9 @@ function EscritoEditor({
             </span>
           )}
 
+          <button onClick={() => setGuardarPlantilla(true)} title="Guardar como plantilla" className="hidden sm:inline-flex p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
+            <Layers className="h-4 w-4" />
+          </button>
           <button onClick={handleImprimir} title="Imprimir" className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
             <Printer className="h-4 w-4" />
           </button>
@@ -1486,6 +1512,10 @@ function EscritoEditor({
         />
       )}
 
+      {guardarPlantilla && (
+        <GuardarPlantillaDialog titulo={escrito.titulo} tipo={escrito.tipo} contenido={contenido}
+          expedienteId={escrito.expediente_id} onClose={() => setGuardarPlantilla(false)} />
+      )}
       <ConfirmDialog open={confirmarEliminar} title="Eliminar escrito"
         description="Esta acción no se puede deshacer. El escrito se eliminará permanentemente."
         confirmLabel="Eliminar"
@@ -1569,6 +1599,7 @@ export default function EscritosPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [refsOpen, setRefsOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1280)
   const [showPerfil, setShowPerfil] = useState(false)
+  const [showUso, setShowUso] = useState(false)
   const [search, setSearch] = useState('')
   const [filtroExpediente, setFiltroExpediente] = useState('')
   const [bandeja, setBandeja] = useState<'pendientes' | 'presentar' | 'proveido' | 'cerrados' | 'todos'>('pendientes')
@@ -1652,6 +1683,9 @@ export default function EscritosPage() {
           <div className="flex gap-1">
             <button onClick={() => setShowPerfil(true)} title="Perfil de redacción" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <SlidersHorizontal className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setShowUso(true)} title="Uso de IA" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
+              <BarChart3 className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setShowModelos(true)} title="Modelos" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <Layers className="h-3.5 w-3.5" />
@@ -1747,7 +1781,7 @@ export default function EscritosPage() {
         <div className="sm:hidden border-t border-white/5 p-3">
           <button onClick={() => setShowNuevo(true)}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
-            <Sparkles className="h-4 w-4" /> Nuevo escrito con IA
+            <Plus className="h-4 w-4" /> Nuevo escrito
           </button>
         </div>
       </div>
@@ -1773,7 +1807,7 @@ export default function EscritosPage() {
             <div className="text-center max-w-sm">
               <PenLine className="h-10 w-10 text-zinc-700 mx-auto mb-4" />
               <h2 className="text-lg font-semibold text-zinc-300 mb-2">Taller de escritos</h2>
-              <p className="text-sm text-zinc-500 mb-6">Redactá con IA usando el expediente, la normativa y los fallos del estudio. Revisá con un asistente, controlá las citas y la forma antes de firmar.</p>
+              <p className="text-sm text-zinc-500 mb-6">Redactá con IA usando el expediente, la normativa y los fallos del estudio, o armá los de trámite con una plantilla, sin IA. Revisá con un asistente y controlá citas y forma antes de firmar.</p>
               <div className="flex flex-col gap-2 items-center">
                 <button onClick={() => setShowNuevo(true)}
                   className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
@@ -1786,6 +1820,10 @@ export default function EscritosPage() {
                 <button onClick={() => setShowModelos(true)}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-400 hover:text-zinc-200">
                   <Layers className="h-4 w-4" /> Gestionar modelos
+                </button>
+                <button onClick={() => setShowUso(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-400 hover:text-zinc-200">
+                  <BarChart3 className="h-4 w-4" /> Uso de IA
                 </button>
               </div>
             </div>
@@ -1808,6 +1846,7 @@ export default function EscritosPage() {
       {showNuevo && <NuevoEscritoDialog onClose={() => setShowNuevo(false)} onCreated={handleCreated} />}
       {showModelos && <ModelosPanel onClose={() => setShowModelos(false)} />}
       {showPerfil && <PerfilRedaccionDialog onClose={() => setShowPerfil(false)} />}
+      {showUso && <UsoIADialog onClose={() => setShowUso(false)} />}
     </div>
   )
 }

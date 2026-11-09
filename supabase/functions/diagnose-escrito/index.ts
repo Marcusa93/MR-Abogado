@@ -17,7 +17,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
-import { modeloRevisor, nombreModelo, MODELO } from '../_shared/modelos-ia.ts'
+import { modeloRevisor, nombreModelo, MODELO, leerUso } from '../_shared/modelos-ia.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const FUNCTION_NAME = 'diagnose-escrito'
@@ -301,6 +301,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
       response_format: { type: 'json_object' },
       temperature: 0.2,
       max_tokens: 6000,
+      usage: { include: true },
     }),
   })
 
@@ -354,7 +355,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
     }, 200)
   }
 
-  logLlmCall(admin, userId, FUNCTION_NAME, inputBytes)
+  logLlmCall(admin, userId, FUNCTION_NAME, inputBytes, { costo_usd: leerUso(data).costo_usd, modelo: MODEL, escrito_id: escritoMeta.id ?? null })
 
   if (escritoMeta.id) {
     await admin.from('escritos').update({

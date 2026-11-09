@@ -60,6 +60,8 @@ export interface Escrito {
   contexto_ia?: import('@/hooks/use-redaccion').ContextoIA | null
   revision_formal?: import('@/hooks/use-redaccion').RevisionFormal | null
   revision_formal_at?: string | null
+  origen?: 'ia' | 'plantilla' | 'manual'
+  edicion_pct?: number | null
   created_at: string
   updated_at: string
 }
@@ -125,7 +127,7 @@ export interface EscritoTemplate {
   nombre: string
   tipo: string
   descripcion: string | null
-  categoria: 'estilo' | 'modelo'
+  categoria: 'estilo' | 'modelo' | 'tramite'
   contenido_modelo: EscritoContenido | null
   compartido: boolean
   created_at: string
@@ -140,6 +142,7 @@ export function useEscritoTemplates() {
         .from('escrito_templates' as never)
         .select('id, user_id, nombre, tipo, descripcion, categoria, contenido_modelo, compartido, created_at')
         .eq('is_active', true as never)
+        .neq('categoria', 'tramite' as never)
         .order('nombre', { ascending: true })
       if (error) throw error
       return (data ?? []) as unknown as EscritoTemplate[]
@@ -571,9 +574,20 @@ export function useAttachSignedPdf() {
       const tail = await input.file.slice(Math.max(0, input.file.size - 200_000)).text().catch(() => '')
       const hasSignature = /\/Type\s*\/Sig\b|\/SubFilter\s*\/(adbe\.pkcs7|ETSI\.CAdES)/i.test(head + tail)
 
+      // Cuánto cambió el abogado respecto de lo que redactó la IA o la plantilla
+      let edicion_pct: number | null = null
+      const { data: ver } = await supabase.from('escritos' as never)
+        .select('contenido, contenido_original').eq('id', input.escrito_id).maybeSingle()
+      const v = ver as { contenido: EscritoContenido | null; contenido_original: EscritoContenido | null } | null
+      if (v?.contenido_original && v.contenido) {
+        const { porcentajeEdicion, textoPlano } = await import('@/lib/escritos/plantillas')
+        edicion_pct = porcentajeEdicion(textoPlano(v.contenido_original), textoPlano(v.contenido))
+      }
+
       const { error: updErr } = await supabase
         .from('escritos' as never)
         .update({
+          ...(edicion_pct != null ? { edicion_pct } : {}),
           estado: 'firmado',
           pdf_firmado_path: path,
           pdf_firmado_at: new Date().toISOString(),
