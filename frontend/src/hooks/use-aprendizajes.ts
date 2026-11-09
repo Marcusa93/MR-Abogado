@@ -27,6 +27,7 @@ export interface Aprendizaje {
   created_at: string
   updated_at: string
   created_by: string | null
+  owner?: { nombre: string | null; apellido: string | null } | null
 }
 
 // ── Lista por filtro ─────────────────────────────────────────────
@@ -35,13 +36,15 @@ export interface AprendizajeFilter {
   is_active?: boolean
   target_kind?: TargetKind
   scope?: Scope
+  owner_id?: string
 }
 
 export function useAprendizajes(filter: AprendizajeFilter = {}) {
   return useQuery<Aprendizaje[]>({
     queryKey: ['aprendizajes', filter],
     queryFn: async () => {
-      let q = supabase.from('aprendizajes_rulebook' as never).select('*')
+      let q = supabase.from('aprendizajes_rulebook' as never).select('*, owner:profiles!aprendizajes_rulebook_owner_id_fkey(nombre, apellido)')
+      if (filter.owner_id) q = q.eq('owner_id', filter.owner_id)
       if (filter.proposed !== undefined) q = q.eq('proposed', filter.proposed)
       if (filter.is_active !== undefined) q = q.eq('is_active', filter.is_active)
       if (filter.target_kind) q = q.eq('target_kind', filter.target_kind)
@@ -53,6 +56,29 @@ export function useAprendizajes(filter: AprendizajeFilter = {}) {
     },
     // refetch cada 30s si hay propuestos (puede llegar uno nuevo del trigger)
     refetchInterval: filter.proposed ? 30_000 : false,
+  })
+}
+
+// Autores con aprendizajes propuestos (para el selector de la dirección)
+export function useAutoresAprendizajes(proposed: boolean) {
+  return useQuery<{ id: string; nombre: string; total: number }[]>({
+    queryKey: ['aprendizajes-autores', proposed],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('aprendizajes_rulebook' as never)
+        .select('owner_id, owner:profiles!aprendizajes_rulebook_owner_id_fkey(nombre, apellido)')
+        .eq('proposed', proposed)
+        .eq('is_active', true)
+      if (error) throw error
+      const m = new Map<string, { id: string; nombre: string; total: number }>()
+      for (const r of (data ?? []) as unknown as { owner_id: string | null; owner: { nombre: string | null; apellido: string | null } | null }[]) {
+        if (!r.owner_id) continue
+        const prev = m.get(r.owner_id)
+        if (prev) prev.total++
+        else m.set(r.owner_id, { id: r.owner_id, nombre: `${r.owner?.nombre ?? ''} ${r.owner?.apellido ?? ''}`.trim() || 'Sin nombre', total: 1 })
+      }
+      return [...m.values()].sort((a, b) => b.total - a.total)
+    },
   })
 }
 
@@ -94,6 +120,7 @@ export function useAprobarAprendizaje() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['aprendizajes'] })
       qc.invalidateQueries({ queryKey: ['aprendizajes-count-propuestos'] })
+      qc.invalidateQueries({ queryKey: ['aprendizajes-autores'] })
     },
   })
 }
@@ -112,6 +139,7 @@ export function useDescartarAprendizaje() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['aprendizajes'] })
       qc.invalidateQueries({ queryKey: ['aprendizajes-count-propuestos'] })
+      qc.invalidateQueries({ queryKey: ['aprendizajes-autores'] })
     },
   })
 }

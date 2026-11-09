@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Brain, Sparkles, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag } from 'lucide-react'
+import { Brain, Sparkles, CheckCheck, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag } from 'lucide-react'
 import { EmptyState } from '@/components/shared/empty-state'
 import {
-  useAprendizajes, useAprobarAprendizaje, useDescartarAprendizaje, useEditarAprendizaje,
+  useAprendizajes, useAutoresAprendizajes, useAprobarAprendizaje, useDescartarAprendizaje, useEditarAprendizaje,
   type Aprendizaje, type Confidence, type Scope, type TargetKind,
 } from '@/hooks/use-aprendizajes'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 
 type Tab = 'propuestos' | 'activos' | 'archivados' | 'quiz'
@@ -23,19 +24,14 @@ const TARGET_KIND_LABEL: Record<TargetKind, string> = {
 }
 
 const TARGET_KIND_CLS: Record<TargetKind, string> = {
-  juez: 'bg-amber-500/15 text-amber-300',
-  organismo: 'bg-cyan-500/15 text-cyan-300',
-  tipo_proceso: 'bg-violet-500/15 text-violet-300',
-  etapa_proceso: 'bg-sky-500/15 text-sky-300',
-  fuero: 'bg-emerald-500/15 text-emerald-300',
-  general: 'bg-zinc-500/15 text-zinc-300',
-  estilo: 'bg-rose-500/15 text-rose-300',
+  juez: 'tag-mono', organismo: 'tag-mono', tipo_proceso: 'tag-mono', etapa_proceso: 'tag-mono',
+  fuero: 'tag-mono', general: 'tag-mono', estilo: 'tag-mono',
 }
 
 const CONFIDENCE_CLS: Record<Confidence, string> = {
-  baja: 'bg-zinc-500/15 text-zinc-400',
-  media: 'bg-amber-500/15 text-amber-300',
-  alta: 'bg-emerald-500/15 text-emerald-300',
+  baja: 'text-zinc-500',
+  media: 'text-zinc-300',
+  alta: 'text-emerald-400',
 }
 
 const SCOPE_LABEL: Record<Scope, string> = {
@@ -44,7 +40,7 @@ const SCOPE_LABEL: Record<Scope, string> = {
   universal: 'Universal',
 }
 
-function AprendizajeCard({ a }: { a: Aprendizaje }) {
+function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [contenidoEdit, setContenidoEdit] = useState(a.contenido)
@@ -79,16 +75,12 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
   return (
     <div className={cn(
       'rounded-lg border p-4 transition-colors',
-      a.proposed
-        ? 'border-violet-500/30 bg-violet-950/10 hover:border-violet-500/50'
-        : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'
+      'border-zinc-200 bg-white dark:border-white/[0.08] dark:bg-[var(--card)] hover:border-zinc-300 dark:hover:border-white/15'
     )}>
       {/* Header con badges */}
       <div className="flex items-center gap-2 flex-wrap mb-2">
-        {a.proposed && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-300">
-            <Sparkles className="h-3 w-3" /> Propuesto por IA
-          </span>
+        {mostrarAutor && a.owner && (
+          <span className="text-[11px] font-medium text-zinc-300">{`${a.owner.nombre ?? ''} ${a.owner.apellido ?? ''}`.trim()}</span>
         )}
         {(() => {
           const src = (a.contenido_estructurado as { source?: { type?: string; expediente_id?: string; auto?: boolean } } | null)?.source
@@ -111,19 +103,19 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
             </>
           )
         })()}
-        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', targetCls)}>
+        <span className={targetCls}>
           {TARGET_KIND_LABEL[a.target_kind]}
         </span>
         {a.target_ref_text && (
           <span className="text-[10px] text-zinc-400">→ {a.target_ref_text}</span>
         )}
-        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium ml-auto', confCls)}>
-          conf. {a.confidence}
+        <span className={cn('ml-auto font-mono text-[10.5px]', confCls)}>
+          confianza {a.confidence}
         </span>
-        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
-          {SCOPE_LABEL[a.scope]}
+        <span className="font-mono text-[10.5px] text-zinc-500">
+          {SCOPE_LABEL[a.scope].toLowerCase()}
         </span>
-        <span className="text-[10px] text-zinc-500">
+        <span className="font-mono text-[10.5px] text-zinc-500">
           {a.observed_in_cases} {a.observed_in_cases === 1 ? 'caso' : 'casos'}
         </span>
       </div>
@@ -137,7 +129,7 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
             value={contenidoEdit}
             onChange={(e) => setContenidoEdit(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500/40 focus:outline-none"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 focus:border-cyan-500/40 focus:outline-none"
           />
           <div className="flex items-center gap-2">
             <label className="text-[10px] text-zinc-400">Confianza:</label>
@@ -169,7 +161,7 @@ function AprendizajeCard({ a }: { a: Aprendizaje }) {
           {a.source_escrito_id && (
             <div className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
-              <Link to={`/escritos/${a.source_escrito_id}`} className="text-violet-300 hover:underline truncate">
+              <Link to={`/escritos/${a.source_escrito_id}`} className="text-cyan-300 hover:underline truncate">
                 Escrito {a.source_escrito_id.slice(0, 8)}…
               </Link>
             </div>
@@ -500,50 +492,65 @@ function QuizDiario() {
 
 export default function AprendizajesPage() {
   const [tab, setTab] = useState<Tab>('propuestos')
+  const yo = useAuthStore((st) => st.user?.id ?? '')
+  const esDirector = useAuthStore((st) => (st.profile as { rol?: string } | null)?.rol === 'DIRECTOR')
+  const [autor, setAutor] = useState<string>('')  // '' = yo
+  const autorEfectivo = autor || yo
+  const { data: autores = [] } = useAutoresAprendizajes(tab === 'propuestos')
+  const aprobar = useAprobarAprendizaje()
+  const [aprobandoTodos, setAprobandoTodos] = useState(false)
 
-  const filter = tab === 'propuestos'
+  const base = tab === 'propuestos'
     ? { proposed: true, is_active: true }
     : tab === 'activos'
     ? { proposed: false, is_active: true }
     : tab === 'archivados'
     ? { is_active: false }
     : {}
+  const filter = autorEfectivo === 'todos' ? base : { ...base, owner_id: autorEfectivo }
 
   const { data: aprendizajes = [], isLoading } = useAprendizajes(
     tab !== 'quiz' ? filter : {},
   )
+  const altaConfianza = aprendizajes.filter(a => a.proposed && a.confidence === 'alta')
+
+  const aprobarAltaConfianza = async () => {
+    setAprobandoTodos(true)
+    try {
+      for (const a of altaConfianza) await aprobar.mutateAsync({ id: a.id })
+      toast.success(`${altaConfianza.length} aprendizajes activados`)
+    } catch (e) {
+      toast.error('No se pudieron aprobar todos', e instanceof Error ? e.message : undefined)
+    } finally { setAprobandoTodos(false) }
+  }
+
+  const otros = autores.filter(x => x.id !== yo)
+  const mios = autores.find(x => x.id === yo)?.total ?? 0
 
   return (
     <div className="p-5 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="rounded-lg bg-violet-500/10 p-2">
-          <Brain className="h-5 w-5 text-violet-400" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Aprendizajes</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Patrones que el sistema aprende de tus correcciones en los escritos. Revisá y aprobá los que valen la pena.
-          </p>
-        </div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Aprendizajes</h1>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Lo que la IA aprende de las correcciones a los escritos. Los aprobados se aplican al redactar.
+        </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-white/5 mb-4 overflow-x-auto">
+      <div className="flex gap-1 border-b border-zinc-200 dark:border-white/[0.06] mb-4 overflow-x-auto">
         {([
-          { v: 'propuestos', label: 'Propuestos por IA', icon: Sparkles },
+          { v: 'propuestos', label: 'Propuestos', icon: Sparkles },
           { v: 'activos', label: 'Activos', icon: Check },
-          { v: 'archivados', label: 'Archivados', icon: X },
+          { v: 'archivados', label: 'Descartados', icon: X },
           { v: 'quiz', label: 'Repaso del día', icon: GraduationCap },
         ] as const).map(t => (
           <button
             key={t.v}
             onClick={() => setTab(t.v)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium transition-colors',
               tab === t.v
-                ? t.v === 'quiz'
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-violet-400 text-violet-300'
+                ? 'border-cyan-400 text-zinc-900 dark:text-white'
                 : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-200'
             )}
           >
@@ -552,6 +559,37 @@ export default function AprendizajesPage() {
           </button>
         ))}
       </div>
+
+      {tab !== 'quiz' && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => setAutor('')}
+            className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+              autorEfectivo === yo ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
+            Míos{tab === 'propuestos' && mios > 0 ? <span className="ml-1 font-mono text-zinc-500">{mios}</span> : null}
+          </button>
+          {esDirector && otros.map(o => (
+            <button key={o.id} type="button" onClick={() => setAutor(o.id)}
+              className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                autorEfectivo === o.id ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
+              {o.nombre}{tab === 'propuestos' ? <span className="ml-1 font-mono text-zinc-500">{o.total}</span> : null}
+            </button>
+          ))}
+          {esDirector && (
+            <button type="button" onClick={() => setAutor('todos')}
+              className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                autorEfectivo === 'todos' ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
+              Todo el equipo
+            </button>
+          )}
+          {tab === 'propuestos' && altaConfianza.length > 1 && (
+            <button type="button" onClick={aprobarAltaConfianza} disabled={aprobandoTodos}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5 disabled:opacity-50">
+              {aprobandoTodos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
+              Aprobar los {altaConfianza.length} de confianza alta
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Cuerpo */}
       {tab === 'quiz' ? (
@@ -566,19 +604,19 @@ export default function AprendizajesPage() {
           title={
             tab === 'propuestos' ? 'No hay aprendizajes propuestos'
             : tab === 'activos' ? 'No hay aprendizajes activos'
-            : 'Sin archivos'
+            : 'Sin descartados'
           }
           description={
             tab === 'propuestos'
-              ? 'Cuando firmes o presentes un escrito que hayas corregido, el sistema va a proponer aprendizajes acá.'
+              ? 'Cuando corrijas y firmes un escrito generado por la IA, el sistema propone aprendizajes acá.'
               : tab === 'activos'
               ? 'Aprobá aprendizajes propuestos para que entren al contexto cuando generes escritos.'
               : 'Los aprendizajes descartados aparecen acá.'
           }
         />
       ) : (
-        <div className="space-y-3">
-          {aprendizajes.map(a => <AprendizajeCard key={a.id} a={a} />)}
+        <div className="space-y-2">
+          {aprendizajes.map(a => <AprendizajeCard key={a.id} a={a} mostrarAutor={autorEfectivo !== yo} />)}
         </div>
       )}
     </div>
