@@ -54,6 +54,12 @@ export interface Escrito {
     submit_url?: string
   } | null
   historial?: EscritoSnapshot[] | null
+  calidad_ia?: 'preciso' | 'rapido' | null
+  costo_usd?: number | null
+  esquema?: import('@/hooks/use-redaccion').Esquema | null
+  contexto_ia?: import('@/hooks/use-redaccion').ContextoIA | null
+  revision_formal?: import('@/hooks/use-redaccion').RevisionFormal | null
+  revision_formal_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -208,12 +214,17 @@ export interface GenerateInput {
   escrito_contraparte_texto?: string | null
   /** Actuaciones adicionales a incluir explícitamente en el contexto (por ID). */
   actuaciones_extra_ids?: string[] | null
+  /** auto / preciso / rapido: decide el modelo. */
+  calidad?: 'auto' | 'preciso' | 'rapido'
+  /** Esquema estratégico aprobado por el abogado. */
+  esquema?: import('@/hooks/use-redaccion').Esquema | null
 }
 
 interface GenerateResult {
   escrito_id: string
   contenido: EscritoContenido
   modelo: string
+  modelo_nombre?: string
   registro_tonal: 'retorico' | 'procesal'
   claves_usadas: number
 }
@@ -437,9 +448,8 @@ export function useUpdateEscrito() {
     onSuccess: (_d, vars) => {
       if (vars.expediente_id) queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
       queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
-      if (vars.patch.contenido !== undefined) {
-        supabase.functions.invoke('escrito-extraer-aprendizajes', { body: { escrito_id: vars.id } }).catch(() => {})
-      }
+      // Los aprendizajes se extraen al firmar (comparando con lo que generó la IA),
+      // no en cada autoguardado: eso generaba propuestas repetidas y llamadas de más.
     },
   })
 }

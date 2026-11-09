@@ -45,7 +45,7 @@ interface Paso {
   secundaria?: { label: string; onClick: () => void; href?: string }
 }
 
-export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onGuardar, onRevisar, onPresentarSae, onVerProveido }: {
+export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onGuardar, onRevisar, onPresentarSae, onVerProveido, revisado: revisadoExt, revisando, onAntesDeFirmar }: {
   escrito: Escrito
   contenido: EscritoContenido
   abogado: EscritoEncabezadoAbogado | null
@@ -57,12 +57,18 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
   /** Presentación automática al SAE (beta), si el editor la ofrece */
   onPresentarSae?: () => void
   onVerProveido?: () => void
+  /** Si el editor sabe si hay una revisión vigente, la usa para el paso. */
+  revisado?: boolean
+  revisando?: boolean
+  /** Control antes de firmar: recibe la acción de adjuntar y decide si seguir. */
+  onAntesDeFirmar?: (seguir: () => void) => void
 }) {
   const attach = useAttachSignedPdf()
   const archivoRef = useRef<HTMLInputElement>(null)
   const [generandoPdf, setGenerandoPdf] = useState(false)
   const [pdfBajado, setPdfBajado] = useState(false)
-  const [revisado, setRevisado] = useState(false)
+  const [revisadoLocal, setRevisado] = useState(false)
+  const revisado = revisadoExt ?? revisadoLocal
   const [presentando, setPresentando] = useState(false)
   const [verLista, setVerLista] = useState(false)
 
@@ -101,15 +107,15 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
       detalle: pendientes.length ? `La IA dejó ${pendientes.length} ${pendientes.length === 1 ? 'dato' : 'datos'} para completar (${[...new Set(pendientes)].slice(0, 3).join(', ')}). Buscalos en el texto y reemplazalos.` : '' },
     { key: 'guardar', titulo: 'Guardar los cambios', hecho: !dirty, oculto: !dirty,
       detalle: 'Tenés cambios sin guardar.', accion: { label: 'Guardar', onClick: onGuardar, cargando: guardando } },
-    { key: 'revisar', titulo: 'Revisión con IA (opcional)', hecho: revisado, opcional: true, oculto: !onRevisar,
-      detalle: 'Control de calidad: errores procesales, plazos, citas y fundamentos débiles, antes de firmar.',
-      accion: onRevisar ? { label: 'Revisar con IA', onClick: () => { setRevisado(true); onRevisar() } } : undefined },
+    { key: 'revisar', titulo: 'Revisión antes de firmar', hecho: revisado, opcional: revisadoExt === undefined, oculto: !onRevisar,
+      detalle: 'Requisitos formales del código procesal, pedidos sin fundamento, citas y plazos. La hace un modelo distinto del que redactó.',
+      accion: onRevisar ? { label: revisando ? 'Revisando…' : 'Revisar', onClick: () => { setRevisado(true); onRevisar() }, cargando: revisando } : undefined },
     { key: 'pdf', titulo: 'Descargar el PDF para firmar', hecho: pdfBajado || firmado,
       detalle: 'Sale con el formato del estudio, listo para firmar.gob.ar.',
       accion: { label: 'Descargar PDF', onClick: () => { void bajarPdf() }, cargando: generandoPdf } },
     { key: 'firmar', titulo: 'Firmar y adjuntar el PDF firmado', hecho: firmado,
       detalle: 'Firmalo en firmar.gob.ar con tu token o firma remota y subí acá el PDF firmado: queda guardado con el escrito.',
-      accion: { label: 'Adjuntar PDF firmado', onClick: () => archivoRef.current?.click(), cargando: attach.isPending },
+      accion: { label: 'Adjuntar PDF firmado', onClick: () => (onAntesDeFirmar ? onAntesDeFirmar(() => archivoRef.current?.click()) : archivoRef.current?.click()), cargando: attach.isPending },
       secundaria: { label: 'Abrir firmar.gob.ar', onClick: () => {}, href: 'https://firmar.gob.ar/firmador/' } },
     { key: 'presentar', titulo: 'Presentarlo en el juzgado', hecho: false,
       detalle: 'Presentalo en el portal del SAE y marcalo acá: se crea la tarea de controlar el proveído y te aviso cuando llegue.',
@@ -122,36 +128,36 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
   const n = actual ? visibles.indexOf(actual) + 1 : visibles.length
 
   return (
-    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+    <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.02]">
       <input ref={archivoRef} type="file" accept="application/pdf,.pdf" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) adjuntar(f); e.target.value = '' }} />
       <div className="flex items-center gap-2">
         <div className="flex flex-1 gap-1">
           {visibles.map((p) => (
-            <span key={p.key} className={cn('h-1.5 flex-1 rounded-full', p.hecho ? 'bg-emerald-500' : p === actual ? 'bg-amber-500' : 'bg-zinc-300 dark:bg-white/15')} />
+            <span key={p.key} className={cn('h-1.5 flex-1 rounded-full', p.hecho ? 'bg-emerald-500' : p === actual ? 'bg-cyan-400' : 'bg-zinc-300 dark:bg-white/15')} />
           ))}
         </div>
         <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{visibles.filter((p) => p.hecho).length}/{visibles.length}</span>
       </div>
       {actual ? (
         <div className="mt-2.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso {n} de {visibles.length}{actual.opcional ? ' · opcional' : ''}</p>
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-500">Paso {n} de {visibles.length}{actual.opcional ? ' · opcional' : ''}</p>
           <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-50">{actual.titulo}</p>
           {actual.detalle && <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">{actual.detalle}</p>}
           <div className="mt-2 flex flex-wrap gap-2">
             {actual.accion && (
               <button type="button" onClick={actual.accion.onClick} disabled={actual.accion.cargando}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 sm:min-h-9 sm:flex-none">
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900 sm:min-h-9 sm:flex-none">
                 {actual.accion.cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {actual.accion.label}
               </button>
             )}
             {actual.secundaria && (actual.secundaria.href
               ? <a href={actual.secundaria.href} target="_blank" rel="noreferrer noopener"
-                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 sm:min-h-9 dark:border-white/15 dark:text-zinc-200">
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-zinc-300 px-4 text-sm font-medium text-zinc-700 sm:min-h-9 dark:border-white/15 dark:text-zinc-200">
                   {actual.secundaria.label} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               : <button type="button" onClick={actual.secundaria.onClick}
-                  className="flex min-h-10 items-center justify-center rounded-xl border border-zinc-300 px-4 text-sm font-medium text-zinc-700 sm:min-h-9 dark:border-white/15 dark:text-zinc-200">
+                  className="flex min-h-10 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-medium text-zinc-700 sm:min-h-9 dark:border-white/15 dark:text-zinc-200">
                   {actual.secundaria.label}
                 </button>)}
           </div>
@@ -167,9 +173,9 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
           {visibles.map((p, i) => (
             <li key={p.key} className="flex items-center gap-2 text-sm">
               {p.hecho ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                : <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold', p === actual ? 'border-amber-500 text-amber-600' : 'border-zinc-300 text-zinc-400 dark:border-white/20')}>{i + 1}</span>}
+                : <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold', p === actual ? 'border-cyan-500 text-cyan-600 dark:text-cyan-300' : 'border-zinc-300 text-zinc-400 dark:border-white/20')}>{i + 1}</span>}
               <span className={cn('flex-1', p.hecho ? 'text-zinc-400 line-through decoration-zinc-400/40' : 'text-zinc-700 dark:text-zinc-200')}>{p.titulo}{p.opcional ? ' (opcional)' : ''}</span>
-              {!p.hecho && p !== actual && p.accion && <button type="button" onClick={p.accion.onClick} className="shrink-0 text-xs text-amber-600 underline dark:text-amber-400">{p.accion.label}</button>}
+              {!p.hecho && p !== actual && p.accion && <button type="button" onClick={p.accion.onClick} className="shrink-0 text-xs text-cyan-700 underline dark:text-cyan-300">{p.accion.label}</button>}
             </li>
           ))}
         </ol>

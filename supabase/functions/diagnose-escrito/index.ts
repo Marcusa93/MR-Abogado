@@ -17,9 +17,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
+import { modeloRevisor, nombreModelo, MODELO } from '../_shared/modelos-ia.ts'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4.6'
 const FUNCTION_NAME = 'diagnose-escrito'
 
 function json(req: Request, body: unknown, status = 200) {
@@ -89,6 +89,9 @@ const OUTPUT_SCHEMA_GUIDE = `RESPONDÉ EXACTAMENTE ESTE JSON (sin texto adiciona
   "alertas_plazo_fatal": [
     { "norma": "string", "plazo": "string", "fecha_inicio_computo": "string o null", "vencimiento_estimado": "YYYY-MM-DD o null" }
   ],
+  "control_formal": [
+    { "requisito": "string", "estado": "cumple|falta|revisar|no_aplica", "detalle": "string breve" }
+  ],
   "observaciones_estructurales": [
     "string — máximo 5 observaciones en prosa"
   ],
@@ -100,7 +103,21 @@ const OUTPUT_SCHEMA_GUIDE = `RESPONDÉ EXACTAMENTE ESTE JSON (sin texto adiciona
 }
 
 Si una sección no tiene observaciones, devolvé array vacío []. NO omitas
-ninguna clave. NO agregues claves nuevas.`
+ninguna clave. NO agregues claves nuevas.
+
+"control_formal" es el control de requisitos formales antes de firmar, según el
+código procesal de Tucumán que corresponda al fuero. Evaluá SIEMPRE estos ítems,
+en este orden, marcando "no_aplica" cuando el tipo de escrito no lo requiere:
+1. Encabezado dirigido al órgano correcto (juzgado, cámara o fiscalía).
+2. Carátula y número de expediente.
+3. Personería o carácter en que se presenta (apoderado, patrocinante, derecho propio).
+4. Domicilio procesal y domicilio digital o casillero constituidos.
+5. Objeto claro.
+6. Petitorio numerado y congruente con el desarrollo.
+7. Ofrecimiento de prueba (demanda, contestación, ofrecimiento) o mención de la documental acompañada.
+8. Fundamento normativo de lo que se pide.
+9. Reserva del caso federal (si el escrito es de fondo o recursivo).
+10. Plazo: si el escrito responde a un traslado o intimación, si surge que está en término.`
 
 const SYSTEM_PROMPT = `${SKILL_BASE ? SKILL_BASE + '\n\n---\n\n' : ''}${SKILL_CIVIL}\n\n---\n\n${SKILL_DIAGNOSTICO}\n\n---\n\n${SKILL_MARCADORES}\n\n---\n\n${OUTPUT_SCHEMA_GUIDE}`
 
@@ -212,11 +229,12 @@ async function handleDiagnose(req: Request): Promise<Response> {
 
   let textoEscrito = ''
   let escritoMeta: { id?: string; titulo?: string; tipo?: string; expediente_id?: string } = {}
+  let MODEL: string = MODELO.preciso
 
   if (body.escrito_id) {
     const { data: escrito, error } = await admin
       .from('escritos')
-      .select('id, titulo, tipo, contenido, expediente_id')
+      .select('id, titulo, tipo, contenido, expediente_id, modelo_ia')
       .eq('id', body.escrito_id)
       .single()
     if (error || !escrito) return json(req, { error: 'Escrito no encontrado' }, 404)
@@ -232,6 +250,8 @@ async function handleDiagnose(req: Request): Promise<Response> {
       tipo: (escrito as any).tipo,
       expediente_id: (escrito as any).expediente_id,
     }
+    // Segunda opinión: un modelo distinto del que redactó.
+    MODEL = modeloRevisor((escrito as any).modelo_ia)
   } else if (body.contenido) {
     textoEscrito = body.contenido
     escritoMeta = { titulo: body.titulo, tipo: body.tipo }
@@ -280,7 +300,7 @@ async function handleDiagnose(req: Request): Promise<Response> {
       ],
       response_format: { type: 'json_object' },
       temperature: 0.2,
-      max_tokens: 4096,
+      max_tokens: 6000,
     }),
   })
 
@@ -335,11 +355,22 @@ async function handleDiagnose(req: Request): Promise<Response> {
   }
 
   logLlmCall(admin, userId, FUNCTION_NAME, inputBytes)
+
+  if (escritoMeta.id) {
+    await admin.from('escritos').update({
+      revision_formal: { modelo: MODEL, modelo_nombre: nombreModelo(MODEL), diagnostico },
+      revision_formal_at: new Date().toISOString(),
+    } as never).eq('id', escritoMeta.id).then(({ error }) => {
+      if (error) console.warn('[diagnose-escrito] no se pudo guardar la revisión', error.message)
+    })
+  }
+
   return json(req, {
     ok: true,
     escrito: escritoMeta,
     area_aplicada: body.area ?? 'civil',
     modelo: MODEL,
+    modelo_nombre: nombreModelo(MODEL),
     generated_at: new Date().toISOString(),
     diagnostico,
   })

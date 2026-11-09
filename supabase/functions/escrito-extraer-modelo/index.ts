@@ -8,7 +8,7 @@ import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
 
 const FUNCTION_NAME = 'escrito-extraer-modelo'
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY') ?? ''
-const MODEL = 'anthropic/claude-haiku-4.5'
+const MODEL = 'anthropic/claude-haiku-5.5'
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

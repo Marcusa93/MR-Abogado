@@ -17,11 +17,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { checkLlmGuard, logLlmCall } from '../_shared/llm-guard.ts'
+import { modeloParaEscrito, leerUso, sumarUso, nombreModelo, type Calidad, type UsoLlm } from '../_shared/modelos-ia.ts'
 
 const FUNCTION_NAME = 'escritos-generate'
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_EMBEDDINGS_URL = 'https://openrouter.ai/api/v1/embeddings'
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6'
 const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 
 // Umbrales calibrados sobre text-embedding-3-small (cosine similarity)
@@ -231,6 +231,7 @@ interface ExpedienteRow {
   estado_interno: string | null
   observaciones: string | null
   ai_brief: string | null
+  estrategia_redaccion?: string | null
   cliente: { nombre: string | null; apellido: string | null } | { nombre: string | null; apellido: string | null }[] | null
 }
 
@@ -634,6 +635,14 @@ type RequestBody = {
   actuaciones_extra_ids?: string[] | null
   /** Si true, la respuesta se envía como SSE (text/event-stream). */
   stream?: boolean
+  /** auto (según el tipo), preciso (modelo grande) o rapido. */
+  calidad?: Calidad | null
+  /** Devuelve qué contexto usaría la IA, sin llamar al modelo ni crear el escrito. */
+  solo_contexto?: boolean
+  /** 'esquema': devuelve solo la estrategia (argumentos, defensas, prueba) para aprobar antes de redactar. */
+  modo?: 'escrito' | 'esquema' | null
+  /** Esquema aprobado por el abogado: la redacción debe seguirlo. */
+  esquema?: Esquema | null
   /** Carácter de la presentación: apoderado de una parte, por derecho propio o patrocinante (habla la parte). */
   caracter?: {
     modo: 'apoderado' | 'derecho_propio' | 'patrocinante'
@@ -644,6 +653,49 @@ type RequestBody = {
 }
 
 type Caracter = NonNullable<RequestBody['caracter']>
+
+interface Esquema {
+  objetivo?: string
+  argumentos?: { titulo: string; desarrollo?: string; fundamento?: string }[]
+  defensas_contrarias?: { argumento: string; respuesta?: string }[]
+  prueba?: string[]
+  riesgos?: string[]
+  datos_faltantes?: string[]
+}
+
+const ESQUEMA_SCHEMA = `## Formato de salida (JSON estricto, sin texto fuera del JSON)
+{
+  "objetivo": "qué se pide al tribunal, en una oración",
+  "argumentos": [{ "titulo": "argumento en pocas palabras", "desarrollo": "cómo se sostiene con los hechos del expediente", "fundamento": "norma o fallo del material provisto, o vacío" }],
+  "defensas_contrarias": [{ "argumento": "lo que probablemente sostenga la contraria", "respuesta": "cómo se contesta" }],
+  "prueba": ["prueba que conviene ofrecer o invocar"],
+  "riesgos": ["puntos débiles o riesgos procesales a cuidar"],
+  "datos_faltantes": ["datos que el abogado debería completar antes de redactar"]
+}
+Sé concreto y breve: es un esquema para que el abogado lo apruebe, no el escrito.`
+
+function formatEsquema(e: Esquema): string {
+  const l: string[] = ['## ESQUEMA APROBADO POR EL ABOGADO (seguilo: estructura, orden y alcance de los argumentos)']
+  if (e.objetivo) l.push(`Objetivo: ${e.objetivo}`)
+  e.argumentos?.forEach((a, i) => l.push(`${i + 1}. ${a.titulo}${a.desarrollo ? ` — ${a.desarrollo}` : ''}${a.fundamento ? ` [fundamento: ${a.fundamento}]` : ''}`))
+  if (e.defensas_contrarias?.length) l.push('Defensas de la contraria a rebatir:\n' + e.defensas_contrarias.map(d => `- ${d.argumento}${d.respuesta ? ` → ${d.respuesta}` : ''}`).join('\n'))
+  if (e.prueba?.length) l.push('Prueba: ' + e.prueba.join('; '))
+  return l.join('\n')
+}
+
+interface PerfilRow { ambito: string; tono: string | null; formulas: string | null; evitar: string | null; citas: string | null; notas: string | null }
+
+function formatPerfil(titulo: string, p: PerfilRow | undefined): string {
+  if (!p) return ''
+  const partes = [
+    p.tono?.trim() && `- Tono: ${p.tono.trim()}`,
+    p.formulas?.trim() && `- Fórmulas preferidas:\n${p.formulas.trim()}`,
+    p.evitar?.trim() && `- Nunca hacer:\n${p.evitar.trim()}`,
+    p.citas?.trim() && `- Cómo citar:\n${p.citas.trim()}`,
+    p.notas?.trim() && `- Otras indicaciones:\n${p.notas.trim()}`,
+  ].filter(Boolean)
+  return partes.length ? `### ${titulo}\n${partes.join('\n')}` : ''
+}
 
 function textoParte(c: Caracter): string {
   return c.parte === 'otra' ? (c.parte_texto?.trim() || 'la parte') : c.parte === 'actora' ? 'la parte actora' : 'la parte demandada'
@@ -672,6 +724,60 @@ function caracterCtx(c: Caracter | null | undefined): string {
   }
   return '## CARÁCTER DE LA PRESENTACIÓN (obligatorio)\nEl abogado se presenta como APODERADO de ' + textoParte(c) + '. ' +
     `"presentacion" debe ser exactamente: "${formulaPresentacion(c)}"`
+}
+
+// ── Llamada al modelo (OpenRouter) ─────────────────────────────────────────────
+async function llamarLLM(
+  apiKey: string, model: string, system: string, user: string,
+  opts: { temperature: number; max_tokens: number; timeoutMs: number },
+): Promise<{ raw: string; uso: UsoLlm }> {
+  const ac = new AbortController()
+  const tid = setTimeout(() => ac.abort(), opts.timeoutMs)
+  let res: Response
+  try {
+    res = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://app.marcorossi.com.ar',
+        'X-Title': 'MR Abogado Escritos',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        temperature: opts.temperature,
+        max_tokens: opts.max_tokens,
+        response_format: { type: 'json_object' },
+        usage: { include: true },
+      }),
+      signal: ac.signal,
+    })
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') throw new HandlerError('El modelo tardó demasiado en responder. Intentá de nuevo.', 504)
+    throw e
+  } finally {
+    clearTimeout(tid)
+  }
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new HandlerError(`OpenRouter ${res.status}: ${txt.slice(0, 300)}`, 502)
+  }
+  const payload = await res.json() as { choices?: { message?: { content?: string } }[] }
+  const raw = payload.choices?.[0]?.message?.content?.trim()
+  if (!raw) throw new HandlerError('El modelo no devolvió contenido', 502)
+  return { raw, uso: leerUso(payload) }
+}
+
+function parseJsonLlm(raw: string): unknown {
+  try { return JSON.parse(raw) } catch { /* sigue */ }
+  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  try { return JSON.parse(stripped) } catch { /* sigue */ }
+  const a = stripped.indexOf('{'), b = stripped.lastIndexOf('}')
+  if (a >= 0 && b > a) {
+    try { return JSON.parse(stripped.slice(a, b + 1)) } catch { /* sigue */ }
+  }
+  throw new HandlerError('El modelo devolvió JSON inválido', 502)
 }
 
 // ── Core handler (extractable, no referencia req para respuestas) ──────────────
@@ -762,7 +868,7 @@ async function handleGenerate(
   if (body?.expediente_id) {
     const { data: expRaw, error: expError } = await serviceClient
       .from('expedientes')
-      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, cliente:clientes(nombre, apellido)')
+      .select('id, numero, caratula, numero_sae, fuero, estado_interno, observaciones, ai_brief, tipo_proceso_id, estrategia_redaccion, cliente:clientes(nombre, apellido)')
       .eq('id', body.expediente_id)
       .single()
     if (expError || !expRaw) throw new HandlerError('Expediente no encontrado', 404)
@@ -914,7 +1020,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
   ].filter(Boolean).join(' — ')
 
   // En paralelo: normativa + jurisprudencia + aprendizajes + novedades (novedades solo si hay exp)
-  const [rag, jurisRag, aprendizajes, novedadesRows] = await Promise.all([
+  const [rag, jurisRag, aprendizajes, novedadesRows, perfilesRows, reglasRows] = await Promise.all([
     getRelevantNormativa(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
     getRelevantJurisprudencia(serviceClient, body?.expediente_id ?? null, userId, ragQuery, apiKey),
     getAprendizajesAplicables(serviceClient, userId, exp?.fuero ?? null, (exp as { tipo_proceso_id?: string | null } | null)?.tipo_proceso_id ?? null),
@@ -927,7 +1033,38 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
           .limit(8)
           .then(({ data }: { data: Array<{ nota: string; created_at: string }> | null }) => data ?? [])
       : Promise.resolve([]),
+    (serviceClient as any)
+      .from('redaccion_perfiles')
+      .select('ambito, profile_id, tono, formulas, evitar, citas, notas')
+      .or(`ambito.eq.estudio,profile_id.eq.${userId}`)
+      .then(({ data }: { data: PerfilRow[] | null }) => data ?? []),
+    (serviceClient as any)
+      .from('redaccion_reglas_tipo')
+      .select('profile_id, tipo, reglas')
+      .or(`profile_id.is.null,profile_id.eq.${userId}`)
+      .then(({ data }: { data: Array<{ profile_id: string | null; tipo: string; reglas: string }> | null }) => data ?? []),
   ])
+
+  // Perfil de redacción en capas: estudio → abogado → tipo de escrito → expediente
+  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const tipoNorm = norm(tipoInput || ideaLibre)
+  const reglasAplicables = reglasRows.filter((r: { tipo: string }) => {
+    const rt = norm(r.tipo)
+    return rt.length > 2 && (tipoNorm.includes(rt) || rt.includes(tipoNorm))
+  })
+  const perfilEstudio = perfilesRows.find((p: PerfilRow) => p.ambito === 'estudio')
+  const perfilAbogado = perfilesRows.find((p: PerfilRow) => p.ambito === 'abogado')
+  const capasPerfil = [
+    formatPerfil('Reglas del estudio', perfilEstudio),
+    formatPerfil('Preferencias del abogado firmante (prevalecen sobre las del estudio)', perfilAbogado),
+    reglasAplicables.length
+      ? `### Reglas para este tipo de escrito\n${reglasAplicables.map((r: { tipo: string; reglas: string }) => `- (${r.tipo}) ${r.reglas.trim()}`).join('\n')}`
+      : '',
+    exp?.estrategia_redaccion?.trim() ? `### Estrategia del caso (definida por el abogado)\n${exp.estrategia_redaccion.trim()}` : '',
+  ].filter(Boolean)
+  const perfilCtx = capasPerfil.length
+    ? `\n## PERFIL DE REDACCIÓN (instrucciones del estudio y del abogado — respetalas)\n${capasPerfil.join('\n\n')}`
+    : ''
 
   const novedadesCtx = novedadesRows.length > 0
     ? `\n## Novedades del abogado (actualizaciones manuales del estado real del caso)\n${
@@ -964,7 +1101,7 @@ ${exp.ai_brief ? `\n## Brief del expediente\n${exp.ai_brief}` : ''}`
   } else if (body?.estilo_texto?.trim()) {
     estiloModelo = body.estilo_texto.trim().slice(0, MAX_ESTILO_CHARS)
     // Guardado opcional como template reutilizable.
-    if (body.guardar_como?.trim()) {
+    if (body.guardar_como?.trim() && !body.solo_contexto) {
       estiloNombre = body.guardar_como.trim().slice(0, 120)
       await serviceClient.from('escrito_templates').insert({
         user_id: userId,
@@ -1002,6 +1139,7 @@ ${estiloModelo}
     fueroCtx,
     '',
     registro.instrucciones,
+    perfilCtx,
     estiloCtx ? `\n${estiloCtx}` : '',
     '',
     OUTPUT_SCHEMA,
@@ -1043,6 +1181,8 @@ ${caracterCtx(body?.caracter)}
 
 ${body?.instrucciones?.trim() ? `## Instrucciones adicionales\n${body.instrucciones.trim()}` : ''}
 
+${body?.esquema ? formatEsquema(body.esquema) : ''}
+
 ${borradorPrevioCtx}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
@@ -1070,68 +1210,83 @@ ${caracterCtx(body?.caracter)}
 
 ${body?.instrucciones?.trim() ? `## Instrucciones puntuales del abogado\n${body.instrucciones.trim()}` : ''}
 
+${body?.esquema ? formatEsquema(body.esquema) : ''}
+
 ${borradorPrevioCtx}
 
 Redactá el escrito siguiendo el formato JSON indicado.`
 
-  onProgress('generating', 'Generando escrito...')
-
-  // 8) Llamar al LLM — timeout de 55s para acomodar escritos complejos de gran extensión
-  const llmAc = new AbortController()
-  const llmTid = setTimeout(() => llmAc.abort(), 55_000)
-  let aiRes: Response
-  try {
-    aiRes = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://app.marcorossi.com.ar',
-        'X-Title': 'MR Abogado Escritos',
-      },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage },
-        ],
-        temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
-        max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
-        response_format: { type: 'json_object' },
-      }),
-      signal: llmAc.signal,
-    })
-  } catch (e) {
-    clearTimeout(llmTid)
-    if ((e as Error)?.name === 'AbortError') {
-      throw new HandlerError('El modelo tardó demasiado en responder. Intentá de nuevo.', 504)
-    }
-    throw e
-  } finally {
-    clearTimeout(llmTid)
+  // 7.5) Modelo según la tarea y resumen de lo que la IA va a usar
+  const eleccion = modeloParaEscrito(tipoInput || ideaLibre, body?.calidad)
+  const MODEL = eleccion.modelo
+  const actuacionesUsadas = claves.length > 0 ? claves : (movsRaw ?? []).slice(0, 8)
+  const contextoIa = {
+    modelo: MODEL,
+    modelo_nombre: nombreModelo(MODEL),
+    calidad: eleccion.calidad,
+    motivo_modelo: eleccion.motivo,
+    expediente: exp ? { caratula: exp.caratula, fuero: exp.fuero, tiene_brief: !!exp.ai_brief } : null,
+    actuaciones_son_claves: claves.length > 0,
+    actuaciones: actuacionesUsadas.map(m => ({ fecha: m.fecha, tipo: m.tipo_movimiento, titulo: m.titulo })),
+    novedades_estudio: novedadesRows.length,
+    normativa: [...rag.pinned, ...rag.retrieved].map(c => ({
+      chunk_id: c.chunk_id,
+      titulo: String(c.metadata.titulo_documento ?? 'Norma'),
+      articulo: c.metadata.articulo ? String(c.metadata.articulo) : null,
+      fijada: c.was_pinned,
+    })),
+    jurisprudencia: [...jurisRag.pinned, ...jurisRag.retrieved].map(c => ({
+      chunk_id: c.chunk_id,
+      caratula: String(c.metadata.caratula ?? 'Fallo'),
+      tribunal: c.metadata.tribunal ? String(c.metadata.tribunal) : null,
+      fijada: c.was_pinned,
+    })),
+    aprendizajes: aprendizajes.map(a => a.contenido),
+    perfil: {
+      estudio: formatPerfil('x', perfilEstudio) !== '',
+      abogado: formatPerfil('x', perfilAbogado) !== '',
+      reglas_tipo: reglasAplicables.map((r: { tipo: string }) => r.tipo),
+      estrategia_expediente: !!exp?.estrategia_redaccion?.trim(),
+    },
+    estilo: estiloNombre ?? (estiloModelo ? 'texto pegado' : null),
+    responde_a_providencia: !!providenciaCtx,
+    escrito_contraparte: !!contraparteCtx,
+    esquema_aprobado: !!body?.esquema,
+    instrucciones: !!body?.instrucciones?.trim(),
   }
 
-  if (!aiRes.ok) {
-    const txt = await aiRes.text()
-    throw new HandlerError(`OpenRouter ${aiRes.status}: ${txt.slice(0, 300)}`, 502)
+  if (body?.solo_contexto) return { contexto: contextoIa }
+
+  // 7.6) Modo esquema: estrategia para aprobar antes de redactar
+  if (body?.modo === 'esquema') {
+    onProgress('generating', 'Armando la estrategia...')
+    const sysEsquema = [
+      'Sos un abogado litigante con experiencia en el foro de Tucumán. Antes de redactar, planificás la estrategia del escrito.',
+      'Trabajás solo con el material provisto. No inventes hechos, fechas ni citas.',
+      '',
+      ARGENTINA_OVERRIDE,
+      fueroCtx,
+      perfilCtx,
+      '',
+      ESQUEMA_SCHEMA,
+    ].join('\n')
+    const userEsquema = userMessage.replace(/Redactá el escrito siguiendo el formato JSON indicado\.\s*$/, 'Armá el ESQUEMA estratégico siguiendo el formato JSON indicado. No redactes el escrito.')
+    const r = await llamarLLM(apiKey, MODEL, sysEsquema, userEsquema, { temperature: 0.3, max_tokens: 2500, timeoutMs: 120_000 })
+    const esquema = parseJsonLlm(r.raw)
+    logLlmCall(guardClient, userId, FUNCTION_NAME, inputBytes)
+    return { esquema, contexto: contextoIa, uso: r.uso }
   }
 
-  const payload = await aiRes.json() as { choices?: { message?: { content?: string } }[] }
-  const raw = payload.choices?.[0]?.message?.content?.trim()
-  if (!raw) throw new HandlerError('El modelo no devolvió contenido', 502)
+  onProgress('generating', `Redactando con ${nombreModelo(MODEL)}...`)
 
-  let contenido: unknown
-  try {
-    contenido = JSON.parse(raw)
-  } catch (_e) {
-    // Algunos modelos meten ```json ... ```. Limpiamos por si acaso.
-    const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
-    try {
-      contenido = JSON.parse(stripped)
-    } catch {
-      throw new HandlerError('El modelo devolvió JSON inválido', 502)
-    }
-  }
+  // 8) Llamar al LLM. Opus puede tardar más en escritos largos: margen amplio.
+  const primera = await llamarLLM(apiKey, MODEL, systemPrompt, userMessage, {
+    temperature: registro.nombre === 'retorico' ? 0.6 : 0.3,
+    max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
+    timeoutMs: 140_000,
+  })
+  let uso: UsoLlm = primera.uso
+  let contenido: unknown = parseJsonLlm(primera.raw)
 
   // 8.4) Validar estructura mínima del JSON. Si falla, un reintento con corrección.
   function validarContenidoEscrito(c: unknown): string[] {
@@ -1165,35 +1320,14 @@ Redactá el escrito siguiendo el formato JSON indicado.`
 ${erroresEstructura.map(e => `- ${e}`).join('\n')}
 
 Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "presentacion", una sección "OBJETO" y una sección "PETITORIO" con párrafos numerados en romano.`
-    const retryAc = new AbortController()
-    const retryTid = setTimeout(() => retryAc.abort(), 18_000)
-    const retryRes = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://app.marcorossi.com.ar',
-        'X-Title': 'MR Abogado Escritos',
-      },
-      body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: retryMsg },
-        ],
-        temperature: 0,
-        max_tokens: getMaxTokens(tipoInput, !!ideaLibre),
-        response_format: { type: 'json_object' },
-      }),
-      signal: retryAc.signal,
-    }).catch(e => { clearTimeout(retryTid); console.warn('[escritos-generate] retry aborted', e); return null })
-    clearTimeout(retryTid)
-    if (retryRes?.ok) {
-      const retryPayload = await retryRes.json() as { choices?: { message?: { content?: string } }[] }
-      const retryRaw = retryPayload.choices?.[0]?.message?.content?.trim()
-      if (retryRaw) {
-        try { contenido = JSON.parse(retryRaw) } catch { /* mantener el original */ }
-      }
+    try {
+      const retry = await llamarLLM(apiKey, MODEL, systemPrompt, retryMsg, {
+        temperature: 0, max_tokens: getMaxTokens(tipoInput, !!ideaLibre), timeoutMs: 60_000,
+      })
+      uso = sumarUso(uso, retry.uso)
+      try { contenido = parseJsonLlm(retry.raw) } catch { /* mantener el original */ }
+    } catch (e) {
+      console.warn('[escritos-generate] retry falló', e)
     }
   }
 
@@ -1238,7 +1372,13 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
       contexto_movement_ids: claves.map(c => c.id),
       instrucciones_usuario: body?.instrucciones ?? null,
       registro_tonal: registro.nombre,
-      modelo_ia: DEFAULT_MODEL,
+      modelo_ia: MODEL,
+      calidad_ia: eleccion.calidad,
+      costo_usd: uso.costo_usd,
+      tokens_entrada: uso.tokens_entrada,
+      tokens_salida: uso.tokens_salida,
+      esquema: body?.esquema ?? null,
+      contexto_ia: contextoIa,
     } as never)
     .select()
     .single()
@@ -1269,15 +1409,14 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
       })
     : []
 
-  const chunksByPinned = new Map<number, boolean>(
-    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.was_pinned]),
-  )
-  const chunksByDoc = new Map<number, string>(
-    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.documento_id]),
-  )
-  const chunksByScore = new Map<number, number>(
-    [...rag.pinned, ...rag.retrieved].map(c => [c.chunk_id, c.score]),
-  )
+  const todosChunks = [
+    ...[...rag.pinned, ...rag.retrieved].map(c => ({ ...c, fuente: 'normativa' as const })),
+    ...[...jurisRag.pinned, ...jurisRag.retrieved].map(c => ({ ...c, fuente: 'jurisprudencia' as const })),
+  ]
+  const chunksByPinned = new Map<number, boolean>(todosChunks.map(c => [c.chunk_id, c.was_pinned]))
+  const chunksByDoc = new Map<number, string>(todosChunks.map(c => [c.chunk_id, c.documento_id]))
+  const chunksByScore = new Map<number, number>(todosChunks.map(c => [c.chunk_id, c.score]))
+  const chunksByFuente = new Map<number, 'normativa' | 'jurisprudencia'>(todosChunks.map(c => [c.chunk_id, c.fuente]))
 
   const validCitas = citas
     .filter(c => validChunkIds.has(c.chunk_id))
@@ -1291,6 +1430,7 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
       cita_texto: c.cita_texto.slice(0, 1000),
       score: chunksByScore.get(c.chunk_id) ?? null,
       was_pinned: chunksByPinned.get(c.chunk_id) ?? false,
+      fuente: chunksByFuente.get(c.chunk_id) ?? 'normativa',
       orden: i + 1,
     }))
     const { error: citaErr } = await serviceClient.from('escrito_citas').insert(citaRows)
@@ -1301,7 +1441,10 @@ Reescribí el JSON completo corrigiendo esos problemas. Asegurate de incluir "pr
   return {
     escrito_id: escritoId,
     contenido,
-    modelo: DEFAULT_MODEL,
+    modelo: MODEL,
+    modelo_nombre: nombreModelo(MODEL),
+    uso,
+    contexto: contextoIa,
     registro_tonal: registro.nombre,
     claves_usadas: claves.length,
     normativa_disponible: rag.pinned.length + rag.retrieved.length,
