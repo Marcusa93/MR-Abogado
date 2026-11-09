@@ -42,7 +42,7 @@ Te paso las reglas numeradas. Muchas dicen lo mismo con otras palabras. Tu tarea
 2. PUNTUALES: reglas que solo sirven para un caso concreto (nombres, hechos o argumentos de un expediente) y no se pueden aplicar a otros escritos.
 3. CONTRADICCIONES: pares o grupos de reglas que piden cosas opuestas (por ejemplo, usar y no usar "V.S."). Describí el conflicto en una oración.
 
-No inventes reglas que no estén en la lista. Cada número puede aparecer en un solo grupo.
+No inventes reglas que no estén en la lista. Cada número puede aparecer en un solo grupo. En "motivo" y "detalle" no menciones los números de las reglas: el abogado no los ve; describí el contenido.
 
 Devolvé SOLO JSON, sin bloque de código:
 {"grupos":[{"reglas":[1,4,9],"regla":"texto fusionado","ambito":"petitorio"}],"puntuales":[{"regla":12,"motivo":"..."}],"contradicciones":[{"reglas":[3,7],"detalle":"..."}]}`

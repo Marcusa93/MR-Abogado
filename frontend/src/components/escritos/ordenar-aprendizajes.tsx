@@ -22,7 +22,7 @@ function GrupoCard({ g, onListo }: { g: Grupo; onListo: () => void }) {
         <span className="tag-mono text-cyan-300">{g.ids.length} iguales</span>
         {g.ambito && <span className="tag-mono text-zinc-500">{g.ambito}</span>}
       </div>
-      <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2}
+      <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={Math.min(7, Math.max(2, Math.ceil(texto.length / 75)))}
         className="w-full resize-y rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[13px] leading-relaxed text-zinc-100 focus:border-cyan-500/40 focus:outline-none" />
       <button type="button" onClick={() => setAbierto((v) => !v)} className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-zinc-500 hover:text-zinc-300">
         <ChevronDown className={cn('h-3 w-3 transition-transform', !abierto && '-rotate-90')} /> Ver las {g.originales.length} originales

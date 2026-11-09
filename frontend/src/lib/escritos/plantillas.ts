@@ -68,7 +68,7 @@ export function encabezadoDesdeSae(jurisdiccion: string | null | undefined, ofic
   if (/mediaci/i.test(j) || o.includes('mediaci')) return 'SR. DIRECTOR DEL CENTRO DE MEDIACIÓN JUDICIAL'
   if (o.includes('apelaci')) return 'EXCMA. CÁMARA DE APELACIONES EN LO CIVIL Y COMERCIAL COMÚN — SALA [SALA]'
   if (!j) return VACIO.encabezado
-  return `SR. JUEZ DE PRIMERA INSTANCIA EN LO ${j.toUpperCase()} DE LA [N°] NOMINACIÓN`
+  return `SR. JUEZ DE PRIMERA INSTANCIA EN LO ${j.toUpperCase()} DE LA [NÚMERO] NOMINACIÓN`
 }
 
 // ─── Medición: cuánto cambió el abogado ─────────────────────────────────────

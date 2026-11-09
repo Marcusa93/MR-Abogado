@@ -105,7 +105,7 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
     },
   ] : [
     { key: 'datos', titulo: 'Completar los datos que faltan', hecho: pendientes.length === 0,
-      detalle: pendientes.length ? `La IA dejó ${pendientes.length} ${pendientes.length === 1 ? 'dato' : 'datos'} para completar (${[...new Set(pendientes)].slice(0, 3).join(', ')}). Buscalos en el texto y reemplazalos.` : '' },
+      detalle: pendientes.length ? `Quedan ${pendientes.length} ${pendientes.length === 1 ? 'dato' : 'datos'} para completar (${[...new Set(pendientes)].slice(0, 3).join(', ')}). Buscalos en el texto y reemplazalos.` : '' },
     { key: 'guardar', titulo: 'Guardar los cambios', hecho: !dirty, oculto: !dirty,
       detalle: 'Tenés cambios sin guardar.', accion: { label: 'Guardar', onClick: onGuardar, cargando: guardando } },
     { key: 'revisar', titulo: 'Revisión antes de firmar', hecho: revisado, opcional: revisadoExt === undefined, oculto: !onRevisar,

@@ -35,7 +35,7 @@ describe('plantillas', () => {
   })
   it('encabezado según la oficina del SAE', () => {
     expect(encabezadoDesdeSae('Mediación', 'Mediación - Fuero Civil')).toMatch(/MEDIACI/)
-    expect(encabezadoDesdeSae('Civil y Comercial Común', 'Oficina de Gestión Asociada Civil y Comercial N° 2')).toMatch(/CIVIL Y COMERCIAL COMÚN DE LA \[N°\]/)
+    expect(encabezadoDesdeSae('Civil y Comercial Común', 'Oficina de Gestión Asociada Civil y Comercial N° 2')).toMatch(/CIVIL Y COMERCIAL COMÚN DE LA \[NÚMERO\]/)
   })
 })
 
