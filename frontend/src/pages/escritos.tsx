@@ -1567,7 +1567,7 @@ function EscritoEditor({
                 : undefined} />
           </div>
           {(vista === 'editar' || vista === 'lado') && (
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
+            <div className="p-3 pb-24 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
               {/* Encabezado y carátula */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1923,7 +1923,7 @@ export default function EscritosPage() {
   }
 
   return (
-    <div data-escritos className="-mx-4 -mt-4 flex h-[calc(100dvh-3.5rem-5rem)] overflow-hidden sm:-m-6 sm:h-[calc(100dvh-3.5rem)]">
+    <div data-escritos className="-mx-4 -mt-4 -mb-20 flex h-[calc(100dvh-3.5rem)] overflow-hidden sm:-m-6">
       {/* ── Sidebar — oculto en mobile cuando hay selección ── */}
       <div className={cn(
         'flex flex-col border-r border-white/5 bg-zinc-900/50 transition-all duration-200',
@@ -2036,7 +2036,7 @@ export default function EscritosPage() {
         </div>
 
         {/* FAB móvil */}
-        <div className="sm:hidden border-t border-white/5 p-3">
+        <div className="sm:hidden border-t border-white/5 p-3 pr-[4.75rem]">
           <button onClick={abrirNuevo}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
             <Plus className="h-4 w-4" /> Nuevo escrito
