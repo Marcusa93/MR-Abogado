@@ -1245,7 +1245,22 @@ function EscritoEditor({
   refsOpen: boolean
   onToggleRefs: () => void
 }) {
-  const [vista, setVista] = useState<'editar' | 'preview'>('editar')
+  // 'lado': editor y escrito en vivo lado a lado (pantallas anchas). Se recuerda en este navegador.
+  const [vista, setVistaState] = useState<'editar' | 'lado' | 'preview'>(() => {
+    try {
+      const v = localStorage.getItem('escritos-vista')
+      if (v === 'editar' || v === 'lado' || v === 'preview') return v
+    } catch { /* sin storage */ }
+    return typeof window !== 'undefined' && window.innerWidth >= 1280 ? 'lado' : 'editar'
+  })
+  const setVista = (v: 'editar' | 'lado' | 'preview') => {
+    setVistaState(v)
+    try { localStorage.setItem('escritos-vista', v) } catch { /* sin storage */ }
+    if (v === 'lado' && refsOpen) onToggleRefs()
+  }
+  const ladoALado = vista === 'lado' && !!abogado
+  // Lado a lado y asistente abierto no entran juntos: al abrir, manda la vista elegida
+  useEffect(() => { if (vista === 'lado' && refsOpen) onToggleRefs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [contenido, setContenido] = useState<EscritoContenido>(escrito.contenido)
   const [editandoTitulo, setEditandoTitulo] = useState(false)
   const [tituloLocal, setTituloLocal] = useState(escrito.titulo)
@@ -1360,6 +1375,7 @@ function EscritoEditor({
   }
 
   const abrirAsistente = (si: number, pi?: number) => {
+    if (vista === 'lado') setVistaState('editar')
     setFoco({ seccion: si + 1, parrafo: pi != null ? pi + 1 : null, nonce: Date.now() })
     setPanelDer('asistente')
     if (!refsOpen) onToggleRefs()
@@ -1432,14 +1448,12 @@ function EscritoEditor({
         <div className="flex items-center gap-1 shrink-0">
           {/* Vista toggle */}
           <div className="hidden sm:flex rounded-lg border border-white/10 overflow-hidden">
-            <button onClick={() => setVista('editar')}
-              className={cn('px-2.5 py-1 text-xs font-medium', vista === 'editar' ? 'bg-white/10 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300')}>
-              Editar
-            </button>
-            <button onClick={() => setVista('preview')}
-              className={cn('px-2.5 py-1 text-xs font-medium', vista === 'preview' ? 'bg-white/10 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300')}>
-              Vista
-            </button>
+            {([['editar', 'Editar', ''], ['lado', 'Lado a lado', 'hidden lg:block'], ['preview', 'Escrito', '']] as const).map(([k, l, extra]) => (
+              <button key={k} onClick={() => setVista(k)} title={k === 'lado' ? 'Editar y ver el escrito en vivo al costado' : undefined}
+                className={cn('px-2.5 py-1 text-xs font-medium', extra, vista === k ? 'bg-white/10 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300')}>
+                {l}
+              </button>
+            ))}
           </div>
 
           {/* Autosave indicator */}
@@ -1465,7 +1479,7 @@ function EscritoEditor({
           <button onClick={() => conControl(() => archivoRef.current?.click())} title="Adjuntar PDF firmado" className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
             <Upload className="h-4 w-4" />
           </button>
-          <button onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
+          <button onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { if (vista === 'lado') setVistaState('editar'); setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
             title="Asistente"
             className={cn('inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-white/5', refsOpen ? 'text-cyan-300' : 'text-zinc-400 hover:text-zinc-200')}>
             <MessageSquare className="h-4 w-4" /> <span className="hidden md:inline">Asistente</span>
@@ -1515,7 +1529,7 @@ function EscritoEditor({
                 ? () => navigate(`/expedientes/${escrito.expediente_id}?tab=actuaciones&mid=${escrito.proveido_movement_id}`)
                 : undefined} />
           </div>
-          {vista === 'editar' && (
+          {(vista === 'editar' || vista === 'lado') && (
             <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
               {/* Encabezado y carátula */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1599,6 +1613,13 @@ function EscritoEditor({
           )}
         </div>
 
+        {/* Escrito en vivo al costado */}
+        {ladoALado && (
+          <div className="hidden lg:block w-[44%] max-w-[640px] shrink-0 border-l border-white/5">
+            <VistaEnVivo contenido={contenido} abogado={abogado!} printRef={printRef} />
+          </div>
+        )}
+
         {/* Panel derecho: asistente / referencias — desktop */}
         {refsOpen && (
           <div className="hidden sm:flex w-80 xl:w-96 shrink-0 flex-col overflow-hidden border-l border-white/5">
@@ -1644,6 +1665,44 @@ function EscritoEditor({
         confirmLabel="Eliminar"
         onConfirm={() => { setConfirmarEliminar(false); onDelete() }}
         onClose={() => setConfirmarEliminar(false)} variant="danger" />
+    </div>
+  )
+}
+
+// ─── Vista en vivo ─────────────────────────────────────────────────────────────
+
+const ANCHO_A4_PX = 794 // 21cm a 96 dpi
+
+/** El escrito tal como sale (hoja A4, logo y formato), achicado para entrar en la columna. */
+function VistaEnVivo({ contenido, abogado, printRef }: {
+  contenido: EscritoContenido; abogado: EscritoEncabezadoAbogado
+  printRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const marcoRef = useRef<HTMLDivElement>(null)
+  const hojaRef = useRef<HTMLDivElement>(null)
+  const [escala, setEscala] = useState(0.6)
+  const [alto, setAlto] = useState(0)
+  useEffect(() => {
+    const marco = marcoRef.current
+    const hoja = hojaRef.current
+    if (!marco || !hoja) return
+    const medir = () => {
+      setEscala(Math.min(1, (marco.clientWidth - 32) / ANCHO_A4_PX))
+      setAlto(hoja.scrollHeight)
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(marco); ro.observe(hoja)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={marcoRef} className="h-full overflow-y-auto bg-zinc-800/40 px-4 py-4">
+      <div style={{ height: alto * escala }} className="mx-auto" >
+        <div ref={hojaRef} style={{ width: ANCHO_A4_PX, transform: `scale(${escala})`, transformOrigin: 'top left' }}
+          className="shadow-2xl">
+          <div ref={printRef}><EscritoPreview contenido={contenido} abogado={abogado} /></div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1737,9 +1796,6 @@ export default function EscritosPage() {
   const [nuevoInicial, setNuevoInicial] = useState<NuevoInicial | undefined>(undefined)
   const [showModelos, setShowModelos] = useState(false)
 
-  // La página ocupa la pantalla: si se llega desde otra desplazada (el expediente), arranca arriba
-  useEffect(() => { window.scrollTo(0, 0) }, [])
-
   // ?nuevo=1&expediente=…&responde=… → abre el formulario apuntado a ese expediente/actuación
   useEffect(() => {
     if (searchParams.get('nuevo') !== '1') return
@@ -1817,7 +1873,7 @@ export default function EscritosPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="-mx-4 -mt-4 flex h-[calc(100dvh-3.5rem-5rem)] overflow-hidden sm:-m-6 sm:h-[calc(100dvh-3.5rem)]">
       {/* ── Sidebar — oculto en mobile cuando hay selección ── */}
       <div className={cn(
         'flex flex-col border-r border-white/5 bg-zinc-900/50 transition-all duration-200',
