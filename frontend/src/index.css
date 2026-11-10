@@ -1021,3 +1021,8 @@ html[data-theme='dark'] .mesh-gradient-bg {
 
 /* Con un formulario a pantalla completa abierto, el botón flotante de BogaBot no tapa sus botones */
 body:has([data-oculta-bogabot]) [data-tour="bogabot-trigger"] { display: none; }
+
+/* Escritos en pantallas táctiles: 16px evita que iPhone haga zoom al tocar un campo */
+@media (pointer: coarse) {
+  [data-escritos] :is(input:not([type=checkbox]):not([type=radio]), textarea, select) { font-size: 16px; }
+}

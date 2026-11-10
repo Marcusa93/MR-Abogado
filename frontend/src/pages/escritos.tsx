@@ -4,7 +4,7 @@ import {
   PenLine, Plus, Search, X, Loader2, FileText, Trash2, Printer,
   Sparkles, Pencil, Check, ChevronDown, ChevronUp, FolderOpen,
   Save, Upload, Wand2, Mic, Square, Layers, BookOpen, Gavel,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, MoreHorizontal, History,
   ArrowLeft, Link2, ExternalLink, Copy, ClipboardCheck,
   SlidersHorizontal, Eye, ListChecks, MessageSquare, BarChart3,
 } from 'lucide-react'
@@ -1277,6 +1277,7 @@ function EscritoEditor({
   const [antesDeFirmar, setAntesDeFirmar] = useState<null | (() => void)>(null)
   const [guardarPlantilla, setGuardarPlantilla] = useState(false)
   const [saeOpen, setSaeOpen] = useState(false)
+  const [masOpen, setMasOpen] = useState(false)
   const navigate = useNavigate()
   const attachPdf = useAttachSignedPdf()
   const historialMutation = useEscritoHistorial()
@@ -1386,6 +1387,21 @@ function EscritoEditor({
 
   const addSeccion = () => updateContenido({ ...contenido, secciones: [...contenido.secciones, { titulo: 'Nueva sección', parrafos: [''] }] })
 
+  const panelContexto = (
+    <PanelEscrito escrito={escrito} contenido={contenido}
+      restaurando={historialMutation.restore.isPending}
+      onRestaurar={async (snap) => {
+        await historialMutation.restore.mutateAsync({
+          id: escrito.id, expediente_id: escrito.expediente_id,
+          contenido: snap.contenido, current_snapshot: contenido,
+        })
+        setContenido(snap.contenido)
+        contenidoBeforeSaveRef.current = snap.contenido
+        setDirty(false)
+        toast.success('Versión restaurada', 'La versión anterior quedó guardada en el historial.')
+      }} />
+  )
+
   const panelDerecho = (
     <div className="flex h-full flex-col">
       <div className="flex gap-0.5 border-b border-white/5 px-2">
@@ -1473,45 +1489,62 @@ function EscritoEditor({
             </span>
           )}
 
-          <button onClick={() => setGuardarPlantilla(true)} title="Guardar como plantilla" className="hidden sm:inline-flex p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
-            <Layers className="h-4 w-4" />
-          </button>
-          <button onClick={handleImprimir} title="Imprimir" className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
-            <Printer className="h-4 w-4" />
-          </button>
-          <button onClick={() => conControl(() => archivoRef.current?.click())} title="Adjuntar PDF firmado" className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
-            <Upload className="h-4 w-4" />
-          </button>
           <button onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { if (vista === 'lado') setVistaState('editar'); setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
             title="Asistente"
-            className={cn('inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium hover:bg-white/5', refsOpen ? 'text-cyan-300' : 'text-zinc-400 hover:text-zinc-200')}>
+            className={cn('inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:bg-white/5', refsOpen ? 'text-cyan-300' : 'text-zinc-400 hover:text-zinc-200')}>
             <MessageSquare className="h-4 w-4" /> <span className="hidden md:inline">Asistente</span>
           </button>
-          <button onClick={() => setConfirmarEliminar(true)} className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400">
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <div className="relative">
+            <button onClick={() => setMasOpen(v => !v)} aria-label="Más acciones" aria-expanded={masOpen} title="Más acciones"
+              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-zinc-200">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {masOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMasOpen(false)} />
+                <div className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-lg border border-white/10 bg-zinc-900 py-1 shadow-xl">
+                  {([
+                    { icon: History, label: 'Revisión, citas y versiones', onClick: () => setPanelIzq(true) },
+                    { icon: Upload, label: 'Adjuntar PDF firmado', onClick: () => conControl(() => archivoRef.current?.click()) },
+                    { icon: Printer, label: 'Imprimir', onClick: handleImprimir },
+                    { icon: Layers, label: 'Guardar como plantilla', onClick: () => setGuardarPlantilla(true) },
+                    ...(escrito.expediente_id ? [{ icon: FolderOpen, label: 'Ir al expediente', onClick: () => navigate(`/expedientes/${escrito.expediente_id}`) }] : []),
+                  ]).map(({ icon: Icono, label, onClick }) => (
+                    <button key={label} onClick={() => { setMasOpen(false); onClick() }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-zinc-300 hover:bg-white/5">
+                      <Icono className="h-4 w-4 shrink-0 text-zinc-500" /> {label}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-white/10" />
+                  <button onClick={() => { setMasOpen(false); setConfirmarEliminar(true) }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-rose-400 hover:bg-rose-500/10">
+                    <Trash2 className="h-4 w-4 shrink-0" /> Eliminar escrito
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Celular y tablet: alternar entre editar y ver el escrito */}
+      <div className="flex shrink-0 border-b border-white/5 sm:hidden">
+        {([['editar', 'Editar'], ['preview', 'Ver escrito']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setVistaState(k)}
+            className={cn('flex-1 border-b-2 py-2.5 text-xs font-medium',
+              (vista === k || (k === 'editar' && vista === 'lado')) ? 'border-cyan-400 text-white' : 'border-transparent text-zinc-500')}>
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* Body: contexto | documento | asistente */}
       <div className="flex-1 overflow-hidden flex">
         {panelIzq && (
           <div className="hidden lg:flex w-80 shrink-0 flex-col overflow-hidden border-r border-white/5">
-            <PanelEscrito escrito={escrito} contenido={contenido}
-              restaurando={historialMutation.restore.isPending}
-              onRestaurar={async (snap) => {
-                await historialMutation.restore.mutateAsync({
-                  id: escrito.id, expediente_id: escrito.expediente_id,
-                  contenido: snap.contenido, current_snapshot: contenido,
-                })
-                setContenido(snap.contenido)
-                contenidoBeforeSaveRef.current = snap.contenido
-                setDirty(false)
-                toast.success('Versión restaurada', 'La versión anterior quedó guardada en el historial.')
-              }} />
+            {panelContexto}
           </div>
         )}
-
         {/* Editor / Preview */}
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-4">
@@ -1604,10 +1637,8 @@ function EscritoEditor({
           )}
 
           {vista === 'preview' && abogado && (
-            <div className="bg-zinc-800/30 p-4 flex justify-center min-h-full">
-              <div ref={printRef} className="w-full max-w-[800px]">
-                <EscritoPreview contenido={contenido} abogado={abogado} />
-              </div>
+            <div className="mt-3 sm:mx-auto sm:max-w-[860px]">
+              <VistaEnVivo contenido={contenido} abogado={abogado} printRef={printRef} llenar={false} />
             </div>
           )}
           {vista === 'preview' && !abogado && (
@@ -1631,6 +1662,19 @@ function EscritoEditor({
           </div>
         )}
       </div>
+
+      {/* Pantallas chicas: revisión, citas y versiones como hoja inferior */}
+      {panelIzq && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/60" onClick={() => setPanelIzq(false)}>
+          <div className="flex h-[85vh] flex-col overflow-hidden rounded-t-xl border-t border-white/10 bg-[#10161d]" onClick={e => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-2.5">
+              <span className="text-sm font-medium text-zinc-200">Revisión, citas y versiones</span>
+              <button onClick={() => setPanelIzq(false)} title="Cerrar" className="p-1.5 text-zinc-500 hover:text-zinc-200"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{panelContexto}</div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile: panel derecho como hoja inferior */}
       {refsOpen && (
@@ -1678,9 +1722,11 @@ function EscritoEditor({
 const ANCHO_A4_PX = 794 // 21cm a 96 dpi
 
 /** El escrito tal como sale (hoja A4, logo y formato), achicado para entrar en la columna. */
-function VistaEnVivo({ contenido, abogado, printRef }: {
+function VistaEnVivo({ contenido, abogado, printRef, llenar = true }: {
   contenido: EscritoContenido; abogado: EscritoEncabezadoAbogado
   printRef: React.RefObject<HTMLDivElement | null>
+  /** true: ocupa la columna con su propio scroll; false: fluye dentro del scroll de la página */
+  llenar?: boolean
 }) {
   const marcoRef = useRef<HTMLDivElement>(null)
   const hojaRef = useRef<HTMLDivElement>(null)
@@ -1700,7 +1746,7 @@ function VistaEnVivo({ contenido, abogado, printRef }: {
     return () => ro.disconnect()
   }, [])
   return (
-    <div ref={marcoRef} className="h-full overflow-y-auto bg-zinc-800/40 px-4 py-4">
+    <div ref={marcoRef} className={cn('bg-zinc-800/40 px-4 py-4', llenar && 'h-full overflow-y-auto')}>
       <div style={{ height: alto * escala }} className="mx-auto" >
         <div ref={hojaRef} style={{ width: ANCHO_A4_PX, transform: `scale(${escala})`, transformOrigin: 'top left' }}
           className="shadow-2xl">
@@ -1748,10 +1794,10 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
             <div key={pi} className="group relative">
               <textarea value={parrafo} onChange={e => onUpdateParrafo(pi, e.target.value)}
                 rows={Math.max(2, Math.ceil(parrafo.length / 80))}
-                className={cn('w-full rounded-lg border bg-white/[0.01] px-3 py-2 text-xs text-zinc-300 leading-relaxed placeholder:text-zinc-700 focus:border-cyan-500/20 focus:bg-white/[0.03] focus:outline-none resize-none',
+                className={cn('w-full rounded-lg border bg-white/[0.01] px-3 py-2 pr-16 [@media(hover:hover)]:pr-3 text-[13px] sm:text-xs text-zinc-300 leading-relaxed placeholder:text-zinc-700 focus:border-cyan-500/20 focus:bg-white/[0.03] focus:outline-none resize-none',
                   enFoco === pi + 1 ? 'border-cyan-500/40' : 'border-white/5')}
                 placeholder="Párrafo..." />
-              <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute right-1 top-1 flex gap-0.5 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
                 <button onClick={() => onAsistente(pi)} title="Pedirle al asistente sobre este párrafo"
                   className="p-1 rounded bg-zinc-800 border border-white/8 text-zinc-500 hover:text-cyan-400">
                   <Wand2 className="h-3 w-3" />
@@ -1877,7 +1923,7 @@ export default function EscritosPage() {
   }
 
   return (
-    <div className="-mx-4 -mt-4 flex h-[calc(100dvh-3.5rem-5rem)] overflow-hidden sm:-m-6 sm:h-[calc(100dvh-3.5rem)]">
+    <div data-escritos className="-mx-4 -mt-4 flex h-[calc(100dvh-3.5rem-5rem)] overflow-hidden sm:-m-6 sm:h-[calc(100dvh-3.5rem)]">
       {/* ── Sidebar — oculto en mobile cuando hay selección ── */}
       <div className={cn(
         'flex flex-col border-r border-white/5 bg-zinc-900/50 transition-all duration-200',
