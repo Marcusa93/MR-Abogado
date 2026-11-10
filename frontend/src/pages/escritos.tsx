@@ -89,6 +89,9 @@ const PORTALES_EXTERNOS = [
   { label: 'Microjuris', url: 'https://ar.microjuris.com', desc: 'Base de fallos y doctrina' },
 ]
 
+/** Se habilita cuando escritos-presentar esté calibrado contra el portal (hoy tiene TODO(cURL)). */
+const PRESENTACION_SAE_LISTA = false
+
 // ─── NuevoEscritoDialog ───────────────────────────────────────────────────────
 
 /** Mismo criterio que el servidor (_shared/modelos-ia.ts) para escritos de fondo. */
@@ -1524,7 +1527,8 @@ function EscritoEditor({
                 if (dirty) void guardarAhora().then(correr); else correr()
               }}
               onAntesDeFirmar={conControl}
-              onPresentarSae={escrito.expediente_id ? () => setSaeOpen(true) : undefined}
+              // Presentación automática: oculta hasta calibrar escritos-presentar con una presentación real (F12)
+              onPresentarSae={PRESENTACION_SAE_LISTA && escrito.expediente_id ? () => setSaeOpen(true) : undefined}
               onVerProveido={escrito.expediente_id && escrito.proveido_movement_id
                 ? () => navigate(`/expedientes/${escrito.expediente_id}?tab=actuaciones&mid=${escrito.proveido_movement_id}`)
                 : undefined} />
