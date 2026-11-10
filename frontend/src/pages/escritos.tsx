@@ -307,7 +307,7 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
       ? 'Sin expediente, la IA no usa las actuaciones ni los datos de la causa.'
       : usarEsquema && !esquema
         ? 'Primero vas a ver el esquema de argumentos para aprobarlo.'
-        : `Redacta ${modeloTxt} con los datos del expediente.`
+        : `Lo redacta ${modeloTxt} con los datos del expediente.`
 
   const pickerExpediente = (
     <div>
@@ -1736,6 +1736,9 @@ export default function EscritosPage() {
   const [showNuevo, setShowNuevo] = useState(false)
   const [nuevoInicial, setNuevoInicial] = useState<NuevoInicial | undefined>(undefined)
   const [showModelos, setShowModelos] = useState(false)
+
+  // La página ocupa la pantalla: si se llega desde otra desplazada (el expediente), arranca arriba
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   // ?nuevo=1&expediente=…&responde=… → abre el formulario apuntado a ese expediente/actuación
   useEffect(() => {
