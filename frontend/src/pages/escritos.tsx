@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   PenLine, Plus, Search, X, Loader2, FileText, Trash2, Printer,
   Sparkles, Pencil, Check, ChevronDown, ChevronUp, FolderOpen,
@@ -15,6 +15,7 @@ import { ContextoIAVista, EsquemaEditor } from '@/components/escritos/contexto-i
 import { AsistentePanel, type FocoAsistente } from '@/components/escritos/asistente-panel'
 import { PanelEscrito, revisionDesactualizada, useCitasDetectadas } from '@/components/escritos/panel-escrito'
 import { AntesDeFirmarDialog } from '@/components/escritos/revision-formal'
+import { PresentarSaeDialog } from '@/components/escritos/presentar-sae-dialog'
 import { useContextoIA, useEsquemaEscrito, useRevisarEscrito, type Calidad, type ContextoIA, type Esquema } from '@/hooks/use-redaccion'
 import { datosPorCompletar } from '@/components/expedientes/guia-escrito'
 import { useAuth } from '@/hooks/use-auth'
@@ -32,6 +33,7 @@ import {
   type JurisprudenciaDocumento,
 } from '@/hooks/use-jurisprudencia'
 import { useSaeMovements } from '@/hooks/use-sae'
+import { useCreateTarea } from '@/hooks/use-tareas'
 import { EscritoPreview, type EscritoEncabezadoAbogado } from '@/components/expedientes/escrito-preview'
 import { GuiaEscrito } from '@/components/expedientes/guia-escrito'
 import { CaracterSelector, CARACTER_POR_DEFECTO, formulaPresentacion, inferirCaracter, type CaracterEscrito } from '@/components/expedientes/caracter-escrito'
@@ -97,7 +99,37 @@ const RESPONDIBLE_TYPES_FRONTEND = new Set([
   'providencia', 'resolucion', 'auto', 'despacho',
 ])
 
-function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+/** Valores con los que se abre el formulario (desde un expediente o una actuación). */
+export interface NuevoInicial { expedienteId: string; respondeA: string }
+
+// Escritos cotidianos de un toque: cargan el tipo y una instrucción base; la IA los completa con el expediente.
+const TRAMITE_PRESETS: { label: string; tipo: string; instr: string }[] = [
+  { label: 'Adjunta bono', tipo: 'Adjunta bono de movilidad', instr: 'Acompañar el bono de movilidad y solicitar se tenga por cumplido a fin de notificar / diligenciar lo ordenado.' },
+  { label: 'Acompaña documental', tipo: 'Acompaña documental', instr: 'Acompañar la documental que se individualiza y solicitar se tenga presente y por agregada.' },
+  { label: 'Domicilio electrónico', tipo: 'Constituye domicilio electrónico', instr: 'Constituir domicilio electrónico y denunciar el real, solicitando se tenga presente.' },
+  { label: 'Libramiento de cédula', tipo: 'Solicita libramiento de cédula', instr: 'Solicitar se libre cédula de notificación conforme lo ordenado, con los recaudos de estilo.' },
+  { label: 'Libramiento de oficio', tipo: 'Solicita libramiento de oficio', instr: 'Solicitar se libre oficio conforme lo ordenado, autorizando su diligenciamiento.' },
+  { label: 'Toma vista', tipo: 'Toma vista de las actuaciones', instr: 'Solicitar vista de las actuaciones por el plazo de ley.' },
+  { label: 'Pronto despacho', tipo: 'Pronto despacho', instr: 'Solicitar pronto despacho de lo peticionado, atento el tiempo transcurrido.' },
+  { label: 'Denuncia domicilio', tipo: 'Denuncia domicilio', instr: 'Denunciar el domicilio real de la contraria / del tercero para su notificación.' },
+]
+
+const campoBase = 'w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none'
+
+function Paso({ n, titulo, extra, children }: { n: number; titulo: string; extra?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-[10.5px] text-zinc-300">{n}</span>
+        <h3 className="text-[13px] font-medium text-zinc-200">{titulo}</h3>
+        {extra && <div className="ml-auto">{extra}</div>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoInicial; onClose: () => void; onCreated: (id: string) => void }) {
   const [tipo, setTipo] = useState('')
   const [ideaLibre, setIdeaLibre] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
@@ -106,14 +138,18 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   useEffect(() => {
     if (!caracterTocado) setCaracter(inferirCaracter(`${tipo} ${ideaLibre}`, CARACTER_POR_DEFECTO))
   }, [tipo, ideaLibre, caracterTocado])
-  const [expedienteId, setExpedienteId] = useState('')
+  const [expedienteId, setExpedienteId] = useState(inicial?.expedienteId ?? '')
   const [expedienteQuery, setExpedienteQuery] = useState('')
   const [modeloId, setModeloId] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [grabando, setGrabando] = useState(false)
   const [mediaRec, setMediaRec] = useState<MediaRecorder | null>(null)
+  const audioFileRef = useRef<HTMLInputElement>(null)
   const [respondeA, setRespondeA] = useState('')
   const [actuacionesExtra, setActuacionesExtra] = useState<string[]>([])
+  const [contraparteTexto, setContraparteTexto] = useState('')
+  const [showContraparte, setShowContraparte] = useState(false)
+  const [avanzadas, setAvanzadas] = useState(false)
   const [calidad, setCalidad] = useState<Calidad>('auto')
   const [modo, setModo] = useState<'ia' | 'plantilla'>('ia')
   const esFondo = RE_FONDO.test(`${tipo} ${ideaLibre}`)
@@ -128,13 +164,25 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   const { data: movimientos = [] } = useSaeMovements(expedienteId)
   const { progressMsg, ...generate } = useGenerateEscrito()
   const transcribir = useTranscribirAudio()
+  const crearTarea = useCreateTarea()
+  const { profile } = useAuth()
   const [expedientes, setExpedientes] = useState<Array<{ id: string; label: string }>>([])
   const supabase = createClient()
 
+  // Abierto desde un expediente: mostrar su carátula
+  useEffect(() => {
+    if (!inicial?.expedienteId) return
+    void (async () => {
+      const { data } = await (supabase as any).from('expedientes').select('id, numero, caratula').eq('id', inicial.expedienteId).maybeSingle()
+      if (data) setExpedienteQuery(data.caratula ? `${data.caratula} (${data.numero})` : data.numero)
+    })()
+  }, [inicial?.expedienteId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const buscarExpedientes = useCallback(async (q: string) => {
-    if (q.length < 2) return
+    const t = q.replace(/[,()%]/g, ' ').trim()
+    if (t.length < 2) return
     const { data } = await (supabase as any)
-      .from('expedientes').select('id, numero, caratula').ilike('caratula', `%${q}%`).limit(20)
+      .from('expedientes').select('id, numero, caratula').or(`caratula.ilike.%${t}%,numero.ilike.%${t}%`).limit(20)
     setExpedientes((data ?? []).map((e: { id: string; numero: string; caratula: string | null }) => ({
       id: e.id, label: e.caratula ? `${e.caratula} (${e.numero})` : e.numero,
     })))
@@ -145,9 +193,24 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
     const m = movimientos.find(mv => mv.id === id)
     const acc = m?.ai_suggested_action
     if (!acc) return
-    if (!tipo.trim() && acc.titulo) setTipo(acc.titulo)
+    if (!tipo.trim() && !ideaLibre.trim() && acc.titulo) setTipo(acc.titulo)
     const desc = [acc.titulo, acc.descripcion].filter(Boolean).join(' — ')
     if (!instrucciones.trim() && desc) setInstrucciones(desc)
+  }
+
+  // Abierto desde "Redactar respuesta": preseleccionar la actuación cuando cargan los movimientos
+  const respondeAplicado = useRef(false)
+  useEffect(() => {
+    if (respondeAplicado.current || !inicial?.respondeA || !movimientos.length) return
+    respondeAplicado.current = true
+    onSelectActuacion(inicial.respondeA)
+  }, [inicial?.respondeA, movimientos.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const volcarAudio = async (blob: Blob) => {
+    try {
+      const texto = await transcribir.mutateAsync(blob)
+      setIdeaLibre(prev => prev.trim() ? `${prev.trim()}\n${texto}` : texto)
+    } catch { toast.error('No se pudo transcribir el audio') }
   }
 
   const toggleGrabar = async () => {
@@ -157,17 +220,19 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
     const chunks: Blob[] = []
     const rec = new MediaRecorder(stream)
     rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
-    rec.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'audio/webm' })
+    rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop())
-      try {
-        const texto = await transcribir.mutateAsync(blob)
-        setInstrucciones(prev => prev ? `${prev}\n${texto}` : texto)
-      } catch { toast.error('No se pudo transcribir el audio') }
+      void volcarAudio(new Blob(chunks, { type: 'audio/webm' }))
     }
     setMediaRec(rec)
     rec.start()
     setGrabando(true)
+  }
+
+  const aplicarPreset = (p: { tipo: string; instr: string }) => {
+    if (tipo === p.tipo) { setTipo(''); if (instrucciones === p.instr) setInstrucciones(''); return }
+    setTipo(p.tipo)
+    if (!instrucciones.trim() || TRAMITE_PRESETS.some(x => x.instr === instrucciones)) setInstrucciones(p.instr)
   }
 
   const selectedModelo = modelos.find(m => m.id === modeloId)
@@ -177,6 +242,7 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
     tipo: tipo || '',
     idea_libre: ideaLibre.trim() || null,
     responde_a_movimiento_id: respondeA || undefined,
+    escrito_contraparte_texto: contraparteTexto.trim() || null,
     instrucciones: instrucciones.trim() || undefined,
     caracter,
     template_id: templateId || null,
@@ -186,14 +252,16 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
     calidad,
   })
 
+  const hayPedido = !!tipo.trim() || !!ideaLibre.trim()
+
   const handleVerContexto = async () => {
-    if (!tipo && !ideaLibre.trim()) { toast.error('Describí lo que querés redactar o indicá el tipo'); return }
+    if (!hayPedido) { toast.error('Contá qué necesitás presentar o elegí un trámite'); return }
     try { setContexto(await verContexto.mutateAsync(inputBase())) }
     catch (err) { toast.error('No se pudo armar el contexto', err instanceof Error ? err.message : '') }
   }
 
   const handleEsquema = async () => {
-    if (!tipo && !ideaLibre.trim()) { toast.error('Describí lo que querés redactar o indicá el tipo'); return }
+    if (!hayPedido) { toast.error('Contá qué necesitás presentar o elegí un trámite'); return }
     try {
       const r = await armarEsquema.mutateAsync(inputBase())
       setEsquema(r.esquema ?? {})
@@ -202,9 +270,23 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   const handleGenerar = async () => {
-    if (!tipo && !ideaLibre.trim()) { toast.error('Describí lo que querés redactar o indicá el tipo'); return }
+    if (!hayPedido) { toast.error('Contá qué necesitás presentar o elegí un trámite'); return }
     try {
       const result = await generate.mutateAsync({ ...inputBase(), esquema: esquema ?? null })
+      // Si responde a una actuación, queda una tarea de presentación (no queda suelto)
+      if (respondeA && expedienteId && profile?.id) {
+        const mov = movimientos.find(m => m.id === respondeA)
+        const ref = mov ? `${mov.tipo_movimiento} del ${mov.fecha}${mov.titulo ? ` — ${mov.titulo}` : ''}` : ''
+        crearTarea.mutate({
+          titulo: `Presentar escrito${tipo.trim() ? `: ${tipo.trim()}` : ''}`.slice(0, 200),
+          descripcion: ref ? `Responde a: ${ref}` : null,
+          expediente_id: expedienteId,
+          estado: 'PENDIENTE',
+          prioridad: 'MEDIA',
+          created_by: profile.id,
+          asignado_a: profile.id,
+        } as never)
+      }
       onCreated(result.escrito_id)
     } catch (err) {
       toast.error('Error al generar', err instanceof Error ? err.message : '')
@@ -212,61 +294,75 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
   }
 
   const ocupado = generate.isPending || transcribir.isPending || armarEsquema.isPending
+  const modeloTxt = calidad === 'preciso' || (calidad === 'auto' && esFondo) ? 'Opus' : 'Sonnet'
+  const resumenAvanzadas = [
+    `${calidad === 'auto' ? 'Automático' : calidad === 'preciso' ? 'Preciso' : 'Rápido'} (${modeloTxt})`,
+    usarEsquema ? 'con esquema previo' : 'sin esquema',
+    selectedModelo ? `modelo: ${selectedModelo.nombre}` : null,
+    actuacionesExtra.length ? `+${actuacionesExtra.length} actuaciones` : null,
+  ].filter(Boolean).join(' · ')
+  const aviso = !hayPedido
+    ? 'Contá qué necesitás presentar o elegí un trámite.'
+    : !expedienteId
+      ? 'Sin expediente, la IA no usa las actuaciones ni los datos de la causa.'
+      : usarEsquema && !esquema
+        ? 'Primero vas a ver el esquema de argumentos para aprobarlo.'
+        : `Redacta ${modeloTxt} con los datos del expediente.`
 
   const pickerExpediente = (
-  <div>
-    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-      Expediente <span className="text-zinc-500 font-normal">(opcional)</span>
-    </label>
-    {expedienteId ? (
-      <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
-        <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-        <span className="flex-1 text-sm text-cyan-300 truncate">{expedienteQuery}</span>
-        <button
-          type="button"
-          onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
-          className="text-cyan-500 hover:text-cyan-300"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    ) : (
-      <>
-        <input
-          type="text" list="escritos-expedientes" value={expedienteQuery}
-          onChange={e => {
-            const val = e.target.value
-            setExpedienteQuery(val)
-            const match = expedientes.find(ex => ex.label === val)
-            setExpedienteId(match?.id ?? '')
-            setRespondeA('')
-            setActuacionesExtra([])
-            buscarExpedientes(val)
-          }}
-          placeholder="Buscar por carátula..."
-          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
-        />
-        <datalist id="escritos-expedientes">
-          {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
-        </datalist>
-      </>
-    )}
-  </div>
+    <div>
+      {expedienteId ? (
+        <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+          <span className="flex-1 text-sm text-cyan-200 truncate">{expedienteQuery || 'Expediente seleccionado'}</span>
+          <button type="button" title="Cambiar expediente"
+            onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
+            className="text-cyan-500 hover:text-cyan-300">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text" list="escritos-expedientes" value={expedienteQuery} autoFocus={!inicial?.expedienteId}
+              onChange={e => {
+                const val = e.target.value
+                setExpedienteQuery(val)
+                const match = expedientes.find(ex => ex.label === val)
+                setExpedienteId(match?.id ?? '')
+                setRespondeA('')
+                setActuacionesExtra([])
+                void buscarExpedientes(val)
+              }}
+              placeholder="Buscar por carátula o número…"
+              className={cn(campoBase, 'h-9 pl-8')}
+            />
+          </div>
+          <datalist id="escritos-expedientes">
+            {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
+          </datalist>
+          <p className="mt-1 text-[11px] text-zinc-500">Con el expediente se completan solos el carácter, la carátula y las actuaciones. Podés seguir sin elegir uno.</p>
+        </>
+      )}
+    </div>
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70">
-      <div className={cn('w-full rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl overflow-hidden', esquema ? 'sm:max-w-2xl' : 'sm:max-w-lg')}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+    <div data-oculta-bogabot className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70" onClick={ocupado ? undefined : onClose}>
+      <div onClick={e => e.stopPropagation()}
+        className={cn('flex max-h-[94vh] w-full flex-col rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl overflow-hidden', esquema ? 'sm:max-w-2xl' : 'sm:max-w-xl')}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
           <div>
             <h2 className="text-base font-semibold text-zinc-100">{esquema ? 'Esquema del escrito' : 'Nuevo escrito'}</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : modo === 'plantilla' ? 'Escritos de trámite con los datos del expediente, al instante.' : 'Describí lo que necesitás o elegí el tipo'}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : modo === 'plantilla' ? 'Escritos de trámite con los datos del expediente, al instante.' : 'Elegí el expediente y contá qué hay que presentar.'}</p>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 p-1"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} disabled={ocupado} title="Cerrar" className="text-zinc-500 hover:text-zinc-200 p-1 disabled:opacity-30"><X className="h-4 w-4" /></button>
         </div>
 
         {!esquema && (
-          <div className="px-5 pt-3">
+          <div className="px-5 pt-3 shrink-0">
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/[0.04] p-1 text-[12.5px]">
               {([['ia', 'Redactar con IA'], ['plantilla', 'Plantilla de trámite, sin IA']] as const).map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setModo(k)}
@@ -280,225 +376,242 @@ function NuevoEscritoDialog({ onClose, onCreated }: { onClose: () => void; onCre
           <NuevoDesdePlantilla expedienteId={expedienteId} pickerExpediente={pickerExpediente} onCreated={onCreated} onClose={onClose} />
         ) : (<>
         {esquema ? (
-          <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="min-h-0 flex-1 px-5 py-4 space-y-4 overflow-y-auto">
             <EsquemaEditor esquema={esquema} onChange={setEsquema} />
             {contexto && <p className="font-mono text-[10.5px] text-zinc-600">{contexto.modelo_nombre} · {contexto.motivo_modelo}</p>}
           </div>
         ) : (
-        <div className="px-5 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Describí lo que querés redactar <span className="text-zinc-500 font-normal">(o usá el tipo abajo)</span>
-            </label>
+        <div className="min-h-0 flex-1 px-5 py-4 space-y-5 overflow-y-auto">
+          <Paso n={1} titulo="Expediente">
+            {pickerExpediente}
+            {expedienteId && movimientos.length > 0 && (() => {
+              const respondibles = movimientos.filter(m =>
+                m.is_key === true || RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
+              ).slice(0, 40)
+              const otrasActuaciones = movimientos.filter(m =>
+                m.is_key !== true && !RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
+              ).slice(0, 20)
+              const mov = movimientos.find(mv => mv.id === respondeA)
+              return (
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">Responde a <span className="text-zinc-600">(opcional)</span></label>
+                  <select value={respondeA} onChange={e => onSelectActuacion(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                    <option value="">Ninguna actuación en particular</option>
+                    {respondibles.length > 0 && (
+                      <optgroup label="Para responder o cumplir">
+                        {respondibles.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.is_key === true ? '★ ' : ''}{m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {otrasActuaciones.length > 0 && (
+                      <optgroup label="Otras actuaciones">
+                        {otrasActuaciones.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                  {mov?.ai_suggested_action && <p className="mt-1 text-[11px] text-cyan-400/80">Acción sugerida: {mov.ai_suggested_action.titulo}</p>}
+                </div>
+              )
+            })()}
+          </Paso>
+
+          <Paso n={2} titulo="Qué hay que presentar" extra={
+            <div className="flex items-center gap-1">
+              <input ref={audioFileRef} type="file" accept="audio/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void volcarAudio(f); e.target.value = '' }} />
+              {transcribir.isPending ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-cyan-300"><Loader2 className="h-3 w-3 animate-spin" /> Transcribiendo…</span>
+              ) : (<>
+                <button type="button" onClick={toggleGrabar}
+                  className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium',
+                    grabando ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200')}>
+                  {grabando ? <Square className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                  {grabando ? 'Detener' : 'Dictar'}
+                </button>
+                {!grabando && (
+                  <button type="button" onClick={() => audioFileRef.current?.click()} title="Subir un audio (por ejemplo, de WhatsApp)"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-white/5 hover:text-zinc-200">
+                    <Upload className="h-3 w-3" /> Audio
+                  </button>
+                )}
+              </>)}
+            </div>
+          }>
             <textarea
               value={ideaLibre} onChange={e => setIdeaLibre(e.target.value)}
-              placeholder="Ej: Necesito contestar el traslado de demanda laboral de Juan García, reconviniendo por preaviso..."
+              placeholder="Contalo como a un colega. Ej.: contestar el traslado de la demanda laboral de Juan García, reconviniendo por preaviso."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none resize-none"
+              className={cn(campoBase, 'py-2 resize-none')}
             />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-              Tipo <span className="text-zinc-500 font-normal">(opcional)</span>
-            </label>
-            <input
-              type="text" list="escritos-tipos" value={tipo} onChange={e => setTipo(e.target.value)}
-              placeholder="Contestación de traslado, Demanda, Recurso..."
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none"
-            />
-            <datalist id="escritos-tipos">{TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}</datalist>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-300">Me presento como</label>
-            <CaracterSelector value={caracter} expedienteId={expedienteId || null}
-              onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-zinc-300">Instrucciones adicionales</label>
-              <button type="button" onClick={toggleGrabar}
-                className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium',
-                  grabando ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse' : 'text-zinc-500 hover:text-zinc-300'
-                )}>
-                {grabando ? <Square className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
-                {grabando ? 'Detener' : 'Dictar'}
-              </button>
-            </div>
-            <textarea
-              value={instrucciones} onChange={e => setInstrucciones(e.target.value)}
-              placeholder="Tono, puntos a destacar, normativa a citar..."
-              rows={2}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none resize-none"
-            />
-          </div>
-
-          {pickerExpediente}
-
-          {expedienteId && movimientos.length > 0 && (() => {
-            const respondibles = movimientos.filter(m =>
-              m.is_key === true || RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
-            ).slice(0, 40)
-            const otrasActuaciones = movimientos.filter(m =>
-              m.is_key !== true && !RESPONDIBLE_TYPES_FRONTEND.has(m.tipo_movimiento ?? '')
-            ).slice(0, 20)
-            return (
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-                  Responde a actuación <span className="text-zinc-500 font-normal">(opcional)</span>
-                </label>
-                <select
-                  value={respondeA}
-                  onChange={e => onSelectActuacion(e.target.value)}
-                  className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none"
-                >
-                  <option value="">Sin actuación específica</option>
-                  {respondibles.length > 0 && (
-                    <optgroup label="Respondibles / Clave">
-                      {respondibles.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.is_key === true ? '★ ' : ''}{m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {otrasActuaciones.length > 0 && (
-                    <optgroup label="Otras actuaciones">
-                      {otrasActuaciones.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.fecha ? m.fecha.slice(0, 10) : ''}{m.tipo_movimiento ? ` — ${m.tipo_movimiento}` : ''}{m.titulo ? ` — ${m.titulo.slice(0, 55)}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                {respondeA && (() => {
-                  const m = movimientos.find(mv => mv.id === respondeA)
-                  return m?.ai_suggested_action ? (
-                    <p className="mt-1 text-[11px] text-cyan-400/70">
-                      Acción sugerida: {m.ai_suggested_action.titulo}
-                    </p>
-                  ) : null
-                })()}
-              </div>
-            )
-          })()}
-
-          {expedienteId && movimientos.length > 1 && (
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">
-                Incluir actuaciones adicionales en el contexto <span className="text-zinc-500 font-normal">(opcional)</span>
-              </label>
-              <div className="max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-zinc-800 p-1 space-y-0.5">
-                {movimientos.slice(0, 60).map(m => {
-                  const checked = actuacionesExtra.includes(m.id)
-                  if (m.id === respondeA) return null
-                  return (
-                    <label key={m.id} className="flex items-start gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={e => {
-                          if (e.target.checked) setActuacionesExtra(prev => [...prev, m.id])
-                          else setActuacionesExtra(prev => prev.filter(id => id !== m.id))
-                        }}
-                        className="mt-0.5 accent-cyan-500 shrink-0"
-                      />
-                      <span className="text-xs text-zinc-300 leading-tight">
-                        {m.is_key === true ? '★ ' : ''}{m.fecha?.slice(0, 10)} — {m.tipo_movimiento}{m.titulo ? ` — ${m.titulo.slice(0, 50)}` : ''}
-                      </span>
-                    </label>
-                  )
-                })}
-              </div>
-              {actuacionesExtra.length > 0 && (
-                <p className="mt-1 text-[11px] text-zinc-500">{actuacionesExtra.length} actuación{actuacionesExtra.length !== 1 ? 'es' : ''} adicional{actuacionesExtra.length !== 1 ? 'es' : ''} incluida{actuacionesExtra.length !== 1 ? 's' : ''}</p>
-              )}
-            </div>
-          )}
-
-          {modelos.length > 0 && (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">Modelo estructural <span className="text-zinc-500 font-normal">(base del escrito)</span></label>
-              <select value={modeloId} onChange={e => setModeloId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
-                <option value="">Sin modelo (generación libre)</option>
-                {modelos.map(m => <option key={m.id} value={m.id}>{m.nombre} — {m.tipo}</option>)}
-              </select>
-            </div>
-          )}
-
-          {templates.filter(t => t.categoria === 'estilo').length > 0 && (
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">Template de estilo</label>
-              <select value={templateId} onChange={e => setTemplateId(e.target.value)}
-                className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
-                <option value="">Sin template</option>
-                {templates.filter(t => t.categoria === 'estilo').map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-              </select>
-            </div>
-          )}
-
-          <div className="space-y-2 rounded-lg border border-white/[0.08] p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-zinc-300">Modelo de IA</span>
-              <div className="ml-auto flex overflow-hidden rounded-md border border-white/10 text-[11.5px]">
-                {([['auto', 'Automático'], ['preciso', 'Preciso'], ['rapido', 'Rápido']] as const).map(([k, l]) => (
-                  <button key={k} type="button" onClick={() => { setCalidad(k); setContexto(null) }}
-                    className={cn('px-2.5 py-1', calidad === k ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200')}>{l}</button>
+              <p className="mb-1.5 text-[11px] text-zinc-500">O elegí un trámite frecuente</p>
+              <div className="flex flex-wrap gap-1.5">
+                {TRAMITE_PRESETS.map(p => (
+                  <button key={p.tipo} type="button" onClick={() => aplicarPreset(p)}
+                    className={cn('rounded-full border px-2.5 py-1 text-[11.5px] transition-colors',
+                      tipo === p.tipo ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/10 hover:text-zinc-200')}>
+                    {p.label}
+                  </button>
                 ))}
               </div>
             </div>
-            <p className="text-[11.5px] text-zinc-500">
-              {calidad === 'auto' ? (esFondo ? 'Escrito de fondo: se usa el modelo que mejor argumenta (Opus).' : 'Escrito de trámite: alcanza con el modelo rápido (Sonnet).')
-                : calidad === 'preciso' ? 'Opus: el que mejor razona. Más lento y más caro.' : 'Sonnet: rápido y económico.'}
-            </p>
-            <label className="flex items-start gap-2 text-[12.5px] text-zinc-300">
-              <input type="checkbox" checked={usarEsquema} onChange={(e) => setEsquemaPrimero(e.target.checked)} className="mt-0.5 accent-cyan-500" />
-              <span>Ver el esquema antes de redactar <span className="text-zinc-500">— argumentos, defensas de la contraria y prueba, para aprobar o corregir.{esFondo && esquemaPrimero === null ? ' Recomendado para este escrito.' : ''}</span></span>
-            </label>
-            <button type="button" onClick={handleVerContexto} disabled={verContexto.isPending}
-              className="inline-flex items-center gap-1.5 text-[12px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50">
-              {verContexto.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />} Qué va a usar la IA
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">Tipo de escrito <span className="text-zinc-600">(opcional si lo contaste arriba)</span></label>
+              <input
+                type="text" list="escritos-tipos" value={tipo} onChange={e => setTipo(e.target.value)}
+                placeholder="Contestación de traslado, Demanda, Recurso…"
+                className={cn(campoBase, 'h-9')}
+              />
+              <datalist id="escritos-tipos">{TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}</datalist>
+            </div>
+          </Paso>
+
+          <Paso n={3} titulo="Cómo se presenta">
+            <CaracterSelector value={caracter} expedienteId={expedienteId || null}
+              onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
+            <div>
+              <label className="mb-1 block text-xs text-zinc-400">Instrucciones <span className="text-zinc-600">(opcional)</span></label>
+              <textarea
+                value={instrucciones} onChange={e => setInstrucciones(e.target.value)}
+                placeholder="Tono, puntos a destacar, normativa a citar…"
+                rows={2}
+                className={cn(campoBase, 'py-2 resize-none')}
+              />
+            </div>
+            <div>
+              <button type="button" onClick={() => setShowContraparte(v => !v)}
+                className="inline-flex items-center gap-1.5 text-[12px] text-zinc-400 hover:text-zinc-200">
+                {showContraparte ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                Texto de la contraparte para rebatir {contraparteTexto.trim() && <span className="tag-mono">cargado</span>}
+              </button>
+              {showContraparte && (
+                <div className="mt-2">
+                  <textarea
+                    value={contraparteTexto} onChange={e => setContraparteTexto(e.target.value)}
+                    placeholder="Pegá los fragmentos del escrito de la contraparte que querés rebatir. Con los argumentos principales alcanza."
+                    rows={5}
+                    className={cn(campoBase, 'py-2 resize-y')}
+                  />
+                </div>
+              )}
+            </div>
+          </Paso>
+
+          <section className="rounded-lg border border-white/[0.08]">
+            <button type="button" onClick={() => setAvanzadas(v => !v)}
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+              <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+              <span className="text-[12.5px] font-medium text-zinc-300">Opciones avanzadas</span>
+              <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-zinc-500">{resumenAvanzadas}</span>
+              {avanzadas ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-500" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />}
             </button>
-            {contexto && <div className="border-t border-white/5 pt-2"><ContextoIAVista c={contexto} /></div>}
-          </div>
+            {avanzadas && (
+              <div className="space-y-4 border-t border-white/[0.06] px-3 py-3">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-zinc-300">Modelo de IA</span>
+                    <div className="ml-auto flex overflow-hidden rounded-md border border-white/10 text-[11.5px]">
+                      {([['auto', 'Automático'], ['preciso', 'Preciso'], ['rapido', 'Rápido']] as const).map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => { setCalidad(k); setContexto(null) }}
+                          className={cn('px-2.5 py-1', calidad === k ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200')}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11.5px] text-zinc-500">
+                    {calidad === 'auto' ? (esFondo ? 'Escrito de fondo: se usa el modelo que mejor argumenta (Opus).' : 'Escrito de trámite: alcanza con el modelo rápido (Sonnet).')
+                      : calidad === 'preciso' ? 'Opus: el que mejor razona. Más lento y más caro.' : 'Sonnet: rápido y económico.'}
+                  </p>
+                  <label className="flex items-start gap-2 text-[12.5px] text-zinc-300">
+                    <input type="checkbox" checked={usarEsquema} onChange={(e) => setEsquemaPrimero(e.target.checked)} className="mt-0.5 accent-cyan-500" />
+                    <span>Ver el esquema antes de redactar <span className="text-zinc-500">— argumentos, defensas de la contraria y prueba, para aprobar o corregir.{esFondo && esquemaPrimero === null ? ' Recomendado para este escrito.' : ''}</span></span>
+                  </label>
+                </div>
+
+                {modelos.length > 0 && (
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-300">Modelo estructural <span className="text-zinc-500">(base del escrito)</span></label>
+                    <select value={modeloId} onChange={e => setModeloId(e.target.value)}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                      <option value="">Sin modelo (generación libre)</option>
+                      {modelos.map(m => <option key={m.id} value={m.id}>{m.nombre} — {m.tipo}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {templates.filter(t => t.categoria === 'estilo').length > 0 && (
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-300">Template de estilo</label>
+                    <select value={templateId} onChange={e => setTemplateId(e.target.value)}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                      <option value="">Sin template</option>
+                      {templates.filter(t => t.categoria === 'estilo').map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {expedienteId && movimientos.length > 1 && (
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-300">Actuaciones adicionales para el contexto</label>
+                    <div className="max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-zinc-800 p-1 space-y-0.5">
+                      {movimientos.slice(0, 60).map(m => {
+                        if (m.id === respondeA) return null
+                        const checked = actuacionesExtra.includes(m.id)
+                        return (
+                          <label key={m.id} className="flex items-start gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5">
+                            <input type="checkbox" checked={checked}
+                              onChange={e => setActuacionesExtra(prev => e.target.checked ? [...prev, m.id] : prev.filter(id => id !== m.id))}
+                              className="mt-0.5 accent-cyan-500 shrink-0" />
+                            <span className="text-xs text-zinc-300 leading-tight">
+                              {m.is_key === true ? '★ ' : ''}{m.fecha?.slice(0, 10)} — {m.tipo_movimiento}{m.titulo ? ` — ${m.titulo.slice(0, 50)}` : ''}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <button type="button" onClick={handleVerContexto} disabled={verContexto.isPending}
+                  className="inline-flex items-center gap-1.5 text-[12px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50">
+                  {verContexto.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />} Qué va a usar la IA
+                </button>
+                {contexto && <div className="border-t border-white/5 pt-2"><ContextoIAVista c={contexto} /></div>}
+              </div>
+            )}
+          </section>
         </div>
         )}
 
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-white/5">
-          {esquema
-            ? <button onClick={() => setEsquema(null)} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg mr-auto">Volver</button>
-            : <button onClick={onClose} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">Cancelar</button>}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-white/5 bg-[#0d1319]">
+          {esquema ? (
+            <button onClick={() => setEsquema(null)} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg mr-auto">Volver</button>
+          ) : (
+            <p className={cn('mr-auto min-w-0 flex-1 basis-48 text-[11.5px]', hayPedido ? 'text-zinc-500' : 'text-amber-300/80')}>{aviso}</p>
+          )}
           {esquema && (
             <button onClick={handleEsquema} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">
               Rehacer esquema
             </button>
           )}
-          <button onClick={usarEsquema && !esquema ? handleEsquema : handleGenerar} disabled={ocupado}
+          {!esquema && <button onClick={onClose} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg disabled:opacity-30">Cancelar</button>}
+          <button onClick={usarEsquema && !esquema ? handleEsquema : handleGenerar} disabled={ocupado || !hayPedido}
             className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
             {generate.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {progressMsg ?? 'Generando...'}
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" />{progressMsg ?? 'Generando…'}</>
             ) : armarEsquema.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Armando la estrategia…
-              </>
+              <><Loader2 className="h-4 w-4 animate-spin" />Armando la estrategia…</>
             ) : usarEsquema && !esquema ? (
-              <>
-                <ListChecks className="h-4 w-4" />
-                Armar esquema
-              </>
+              <><ListChecks className="h-4 w-4" />Armar esquema</>
             ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                {esquema ? 'Redactar con este esquema' : 'Generar con IA'}
-              </>
+              <><Sparkles className="h-4 w-4" />{esquema ? 'Redactar con este esquema' : 'Generar con IA'}</>
             )}
           </button>
         </div>
@@ -1145,6 +1258,8 @@ function EscritoEditor({
   const [foco, setFoco] = useState<FocoAsistente | null>(null)
   const [antesDeFirmar, setAntesDeFirmar] = useState<null | (() => void)>(null)
   const [guardarPlantilla, setGuardarPlantilla] = useState(false)
+  const [saeOpen, setSaeOpen] = useState(false)
+  const navigate = useNavigate()
   const attachPdf = useAttachSignedPdf()
   const historialMutation = useEscritoHistorial()
   const revisar = useRevisarEscrito()
@@ -1394,7 +1509,11 @@ function EscritoEditor({
                 })
                 if (dirty) void guardarAhora().then(correr); else correr()
               }}
-              onAntesDeFirmar={conControl} />
+              onAntesDeFirmar={conControl}
+              onPresentarSae={escrito.expediente_id ? () => setSaeOpen(true) : undefined}
+              onVerProveido={escrito.expediente_id && escrito.proveido_movement_id
+                ? () => navigate(`/expedientes/${escrito.expediente_id}?tab=actuaciones&mid=${escrito.proveido_movement_id}`)
+                : undefined} />
           </div>
           {vista === 'editar' && (
             <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
@@ -1512,6 +1631,10 @@ function EscritoEditor({
         />
       )}
 
+      {saeOpen && (
+        <PresentarSaeDialog escrito={escrito} onClose={() => setSaeOpen(false)}
+          onSuccess={(nro) => { setSaeOpen(false); toast.success('Presentado al SAE', nro ? `Comprobante ${nro}` : undefined) }} />
+      )}
       {guardarPlantilla && (
         <GuardarPlantillaDialog titulo={escrito.titulo} tipo={escrito.tipo} contenido={contenido}
           expedienteId={escrito.expediente_id} onClose={() => setGuardarPlantilla(false)} />
@@ -1603,9 +1726,33 @@ export default function EscritosPage() {
   const [search, setSearch] = useState('')
   const [filtroExpediente, setFiltroExpediente] = useState('')
   const [bandeja, setBandeja] = useState<'pendientes' | 'presentar' | 'proveido' | 'cerrados' | 'todos'>('pendientes')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // El escrito abierto vive en la URL (/escritos/:id): se puede enlazar desde el expediente y volver con "atrás".
+  const navigate = useNavigate()
+  const { id: selectedId = null } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const setSelectedId = useCallback((id: string | null) => {
+    navigate(id ? `/escritos/${id}` : '/escritos', { replace: true })
+  }, [navigate])
   const [showNuevo, setShowNuevo] = useState(false)
+  const [nuevoInicial, setNuevoInicial] = useState<NuevoInicial | undefined>(undefined)
   const [showModelos, setShowModelos] = useState(false)
+
+  // ?nuevo=1&expediente=…&responde=… → abre el formulario apuntado a ese expediente/actuación
+  useEffect(() => {
+    if (searchParams.get('nuevo') !== '1') return
+    setNuevoInicial({ expedienteId: searchParams.get('expediente') ?? '', respondeA: searchParams.get('responde') ?? '' })
+    setShowNuevo(true)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // Al llegar con un escrito desde otro lado, la lista muestra los de su expediente
+  const contextoAplicado = useRef(false)
+  useEffect(() => {
+    if (contextoAplicado.current || !selectedId || !escritos.length) return
+    contextoAplicado.current = true
+    const e = (escritos as EscritoConExpediente[]).find((x) => x.id === selectedId)
+    if (e?.expediente_id) { setFiltroExpediente(e.expediente_id); setBandeja('todos') }
+  }, [selectedId, escritos])
 
   const escritoActual = useMemo(() => {
     if (!selectedId) return null
@@ -1649,8 +1796,10 @@ export default function EscritosPage() {
 
   const handleCreated = (escritoId: string) => {
     setShowNuevo(false)
+    setNuevoInicial(undefined)
     setSelectedId(escritoId)
   }
+  const abrirNuevo = () => { setNuevoInicial(filtroExpediente ? { expedienteId: filtroExpediente, respondeA: '' } : undefined); setShowNuevo(true) }
 
   const handleUpdate = async (patch: Partial<Pick<Escrito, 'titulo' | 'tipo' | 'estado' | 'contenido'>>, snapshotAntes?: EscritoContenido) => {
     if (!escritoActual) return
@@ -1690,7 +1839,7 @@ export default function EscritosPage() {
             <button onClick={() => setShowModelos(true)} title="Modelos" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <Layers className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setShowNuevo(true)} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
+            <button onClick={abrirNuevo} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setSidebarOpen(false)} className="hidden sm:block p-1 rounded text-zinc-700 hover:text-zinc-400">
@@ -1737,7 +1886,7 @@ export default function EscritosPage() {
             <div className="px-3 py-8 text-center">
               <FileText className="h-6 w-6 text-zinc-700 mx-auto mb-2" />
               <p className="text-xs text-zinc-600">No hay escritos</p>
-              <button onClick={() => setShowNuevo(true)} className="mt-2 text-xs text-cyan-400 hover:text-cyan-300">Crear primero</button>
+              <button onClick={abrirNuevo} className="mt-2 text-xs text-cyan-400 hover:text-cyan-300">Crear primero</button>
             </div>
           )}
           {escritosFiltrados.map(e => (
@@ -1779,7 +1928,7 @@ export default function EscritosPage() {
 
         {/* FAB móvil */}
         <div className="sm:hidden border-t border-white/5 p-3">
-          <button onClick={() => setShowNuevo(true)}
+          <button onClick={abrirNuevo}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
             <Plus className="h-4 w-4" /> Nuevo escrito
           </button>
@@ -1809,7 +1958,7 @@ export default function EscritosPage() {
               <h2 className="text-lg font-semibold text-zinc-300 mb-2">Taller de escritos</h2>
               <p className="text-sm text-zinc-500 mb-6">Redactá con IA usando el expediente, la normativa y los fallos del estudio, o armá los de trámite con una plantilla, sin IA. Revisá con un asistente y controlá citas y forma antes de firmar.</p>
               <div className="flex flex-col gap-2 items-center">
-                <button onClick={() => setShowNuevo(true)}
+                <button onClick={abrirNuevo}
                   className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
                   <Sparkles className="h-4 w-4" /> Nuevo escrito con IA
                 </button>
@@ -1843,7 +1992,7 @@ export default function EscritosPage() {
         )}
       </div>
 
-      {showNuevo && <NuevoEscritoDialog onClose={() => setShowNuevo(false)} onCreated={handleCreated} />}
+      {showNuevo && <NuevoEscritoDialog inicial={nuevoInicial} onClose={() => { setShowNuevo(false); setNuevoInicial(undefined) }} onCreated={handleCreated} />}
       {showModelos && <ModelosPanel onClose={() => setShowModelos(false)} />}
       {showPerfil && <PerfilRedaccionDialog onClose={() => setShowPerfil(false)} />}
       {showUso && <UsoIADialog onClose={() => setShowUso(false)} />}

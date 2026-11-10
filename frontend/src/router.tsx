@@ -163,7 +163,7 @@ export const router = createBrowserRouter([
       { path: 'configuracion', element: <SuspenseWrapper><ConfiguracionPage /></SuspenseWrapper> },
       { path: 'importar', element: <SuspenseWrapper><ImportarExcelPage /></SuspenseWrapper> },
       { path: 'importar-sae', element: <SuspenseWrapper><ImportarSaePage /></SuspenseWrapper> },
-      { path: 'escritos', element: <SuspenseWrapper><EscritosPage /></SuspenseWrapper> },
+      { path: 'escritos/:id?', element: <SuspenseWrapper><EscritosPage /></SuspenseWrapper> },
       { path: 'normativa', element: <SuspenseWrapper><NormativaPage /></SuspenseWrapper> },
       { path: 'normativa/:id', element: <SuspenseWrapper><NormativaDetailPage /></SuspenseWrapper> },
       { path: 'jurisprudencia', element: <SuspenseWrapper><JurisprudenciaPage /></SuspenseWrapper> },

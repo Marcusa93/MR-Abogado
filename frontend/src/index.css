@@ -1018,3 +1018,6 @@ html[data-theme='dark'] .mesh-gradient-bg {
 /* Botón primario heredado (.bg-gradient-cyan): acento plano */
 .dark .bg-gradient-cyan { background: #5cc8e8; }
 .dark .bg-gradient-cyan:hover { background: #7dd6f0; }
+
+/* Con un formulario a pantalla completa abierto, el botón flotante de BogaBot no tapa sus botones */
+body:has([data-oculta-bogabot]) [data-tour="bogabot-trigger"] { display: none; }
