@@ -940,6 +940,13 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Borrador listo: botón directo al escrito en la app (revisar, firmar y presentar en el SAE).
+    async function avisarListo(titulo: string, caratula: string | null, escritoId?: string) {
+      const texto = `✅ ${titulo} listo en ${caratula ?? 'el expediente'}.\n\nRevisalo, firmalo y presentalo en el SAE desde la app.`
+      if (escritoId) await tgSendKb(token!, chatId, texto, [[{ text: 'Abrir el escrito', url: `${APP_URL}/escritos/${escritoId}` }]])
+      else await tgSend(token!, chatId, texto)
+    }
+
     // CASO A: respuesta a una confirmación pendiente de tipo de escrito
     // El usuario respondió "Recurso de apelación" o "sí" a nuestra pregunta anterior.
     const tieneNumeroExpediente = /\d{3,}\/\d{2,}|\b\d{4,}\b/.test(texto)
@@ -984,7 +991,7 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
       const titulo = out.contenido?.titulo ? `"${out.contenido.titulo}"` : 'El borrador'
-      await tgSend(token, chatId, `✅ ${titulo} listo en ${caratula ?? 'el expediente'}.\n\nRevisalo en la app → Expedientes → solapa Escritos.`)
+      await avisarListo(titulo, caratula, out.escrito_id)
       return new Response('ok')
     }
 
@@ -1105,7 +1112,7 @@ Deno.serve(async (req) => {
     }
 
     const titulo = out.contenido?.titulo ? `"${out.contenido.titulo}"` : 'El borrador'
-    await tgSend(token, chatId, `✅ ${titulo} listo en ${expFinal.caratula ?? 'el expediente'}.\n\nRevisalo en la app → Expedientes → solapa Escritos.`)
+    await avisarListo(titulo, expFinal.caratula, out.escrito_id)
     return new Response('ok')
   } catch (err) {
     console.error('[telegram-escrito]', err)

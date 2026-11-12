@@ -16,6 +16,7 @@ import { AsistentePanel, type FocoAsistente } from '@/components/escritos/asiste
 import { PanelEscrito, revisionDesactualizada, useCitasDetectadas } from '@/components/escritos/panel-escrito'
 import { AntesDeFirmarDialog } from '@/components/escritos/revision-formal'
 import { PresentarSaeDialog } from '@/components/escritos/presentar-sae-dialog'
+import { EscritosAyudaBoton } from '@/components/escritos/escritos-ayuda'
 import { useContextoIA, useEsquemaEscrito, useRevisarEscrito, type Calidad, type ContextoIA, type Esquema } from '@/hooks/use-redaccion'
 import { datosPorCompletar } from '@/components/expedientes/guia-escrito'
 import { useAuth } from '@/hooks/use-auth'
@@ -1466,7 +1467,7 @@ function EscritoEditor({
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Vista toggle */}
-          <div className="hidden sm:flex rounded-lg border border-white/10 overflow-hidden">
+          <div data-tour="esc-vista" className="hidden sm:flex rounded-lg border border-white/10 overflow-hidden">
             {([['editar', 'Editar', ''], ['lado', 'Lado a lado', 'hidden lg:block'], ['preview', 'Escrito', '']] as const).map(([k, l, extra]) => (
               <button key={k} onClick={() => setVista(k)} title={k === 'lado' ? 'Editar y ver el escrito en vivo al costado' : undefined}
                 className={cn('px-2.5 py-1 text-xs font-medium', extra, vista === k ? 'bg-white/10 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300')}>
@@ -1489,12 +1490,13 @@ function EscritoEditor({
             </span>
           )}
 
-          <button onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { if (vista === 'lado') setVistaState('editar'); setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
+          <EscritosAyudaBoton />
+          <button data-tour="esc-asistente" onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { if (vista === 'lado') setVistaState('editar'); setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
             title="Asistente"
             className={cn('inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:bg-white/5', refsOpen ? 'text-cyan-300' : 'text-zinc-400 hover:text-zinc-200')}>
             <MessageSquare className="h-4 w-4" /> <span className="hidden md:inline">Asistente</span>
           </button>
-          <div className="relative">
+          <div data-tour="esc-mas" className="relative">
             <button onClick={() => setMasOpen(v => !v)} aria-label="Más acciones" aria-expanded={masOpen} title="Más acciones"
               className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-zinc-200">
               <MoreHorizontal className="h-4 w-4" />
@@ -1528,7 +1530,7 @@ function EscritoEditor({
       </div>
 
       {/* Celular y tablet: alternar entre editar y ver el escrito */}
-      <div className="flex shrink-0 border-b border-white/5 sm:hidden">
+      <div data-tour="esc-vista" className="flex shrink-0 border-b border-white/5 sm:hidden">
         {([['editar', 'Editar'], ['preview', 'Ver escrito']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setVistaState(k)}
             className={cn('flex-1 border-b-2 py-2.5 text-xs font-medium',
@@ -1547,7 +1549,7 @@ function EscritoEditor({
         )}
         {/* Editor / Preview */}
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-4">
+          <div data-tour="esc-guia" className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-4">
             <GuiaEscrito escrito={escrito} contenido={contenido} abogado={abogado} dirty={dirty} guardando={guardando}
               onGuardar={() => { void guardarAhora() }}
               revisado={!!revision && !desactualizada}
@@ -1568,6 +1570,7 @@ function EscritoEditor({
           </div>
           {(vista === 'editar' || vista === 'lado') && (
             <div className="p-3 pb-24 sm:p-4 space-y-3 sm:space-y-4 max-w-3xl mx-auto">
+              <div data-tour="esc-texto" className="space-y-3 sm:space-y-4">
               {/* Encabezado y carátula */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1629,6 +1632,8 @@ function EscritoEditor({
                 />
               ))}
 
+              </div>
+
               <button onClick={addSeccion}
                 className="w-full rounded-lg border border-dashed border-white/10 py-2.5 text-xs text-zinc-500 hover:text-zinc-300 hover:border-white/20 flex items-center justify-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> Agregar sección
@@ -1650,7 +1655,7 @@ function EscritoEditor({
 
         {/* Escrito en vivo al costado */}
         {ladoALado && (
-          <div className="hidden lg:block w-[44%] max-w-[640px] shrink-0 border-l border-white/5">
+          <div data-tour="esc-vivo" className="hidden lg:block w-[44%] max-w-[640px] shrink-0 border-l border-white/5">
             <VistaEnVivo contenido={contenido} abogado={abogado!} printRef={printRef} />
           </div>
         )}
@@ -1938,7 +1943,9 @@ export default function EscritosPage() {
             <PenLine className="h-4 w-4 text-cyan-400" />
             <span className="text-sm font-semibold text-zinc-200">Escritos</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
+            <EscritosAyudaBoton className="min-h-7 min-w-7" />
+            <span data-tour="esc-herramientas" className="flex gap-1">
             <button onClick={() => setShowPerfil(true)} title="Perfil de redacción" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <SlidersHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -1948,7 +1955,8 @@ export default function EscritosPage() {
             <button onClick={() => setShowModelos(true)} title="Modelos" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
               <Layers className="h-3.5 w-3.5" />
             </button>
-            <button onClick={abrirNuevo} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
+            </span>
+            <button data-tour="esc-nuevo" onClick={abrirNuevo} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
               <Plus className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setSidebarOpen(false)} className="hidden sm:block p-1 rounded text-zinc-700 hover:text-zinc-400">
@@ -1967,7 +1975,7 @@ export default function EscritosPage() {
         </div>
 
         {/* Bandejas */}
-        <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
+        <div data-tour="esc-bandejas" className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
           {([['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const).map(([b, label]) => (
             <button key={b} type="button" onClick={() => setBandeja(b)}
               className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
@@ -1989,7 +1997,7 @@ export default function EscritosPage() {
         )}
 
         {/* Lista */}
-        <div className="flex-1 overflow-y-auto">
+        <div data-tour="esc-lista" className="flex-1 overflow-y-auto">
           {isLoading && <div className="px-3 py-4 text-xs text-zinc-600">Cargando...</div>}
           {!isLoading && escritosFiltrados.length === 0 && (
             <div className="px-3 py-8 text-center">
@@ -2037,7 +2045,7 @@ export default function EscritosPage() {
 
         {/* FAB móvil */}
         <div className="sm:hidden border-t border-white/5 p-3 pr-[4.75rem]">
-          <button onClick={abrirNuevo}
+          <button data-tour="esc-nuevo" onClick={abrirNuevo}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
             <Plus className="h-4 w-4" /> Nuevo escrito
           </button>
