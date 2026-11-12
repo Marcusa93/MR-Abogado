@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, CheckCircle2, ChevronDown, ExternalLink, Loader2, X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ChevronDown, ExternalLink, FileUp, Loader2, X } from 'lucide-react'
 import { useAttachSignedPdf, useMarcarPresentado, type Escrito, type EscritoContenido } from '@/hooks/use-escritos'
 import type { EscritoEncabezadoAbogado } from './escrito-preview'
 import { descargarPdfEscrito } from '@/lib/escritos/pdf-escrito'
@@ -71,6 +71,7 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
   const [revisadoLocal, setRevisado] = useState(false)
   const revisado = revisadoExt ?? revisadoLocal
   const [presentando, setPresentando] = useState(false)
+  const [firmando, setFirmando] = useState(false)
   const [verLista, setVerLista] = useState(false)
 
   const pendientes = datosPorCompletar(contenido)
@@ -111,13 +112,15 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
     { key: 'revisar', titulo: 'Revisión antes de firmar', hecho: revisado, opcional: revisadoExt === undefined, oculto: !onRevisar,
       detalle: 'Requisitos formales del código procesal, pedidos sin fundamento, citas y plazos. La hace un modelo distinto del que redactó.',
       accion: onRevisar ? { label: revisando ? 'Revisando…' : 'Revisar', onClick: () => { setRevisado(true); onRevisar() }, cargando: revisando } : undefined },
-    { key: 'pdf', titulo: 'Descargar el PDF para firmar', hecho: pdfBajado || firmado,
-      detalle: 'Sale con el formato del estudio, listo para firmar.gob.ar.',
-      accion: { label: 'Descargar PDF', onClick: () => { void bajarPdf() }, cargando: generandoPdf } },
-    { key: 'firmar', titulo: 'Firmar y adjuntar el PDF firmado', hecho: firmado,
-      detalle: 'Firmalo en firmar.gob.ar con tu token o firma remota y subí acá el PDF firmado: queda guardado con el escrito.',
-      accion: { label: 'Adjuntar PDF firmado', onClick: () => (onAntesDeFirmar ? onAntesDeFirmar(() => archivoRef.current?.click()) : archivoRef.current?.click()), cargando: attach.isPending },
-      secundaria: { label: 'Abrir firmar.gob.ar', onClick: () => {}, href: 'https://firmar.gob.ar/firmador/' } },
+    { key: 'firmar', titulo: 'Firmar el escrito', hecho: firmado,
+      detalle: onPresentarSae
+        ? 'Se baja el PDF y se abre firmar.gob.ar en una ventana al costado. Firmás, arrastrás el PDF firmado y pasás directo a presentarlo en el SAE.'
+        : 'Se baja el PDF y se abre firmar.gob.ar en una ventana al costado. Firmás y arrastrás acá el PDF firmado.',
+      accion: { label: 'Firmar', onClick: () => {
+        if (!abogado) return toast.error('Faltan tus datos profesionales', 'Completalos en Configuración → Perfil.')
+        if (onAntesDeFirmar) onAntesDeFirmar(() => setFirmando(true)); else setFirmando(true)
+      } },
+      secundaria: { label: pdfBajado ? 'Adjuntar PDF firmado' : 'Solo descargar el PDF', onClick: () => (pdfBajado ? archivoRef.current?.click() : void bajarPdf()) } },
     { key: 'presentar', titulo: 'Presentarlo en el juzgado', hecho: false,
       ...(onPresentarSae && firmado ? {
         detalle: 'Se presenta desde acá en el portal del SAE con el PDF firmado. Queda la tarea de controlar el proveído y te aviso cuando llegue.',
@@ -188,6 +191,19 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
         </ol>
       )}
       {presentando && <MarcarPresentadoDialog escrito={escrito} onClose={() => setPresentando(false)} />}
+      {firmando && abogado && (
+        <FirmarDialog
+          titulo={escrito.titulo}
+          descargar={() => descargarPdfEscrito(contenido, abogado, escrito.titulo).then(() => setPdfBajado(true))}
+          adjuntar={(file) => new Promise<boolean>((resolve, reject) => attach.mutate(
+            { escrito_id: escrito.id, expediente_id: escrito.expediente_id, file },
+            { onSuccess: ({ hasSignature }) => resolve(hasSignature), onError: reject },
+          ))}
+          siguiente={onPresentarSae ? 'Presentar en el SAE' : null}
+          onClose={() => setFirmando(false)}
+          onListo={() => { setFirmando(false); onPresentarSae?.() }}
+        />
+      )}
     </div>
   )
 }
@@ -246,6 +262,128 @@ function MarcarPresentadoDialog({ escrito, onClose }: { escrito: Escrito; onClos
             {marcar.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Confirmar
           </button>
         </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Firmar: PDF + firmar.gob.ar al costado + soltar el firmado ─────────────
+
+const FIRMADOR_URL = 'https://firmar.gob.ar/firmador/#/'
+
+/** Abre firmar.gob.ar en una ventana angosta pegada al borde derecho. Debe llamarse en el click. */
+function abrirFirmador() {
+  const w = Math.min(620, Math.round(window.screen.availWidth * 0.42))
+  const h = window.screen.availHeight
+  const left = (window.screen as Screen & { availLeft?: number }).availLeft ?? 0
+  const x = left + window.screen.availWidth - w
+  const win = window.open(FIRMADOR_URL, 'firmar-gob-ar', `popup=yes,width=${w},height=${h},left=${x},top=0`)
+  if (win) { try { win.opener = null } catch { /* cross-origin */ } win.focus() }
+  return !!win
+}
+
+function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo }: {
+  titulo: string
+  descargar: () => Promise<void>
+  adjuntar: (file: File) => Promise<boolean>
+  siguiente: string | null
+  onClose: () => void
+  onListo: () => void
+}) {
+  const [bajando, setBajando] = useState(true)
+  const [ventana, setVentana] = useState<boolean | null>(null)
+  const [sobre, setSobre] = useState(false)
+  const [subiendo, setSubiendo] = useState(false)
+  const [resultado, setResultado] = useState<{ firma: boolean; nombre: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const arrancado = useRef(false)
+
+  // Al abrir (todavía dentro de la activación del click): ventana del firmador y descarga del PDF.
+  useEffect(() => {
+    if (arrancado.current) return
+    arrancado.current = true
+    setVentana(abrirFirmador())
+    descargar().catch((e) => setError(e instanceof Error ? e.message : 'No se pudo generar el PDF')).finally(() => setBajando(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const recibir = async (file: File | undefined) => {
+    if (!file) return
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { setError('Tiene que ser el PDF firmado.'); return }
+    setError(null); setSubiendo(true)
+    try {
+      const firma = await adjuntar(file)
+      setResultado({ firma, nombre: file.name })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo adjuntar')
+    } finally { setSubiendo(false) }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 sm:items-center sm:justify-start sm:p-6" onClick={subiendo ? undefined : onClose}
+      onDragOver={(e) => { e.preventDefault(); setSobre(true) }} onDragLeave={() => setSobre(false)}
+      onDrop={(e) => { e.preventDefault(); setSobre(false); void recibir(e.dataTransfer.files?.[0]) }}>
+      <div className="w-full space-y-3 rounded-t-xl bg-white p-4 shadow-xl dark:bg-[var(--card)] sm:max-w-md sm:rounded-xl" onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-start gap-2">
+          <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Firmar el escrito</p>
+          <button type="button" onClick={onClose} disabled={subiendo} className="-m-1 rounded-lg p-1 text-zinc-400" aria-label="Cerrar"><X className="h-5 w-5" /></button>
+        </div>
+        <p className="line-clamp-1 text-xs text-zinc-500">"{titulo}"</p>
+
+        <ol className="space-y-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+          <li className="flex items-center gap-2">
+            {bajando ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />}
+            {bajando ? 'Generando el PDF…' : 'PDF descargado'}
+          </li>
+          <li className="flex items-center gap-2">
+            {ventana ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <span className="h-4 w-4 shrink-0 rounded-full border border-zinc-300 dark:border-white/20" />}
+            <span className="flex-1">{ventana === false ? 'El navegador bloqueó la ventana de firmar.gob.ar.' : 'firmar.gob.ar abierto al costado'}</span>
+            <button type="button" onClick={() => setVentana(abrirFirmador())} className="shrink-0 text-xs text-cyan-700 underline dark:text-cyan-300">
+              {ventana === false ? 'Abrir' : 'Traer al frente'}
+            </button>
+          </li>
+          <li className="flex items-center gap-2">
+            {resultado ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <span className="h-4 w-4 shrink-0 rounded-full border border-zinc-300 dark:border-white/20" />}
+            Firmalo y traé acá el PDF firmado
+          </li>
+        </ol>
+
+        {!resultado ? (
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={subiendo}
+            className={cn('flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-7 text-center transition-colors',
+              sobre ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10' : 'border-zinc-300 hover:border-zinc-400 dark:border-white/15')}>
+            {subiendo ? <Loader2 className="h-6 w-6 animate-spin text-zinc-400" /> : <FileUp className="h-6 w-6 text-zinc-400" />}
+            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{subiendo ? 'Adjuntando…' : 'Arrastrá acá el PDF firmado'}</span>
+            <span className="text-xs text-zinc-500">o tocá para elegirlo de Descargas</span>
+          </button>
+        ) : (
+          <div className={cn('rounded-lg border p-3 text-sm', resultado.firma
+            ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+            : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200')}>
+            {resultado.firma ? 'PDF firmado adjuntado.' : 'Adjuntado, pero no detecté una firma digital. Verificá que sea el archivo firmado.'}
+            <span className="block truncate text-xs opacity-75">{resultado.nombre}</span>
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden"
+          onChange={(e) => { void recibir(e.target.files?.[0]); e.target.value = '' }} />
+
+        {error && <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>}
+
+        {resultado && (
+          <div className="flex gap-2 pt-1">
+            {!resultado.firma && (
+              <button type="button" onClick={() => { setResultado(null); inputRef.current?.click() }}
+                className="min-h-10 flex-1 rounded-xl border border-zinc-200 text-sm text-zinc-600 dark:border-white/10 dark:text-zinc-300">Elegir otro</button>
+            )}
+            <button type="button" onClick={siguiente ? onListo : onClose}
+              className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 text-sm font-medium text-white">
+              {siguiente ?? 'Listo'} {siguiente && <ArrowRight className="h-4 w-4" />}
+            </button>
+          </div>
+        )}
       </div>
     </div>,
     document.body,
