@@ -374,7 +374,8 @@ export async function avisarPedidoRevision(admin: Admin, token: string, escritoI
     if (abogado && e.contenido?.secciones) await tgDocumento(token, chat, await pdfEscrito(e.contenido, abogado), `${nombreArchivo(titulo)}.pdf`)
   } catch (err) { console.error('[escrito-bot] pdf revisión', err) }
   const faltan = e.contenido ? pendientes(e.contenido).length : 0
-  const texto = `📋 ${quien} te pidió revisar: "${titulo}"` +
+  const mismo = e.revision_pedida_por === e.revision_pedida_a
+  const texto = (mismo ? `📋 Para revisar (enviado desde tu usuario): "${titulo}"` : `📋 ${quien} te pidió revisar: "${titulo}"`) +
     (e.expediente?.caratula ? `\n${e.expediente.caratula.slice(0, 90)}` : '') +
     (e.revision_nota ? `\n\nNota: ${e.revision_nota.slice(0, 600)}` : '') +
     (faltan ? `\n\nQuedan ${faltan} ${faltan === 1 ? 'dato' : 'datos'} entre corchetes.` : '')

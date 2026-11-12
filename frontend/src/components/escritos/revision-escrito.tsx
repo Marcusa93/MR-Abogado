@@ -17,10 +17,10 @@ const campo = 'w-full rounded-lg border border-zinc-200 bg-white px-3 text-base 
 export function EnviarRevisionDialog({ escrito, onClose }: { escrito: Escrito; onClose: () => void }) {
   const yo = useAuthStore((s) => s.user?.id)
   const { data: revisores = [], isLoading } = useRevisores()
-  const opciones = revisores.filter((r) => r.id !== yo)
+  const opciones = revisores
   // Por defecto, el director principal (el primero dado de alta), igual que el bot
   const principal = revisores.filter((r) => r.rol === 'DIRECTOR').sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
-  const director = principal && principal.id !== yo ? principal : undefined
+  const director = principal
   const [revisor, setRevisor] = useState<string>('')
   const elegido = revisor || director?.id || opciones[0]?.id || ''
   const [nota, setNota] = useState('')
@@ -28,7 +28,7 @@ export function EnviarRevisionDialog({ escrito, onClose }: { escrito: Escrito; o
 
   const enviar = () => pedir.mutate({ modo: 'pedir', escrito_id: escrito.id, revisor_id: elegido, nota }, {
     onSuccess: (r) => {
-      const quien = nombre(opciones.find((o) => o.id === elegido))
+      const quien = elegido === yo ? 'vos' : nombre(opciones.find((o) => o.id === elegido))
       toast.success(`Enviado a revisión de ${quien}`, r.telegram ? 'Le llegó el aviso por Telegram, con el PDF.' : 'No tiene Telegram vinculado: lo va a ver en Escritos, en «Para revisar».')
       onClose()
     },
@@ -46,7 +46,7 @@ export function EnviarRevisionDialog({ escrito, onClose }: { escrito: Escrito; o
         <p className="line-clamp-1 text-xs text-zinc-500">"{escrito.titulo}"</p>
         <label className="block space-y-1 text-xs text-zinc-500">¿Quién lo revisa?
           <select value={elegido} onChange={(e) => setRevisor(e.target.value)} disabled={isLoading} className={cn(campo, 'min-h-10')}>
-            {opciones.map((r) => <option key={r.id} value={r.id}>{nombre(r)}{r.id === principal?.id ? ' (director)' : ''}</option>)}
+            {opciones.map((r) => <option key={r.id} value={r.id}>{nombre(r)}{r.id === principal?.id ? ' (director)' : ''}{r.id === yo ? ' (vos)' : ''}</option>)}
           </select>
         </label>
         <label className="block space-y-1 text-xs text-zinc-500">Nota (opcional)
@@ -94,7 +94,7 @@ export function BannerRevision({ escrito }: { escrito: Escrito }) {
       <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
         <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
           <UserCheck className="h-4 w-4 shrink-0" />
-          {soyRevisor ? `${pidio} te pidió revisarlo` : `En revisión con ${revisor}`}
+          {soyRevisor ? (escrito.revision_pedida_por === yo ? 'Pendiente de tu revisión' : `${pidio} te pidió revisarlo`) : `En revisión con ${revisor}`}
           <span className="font-normal text-amber-700/80 dark:text-amber-200/60">· {fecha(escrito.revision_pedida_at)}</span>
         </p>
         {escrito.revision_nota && <p className="mt-1 text-[13px] text-amber-900/90 dark:text-amber-100/80">Nota: {escrito.revision_nota}</p>}

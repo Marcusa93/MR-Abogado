@@ -44,7 +44,6 @@ Deno.serve(async (req) => {
 
     if (body.modo === 'pedir') {
       if (!body.revisor_id) return json(req, { error: 'Elegí quién lo revisa' }, 400)
-      if (body.revisor_id === user.id) return json(req, { error: 'No podés pedirte la revisión a vos mismo' }, 400)
       const { data: r } = await admin.from('profiles').select('id, rol, activo').eq('id', body.revisor_id).maybeSingle()
       const revisor = r as { id: string; rol: string; activo: boolean } | null
       if (!revisor?.activo || !['DIRECTOR', 'ABOGADO'].includes(revisor.rol)) return json(req, { error: 'Esa persona no puede revisar escritos' }, 400)
