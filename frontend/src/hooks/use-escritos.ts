@@ -611,15 +611,17 @@ export function useAttachSignedPdf() {
 export interface PresentarPayload {
   escrito_id: string
   expediente_id: string
-  categoria: string
+  tipo_id: string
   descripcion: string
   presenta_documentacion: boolean
+  crear_seguimiento?: boolean
 }
 
 export interface PresentarResult {
   ok: boolean
   escrito_id?: string
   nro_comprobante?: string | null
+  mensaje?: string
   presentacion?: Record<string, unknown>
 }
 
@@ -631,9 +633,10 @@ export function usePresentarEscrito() {
       const { data, error } = await supabase.functions.invoke('escritos-presentar', {
         body: {
           escrito_id: input.escrito_id,
-          categoria: input.categoria,
+          tipo_id: input.tipo_id,
           descripcion: input.descripcion,
           presenta_documentacion: input.presenta_documentacion,
+          crear_seguimiento: input.crear_seguimiento ?? true,
         },
       })
       if (error) throw await extractFnError(error)
@@ -642,6 +645,9 @@ export function usePresentarEscrito() {
     },
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ['escritos', vars.expediente_id] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
+      queryClient.invalidateQueries({ queryKey: ['escritos'] })
+      queryClient.invalidateQueries({ queryKey: ['tareas'] })
     },
   })
 }
@@ -651,7 +657,13 @@ export interface PortalFormInfo {
   ok: true
   dry_run: true
   categorias: { nombre: string; id: string }[]
-  expediente: { caratula?: string; oficina?: string; fueroSlug: string }
+  expediente: {
+    numero: string
+    caratula?: string | null
+    oficina?: string
+    ultima_radicacion?: boolean
+    fecha_radicacion?: string
+  }
 }
 
 export function useFetchPortalCategorias() {

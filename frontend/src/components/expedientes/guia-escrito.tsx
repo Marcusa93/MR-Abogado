@@ -119,9 +119,15 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
       accion: { label: 'Adjuntar PDF firmado', onClick: () => (onAntesDeFirmar ? onAntesDeFirmar(() => archivoRef.current?.click()) : archivoRef.current?.click()), cargando: attach.isPending },
       secundaria: { label: 'Abrir firmar.gob.ar', onClick: () => {}, href: 'https://firmar.gob.ar/firmador/' } },
     { key: 'presentar', titulo: 'Presentarlo en el juzgado', hecho: false,
-      detalle: 'Presentalo en el portal del SAE y marcalo acá: se crea la tarea de controlar el proveído y te aviso cuando llegue.',
-      accion: { label: 'Ya lo presenté', onClick: () => setPresentando(true) },
-      secundaria: onPresentarSae && firmado ? { label: 'Presentar automático (beta)', onClick: onPresentarSae } : { label: 'Abrir el portal del SAE', onClick: () => {}, href: 'https://portaldelsae.justucuman.gov.ar/ingreso-escritos' } },
+      ...(onPresentarSae && firmado ? {
+        detalle: 'Se presenta desde acá en el portal del SAE con el PDF firmado. Queda la tarea de controlar el proveído y te aviso cuando llegue.',
+        accion: { label: 'Presentar en el SAE', onClick: onPresentarSae },
+        secundaria: { label: 'Ya lo presenté por otra vía', onClick: () => setPresentando(true) },
+      } : {
+        detalle: 'Presentalo en el portal del SAE y marcalo acá: se crea la tarea de controlar el proveído y te aviso cuando llegue.',
+        accion: { label: 'Ya lo presenté', onClick: () => setPresentando(true) },
+        secundaria: { label: 'Abrir el portal del SAE', onClick: () => {}, href: 'https://portaldelsae.justucuman.gov.ar/ingreso-escritos' },
+      }) },
   ]
 
   const visibles = pasos.filter((p) => !p.oculto)

@@ -89,8 +89,8 @@ const PORTALES_EXTERNOS = [
   { label: 'Microjuris', url: 'https://ar.microjuris.com', desc: 'Base de fallos y doctrina' },
 ]
 
-/** Se habilita cuando escritos-presentar esté calibrado contra el portal (hoy tiene TODO(cURL)). */
-const PRESENTACION_SAE_LISTA = false
+/** Presentación en el portal del SAE desde la app (escritos-presentar, relevado nov-2026). */
+const PRESENTACION_SAE_LISTA = true
 
 // ─── NuevoEscritoDialog ───────────────────────────────────────────────────────
 
@@ -1560,7 +1560,7 @@ function EscritoEditor({
                 if (dirty) void guardarAhora().then(correr); else correr()
               }}
               onAntesDeFirmar={conControl}
-              // Presentación automática: oculta hasta calibrar escritos-presentar con una presentación real (F12)
+              // Presentación en el portal del SAE con el PDF firmado
               onPresentarSae={PRESENTACION_SAE_LISTA && escrito.expediente_id ? () => setSaeOpen(true) : undefined}
               onVerProveido={escrito.expediente_id && escrito.proveido_movement_id
                 ? () => navigate(`/expedientes/${escrito.expediente_id}?tab=actuaciones&mid=${escrito.proveido_movement_id}`)
@@ -1702,7 +1702,7 @@ function EscritoEditor({
 
       {saeOpen && (
         <PresentarSaeDialog escrito={escrito} onClose={() => setSaeOpen(false)}
-          onSuccess={(nro) => { setSaeOpen(false); toast.success('Presentado al SAE', nro ? `Comprobante ${nro}` : undefined) }} />
+          onSuccess={(msg) => { setSaeOpen(false); toast.success('Escrito presentado en el SAE', msg ?? undefined) }} />
       )}
       {guardarPlantilla && (
         <GuardarPlantillaDialog titulo={escrito.titulo} tipo={escrito.tipo} contenido={contenido}
