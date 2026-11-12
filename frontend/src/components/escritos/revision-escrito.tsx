@@ -18,7 +18,9 @@ export function EnviarRevisionDialog({ escrito, onClose }: { escrito: Escrito; o
   const yo = useAuthStore((s) => s.user?.id)
   const { data: revisores = [], isLoading } = useRevisores()
   const opciones = revisores.filter((r) => r.id !== yo)
-  const director = opciones.find((r) => r.rol === 'DIRECTOR')
+  // Por defecto, el director principal (el primero dado de alta), igual que el bot
+  const principal = revisores.filter((r) => r.rol === 'DIRECTOR').sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
+  const director = principal && principal.id !== yo ? principal : undefined
   const [revisor, setRevisor] = useState<string>('')
   const elegido = revisor || director?.id || opciones[0]?.id || ''
   const [nota, setNota] = useState('')
@@ -44,7 +46,7 @@ export function EnviarRevisionDialog({ escrito, onClose }: { escrito: Escrito; o
         <p className="line-clamp-1 text-xs text-zinc-500">"{escrito.titulo}"</p>
         <label className="block space-y-1 text-xs text-zinc-500">¿Quién lo revisa?
           <select value={elegido} onChange={(e) => setRevisor(e.target.value)} disabled={isLoading} className={cn(campo, 'min-h-10')}>
-            {opciones.map((r) => <option key={r.id} value={r.id}>{nombre(r)}{r.rol === 'DIRECTOR' ? ' (director)' : ''}</option>)}
+            {opciones.map((r) => <option key={r.id} value={r.id}>{nombre(r)}{r.id === principal?.id ? ' (director)' : ''}</option>)}
           </select>
         </label>
         <label className="block space-y-1 text-xs text-zinc-500">Nota (opcional)

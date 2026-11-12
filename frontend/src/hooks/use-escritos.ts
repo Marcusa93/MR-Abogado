@@ -764,7 +764,7 @@ export function useMarcarPresentado() {
 
 // ─── Revisión entre personas del estudio ────────────────────────────────────
 
-export interface Revisor { id: string; nombre: string | null; apellido: string | null; rol: string }
+export interface Revisor { id: string; nombre: string | null; apellido: string | null; rol: string; created_at: string }
 
 /** Abogados y directores activos (quienes pueden revisar escritos). */
 export function useRevisores() {
@@ -773,7 +773,7 @@ export function useRevisores() {
     queryKey: ['revisores-escritos'],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('id, nombre, apellido, rol')
+      const { data, error } = await supabase.from('profiles').select('id, nombre, apellido, rol, created_at')
         .eq('activo', true).in('rol', ['DIRECTOR', 'ABOGADO']).order('nombre')
       if (error) throw error
       return (data ?? []) as Revisor[]
