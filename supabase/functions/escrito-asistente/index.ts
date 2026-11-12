@@ -135,21 +135,33 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!apiKey) return json(req, { error: 'OPENROUTER_API_KEY no configurada' }, 500)
 
-    const anon = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
-    )
-    const { data: { user }, error: authError } = await anon.auth.getUser()
-    if (authError || !user) return json(req, { error: 'No autorizado' }, 401)
-
     const body = await req.json().catch(() => null) as {
       escrito_id?: string
       contenido?: Contenido
       mensajes?: { role: string; content: string }[]
       foco?: { seccion: number; parrafo?: number | null } | null
       calidad?: 'auto' | 'preciso' | 'rapido'
+      on_behalf_of_user_id?: string
     } | null
+
+    // Llamada interna (bot de escritos de Telegram): service role + on_behalf_of_user_id.
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const interna = authHeader === `Bearer ${serviceKey}`
+    const anon = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      interna ? serviceKey : Deno.env.get('SUPABASE_ANON_KEY')!,
+      interna ? {} : { global: { headers: { Authorization: authHeader } } },
+    )
+    let user: { id: string }
+    if (interna) {
+      if (!body?.on_behalf_of_user_id) return json(req, { error: 'on_behalf_of_user_id requerido' }, 400)
+      user = { id: body.on_behalf_of_user_id }
+    } else {
+      const { data: { user: u }, error: authError } = await anon.auth.getUser()
+      if (authError || !u) return json(req, { error: 'No autorizado' }, 401)
+      user = u
+    }
     if (!body?.escrito_id) return json(req, { error: 'escrito_id requerido' }, 400)
     if (!body.contenido || !Array.isArray(body.contenido.secciones)) return json(req, { error: 'contenido requerido' }, 400)
     const mensajes = (body.mensajes ?? [])

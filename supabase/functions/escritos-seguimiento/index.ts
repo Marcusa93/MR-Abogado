@@ -64,7 +64,10 @@ Deno.serve(async (req) => {
       await tgSendKb(token, chat,
         `Llegó el proveído de tu escrito "${e.titulo}"\n${e.expediente?.caratula ?? ''}\n\n` +
         `${mov.tipo_movimiento} del ${mov.fecha.split('-').reverse().join('/')}: ${(mov.ai_summary ?? mov.titulo ?? '').slice(0, 400)}`,
-        [[{ text: 'Ver la actuación', url: `${APP_URL}/expedientes/${e.expediente_id}?tab=actuaciones&mid=${mov.id}` }]])
+        [
+          [{ text: 'Ver la actuación', url: `${APP_URL}/expedientes/${e.expediente_id}?tab=actuaciones&mid=${mov.id}` }],
+          ...(chat === (Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || -1) ? [[{ text: 'Responder con un escrito', callback_data: `rm:${mov.id}` }]] : []),
+        ])
     }
   }
 

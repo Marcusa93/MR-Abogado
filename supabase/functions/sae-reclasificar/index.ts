@@ -146,11 +146,14 @@ function formatBlock(n: NotifRow): string {
   return [linea1, linea2, linea3, linea4, linea5].filter(Boolean).join('\n')
 }
 
-async function tgSend(token: string, chatId: number, text: string) {
+async function tgSend(token: string, chatId: number, text: string, keyboard?: { text: string; callback_data: string }[][]) {
   const r = await fetch(`${TG_API}/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true }),
+    body: JSON.stringify({
+      chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true,
+      ...(keyboard?.length ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    }),
   })
   if (!r.ok) {
     console.warn('[sae-reclasificar] tgSend', r.status, await r.text().catch(() => '').then(t => t.slice(0, 200)))
@@ -276,7 +279,10 @@ Deno.serve(async (req) => {
   }
   if (current) chunks.push(current)
 
-  for (const chunk of chunks) await tgSend(tgToken, marcoChat, chunk)
+  // "Responder con un escrito": un botón por notificación con expediente (las informativas no), en el último mensaje
+  const responder = sorted.filter(n => n.expediente_id && n.prioridad !== 'info').slice(0, 8)
+    .map(n => [{ text: `✍ Responder: ${(n.expediente?.caratula ?? n.caratula ?? n.titulo ?? 'notificación').slice(0, 40)}`, callback_data: `rn:${n.id}` }])
+  for (const [i, chunk] of chunks.entries()) await tgSend(tgToken, marcoChat, chunk, i === chunks.length - 1 ? responder : undefined)
 
   return json(req, { ok: true, notifs: rows.length, clasificadas, mensajes: chunks.length })
 })

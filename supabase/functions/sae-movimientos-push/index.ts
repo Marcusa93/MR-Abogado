@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
     const tgToken = Deno.env.get('TELEGRAM_ESCRITO_BOT_TOKEN')
     if (marcoChat && tgToken && expIds.length > 0) {
       type SaeNotif = {
+        id: string
         titulo: string | null
         ia_resumen: string | null
         prioridad: string | null
@@ -255,7 +256,7 @@ Deno.serve(async (req) => {
       }
       const { data: saeNotifs } = await admin
         .from('sae_notificaciones')
-        .select('titulo, ia_resumen, prioridad, fecha_emision, expediente_id, raw_payload, expediente:expedientes(caratula, numero)')
+        .select('id, titulo, ia_resumen, prioridad, fecha_emision, expediente_id, raw_payload, expediente:expedientes(caratula, numero)')
         .in('expediente_id', expIds)
         .gte('fecha_captura', since)
         .order('fecha_emision', { ascending: false })
@@ -307,11 +308,18 @@ Deno.serve(async (req) => {
         }
         if (current.trim()) chunks.push(current.trimEnd())
 
-        for (const chunk of chunks) {
+        // "Responder con un escrito": un botón por notificación con expediente (las informativas no), en el último mensaje
+        const responder = notifsSorted.filter(n => n.expediente_id && n.prioridad !== 'info').slice(0, 8)
+          .map(n => [{ text: `✍ Responder: ${(n.expediente?.caratula ?? n.titulo ?? 'notificación').slice(0, 40)}`, callback_data: `rn:${n.id}` }])
+        for (const [i, chunk] of chunks.entries()) {
+          const ultimo = i === chunks.length - 1
           await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: marcoChat, text: chunk, parse_mode: 'HTML', disable_web_page_preview: true }),
+            body: JSON.stringify({
+              chat_id: marcoChat, text: chunk, parse_mode: 'HTML', disable_web_page_preview: true,
+              ...(ultimo && responder.length ? { reply_markup: { inline_keyboard: responder } } : {}),
+            }),
           }).catch(e => console.warn('[sae-push] telegram error:', e))
         }
       }
