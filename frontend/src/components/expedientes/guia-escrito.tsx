@@ -72,6 +72,7 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
   const revisado = revisadoExt ?? revisadoLocal
   const [presentando, setPresentando] = useState(false)
   const [firmando, setFirmando] = useState(false)
+  const [ventanaIni, setVentanaIni] = useState(false)
   const [verLista, setVerLista] = useState(false)
 
   const pendientes = datosPorCompletar(contenido)
@@ -118,7 +119,9 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
         : 'Se baja el PDF y se abre firmar.gob.ar en una ventana al costado. Firmás y arrastrás acá el PDF firmado.',
       accion: { label: 'Firmar', onClick: () => {
         if (!abogado) return toast.error('Faltan tus datos profesionales', 'Completalos en Configuración → Perfil.')
-        if (onAntesDeFirmar) onAntesDeFirmar(() => setFirmando(true)); else setFirmando(true)
+        // La ventana se abre dentro del mismo clic: Safari bloquea las que se abren después.
+        const empezar = () => { setVentanaIni(abrirFirmador()); setFirmando(true) }
+        if (onAntesDeFirmar) onAntesDeFirmar(empezar); else empezar()
       } },
       secundaria: { label: pdfBajado ? 'Adjuntar PDF firmado' : 'Solo descargar el PDF', onClick: () => (pdfBajado ? archivoRef.current?.click() : void bajarPdf()) } },
     { key: 'presentar', titulo: 'Presentarlo en el juzgado', hecho: false,
@@ -194,6 +197,7 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
       {firmando && abogado && (
         <FirmarDialog
           titulo={escrito.titulo}
+          ventanaAbierta={ventanaIni}
           descargar={() => descargarPdfEscrito(contenido, abogado, escrito.titulo).then(() => setPdfBajado(true))}
           adjuntar={(file) => new Promise<boolean>((resolve, reject) => attach.mutate(
             { escrito_id: escrito.id, expediente_id: escrito.expediente_id, file },
@@ -283,8 +287,9 @@ function abrirFirmador() {
   return !!win
 }
 
-function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo }: {
+function FirmarDialog({ titulo, ventanaAbierta, descargar, adjuntar, siguiente, onClose, onListo }: {
   titulo: string
+  ventanaAbierta: boolean
   descargar: () => Promise<void>
   adjuntar: (file: File) => Promise<boolean>
   siguiente: string | null
@@ -292,7 +297,7 @@ function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo
   onListo: () => void
 }) {
   const [bajando, setBajando] = useState(true)
-  const [ventana, setVentana] = useState<boolean | null>(null)
+  const [ventana, setVentana] = useState<boolean>(ventanaAbierta)
   const [sobre, setSobre] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [resultado, setResultado] = useState<{ firma: boolean; nombre: string } | null>(null)
@@ -300,11 +305,10 @@ function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo
   const inputRef = useRef<HTMLInputElement>(null)
   const arrancado = useRef(false)
 
-  // Al abrir (todavía dentro de la activación del click): ventana del firmador y descarga del PDF.
+  // Al abrir: descarga del PDF (la ventana del firmador ya se abrió en el clic).
   useEffect(() => {
     if (arrancado.current) return
     arrancado.current = true
-    setVentana(abrirFirmador())
     descargar().catch((e) => setError(e instanceof Error ? e.message : 'No se pudo generar el PDF')).finally(() => setBajando(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -374,8 +378,9 @@ function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo
 
         {!resultado && (
           <p className="text-[11.5px] text-zinc-500">
-            Si al descargar el firmado Chrome lo abre en otra pestaña: Configuración → Privacidad y seguridad → Configuración de sitios →
-            Configuración de contenido adicional → Documentos PDF → «Descargar archivos PDF».
+            Si al descargar el firmado se abre en otra pestaña: en Chrome, Configuración → Privacidad y seguridad → Configuración de sitios →
+            Configuración de contenido adicional → Documentos PDF → «Descargar archivos PDF». En Safari, guardalo con ⌘S desde esa pestaña.
+            También podés arrastrarlo desde la lista de descargas del navegador.
           </p>
         )}
 
