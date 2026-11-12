@@ -20,7 +20,7 @@ import {
 import { redactarPropuesta } from '../_shared/procuracion-redactar.ts'
 import {
   type Cambio, type Contenido, abogadoDe, aplicarCambios, configurarMenu, conAccion, nombreArchivo, pdfEscrito, pendientes,
-  resumenEscrito, tgAccion, tgDocumento,
+  resolverRevision, resumenEscrito, tgAccion, tgDocumento,
 } from '../_shared/escrito-bot.ts'
 
 const TG_API = 'https://api.telegram.org'
@@ -66,6 +66,11 @@ type TelegramPending = {
   step: 'await_exp'
   idea: string
   responde_a?: string | null
+} | {
+  // Revisión: "Devolver con observaciones"; el próximo mensaje son las observaciones
+  step: 'await_obs'
+  escrito_id: string
+  titulo: string
 } | {
   // "Pedir cambios": el próximo mensaje (texto o audio) es la instrucción
   step: 'await_cambios'
@@ -994,6 +999,26 @@ async function responderDesde(ctx: Ctx, chatId: number, tipo: 'n' | 'm', id: str
   await continuarConExpediente(ctx, chatId, exp, idea, respondeA)
 }
 
+/** Texto de un mensaje: transcribe si es audio. */
+async function textoDe(token: string, chatId: number, msg: NonNullable<TgUpdate['message']>, aviso: string): Promise<string> {
+  let texto = (msg.text ?? msg.caption ?? '').trim()
+  if (msg.voice || msg.audio) {
+    await tgSend(token, chatId, aviso)
+    const { data, mime } = await tgDownload(token, (msg.voice ?? msg.audio)!.file_id)
+    texto = (await transcribeAudio(data, mime, Deno.env.get('GROQ_API_KEY'), Deno.env.get('OPENAI_API_KEY'))).trim()
+  }
+  return texto
+}
+
+async function devolverConObservaciones(admin: Admin, token: string, chatId: number, escritoId: string, texto: string) {
+  await saveSession(admin, { chat_id: chatId, pending: null })
+  if (/^\s*\/?(cancelar|cancel)\s*$/i.test(texto)) { await tgSend(token, chatId, 'Listo, no lo devolví.'); return }
+  const r = await resolverRevision(admin, token, escritoId, 'cambios', texto)
+  await tgSend(token, chatId, r.ok
+    ? `Devuelto "${r.titulo}" con tus observaciones.${r.avisado ? ' Le llegó el aviso por Telegram.' : ' Las va a ver al abrir el escrito en la app.'}`
+    : `No pude devolverlo: ${r.error}`)
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('ok')
 
@@ -1103,10 +1128,40 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
-      // Escritos: elegir expediente/tipo, pedir cambios, revisar, deshacer, responder un aviso (solo autorizados)
+      // Revisión pedida desde la app: aprobar o devolver (quien revisa, o Marco)
+      const rv = /^(ra|rd):([0-9a-f-]{36})$/.exec(cq.data ?? '')
+      if (rv) {
+        const chat = cq.message?.chat.id ?? cq.from.id
+        const { data: ed } = await admin.from('escritos').select('id, titulo, tipo, revision_pedida_a, revision_resultado').eq('id', rv[2]).maybeSingle()
+        const e = ed as { id: string; titulo: string | null; tipo: string | null; revision_pedida_a: string | null; revision_resultado: string | null } | null
+        if (!e?.revision_pedida_a) { await tgAnswerCallback(token, cq.id, 'Ese escrito ya no está en revisión.'); return new Response('ok') }
+        const perfil = await perfilPorChat(cq.from.id)
+        if (perfil?.id !== e.revision_pedida_a && !esAutorizado(String(cq.from.id))) { await tgAnswerCallback(token, cq.id, 'La revisión está pedida a otra persona.'); return new Response('ok') }
+        if (e.revision_resultado) { await tgAnswerCallback(token, cq.id, e.revision_resultado === 'aprobado' ? 'Ya estaba aprobado.' : 'Ya estaba devuelto.'); return new Response('ok') }
+        if (rv[1] === 'ra') {
+          const r = await resolverRevision(admin, token, e.id, 'aprobado', null)
+          await tgAnswerCallback(token, cq.id, r.ok ? 'Aprobado' : 'No se pudo aprobar')
+          await tgSend(token, chat, r.ok ? `Aprobado: "${r.titulo}".${r.avisado ? ' Le avisé a quien lo pidió.' : ''}` : `No pude aprobarlo: ${r.error}`)
+          return new Response('ok')
+        }
+        const titulo = e.titulo || e.tipo || 'el escrito'
+        await saveSession(admin, { chat_id: chat, pending: { step: 'await_obs', escrito_id: e.id, titulo } })
+        await tgAnswerCallback(token, cq.id, 'Mandame las observaciones')
+        await tgSend(token, chat, `Escribí o dictá las observaciones para "${titulo}". (Para no devolverlo: "cancelar")`)
+        return new Response('ok')
+      }
+
+      // Escritos: elegir expediente/tipo, pedir cambios, revisar, deshacer, responder un aviso.
+      // Solo autorizados; quien revisa un escrito puede además corregirlo y revisarlo.
       const esc = /^(ex|et|ec|er|eu|rn|rm):([\w-]{1,40})$/.exec(cq.data ?? '')
       if (esc) {
-        if (!esAutorizado(String(cq.from.id))) { await tgAnswerCallback(token, cq.id, 'No autorizado.'); return new Response('ok') }
+        let permitido = esAutorizado(String(cq.from.id))
+        if (!permitido && ['ec', 'er', 'eu'].includes(esc[1])) {
+          const perfil = await perfilPorChat(cq.from.id)
+          const { data: ed } = await admin.from('escritos').select('revision_pedida_a').eq('id', esc[2]).maybeSingle()
+          permitido = !!perfil && (ed as { revision_pedida_a: string | null } | null)?.revision_pedida_a === perfil.id
+        }
+        if (!permitido) { await tgAnswerCallback(token, cq.id, 'No autorizado.'); return new Response('ok') }
         const chat = cq.message?.chat.id ?? cq.from.id
         const c = await ctxEscritos()
         if (!c) { await tgAnswerCallback(token, cq.id, 'No encontré el perfil del director.'); return new Response('ok') }
@@ -1187,6 +1242,21 @@ Deno.serve(async (req) => {
     try {
       const perfil = await perfilPorChat(chatId)
       if (perfil) {
+        // Revisor que no es Marco: observaciones o cambios pendientes
+        const ses = await loadSession(admin, chatId)
+        const pend = isPendingValid(ses) ? ses.pending : null
+        if (pend?.step === 'await_obs' || pend?.step === 'await_cambios') {
+          const c = await ctxEscritos()
+          enFondo(chatId, async () => {
+            const texto = await textoDe(token, chatId, msg, '🎙️ Recibido. Transcribiendo…')
+            if (!texto) { await tgSend(token, chatId, 'No te entendí. Escribilo o mandá otro audio.'); return }
+            if (pend.step === 'await_obs') { await devolverConObservaciones(admin, token, chatId, pend.escrito_id, texto); return }
+            await saveSession(admin, { chat_id: chatId, pending: null })
+            if (/^\s*(cancelar|cancel|no|nada)\s*$/i.test(texto)) { await tgSend(token, chatId, 'Listo, no cambié nada.'); return }
+            if (c) await aplicarCambiosDictados(c, chatId, pend.escrito_id, texto)
+          })
+          return new Response('ok')
+        }
         await handleColaborador(admin, token, chatId, perfil, (msg.text ?? msg.caption ?? '').trim())
         return new Response('ok')
       }
@@ -1215,11 +1285,12 @@ async function procesarMensaje(ctx: Ctx, chatId: number, msg: NonNullable<TgUpda
   const pend = isPendingValid(sesion) ? sesion.pending : null
   const devolviendo = pend?.step === 'ed_devolver' ? pend : null
   const cambiando = pend?.step === 'await_cambios' ? pend : null
+  const observando = pend?.step === 'await_obs' ? pend : null
 
   // Texto base: voz → transcripción, o texto directo
   let texto = (msg.text ?? msg.caption ?? '').trim()
   if (msg.voice || msg.audio) {
-    await tgSend(token, chatId, devolviendo ? '🎙️ Recibí tus observaciones. Transcribiendo…' : cambiando ? '🎙️ Recibí los cambios. Transcribiendo…' : '🎙️ Recibí tu audio. Transcribiendo…')
+    await tgSend(token, chatId, devolviendo || observando ? '🎙️ Recibí tus observaciones. Transcribiendo…' : cambiando ? '🎙️ Recibí los cambios. Transcribiendo…' : '🎙️ Recibí tu audio. Transcribiendo…')
     const { data, mime } = await tgDownload(token, (msg.voice ?? msg.audio)!.file_id)
     texto = (await transcribeAudio(data, mime, Deno.env.get('GROQ_API_KEY'), Deno.env.get('OPENAI_API_KEY'))).trim()
     if (texto) await tgSend(token, chatId, `Entendí: "${texto.slice(0, 300)}${texto.length > 300 ? '…' : ''}"`)
@@ -1233,6 +1304,10 @@ async function procesarMensaje(ctx: Ctx, chatId: number, msg: NonNullable<TgUpda
     if (/^\s*\/?(cancelar|cancel|no)\s*$/i.test(texto)) { await tgSend(token, chatId, 'Listo, no lo devolví.'); return }
     const r = await llamarEditorial({ modo: 'devolver', articulo_id: devolviendo.articulo_id, observaciones: texto })
     await tgSend(token, chatId, `Devuelto "${devolviendo.titulo}" con tus observaciones.${r.avisado ? ' Le llegó el aviso por Telegram.' : ''}`)
+    return
+  }
+  if (observando && !texto.startsWith('/')) {
+    await devolverConObservaciones(admin, token, chatId, observando.escrito_id, texto)
     return
   }
   if (cambiando && !texto.startsWith('/')) {

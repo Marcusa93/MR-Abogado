@@ -62,6 +62,13 @@ export interface Escrito {
   revision_formal_at?: string | null
   origen?: 'ia' | 'plantilla' | 'manual'
   edicion_pct?: number | null
+  revision_pedida_a?: string | null
+  revision_pedida_por?: string | null
+  revision_pedida_at?: string | null
+  revision_nota?: string | null
+  revision_resultado?: 'aprobado' | 'cambios' | null
+  revision_observaciones?: string | null
+  revision_resuelta_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -751,6 +758,45 @@ export function useMarcarPresentado() {
       queryClient.invalidateQueries({ queryKey: ['escritos'] })
       queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
       queryClient.invalidateQueries({ queryKey: ['tareas'] })
+    },
+  })
+}
+
+// ─── Revisión entre personas del estudio ────────────────────────────────────
+
+export interface Revisor { id: string; nombre: string | null; apellido: string | null; rol: string }
+
+/** Abogados y directores activos (quienes pueden revisar escritos). */
+export function useRevisores() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['revisores-escritos'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('id, nombre, apellido, rol')
+        .eq('activo', true).in('rol', ['DIRECTOR', 'ABOGADO']).order('nombre')
+      if (error) throw error
+      return (data ?? []) as Revisor[]
+    },
+  })
+}
+
+export function useRevisionEscrito() {
+  const supabase = createClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input:
+      | { modo: 'pedir'; escrito_id: string; revisor_id: string; nota?: string }
+      | { modo: 'resolver'; escrito_id: string; resultado: 'aprobado' | 'cambios'; observaciones?: string }
+      | { modo: 'cancelar'; escrito_id: string }) => {
+      const { data, error } = await supabase.functions.invoke('escritos-revision', { body: input })
+      if (error) throw await extractFnError(error)
+      if (!data?.ok) throw new Error(data?.error ?? 'No se pudo completar')
+      return data as { ok: true; telegram?: boolean; avisado?: boolean }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['escritos'] })
+      queryClient.invalidateQueries({ queryKey: ['escritos-all'] })
     },
   })
 }

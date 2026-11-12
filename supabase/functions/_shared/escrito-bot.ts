@@ -327,3 +327,87 @@ export async function pdfEscrito(c: Contenido, a: Abogado): Promise<Uint8Array> 
 export function nombreArchivo(titulo: string): string {
   return (titulo || 'escrito').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 80) || 'escrito'
 }
+
+// ─── Revisión entre personas del estudio ─────────────────────────────────────
+
+/** Chat de Telegram de un perfil. El director principal usa TELEGRAM_MARCO_CHAT_ID. */
+export async function chatDe(admin: Admin, profileId: string | null): Promise<number | null> {
+  if (!profileId) return null
+  const { data } = await admin.from('profiles').select('telegram_chat_id').eq('id', profileId).maybeSingle()
+  const c = (data as { telegram_chat_id: number | null } | null)?.telegram_chat_id
+  if (c) return c
+  const { data: dir } = await admin.from('profiles').select('id').eq('rol', 'DIRECTOR').eq('activo', true).order('created_at', { ascending: true }).limit(1).maybeSingle()
+  return (dir as { id: string } | null)?.id === profileId ? (Number(Deno.env.get('TELEGRAM_MARCO_CHAT_ID') ?? '') || null) : null
+}
+
+export async function nombreDe(admin: Admin, profileId: string | null): Promise<string> {
+  if (!profileId) return 'Alguien del estudio'
+  const { data } = await admin.from('profiles').select('nombre, apellido').eq('id', profileId).maybeSingle()
+  const p = data as { nombre: string | null; apellido: string | null } | null
+  return `${p?.nombre ?? ''} ${p?.apellido ?? ''}`.trim() || 'Alguien del estudio'
+}
+
+async function tgKb(token: string, chatId: number, text: string, keyboard: TgButton[][]) {
+  const r = await fetch(`${TG_API}/bot${token}/sendMessage`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true, reply_markup: { inline_keyboard: keyboard } }),
+  }).catch(() => null)
+  return !!r?.ok
+}
+
+/** Aviso al revisor: PDF del escrito, nota y botones. Devuelve si llegó por Telegram. */
+export async function avisarPedidoRevision(admin: Admin, token: string, escritoId: string): Promise<boolean> {
+  const { data } = await admin.from('escritos')
+    .select('id, titulo, contenido, user_id, revision_pedida_a, revision_pedida_por, revision_nota, expediente:expedientes(caratula)')
+    .eq('id', escritoId).maybeSingle()
+  const e = data as {
+    id: string; titulo: string | null; contenido: Contenido; user_id: string; revision_pedida_a: string | null
+    revision_pedida_por: string | null; revision_nota: string | null; expediente: { caratula: string | null } | null
+  } | null
+  if (!e) return false
+  const chat = await chatDe(admin, e.revision_pedida_a)
+  if (!chat || !token) return false
+  const quien = await nombreDe(admin, e.revision_pedida_por)
+  const titulo = e.titulo || e.contenido?.titulo || 'Escrito'
+  try {
+    const abogado = await abogadoDe(admin, e.user_id)
+    if (abogado && e.contenido?.secciones) await tgDocumento(token, chat, await pdfEscrito(e.contenido, abogado), `${nombreArchivo(titulo)}.pdf`)
+  } catch (err) { console.error('[escrito-bot] pdf revisión', err) }
+  const faltan = e.contenido ? pendientes(e.contenido).length : 0
+  const texto = `📋 ${quien} te pidió revisar: "${titulo}"` +
+    (e.expediente?.caratula ? `\n${e.expediente.caratula.slice(0, 90)}` : '') +
+    (e.revision_nota ? `\n\nNota: ${e.revision_nota.slice(0, 600)}` : '') +
+    (faltan ? `\n\nQuedan ${faltan} ${faltan === 1 ? 'dato' : 'datos'} entre corchetes.` : '')
+  return await tgKb(token, chat, texto, [
+    [{ text: 'Aprobar', callback_data: `ra:${e.id}` }, { text: 'Devolver con observaciones', callback_data: `rd:${e.id}` }],
+    [{ text: 'Corregirlo yo', callback_data: `ec:${e.id}` }, { text: 'Abrir el escrito', url: `${APP_URL}/escritos/${e.id}` }],
+  ])
+}
+
+/** Cierra la revisión y le avisa a quien la pidió. */
+export async function resolverRevision(
+  admin: Admin, token: string, escritoId: string, resultado: 'aprobado' | 'cambios', observaciones: string | null,
+): Promise<{ ok: boolean; error?: string; titulo?: string; avisado?: boolean }> {
+  const { data } = await admin.from('escritos')
+    .select('id, titulo, tipo, revision_pedida_a, revision_pedida_por, revision_resultado').eq('id', escritoId).maybeSingle()
+  const e = data as { id: string; titulo: string | null; tipo: string | null; revision_pedida_a: string | null; revision_pedida_por: string | null; revision_resultado: string | null } | null
+  if (!e?.revision_pedida_a) return { ok: false, error: 'Ese escrito no está pedido a revisión.' }
+  const ahora = new Date().toISOString()
+  const { error } = await admin.from('escritos').update({
+    revision_resultado: resultado, revision_observaciones: resultado === 'cambios' ? (observaciones?.trim() || null) : null,
+    revision_resuelta_at: ahora, updated_at: ahora,
+  }).eq('id', e.id)
+  if (error) return { ok: false, error: error.message }
+  const titulo = e.titulo || e.tipo || 'el escrito'
+  let avisado = false
+  const chat = e.revision_pedida_por !== e.revision_pedida_a ? await chatDe(admin, e.revision_pedida_por) : null
+  if (chat && token) {
+    const revisor = await nombreDe(admin, e.revision_pedida_a)
+    avisado = await tgKb(token, chat,
+      resultado === 'aprobado'
+        ? `✅ ${revisor} aprobó "${titulo}". Ya se puede firmar y presentar.`
+        : `✏️ ${revisor} devolvió "${titulo}" con observaciones:\n\n${(observaciones ?? '').slice(0, 3000)}`,
+      [[{ text: 'Abrir el escrito', url: `${APP_URL}/escritos/${e.id}` }]])
+  }
+  return { ok: true, titulo, avisado }
+}

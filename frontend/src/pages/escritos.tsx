@@ -4,7 +4,7 @@ import {
   PenLine, Plus, Search, X, Loader2, FileText, Trash2, Printer,
   Sparkles, Pencil, Check, ChevronDown, ChevronUp, FolderOpen,
   Save, Upload, Wand2, Mic, Square, Layers, BookOpen, Gavel,
-  PanelLeftClose, PanelLeftOpen, MoreHorizontal, History,
+  PanelLeftClose, PanelLeftOpen, MoreHorizontal, History, UserCheck,
   ArrowLeft, Link2, ExternalLink, Copy, ClipboardCheck,
   SlidersHorizontal, Eye, ListChecks, MessageSquare, BarChart3,
 } from 'lucide-react'
@@ -17,6 +17,8 @@ import { PanelEscrito, revisionDesactualizada, useCitasDetectadas } from '@/comp
 import { AntesDeFirmarDialog } from '@/components/escritos/revision-formal'
 import { PresentarSaeDialog } from '@/components/escritos/presentar-sae-dialog'
 import { EscritosAyudaBoton } from '@/components/escritos/escritos-ayuda'
+import { BannerRevision, EnviarRevisionDialog } from '@/components/escritos/revision-escrito'
+import { useAuthStore } from '@/stores/auth-store'
 import { useContextoIA, useEsquemaEscrito, useRevisarEscrito, type Calidad, type ContextoIA, type Esquema } from '@/hooks/use-redaccion'
 import { datosPorCompletar } from '@/components/expedientes/guia-escrito'
 import { useAuth } from '@/hooks/use-auth'
@@ -1277,6 +1279,7 @@ function EscritoEditor({
   const [foco, setFoco] = useState<FocoAsistente | null>(null)
   const [antesDeFirmar, setAntesDeFirmar] = useState<null | (() => void)>(null)
   const [guardarPlantilla, setGuardarPlantilla] = useState(false)
+  const [enviarRevision, setEnviarRevision] = useState(false)
   const [saeOpen, setSaeOpen] = useState(false)
   const [masOpen, setMasOpen] = useState(false)
   const navigate = useNavigate()
@@ -1506,6 +1509,7 @@ function EscritoEditor({
                 <div className="fixed inset-0 z-30" onClick={() => setMasOpen(false)} />
                 <div className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-lg border border-white/10 bg-zinc-900 py-1 shadow-xl">
                   {([
+                    { icon: UserCheck, label: 'Enviar a revisión', onClick: () => setEnviarRevision(true) },
                     { icon: History, label: 'Revisión, citas y versiones', onClick: () => setPanelIzq(true) },
                     { icon: Upload, label: 'Adjuntar PDF firmado', onClick: () => conControl(() => archivoRef.current?.click()) },
                     { icon: Printer, label: 'Imprimir', onClick: handleImprimir },
@@ -1550,6 +1554,7 @@ function EscritoEditor({
         {/* Editor / Preview */}
         <div className="flex-1 overflow-y-auto">
           <div data-tour="esc-guia" className="mx-auto max-w-3xl px-3 pt-3 sm:px-4 sm:pt-4">
+            <BannerRevision escrito={escrito} />
             <GuiaEscrito escrito={escrito} contenido={contenido} abogado={abogado} dirty={dirty} guardando={guardando}
               onGuardar={() => { void guardarAhora() }}
               revisado={!!revision && !desactualizada}
@@ -1709,6 +1714,7 @@ function EscritoEditor({
         <PresentarSaeDialog escrito={escrito} onClose={() => setSaeOpen(false)}
           onSuccess={(msg) => { setSaeOpen(false); toast.success('Escrito presentado en el SAE', msg ?? undefined) }} />
       )}
+      {enviarRevision && <EnviarRevisionDialog escrito={escrito} onClose={() => setEnviarRevision(false)} />}
       {guardarPlantilla && (
         <GuardarPlantillaDialog titulo={escrito.titulo} tipo={escrito.tipo} contenido={contenido}
           expedienteId={escrito.expediente_id} onClose={() => setGuardarPlantilla(false)} />
@@ -1839,7 +1845,8 @@ export default function EscritosPage() {
   const [showUso, setShowUso] = useState(false)
   const [search, setSearch] = useState('')
   const [filtroExpediente, setFiltroExpediente] = useState('')
-  const [bandeja, setBandeja] = useState<'pendientes' | 'presentar' | 'proveido' | 'cerrados' | 'todos'>('pendientes')
+  const [bandeja, setBandeja] = useState<'revisar' | 'pendientes' | 'presentar' | 'proveido' | 'cerrados' | 'todos'>('pendientes')
+  const yo = useAuthStore((s) => s.user?.id)
   // El escrito abierto vive en la URL (/escritos/:id): se puede enlazar desde el expediente y volver con "atrás".
   const navigate = useNavigate()
   const { id: selectedId = null } = useParams()
@@ -1887,6 +1894,7 @@ export default function EscritosPage() {
   // Bandejas según dónde está cada escrito en su recorrido
   const enBandeja = (e: EscritoConExpediente, b: typeof bandeja) => {
     const presentado = e.estado === 'presentado' || e.estado === 'presentado_sae'
+    if (b === 'revisar') return e.revision_pedida_a === yo && !e.revision_resultado
     if (b === 'pendientes') return e.estado === 'borrador' || e.estado === 'final'
     if (b === 'presentar') return e.estado === 'firmado'
     if (b === 'proveido') return presentado && !e.proveido_movement_id
@@ -1894,6 +1902,13 @@ export default function EscritosPage() {
     return true
   }
   const conteoBandeja = (b: typeof bandeja) => (escritos as EscritoConExpediente[]).filter((e) => enBandeja(e, b)).length
+  // Si hay escritos esperando tu revisión, la lista arranca ahí
+  const revisarInicial = useRef(false)
+  useEffect(() => {
+    if (revisarInicial.current || !(escritos as EscritoConExpediente[]).length) return
+    revisarInicial.current = true
+    if (!selectedId && conteoBandeja('revisar') > 0) setBandeja('revisar')
+  }, [escritos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const escritosFiltrados = useMemo(() => {
     let list = (escritos as EscritoConExpediente[]).filter((e) => enBandeja(e, bandeja))
@@ -1976,7 +1991,8 @@ export default function EscritosPage() {
 
         {/* Bandejas */}
         <div data-tour="esc-bandejas" className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
-          {([['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const).map(([b, label]) => (
+          {([['revisar', 'Para revisar'], ['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const)
+            .filter(([b]) => b !== 'revisar' || conteoBandeja('revisar') > 0 || bandeja === 'revisar').map(([b, label]) => (
             <button key={b} type="button" onClick={() => setBandeja(b)}
               className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
                 bandeja === b ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5')}>
@@ -2017,6 +2033,12 @@ export default function EscritosPage() {
                 <span className={cn('text-[10px] rounded-full px-1.5 py-px', ESTADO_COLORS[e.estado] ?? 'bg-zinc-500/15 text-zinc-500')}>
                   {ESTADO_LABELS[e.estado] ?? e.estado}
                 </span>
+                {e.revision_pedida_a && (
+                  <span className={cn('shrink-0 rounded-full px-1.5 py-px text-[10px]',
+                    !e.revision_resultado ? 'bg-amber-500/15 text-amber-400' : e.revision_resultado === 'aprobado' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400')}>
+                    {!e.revision_resultado ? (e.revision_pedida_a === yo ? 'revisar' : 'en revisión') : e.revision_resultado === 'aprobado' ? 'aprobado' : 'observado'}
+                  </span>
+                )}
                 {e.expediente && <span className="text-[10px] text-zinc-600 truncate">{e.expediente.caratula ?? e.expediente.numero}</span>}
               </div>
               {(() => {

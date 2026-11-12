@@ -70,6 +70,7 @@ const ETAPAS: Etapa[] = [
       'Requisitos formales del código procesal, pedidos sin fundamento y citas sin respaldo.',
       'El resultado queda en el panel de revisión, con cada observación marcada.',
       'Si algo falta, te avisa antes de firmar; podés seguir igual.',
+      'Para que lo revise otra persona del estudio: ⋯ → Enviar a revisión. Le llega por Telegram con el PDF y lo aprueba o lo devuelve con observaciones; la respuesta te llega a vos.',
     ],
   },
   {
