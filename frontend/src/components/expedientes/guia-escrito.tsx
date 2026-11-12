@@ -372,6 +372,13 @@ function FirmarDialog({ titulo, descargar, adjuntar, siguiente, onClose, onListo
 
         {error && <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p>}
 
+        {!resultado && (
+          <p className="text-[11.5px] text-zinc-500">
+            Si al descargar el firmado Chrome lo abre en otra pestaña: Configuración → Privacidad y seguridad → Configuración de sitios →
+            Configuración de contenido adicional → Documentos PDF → «Descargar archivos PDF».
+          </p>
+        )}
+
         {resultado && (
           <div className="flex gap-2 pt-1">
             {!resultado.firma && (
