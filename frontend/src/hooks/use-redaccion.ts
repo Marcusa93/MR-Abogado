@@ -371,8 +371,23 @@ export interface RevisionFormal {
 export function useRevisarEscrito() {
   const qc = useQueryClient()
   return useMutation({
+    meta: { silencioso: true },
     mutationFn: async (escritoId: string) => {
+      const inicio = new Date().toISOString()
       const { data, error } = await supabase.functions.invoke('diagnose-escrito', { body: { escrito_id: escritoId } })
+      // En el celular, si se cambia de app mientras revisa (~45 s), el navegador corta la conexión
+      // pero la revisión sigue en el servidor y se guarda en el escrito: se espera ese resultado.
+      if (error && (error as { name?: string }).name === 'FunctionsFetchError') {
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => setTimeout(r, 5000))
+          const { data: e } = await supabase.from('escritos').select('revision_formal, revision_formal_at').eq('id', escritoId).maybeSingle()
+          const fila = e as { revision_formal: { modelo?: string; modelo_nombre?: string; diagnostico?: RevisionFormal['diagnostico'] } | null; revision_formal_at: string | null } | null
+          if (fila?.revision_formal && fila.revision_formal_at && fila.revision_formal_at > inicio) {
+            return { diagnostico: fila.revision_formal.diagnostico ?? {}, modelo: fila.revision_formal.modelo, modelo_nombre: fila.revision_formal.modelo_nombre } as RevisionFormal
+          }
+        }
+        throw new Error('Se cortó la conexión mientras revisaba. Probá de nuevo sin salir de la app.')
+      }
       if (error) throw await fnError(error)
       const d = data as { ok?: boolean; error?: string; diagnostico?: RevisionFormal['diagnostico']; modelo?: string; modelo_nombre?: string }
       if (!d?.ok) throw new Error(d?.error ?? 'No se pudo revisar')
