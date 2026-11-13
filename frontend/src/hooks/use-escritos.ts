@@ -579,7 +579,7 @@ export function useAttachSignedPdf() {
       // No es validación criptográfica, solo señal de que hay algo firmado adentro.
       const head = await input.file.slice(0, Math.min(input.file.size, 5_000_000)).text().catch(() => '')
       const tail = await input.file.slice(Math.max(0, input.file.size - 200_000)).text().catch(() => '')
-      const hasSignature = /\/Type\s*\/Sig\b|\/SubFilter\s*\/(adbe\.pkcs7|ETSI\.CAdES)/i.test(head + tail)
+      const hasSignature = /\/ByteRange\s*\[|\/Type\s*\/Sig\b|\/SubFilter\s*\/(adbe\.pkcs7|ETSI\.CAdES)/i.test(head + tail)
 
       // Cuánto cambió el abogado respecto de lo que redactó la IA o la plantilla
       let edicion_pct: number | null = null

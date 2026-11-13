@@ -345,7 +345,12 @@ Deno.serve(async (req) => {
       expediente: { id: string; numero_sae: string | null; caratula: string | null; fuero: string | null; sae_proceeding_entry: { proceeding?: Record<string, unknown> } | null } | null
     }
 
-    if (escrito.user_id !== user.id) return json(req, { error: 'Sin permisos sobre este escrito' }, 403)
+    // Lo presenta su autor o un director/admin (mismo criterio que la edición por RLS),
+    // siempre con las credenciales del SAE de quien presenta.
+    if (escrito.user_id !== user.id) {
+      const { data: esAdmin } = await userClient.rpc('is_admin')
+      if (esAdmin !== true) return json(req, { error: 'Sin permisos sobre este escrito' }, 403)
+    }
     if (!body.dry_run && escrito.estado !== 'firmado') {
       return json(req, { error: 'El escrito debe estar firmado para presentarlo. Adjuntá el PDF firmado primero.', code: 'NOT_SIGNED' }, 412)
     }
@@ -364,6 +369,10 @@ Deno.serve(async (req) => {
       pdfBuffer = new Uint8Array(await pdfFile.arrayBuffer())
       if (pdfBuffer.byteLength > MAX_PDF_BYTES) {
         return json(req, { error: 'El PDF supera el límite de 7,5 MB del portal del SAE', code: 'PDF_TOO_LARGE' }, 413)
+      }
+      // Toda firma digital PAdES deja un /ByteRange sin comprimir: si no está, el PDF no fue firmado.
+      if (!/\/ByteRange\s*\[/.test(new TextDecoder('latin1').decode(pdfBuffer))) {
+        return json(req, { error: 'El PDF adjunto no tiene firma digital. Firmalo en firmar.gob.ar y adjuntá el archivo firmado.', code: 'SIN_FIRMA' }, 412)
       }
     }
 
