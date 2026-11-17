@@ -205,23 +205,43 @@ Deno.serve(async (req) => {
     })
     if (!password) return jsonError(req, 'No se pudo recuperar la contraseña SAE. Reingresá tus credenciales.', 500)
 
-    const session = await authenticateWithSae({ username: cred.username, password })
+    const ctrl = new AbortController()
+    const fetchTimeout = setTimeout(() => ctrl.abort(), 30_000)
+
+    let session: Awaited<ReturnType<typeof authenticateWithSae>>
+    try {
+      session = await authenticateWithSae({ username: cred.username, password })
+    } catch (e) {
+      clearTimeout(fetchTimeout)
+      const msg = e instanceof Error ? e.message : String(e)
+      return jsonError(req, `Error al conectar con SAE: ${msg}`, 502, 'SAE_AUTH_FAILED')
+    }
 
     // Step 1: ask SAE for the file (returns either JSON {url} or the binary directly)
-    const fileRes = await fetch(`${SAE_API_URL}/user/proceedings/history/file`, {
-      method: 'POST',
-      headers: (() => {
-        const h = apiHeaders(session)
-        h.set('Content-Type', 'application/json')
-        return h
-      })(),
-      body: JSON.stringify({
-        jurisdiction: String(jurisdictionId),
-        proceeding: String(procid),
-        history: String(histid),
-        file: encodeSaeFileName(body.fileName),
-      }),
-    })
+    let fileRes: Response
+    try {
+      fileRes = await fetch(`${SAE_API_URL}/user/proceedings/history/file`, {
+        method: 'POST',
+        signal: ctrl.signal,
+        headers: (() => {
+          const h = apiHeaders(session)
+          h.set('Content-Type', 'application/json')
+          return h
+        })(),
+        body: JSON.stringify({
+          jurisdiction: String(jurisdictionId),
+          proceeding: String(procid),
+          history: String(histid),
+          file: encodeSaeFileName(body.fileName),
+        }),
+      })
+    } catch (e) {
+      clearTimeout(fetchTimeout)
+      const isTimeout = e instanceof Error && e.name === 'AbortError'
+      return jsonError(req, isTimeout ? 'SAE no respondió en 30 segundos. Intentá de nuevo.' : `Error de red a SAE: ${(e as Error).message}`, 502, 'SAE_TIMEOUT')
+    }
+
+    clearTimeout(fetchTimeout)
 
     if (!fileRes.ok) {
       return jsonError(req, `SAE rechazó la descarga (${fileRes.status})`, fileRes.status >= 400 && fileRes.status < 500 ? 400 : 502, 'SAE_DOCUMENT_REJECTED')
@@ -240,10 +260,21 @@ Deno.serve(async (req) => {
       if (!downloadUrl) {
         return jsonError(req, 'SAE no devolvió una URL de descarga válida.', 502, 'SAE_DOCUMENT_NO_URL')
       }
-      const binRes = await fetch(downloadUrl, {
-        method: 'GET',
-        headers: apiHeaders(session, 'application/pdf, application/octet-stream, */*'),
-      })
+      const ctrl2 = new AbortController()
+      const timeout2 = setTimeout(() => ctrl2.abort(), 30_000)
+      let binRes: Response
+      try {
+        binRes = await fetch(downloadUrl, {
+          method: 'GET',
+          signal: ctrl2.signal,
+          headers: apiHeaders(session, 'application/pdf, application/octet-stream, */*'),
+        })
+      } catch (e) {
+        clearTimeout(timeout2)
+        const isTimeout = e instanceof Error && e.name === 'AbortError'
+        return jsonError(req, isTimeout ? 'Descarga del PDF desde SAE superó 30 segundos.' : `Error descargando PDF: ${(e as Error).message}`, 502, 'SAE_DOWNLOAD_TIMEOUT')
+      }
+      clearTimeout(timeout2)
       if (!binRes.ok) {
         return jsonError(req, `No se pudo descargar el PDF desde SAE (${binRes.status})`, 502, 'SAE_DOCUMENT_BINARY_FAILED')
       }
