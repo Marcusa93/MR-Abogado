@@ -89,7 +89,7 @@ export function TabEscritos({ expedienteId }: Props) {
         headerRight={
           <button
             onClick={() => nuevo()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 transition-opacity"
+            className="btn btn-primary btn-sm"
           >
             <Plus className="h-3 w-3" />
             Nuevo escrito

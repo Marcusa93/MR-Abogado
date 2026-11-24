@@ -172,7 +172,7 @@ export function SaeCredentialsSection() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="tu.usuario@pjtu.gob.ar"
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field h-9 w-full py-0"
             />
           </div>
           <div>
@@ -186,7 +186,7 @@ export function SaeCredentialsSection() {
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                 placeholder="Tu contraseña del SAE"
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field h-9 w-full pr-9 py-0"
               />
               <button
                 type="button"

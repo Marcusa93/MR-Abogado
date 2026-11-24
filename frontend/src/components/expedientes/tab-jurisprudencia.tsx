@@ -82,7 +82,7 @@ function FijarDialog({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en tu corpus de fallos…"
                   autoFocus
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="field h-9 w-full pl-9 pr-3 py-0"
                 />
               </div>
               <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
@@ -153,7 +153,7 @@ function FijarDialog({
                   rows={3}
                   placeholder="Por qué fijás este fallo a este expediente"
                   disabled={fijar.isPending}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="field w-full"
                 />
               </div>
             </div>
@@ -168,7 +168,7 @@ function FijarDialog({
                 <button
                   onClick={submit}
                   disabled={fijar.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
+                  className="btn btn-primary btn-sm"
                 >
                   {fijar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pin className="h-3 w-3" />}
                   Fijar
@@ -199,7 +199,7 @@ export function TabJurisprudencia({ expedienteId }: Props) {
         headerRight={
           <button
             onClick={() => setOpenFijar(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90"
+            className="btn btn-primary btn-sm"
           >
             <Plus className="h-3 w-3" />
             Fijar fallo

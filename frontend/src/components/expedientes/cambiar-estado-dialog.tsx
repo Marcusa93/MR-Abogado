@@ -96,7 +96,7 @@ export function CambiarEstadoDialog({
             <select
               value={nuevoEstado}
               onChange={(e) => setNuevoEstado(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field h-9 w-full py-0"
             >
               <option value="">Seleccionar estado...</option>
               {(VALID_ESTADO_TRANSITIONS[estadoActual as EstadoInterno] ?? []).map((estado) => (
@@ -116,7 +116,7 @@ export function CambiarEstadoDialog({
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ingresa el motivo del cambio..."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field w-full resize-none"
             />
           </div>
 

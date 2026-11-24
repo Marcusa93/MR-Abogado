@@ -163,7 +163,7 @@ export function CrearSeguimientoDialog({
                 type="checkbox"
                 checked={crearTareaChecked}
                 onChange={(e) => setCrearTareaChecked(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/10 bg-white/5 text-amber-500 focus:ring-cyan-500/15"
+                className="h-3.5 w-3.5 rounded accent-[var(--brand-accent)]"
               />
               Crear tarea de seguimiento para el {proximoSeguimiento}
             </label>
@@ -188,7 +188,7 @@ export function CrearSeguimientoDialog({
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Observaciones adicionales..."
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field w-full resize-none"
             />
           </div>
 

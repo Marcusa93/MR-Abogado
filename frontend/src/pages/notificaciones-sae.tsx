@@ -481,7 +481,7 @@ export default function NotificacionesSaePage() {
           <button
             onClick={handleSyncNow}
             disabled={trigger.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
+            className="btn btn-primary btn-sm"
             title="Forzar revisión del portal ahora (sin esperar al cron 2x/día)"
           >
             {trigger.isPending
@@ -583,7 +583,7 @@ export default function NotificacionesSaePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por expediente, tipo, oficina, carátula…"
-          className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+          className="field h-9 w-full pl-9 pr-3 py-0"
         />
       </div>
 

@@ -157,7 +157,7 @@ export function ConsultaHechosOrdenados({
                 value={hechosEdit}
                 onChange={e => setHechosEdit(e.target.value)}
                 rows={12}
-                className="w-full text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-300 dark:border-amber-700/50 p-4 resize-y focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:focus:ring-cyan-500"
+                className="field w-full leading-relaxed resize-y"
               />
             ) : hechosEdit ? (
               <div className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed bg-white dark:bg-zinc-900/60 rounded-lg border border-amber-100 dark:border-amber-800/30 p-4">

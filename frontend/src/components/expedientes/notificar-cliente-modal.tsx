@@ -183,7 +183,7 @@ export function NotificarClienteModal({
               value={mensaje}
               onChange={e => setMensaje(e.target.value)}
               rows={5}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
+              className="field w-full placeholder-zinc-400 resize-none"
             />
           </div>
 

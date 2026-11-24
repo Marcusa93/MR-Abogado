@@ -129,7 +129,7 @@ export function ConvertirExpedienteModal({ consulta, onClose, onSuccess }: Props
                   }}
                   onFocus={() => !clienteId && setShowDropdown(true)}
                   placeholder="Buscar por nombre, apellido o DNI…"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] pl-8 pr-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="field w-full pl-8 pr-3"
                 />
                 {clienteId && (
                   <button
@@ -190,7 +190,7 @@ export function ConvertirExpedienteModal({ consulta, onClose, onSuccess }: Props
             <select
               value={fuero}
               onChange={e => setFuero(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="field w-full"
             >
               {FUERO_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -208,7 +208,7 @@ export function ConvertirExpedienteModal({ consulta, onClose, onSuccess }: Props
               onChange={e => setObservaciones(e.target.value)}
               rows={4}
               placeholder="Descripción del caso, antecedentes…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+              className="field w-full resize-none"
             />
           </div>
         </div>

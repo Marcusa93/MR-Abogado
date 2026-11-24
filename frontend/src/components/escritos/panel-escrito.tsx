@@ -40,7 +40,7 @@ function Estrategia({ expedienteId }: { expedienteId: string }) {
       <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-500">Estrategia del caso</p>
       <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4}
         placeholder="Teoría del caso, qué conviene sostener y qué evitar. La IA la usa en todos los escritos de este expediente."
-        className="w-full resize-y rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12.5px] text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none" />
+        className="field w-full resize-y text-[12.5px]" />
       {cambio && (
         <button type="button" disabled={guardar.isPending}
           onClick={() => guardar.mutate({ expedienteId, texto }, { onSuccess: () => toast.success('Estrategia guardada'), onError: (e) => toast.error('No se pudo guardar', e.message) })}

@@ -191,7 +191,7 @@ export function IncorporarEntrevista({ consulta, transcripcion, marcas, notas, a
             <>
               <button type="button" onClick={onCerrar} className="min-h-10 rounded-lg px-3 text-sm text-zinc-600 dark:text-zinc-300">Cerrar</button>
               <button type="button" onClick={() => { onCerrar(); onOrdenar() }}
-                className="min-h-10 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white dark:bg-white dark:text-zinc-900">Ordenar hechos con IA</button>
+                className="btn btn-primary min-h-10">Ordenar hechos con IA</button>
             </>
           ) : (
             <>

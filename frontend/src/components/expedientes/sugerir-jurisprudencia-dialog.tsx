@@ -106,12 +106,12 @@ export function SugerirJurisprudenciaDialog({
               }}
               placeholder="Pegá el párrafo que estás escribiendo, o un concepto: 'daño punitivo plataformas digitales', 'carga dinámica de la prueba'…"
               rows={3}
-              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field flex-1 resize-none"
             />
             <button
               onClick={handleBuscar}
               disabled={buscar.isPending || query.trim().length < 3}
-              className="self-end inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary btn-sm self-end"
             >
               {buscar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
               Buscar

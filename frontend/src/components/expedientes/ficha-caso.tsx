@@ -226,7 +226,7 @@ function TextoEditable({ ficha, campo, vacio, grande, sinTitulo, recortar }: {
       <div className="space-y-2">
         {!sinTitulo && <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{ETIQUETA_CAMPO[campo]}</p>}
         <textarea autoFocus value={valor} onChange={(e) => setValor(e.target.value)} rows={Math.min(10, Math.max(3, Math.ceil(valor.length / 90)))}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-cyan-500/50 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100" />
+          className="field w-full text-base sm:text-sm" />
         <div className="flex justify-end gap-2">
           <button type="button" onClick={() => { setEditando(false); setValor(ficha[campo]) }} className="min-h-9 rounded-lg px-3 text-sm text-zinc-600 dark:text-zinc-300">Cancelar</button>
           <button type="button" className={botonPrimario}
@@ -375,7 +375,7 @@ function Agregar({ expedienteId, pregunta, onCerrar, onPropuesta }: {
       <textarea autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} rows={3}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) enviar() }}
         placeholder={pregunta ? 'Respondé con tus palabras.' : 'Contalo con tus palabras. Ej.: «contestó negando la relación laboral», «se produjo la pericial contable», «la audiencia pasó al 12/3».'}
-        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base text-zinc-900 focus:border-cyan-500/50 focus:outline-none sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100" />
+        className="field w-full text-base sm:text-sm" />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {voz.disponible && (
           voz.grabando ? (

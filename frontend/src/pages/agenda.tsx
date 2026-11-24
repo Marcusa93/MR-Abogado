@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { createClient } from '@/lib/supabase/client'
 import { AppSplash } from '@/components/shared/app-splash'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/shared/page-header'
 import { toast } from '@/stores/toast-store'
 import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
@@ -307,15 +308,15 @@ function EditarAudienciaDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[var(--popover)] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-base font-semibold text-zinc-100">{item.titulo}</h2>
+            <h2 className="text-lg font-extrabold tracking-tight text-white">{item.titulo}</h2>
             {item.expedienteCaratula && (
               <p className="text-xs text-zinc-500 mt-0.5 truncate">{item.expedienteCaratula}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -323,31 +324,31 @@ function EditarAudienciaDialog({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Fecha</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-400">Fecha</label>
               <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+                className="field h-10 py-0 text-[13px]"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Hora</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-400">Hora</label>
               <input
                 type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
-                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+                className="field h-10 py-0 text-[13px]"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Estado</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-400">Estado</label>
             <select
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
-              className="h-8 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+              className="field h-10 py-0 text-[13px]"
             >
               {ESTADO_AUDIENCIA_OPTS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -356,12 +357,12 @@ function EditarAudienciaDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Notas</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-400">Notas</label>
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              className="field text-[13px]"
             />
           </div>
         </div>
@@ -370,7 +371,7 @@ function EditarAudienciaDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+            className="btn btn-ghost border-transparent"
           >
             Cancelar
           </button>
@@ -378,7 +379,7 @@ function EditarAudienciaDialog({
             type="button"
             onClick={handleSave}
             disabled={!fecha || updateTurno.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {updateTurno.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
             Guardar
@@ -440,10 +441,10 @@ function EditarReunionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
+      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[var(--popover)] p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-zinc-100">Reprogramar reunión</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+          <h2 className="text-lg font-extrabold tracking-tight text-white">Reprogramar reunión</h2>
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -451,12 +452,12 @@ function EditarReunionDialog({
         <p className="text-sm text-zinc-500 mb-4 truncate">{item.titulo}</p>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-300">Nueva fecha y hora</label>
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-400">Nueva fecha y hora</label>
           <input
             type="datetime-local"
             value={fechaHora}
             onChange={(e) => setFechaHora(e.target.value)}
-            className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+            className="field h-10 py-0 text-[13px]"
           />
         </div>
 
@@ -464,7 +465,7 @@ function EditarReunionDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+            className="btn btn-ghost border-transparent"
           >
             Cancelar
           </button>
@@ -472,7 +473,7 @@ function EditarReunionDialog({
             type="button"
             onClick={handleSave}
             disabled={!fechaHora || actualizar.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {actualizar.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
             Guardar
@@ -527,7 +528,7 @@ function AgendaItemCard({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{item.titulo}</span>
           {item.hora && (
-            <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 shrink-0">{item.hora.slice(0, 5)}</span>
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{item.hora.slice(0, 5)}</span>
           )}
           {vencida && item.kind !== 'audiencia' && item.kind !== 'reunion' && (
             <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">Vencida</span>
@@ -598,7 +599,7 @@ function CalendarioMes({
   const esMesActual = mes.year === Number(hoy.slice(0, 4)) && mes.month === Number(hoy.slice(5, 7))
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
+    <div className="app-card overflow-hidden">
 
       {/* Cabecera del mes */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-zinc-100 dark:border-white/5">
@@ -617,7 +618,7 @@ function CalendarioMes({
             <button
               type="button"
               onClick={onHoy}
-              className="rounded-md border border-zinc-200 dark:border-white/10 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               Hoy
             </button>
@@ -789,7 +790,7 @@ function DiaSeleccionadoPanel({
   onEdit?: (item: AgendaItem) => void
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden animate-fade-in">
+    <div className="app-card overflow-hidden animate-fade-in">
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-white/5">
         <h3 className="font-semibold text-zinc-800 dark:text-zinc-200 capitalize">
           {labelFecha(fecha, hoy)}
@@ -800,7 +801,7 @@ function DiaSeleccionadoPanel({
               <button
                 type="button"
                 onClick={() => onAgendarAudiencia(fecha)}
-                className="flex items-center gap-1 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors"
+                className="btn btn-secondary btn-sm"
               >
                 <Scale className="h-3.5 w-3.5" />
                 Audiencia
@@ -808,7 +809,7 @@ function DiaSeleccionadoPanel({
               <button
                 type="button"
                 onClick={() => onAgendarReunion(fecha)}
-                className="flex items-center gap-1 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
+                className="btn btn-ghost btn-sm"
               >
                 <CalendarPlus className="h-3.5 w-3.5" />
                 Reunión
@@ -905,79 +906,55 @@ function AgendaUnificada() {
   return (
     <div className="space-y-5">
 
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="page-title">Agenda</h1>
-            <p className="page-subtitle">
-              {vista === 'lista' ? 'Próximos 45 días' : 'Vista mensual'} · audiencias, tareas y plazos
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Agenda"
+        subtitle={<>{vista === 'lista' ? 'Próximos 45 días' : 'Vista mensual'} · audiencias, tareas y plazos</>}
+        actions={
+          <>
+            {/* Leyenda */}
+            <div className="mr-2 hidden items-center gap-3 text-xs font-medium text-zinc-500 dark:text-zinc-400 2xl:flex">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-500" />Audiencia</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500" />Plazo</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-zinc-400" />Tarea</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-teal-500" />Reunión</span>
+            </div>
 
-        <div className="flex items-center gap-3">
-          {/* Leyenda */}
-          <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-500" />Audiencia</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />Plazo</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-zinc-400" />Tarea</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal-500" />Reunión</span>
-          </div>
+            {/* Toggle de vista */}
+            <div className="segmented" role="group" aria-label="Vista">
+              <button type="button" onClick={() => cambiarVista('lista')} aria-pressed={vista === 'lista'} className="text-xs font-semibold">
+                <List className="h-3.5 w-3.5" />
+                Lista
+              </button>
+              <button type="button" onClick={() => cambiarVista('calendario')} aria-pressed={vista === 'calendario'} className="text-xs font-semibold">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Calendario
+              </button>
+            </div>
 
-          {/* Botón nueva audiencia */}
-          <button
-            type="button"
-            onClick={() => { setDefaultFechaAudiencia(undefined); setModalAudiencia(true) }}
-            className="flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors"
-          >
-            <Scale className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Nueva audiencia</span>
-            <span className="sm:hidden">Audiencia</span>
-          </button>
-
-          {/* Botón agendar reunión */}
-          <button
-            type="button"
-            onClick={() => { setDefaultFechaReunion(undefined); setModalReunion(true) }}
-            className="flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs font-medium text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Agendar reunión</span>
-            <span className="sm:hidden">Reunión</span>
-          </button>
-
-          {/* Toggle de vista */}
-          <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 p-1 gap-1">
+            {/* Agendar reunión */}
             <button
               type="button"
-              onClick={() => cambiarVista('lista')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                vista === 'lista'
-                  ? 'bg-zinc-900 text-white dark:bg-white/10'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
-              )}
+              onClick={() => { setDefaultFechaReunion(undefined); setModalReunion(true) }}
+              className="btn btn-ghost"
             >
-              <List className="h-3.5 w-3.5" />
-              Lista
+              <CalendarPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Agendar reunión</span>
+              <span className="sm:hidden">Reunión</span>
             </button>
+
+            {/* Nueva audiencia */}
             <button
               type="button"
-              onClick={() => cambiarVista('calendario')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                vista === 'calendario'
-                  ? 'bg-zinc-900 text-white dark:bg-white/10'
-                  : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
-              )}
+              onClick={() => { setDefaultFechaAudiencia(undefined); setModalAudiencia(true) }}
+              className="btn btn-primary"
             >
-              <CalendarDays className="h-3.5 w-3.5" />
-              Calendario
+              <Scale className="h-4 w-4" />
+              <span className="hidden sm:inline">Nueva audiencia</span>
+              <span className="sm:hidden">Audiencia</span>
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <AgendarReuniónModal
         open={modalReunion}
@@ -998,7 +975,7 @@ function AgendaUnificada() {
 
         // ── Vista lista ──────────────────────────────────────────────────────
         groupedLista.length === 0 ? (
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-6 py-12 text-center">
+          <div className="app-card px-6 py-12 text-center">
             <CalendarDays className="h-10 w-10 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Sin eventos próximos</p>
             <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">

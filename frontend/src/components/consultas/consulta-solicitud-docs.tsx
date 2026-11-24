@@ -76,7 +76,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
           placeholder="Ej: DNI del actor, contrato de trabajo firmado, recibos de sueldo últimos 6 meses…"
           rows={2}
           required
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
+          className="field w-full resize-none"
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -85,7 +85,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
           <select
             value={responsableId}
             onChange={e => setResponsableId(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            className="field w-full"
           >
             <option value="">Sin asignar</option>
             {profiles.map(p => (
@@ -101,7 +101,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
             type="date"
             value={fechaLimite}
             onChange={e => setFechaLimite(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            className="field w-full"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@ function NuevaSolicitudForm({ consultaId, onDone }: { consultaId: string; onDone
         <button
           type="submit"
           disabled={!descripcion.trim() || create.isPending}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+          className="btn btn-primary btn-sm"
         >
           {create.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Guardar

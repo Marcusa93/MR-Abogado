@@ -170,7 +170,7 @@ export function AdjuntoChatPanel({ adjuntoId, fileName, expedienteId, onClose }:
             disabled={chat.isPending}
             rows={2}
             placeholder="Preguntale al documento…"
-            className="flex-1 resize-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15 disabled:opacity-50"
+            className="field flex-1 resize-none disabled:opacity-50"
           />
           <button
             onClick={() => send(input)}

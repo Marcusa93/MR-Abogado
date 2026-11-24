@@ -58,7 +58,7 @@ function NormativaTab({ consultaId }: { consultaId: string }) {
           value={query}
           onChange={e => handleChange(e.target.value)}
           placeholder="Buscar ley, código, decreto…"
-          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+          className="field w-full pl-8 pr-3"
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 animate-spin" />
@@ -131,7 +131,7 @@ function JurisprudenciaTab({ consultaId }: { consultaId: string }) {
           value={query}
           onChange={e => handleChange(e.target.value)}
           placeholder="Buscar por carátula o tribunal…"
-          className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+          className="field w-full pl-8 pr-3"
         />
         {isFetching && (
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 animate-spin" />

@@ -124,14 +124,14 @@ export function DatosPlazosDialog({ expediente, onClose }: { expediente: DatosPl
             {inferido && <p className="mt-1.5 text-[11.5px] text-amber-600 dark:text-amber-300/90">Marcado según la carátula. Confirmalo.</p>}
             {(parte === 'tercero' || parte === 'otra') && (
               <input value={detalle} onChange={(e) => setDetalle(e.target.value)} placeholder={parte === 'tercero' ? 'Ej.: citada en garantía (aseguradora)' : 'Ej.: herederos en la sucesión'}
-                className="mt-2 h-9 w-full rounded-md border border-zinc-200 bg-white px-2.5 text-sm text-zinc-900 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100" />
+                className="field mt-2 h-9 w-full py-0" />
             )}
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Fuero</label>
             <select value={fuero} onChange={(e) => setFuero(e.target.value)}
-              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm text-zinc-900 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-[#10161d] dark:text-zinc-100">
+              className="field h-9 w-full py-0">
               <option value="">Sin dato</option>
               {FUEROS.map((f) => <option key={f.v} value={f.v}>{f.l}</option>)}
             </select>
@@ -144,7 +144,7 @@ export function DatosPlazosDialog({ expediente, onClose }: { expediente: DatosPl
             {confirmado ? 'Cancelar' : 'Ahora no'}
           </button>
           <button type="button" onClick={handleGuardar} disabled={!parte || guardar.isPending}
-            className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+            className="btn btn-primary">
             {guardar.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
           </button>
         </div>

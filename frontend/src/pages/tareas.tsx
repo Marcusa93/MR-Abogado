@@ -18,6 +18,7 @@ import { EtiquetasInput } from '@/components/shared/etiquetas-input'
 import { AsignadosSelect } from '@/components/shared/asignados-select'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/shared/page-header'
 import { formatDate, timeAgo } from '@/lib/utils/date-helpers'
 import {
   Plus, Clock, X, Loader2, FolderOpen, User,
@@ -100,7 +101,7 @@ function ExpedienteCombobox({ value, onChange }: {
         onChange={e => { if (value) onChange(null); setInputText(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder="Buscar por carátula o número…"
-        className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+        className="field w-full"
       />
       {value && (
         <button type="button" onClick={() => { onChange(null); setInputText('') }} className="shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
@@ -179,9 +180,9 @@ function ComentariosSection({ tareaId }: { tareaId: string }) {
         <input type="text" value={texto} onChange={e => setTexto(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() } }}
           placeholder="Escribir comentario… (Enter para enviar)"
-          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+          className="field flex-1" />
         <button type="button" onClick={handleAdd} disabled={!texto.trim() || addComentario.isPending}
-          className="p-2 rounded-lg bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50 transition-colors">
+          className="btn btn-primary btn-sm">
           {addComentario.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
       </div>
@@ -260,13 +261,13 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Título</label>
             <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+              className="field w-full" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Descripción</label>
             <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={3}
               placeholder="Detalles de la tarea…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none" />
+              className="field w-full resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignados</label>
@@ -276,7 +277,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
             <div>
               <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Prioridad</label>
               <select value={prioridad} onChange={e => setPrioridad(e.target.value as typeof prioridad)}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30">
+                className="field w-full">
                 <option value="BAJA">Baja</option>
                 <option value="MEDIA">Media</option>
                 <option value="ALTA">Alta</option>
@@ -287,7 +288,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Fecha límite</label>
             <input type="date" value={fechaVenc} onChange={e => setFechaVenc(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+              className="field w-full" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
@@ -303,7 +304,7 @@ function TareaEditDialog({ tarea, onClose }: { tarea: TareaWithRelations; onClos
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button type="button" onClick={handleSave} disabled={!dirty || updateTarea.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-40">
+              className="btn btn-primary">
               {updateTarea.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Guardar
             </button>
@@ -377,13 +378,13 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Título *</label>
             <input type="text" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
               placeholder="¿Qué hay que hacer?" autoFocus
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+              className="field w-full" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Descripción</label>
             <textarea value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
               rows={2} placeholder="Detalles opcionales…"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none" />
+              className="field w-full resize-none" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Asignados</label>
@@ -392,7 +393,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Prioridad</label>
             <select value={form.prioridad} onChange={e => setForm(f => ({ ...f, prioridad: e.target.value as typeof form.prioridad }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30">
+              className="field w-full">
               <option value="BAJA">Baja</option>
               <option value="MEDIA">Media</option>
               <option value="ALTA">Alta</option>
@@ -402,7 +403,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Fecha límite</label>
             <input type="date" value={form.fecha_vencimiento} onChange={e => setForm(f => ({ ...f, fecha_vencimiento: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/30" />
+              className="field w-full" />
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
@@ -419,7 +420,7 @@ function NuevaTareaDialog({ onClose }: { onClose: () => void }) {
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">Cancelar</button>
             <button type="submit" disabled={create.isPending}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50">
+              className="btn btn-primary">
               {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Crear tarea
             </button>
@@ -450,9 +451,8 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
   return (
     <button type="button" onClick={onClick}
       className={cn(
-        'group w-full text-left rounded-lg border p-3 space-y-2 bg-white dark:bg-[var(--card)] transition-colors',
-        'hover:border-zinc-300 dark:hover:border-white/20',
-        vencida ? 'border-rose-300 dark:border-rose-500/30' : 'border-zinc-200 dark:border-white/[0.08]',
+        'app-card group w-full space-y-2 rounded-xl p-3.5 text-left',
+        vencida && '!border-rose-400/40',
         completada && 'opacity-60',
       )}>
       <div className="flex items-start gap-2">
@@ -472,7 +472,7 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
       <div className="flex flex-wrap gap-1.5 pl-6">
         {tarea.expediente ? (
           <Link to={`/expedientes/${tarea.expediente.id}`} onClick={e => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors max-w-[160px] truncate">
+            className="tag-mono max-w-[160px] truncate hover:text-zinc-900 dark:hover:text-white">
             <FolderOpen className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">
               {tarea.expediente.caratula
@@ -491,9 +491,9 @@ function TareaCard({ tarea, onComplete, onMoveToProgress, onClick }: {
         ) : (
           <span className="tag-mono">libre</span>
         )}
-        {(tarea.prioridad === 'ALTA' || tarea.prioridad === 'URGENTE') && <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', pConfig.color)}>{pConfig.label}</span>}
+        {(tarea.prioridad === 'ALTA' || tarea.prioridad === 'URGENTE') && <span className={cn('rounded-full px-2 py-px text-[10.5px] font-semibold', pConfig.color)}>{pConfig.label}</span>}
         {venc ? (
-          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10.5px]',
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-px text-[10.5px] font-semibold tabular-nums',
             vencida ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
               : esHoy ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
               : 'text-zinc-500 dark:text-zinc-400')}>
@@ -583,14 +583,14 @@ function TareaRow({ tarea, onComplete, onClick }: {
           </Link>
         ) : tarea.consulta ? (
           <Link to={`/consultas/${tarea.consulta.id}`} onClick={e => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10.5px] text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors max-w-[160px] truncate">
+            className="tag-mono max-w-[160px] truncate hover:text-zinc-900 dark:hover:text-white">
             <Users className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">Consulta: {[tarea.consulta.apellido, tarea.consulta.nombre].filter(Boolean).join(', ')}</span>
           </Link>
         ) : (
           <span className="font-mono text-[10.5px] text-zinc-400">libre</span>
         )}
-        {(tarea.prioridad === 'ALTA' || tarea.prioridad === 'URGENTE') && <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', pConfig.color)}>{pConfig.label}</span>}
+        {(tarea.prioridad === 'ALTA' || tarea.prioridad === 'URGENTE') && <span className={cn('rounded-full px-2 py-px text-[10.5px] font-semibold', pConfig.color)}>{pConfig.label}</span>}
         {venc ? (
           <span className={cn('font-mono text-[10.5px]',
             vencida ? 'text-red-500' : esHoy ? 'text-amber-500' : 'text-zinc-400')}>
@@ -625,8 +625,8 @@ function Column({ title, count, accentClass, children }: {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 pb-1 border-b border-zinc-200 dark:border-white/10">
-        <h2 className={cn('font-mono text-[10.5px] font-medium uppercase tracking-[0.12em]', accentClass)}>{title}</h2>
-        <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">{count}</span>
+        <h2 className={cn('text-[10.5px] font-bold uppercase tracking-[0.12em]', accentClass)}>{title}</h2>
+        <span className="text-[11px] font-semibold tabular-nums text-zinc-400 dark:text-zinc-500">{count}</span>
       </div>
       <div className="space-y-2">{children}</div>
     </div>
@@ -690,63 +690,46 @@ export default function TareasPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="page-title">Tareas</h1>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden">
-            <button type="button" onClick={() => setVista('tablero')} title="Vista tablero"
-              className={cn('p-2 transition-colors', vista === 'tablero'
-                ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-                : 'bg-white dark:bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
-              <Columns3 className="h-4 w-4" />
+      <PageHeader
+        title="Tareas"
+        actions={
+          <>
+            <div className="segmented" role="group" aria-label="Vista">
+              <button type="button" onClick={() => setVista('tablero')} title="Vista tablero" aria-pressed={vista === 'tablero'}>
+                <Columns3 className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => setVista('lista')} title="Vista lista" aria-pressed={vista === 'lista'}>
+                <List className="h-4 w-4" />
+              </button>
+            </div>
+            <button type="button" onClick={() => setShowNueva(true)} className="btn btn-primary">
+              <Plus className="h-4 w-4" />
+              Nueva tarea
             </button>
-            <button type="button" onClick={() => setVista('lista')} title="Vista lista"
-              className={cn('p-2 border-l border-zinc-200 dark:border-white/10 transition-colors', vista === 'lista'
-                ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-                : 'bg-white dark:bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
-              <List className="h-4 w-4" />
-            </button>
-          </div>
-          <button type="button" onClick={() => setShowNueva(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors shadow-sm">
-            <Plus className="h-4 w-4" />
-            Nueva tarea
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {/* Filters */}
+      {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden text-xs font-medium">
-          <button type="button" onClick={() => setMisTareas(true)}
-            className={cn('px-3 py-1.5 transition-colors', misTareas
-              ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-              : 'bg-white dark:bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
+        <div className="segmented" role="group" aria-label="De quién">
+          <button type="button" onClick={() => setMisTareas(true)} aria-pressed={misTareas} className="px-3 text-xs font-semibold">
             Mis tareas
           </button>
-          <button type="button" onClick={() => { setMisTareas(false); setFiltroAsignado('') }}
-            className={cn('px-3 py-1.5 border-l border-zinc-200 dark:border-white/10 transition-colors', !misTareas
-              ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-              : 'bg-white dark:bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
+          <button type="button" onClick={() => { setMisTareas(false); setFiltroAsignado('') }} aria-pressed={!misTareas} className="px-3 text-xs font-semibold">
             Todo el equipo
           </button>
         </div>
         {!misTareas && (
           <select value={filtroAsignado} onChange={e => setFiltroAsignado(e.target.value)}
-            className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30">
+            className="field h-9 w-auto py-0 text-xs">
             <option value="">Todos los usuarios</option>
             {members.map(m => <option key={m.id} value={m.id}>{m.nombre} {m.apellido}</option>)}
           </select>
         )}
-        <div className="flex rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden text-xs font-medium ml-auto">
-          {(['todas', 'libre', 'expediente'] as const).map((t, i) => (
-            <button key={t} type="button" onClick={() => setFiltroTipo(t)}
-              className={cn('px-3 py-1.5 transition-colors',
-                i > 0 && 'border-l border-zinc-200 dark:border-white/10',
-                filtroTipo === t
-                  ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-                  : 'bg-white dark:bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
+        <div className="ml-auto flex gap-1.5">
+          {(['todas', 'libre', 'expediente'] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setFiltroTipo(t)} aria-pressed={filtroTipo === t} className="chip">
               {t === 'todas' ? 'Todas' : t === 'libre' ? 'Libres' : 'Con expediente'}
             </button>
           ))}
@@ -792,11 +775,11 @@ export default function TareasPage() {
           </Column>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 overflow-hidden bg-white dark:bg-[var(--card)]">
+        <div className="app-card overflow-hidden">
           {pendientes.length > 0 && (
             <>
               <div className="px-4 py-2 bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-100 dark:border-white/5">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
                   Pendiente <span className="ml-1 text-zinc-400 font-normal">({pendientes.length})</span>
                 </span>
               </div>
@@ -806,7 +789,7 @@ export default function TareasPage() {
           {enProgreso.length > 0 && (
             <>
               <div className="px-4 py-2 bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-100 dark:border-white/5">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-cyan-700 dark:text-cyan-300">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-cyan-700 dark:text-cyan-300">
                   En progreso <span className="ml-1 text-zinc-400 font-normal">({enProgreso.length})</span>
                 </span>
               </div>
@@ -816,7 +799,7 @@ export default function TareasPage() {
           {completadas.length > 0 && (
             <>
               <div className="px-4 py-2 bg-zinc-50 dark:bg-white/[0.03] border-b border-zinc-100 dark:border-white/5">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500">
                   Completadas (últimas 20) <span className="ml-1 text-zinc-400 font-normal">({completadas.length})</span>
                 </span>
               </div>

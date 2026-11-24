@@ -61,7 +61,7 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
           placeholder={placeholder}
           rows={3}
           autoFocus
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
+          className="field w-full resize-none"
         />
         <div className="flex gap-3 justify-end">
           <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
@@ -71,7 +71,7 @@ function ModalNotas({ titulo, placeholder, onConfirm, onCancel, loading }: {
             type="button"
             onClick={() => onConfirm(notas)}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+            className="btn btn-primary"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
             Confirmar
@@ -107,7 +107,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             value={destinatarioId}
             onChange={e => setDestinatarioId(e.target.value)}
             autoFocus
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            className="field w-full"
           >
             <option value="">Seleccionar…</option>
             {profiles.map(p => {
@@ -127,7 +127,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             type="text"
             value={titulo}
             onChange={e => setTitulo(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            className="field w-full"
           />
         </div>
 
@@ -138,7 +138,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             onChange={e => setDescripcion(e.target.value)}
             placeholder="Ej: Llamar al cliente para coordinar la firma del poder…"
             rows={3}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-none"
+            className="field w-full resize-none"
           />
         </div>
 
@@ -150,7 +150,7 @@ function ModalAsignarTarea({ nombreCliente, profiles, currentUserId, onConfirm, 
             type="button"
             onClick={() => destinatarioId && titulo.trim() && onConfirm(destinatarioId, titulo.trim(), descripcion)}
             disabled={loading || !destinatarioId || !titulo.trim()}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+            className="btn btn-primary"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardList className="h-4 w-4" />}
             Asignar
@@ -438,7 +438,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
                 type="button"
                 onClick={handleRedactando}
                 disabled={cambiar.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+                className="btn btn-primary btn-sm"
               >
                 <PenLine className="h-3.5 w-3.5" />
                 Redactar instrumento

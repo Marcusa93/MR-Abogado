@@ -135,12 +135,12 @@ export function RutinasEquipo() {
                       onChange={e => setNewTitulo(e.target.value)}
                       placeholder="Título de la tarea"
                       autoFocus
-                      className="flex-1 rounded-lg border border-white/10 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="field flex-1 text-xs"
                     />
                     <select
                       value={newFrecuencia}
                       onChange={e => setNewFrecuencia(e.target.value as TareaRecurrente['frecuencia'])}
-                      className="rounded-lg border border-white/10 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none"
+                      className="field text-xs"
                     >
                       {Object.entries(FRECUENCIA_LABEL).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>

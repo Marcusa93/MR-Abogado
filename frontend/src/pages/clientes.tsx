@@ -173,7 +173,7 @@ export default function ClientesPage() {
           placeholder="Buscar por nombre, DNI, CUIL, email, teléfono..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20"
+          className="field h-9 w-full pl-9 pr-3 py-0"
         />
       </div>
 

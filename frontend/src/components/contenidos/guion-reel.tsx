@@ -168,19 +168,19 @@ export function GuionReelDialog({ onClose }: { onClose: () => void }) {
         {modo === 'texto' && (
           <textarea value={texto} onChange={(e) => setTexto(e.target.value)} disabled={busy} rows={5}
             placeholder="Escribí el tema o la idea del Reel. Ej: quiero hablar de qué pasa cuando te clonan la tarjeta y el banco te empieza a informar deudas…"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-fuchsia-500/40 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 resize-none mb-4" />
+            className="field w-full resize-none mb-4" />
         )}
 
         {modo === 'url' && (
           <input value={url} onChange={(e) => setUrl(e.target.value)} disabled={busy} type="url"
             placeholder="https://… link de la noticia o artículo"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-fuchsia-500/40 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/15 mb-4" />
+            className="field w-full mb-4" />
         )}
 
         {/* Contexto opcional */}
         <input value={contexto} onChange={(e) => setContexto(e.target.value)} disabled={busy}
           placeholder="Ángulo o indicación extra (opcional). Ej: tono más urgente, para gente joven…"
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300 placeholder:text-zinc-500 focus:border-fuchsia-500/40 focus:outline-none mb-4" />
+          className="field w-full text-xs mb-4" />
 
         {stage && (
           <div className="flex items-center gap-2 text-xs text-fuchsia-200 mb-3">

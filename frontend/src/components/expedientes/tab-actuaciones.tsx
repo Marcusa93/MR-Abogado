@@ -1350,7 +1350,7 @@ export function TabActuaciones({ expedienteId, numeroSae, ultimaSincronizacion, 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar en título o cuerpo..."
-                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field w-full h-9 pl-9 pr-9 py-0"
               />
               {search && (
                 <button
