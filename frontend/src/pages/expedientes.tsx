@@ -25,6 +25,7 @@ import { exportExpedientesToCSV } from '@/lib/utils/export-csv'
 import { toast } from '@/stores/toast-store'
 import { useUIStore } from '@/stores/ui-store'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { PageHeader } from '@/components/shared/page-header'
 import { WhatsAppButton } from '@/components/shared/whatsapp-button'
 import {
   Plus,
@@ -89,8 +90,8 @@ function SortHeader({
   return (
     <th
       className={cn(
-        'px-4 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors hover:text-zinc-800 dark:hover:text-zinc-200',
-        isActive ? 'text-amber-400' : 'text-zinc-600 dark:text-zinc-300',
+        'px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.12em] cursor-pointer select-none transition-colors hover:text-zinc-800 dark:hover:text-white',
+        isActive ? 'text-cyan-700 dark:text-cyan-400' : 'text-zinc-500 dark:text-zinc-400',
         className
       )}
       onClick={() => onSort(field)}
@@ -111,7 +112,7 @@ function SortHeader({
 function NovedadesChip({ n, className }: { n?: number; className?: string }) {
   if (!n) return null
   return (
-    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 font-mono text-[10.5px] leading-5 text-cyan-700 dark:text-cyan-300', className)} title="Novedades del SAE sin leer">
+    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 text-[10.5px] font-semibold leading-5 text-cyan-700 dark:text-cyan-300', className)} title="Novedades del SAE sin leer">
       <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />{n} {n === 1 ? 'novedad' : 'novedades'}
     </span>
   )
@@ -136,7 +137,7 @@ function ExpedienteCard({ expediente, salud, novedades, onClick }: { expediente:
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
       className={cn(
-        'app-card group w-full cursor-pointer px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15',
+        'app-card group w-full cursor-pointer px-4 py-3.5 text-left',
         novedades ? 'dark:!border-cyan-400/20' : '',
       )}
     >
@@ -145,7 +146,7 @@ function ExpedienteCard({ expediente, salud, novedades, onClick }: { expediente:
         <p className="line-clamp-2 min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-zinc-900 dark:text-zinc-50">{title}</p>
         <span onClick={(e) => e.stopPropagation()}><FavoritoStar expedienteId={expediente.id} className="-mr-1 -mt-1" /></span>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[18px] font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-[18px] text-[11.5px] font-medium text-zinc-500 dark:text-zinc-400">
         {expediente.numero_sae ? <span>SAE {expediente.numero_sae}</span> : <span>{expediente.numero}</span>}
         <span className="text-zinc-300 dark:text-zinc-600">·</span>
         <span>{ESTADO_CORTO[expediente.estado_interno] ?? expediente.estado_interno}</span>
@@ -224,16 +225,11 @@ function FiltrosRapidos({ filters, setFilters, saludMap, novedades, profileId }:
           key={c.id}
           onClick={c.onClick}
           aria-pressed={c.activo}
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-            c.activo
-              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white/20 dark:bg-white/10 dark:text-white'
-              : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/[0.08] dark:bg-transparent dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-200',
-          )}
+          className="chip"
         >
           {c.dot && <span className={cn('h-2 w-2 rounded-full', c.dot)} />}
           {c.label}
-          {c.count != null && c.count > 0 && <span className={cn('font-mono text-[10.5px]', c.activo ? 'opacity-80' : 'text-zinc-400 dark:text-zinc-500')}>{c.count}</span>}
+          {c.count != null && c.count > 0 && <span className="chip-count">{c.count}</span>}
         </button>
       ))}
     </div>
@@ -336,83 +332,70 @@ export default function ExpedientesPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="page-title">
-            Expedientes
-          </h1>
-          <p className="page-subtitle">
-            {data ? `${data.count} en total · gestión del estudio` : 'Gestión del estudio'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Vista: lista, tarjetas o tablero por etapa */}
-          <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 p-0.5">
-            {([
-              { modo: 'table', icon: LayoutList, label: 'Lista', soloDesktop: true },
-              { modo: 'cards', icon: LayoutGrid, label: 'Tarjetas', soloDesktop: false },
-              { modo: 'etapas', icon: Columns3, label: 'Por etapa', soloDesktop: false },
-            ] as const).map(({ modo, icon: Icon, label, soloDesktop }) => {
-              const activo = viewMode === modo
-              return (
-                <button
-                  key={modo}
-                  onClick={() => setViewMode(modo)}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
-                    soloDesktop && 'hidden sm:flex',
-                    activo
-                      ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
-                      : modo === 'cards' && viewMode === 'table'
-                        // En el celular la lista se ve como tarjetas
-                        ? 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10 max-sm:bg-[var(--brand-navy)] max-sm:text-white max-sm:dark:bg-white max-sm:dark:text-[var(--brand-navy)]'
-                        : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10',
-                  )}
-                  title={label}
-                  aria-pressed={activo}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className={cn(modo !== 'etapas' && 'sr-only')}>{label}</span>
-                </button>
-              )
-            })}
-          </div>
-          <button
-            onClick={async () => {
-              setCsvLoading(true)
-              try {
-                await exportExpedientesToCSV()
-                toast.success('Expedientes exportados a CSV')
-              } catch (err) {
-                toast.error('Error al exportar', err instanceof Error ? err.message : 'Error desconocido')
-              } finally {
-                setCsvLoading(false)
-              }
-            }}
-            disabled={csvLoading}
-            className="flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
-          >
-            {csvLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            <span className="hidden sm:inline">{csvLoading ? 'Exportando…' : 'Exportar CSV'}</span>
-          </button>
-          <button
-            onClick={() => navigate('/importar-sae')}
-            className="flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
-          >
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Importar SAE</span>
-          </button>
-          <button
-            onClick={() => navigate('/expedientes/nuevo')}
-            className="flex min-h-[38px] items-center gap-1.5 rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-opacity"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Nuevo expediente</span>
-            <span className="sm:hidden">Nuevo</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={data ? `${data.count} ${data.count === 1 ? 'expediente' : 'expedientes'}` : 'Expedientes'}
+        title="Expedientes"
+        subtitle="Gestión del estudio"
+        actions={
+          <>
+            {/* Vista: lista, tarjetas o tablero por etapa */}
+            <div className="segmented" role="group" aria-label="Vista">
+              {([
+                { modo: 'table', icon: LayoutList, label: 'Lista', soloDesktop: true },
+                { modo: 'cards', icon: LayoutGrid, label: 'Tarjetas', soloDesktop: false },
+                { modo: 'etapas', icon: Columns3, label: 'Por etapa', soloDesktop: false },
+              ] as const).map(({ modo, icon: Icon, label, soloDesktop }) => {
+                const activo = viewMode === modo
+                return (
+                  <button
+                    key={modo}
+                    onClick={() => setViewMode(modo)}
+                    className={cn(
+                      'text-xs font-semibold',
+                      soloDesktop && 'hidden sm:inline-flex',
+                      // En el celular la lista se ve como tarjetas
+                      modo === 'cards' && viewMode === 'table' && 'max-sm:bg-white/10 max-sm:text-white',
+                    )}
+                    title={label}
+                    aria-pressed={activo}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className={cn(modo !== 'etapas' && 'sr-only')}>{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={async () => {
+                setCsvLoading(true)
+                try {
+                  await exportExpedientesToCSV()
+                  toast.success('Expedientes exportados a CSV')
+                } catch (err) {
+                  toast.error('Error al exportar', err instanceof Error ? err.message : 'Error desconocido')
+                } finally {
+                  setCsvLoading(false)
+                }
+              }}
+              disabled={csvLoading}
+              className="btn btn-ghost"
+              title="Exportar CSV"
+            >
+              {csvLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              <span className="hidden sm:inline">{csvLoading ? 'Exportando…' : 'Exportar CSV'}</span>
+            </button>
+            <button onClick={() => navigate('/importar-sae')} className="btn btn-ghost" title="Importar SAE">
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">Importar SAE</span>
+            </button>
+            <button onClick={() => navigate('/expedientes/nuevo')} className="btn btn-primary">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nuevo expediente</span>
+              <span className="sm:hidden">Nuevo</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Filtros rápidos */}
       <FiltrosRapidos filters={filters} setFilters={setFilters} saludMap={saludMap} novedades={novedadesMap?.size ?? 0} profileId={profile?.id ?? null} />
@@ -450,7 +433,7 @@ export default function ExpedientesPage() {
               {hasActiveFilters && (
                 <button
                   onClick={() => setFilters({ page: 1, pageSize: DEFAULT_PAGE_SIZE })}
-                  className="mt-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-white/5 transition-colors"
+                  className="btn btn-secondary mt-2"
                 >
                   Limpiar filtros
                 </button>
@@ -462,8 +445,8 @@ export default function ExpedientesPage() {
         <>
           {/* Bulk actions bar */}
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-950/20 px-4 py-2.5 animate-fade-in">
-              <span className="text-sm font-medium text-amber-400">
+            <div className="flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2.5 animate-fade-in">
+              <span className="text-sm font-bold text-cyan-700 dark:text-cyan-300">
                 {selectedIds.size} seleccionado{selectedIds.size > 1 ? 's' : ''}
               </span>
               <div className="h-4 w-px bg-white/10" />
@@ -477,14 +460,14 @@ export default function ExpedientesPage() {
                   pendingBulkEstado.current = estado
                   setBulkConfirm({ estado, label: ESTADO_INTERNO_LABELS[estado as keyof typeof ESTADO_INTERNO_LABELS] ?? estado })
                 }}
-                className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-800 dark:text-zinc-200 focus:border-cyan-500/40 focus:outline-none disabled:opacity-50"
+                className="field h-8 w-auto py-0 text-xs disabled:opacity-50"
               >
                 <option value="" disabled>Cambiar estado a...</option>
                 {ESTADOS_PIPELINE.map((e) => (
                   <option key={e} value={e}>{ESTADO_INTERNO_LABELS[e]}</option>
                 ))}
               </select>
-              {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-amber-400" />}
+              {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />}
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
@@ -497,8 +480,8 @@ export default function ExpedientesPage() {
 
           {/* Fetching overlay — visible during pagination / filter changes */}
           {isFetching && !isLoading && (
-            <div className="flex items-center gap-2 text-xs text-amber-400">
-              <div className="h-3 w-3 animate-spin rounded-full border border-amber-400 border-t-transparent" />
+            <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <div className="h-3 w-3 animate-spin rounded-full border border-cyan-400 border-t-transparent" />
               Actualizando...
             </div>
           )}
@@ -532,7 +515,7 @@ export default function ExpedientesPage() {
             </div>
 
           {/* Table container — solo sm+ */}
-          <div className={cn("hidden sm:block rounded-xl overflow-auto border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
+          <div className={cn("hidden sm:block rounded-2xl overflow-auto border border-zinc-200 dark:border-white/[0.09] bg-white dark:bg-[var(--card)] max-h-[calc(100vh-280px)] sm:max-h-[calc(100vh-320px)]", isFetching && !isLoading && "opacity-60 pointer-events-none transition-opacity")}>
             <table className="w-full text-left">
               <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-[var(--card)]">
                 <tr className="border-b border-zinc-200 dark:border-white/5">
@@ -547,7 +530,7 @@ export default function ExpedientesPage() {
                           setSelectedIds(new Set())
                         }
                       }}
-                      className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-cyan-500/25 cursor-pointer"
+                      className="h-4 w-4 cursor-pointer rounded accent-[var(--brand-accent)]"
                     />
                   </th>
                   <SortHeader
@@ -573,7 +556,7 @@ export default function ExpedientesPage() {
                     onSort={handleSort}
                     className="hidden md:table-cell"
                   />
-                  <th className="hidden lg:table-cell px-4 py-3 text-xs font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
+                  <th className="hidden lg:table-cell px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                     Responsable
                   </th>
                   <SortHeader
@@ -625,7 +608,7 @@ export default function ExpedientesPage() {
                               return next
                             })
                           }}
-                          className="h-4 w-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-cyan-500/25 cursor-pointer"
+                          className="h-4 w-4 cursor-pointer rounded accent-[var(--brand-accent)]"
                         />
                       </td>
 
@@ -636,7 +619,7 @@ export default function ExpedientesPage() {
                           <SaludDot salud={salud} />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                              <p className="truncate text-sm font-semibold text-zinc-800 dark:text-white">
                                 {expediente.caratula || `${cliente?.apellido ?? ''} ${cliente?.nombre ?? ''}`.trim() || '-'}
                               </p>
                               <NovedadesChip n={novedadesMap?.get(expediente.id)} />
@@ -648,13 +631,13 @@ export default function ExpedientesPage() {
                               {(expediente as any).numero_sae && (
                                 <>
                                   <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                                  <span className="font-mono text-[10.5px] text-zinc-500 dark:text-zinc-400">SAE {(expediente as any).numero_sae}</span>
+                                  <span className="tabular-nums text-zinc-500 dark:text-zinc-400">SAE {(expediente as any).numero_sae}</span>
                                 </>
                               )}
                               {tipo && (expediente as any).numero && (
                                 <span className="text-zinc-700 dark:text-zinc-200">·</span>
                               )}
-                              <span className="font-mono text-zinc-600 dark:text-zinc-300 text-[10px]">{(expediente as any).numero}</span>
+                              <span className="tabular-nums text-zinc-500 dark:text-zinc-400">{(expediente as any).numero}</span>
                               <SyncPill fecha={(expediente as any).ultima_sincronizacion_sae} className="hidden xl:flex ml-1" />
                             </div>
                             {(expediente as any).organismo?.nombre && (
@@ -687,7 +670,7 @@ export default function ExpedientesPage() {
                       <td className="hidden lg:table-cell px-4 py-3">
                         {abogadoMembro ? (
                           <div className="flex items-center gap-2">
-                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-zinc-600 dark:text-zinc-300">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">
                               {(abogadoMembro.nombre?.[0] ?? '').toUpperCase()}
                               {(abogadoMembro.apellido?.[0] ?? '').toUpperCase()}
                             </div>
@@ -696,8 +679,8 @@ export default function ExpedientesPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-amber-400/80 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
-                            ⚠ Sin asignar
+                          <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                            Sin asignar
                           </span>
                         )}
                       </td>
@@ -725,7 +708,7 @@ export default function ExpedientesPage() {
                 <button
                   disabled={data.page <= 1 || isFetching}
                   onClick={() => goToPage(data.page - 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="btn btn-ghost btn-icon"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -754,8 +737,8 @@ export default function ExpedientesPage() {
                           onClick={() => goToPage(page)}
                           className={
                             page === data.page
-                              ? 'flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-cyan text-sm font-medium text-zinc-950'
-                              : 'flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5'
+                              ? 'btn btn-primary btn-icon tabular-nums'
+                              : 'btn btn-ghost btn-icon tabular-nums font-semibold'
                           }
                         >
                           {page}
@@ -767,7 +750,7 @@ export default function ExpedientesPage() {
                 <button
                   disabled={data.page >= data.totalPages || isFetching}
                   onClick={() => goToPage(data.page + 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="btn btn-ghost btn-icon"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
