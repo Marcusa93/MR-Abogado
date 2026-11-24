@@ -12,6 +12,7 @@ import {
 import { useAccesoEditorial } from '@/hooks/use-editorial'
 import { CargaEquipoPanel } from '@/components/dashboard/carga-equipo-panel'
 import { AvisoEditorial, RutinasEquipo } from '@/components/direccion/paneles-estudio'
+import { PageHeader } from '@/components/shared/page-header'
 
 // Tablero de dirección: qué hay que resolver, cómo está el equipo y cómo está la plata.
 // Pensado para mirarlo una vez por semana (el mismo resumen llega los lunes por Telegram).
@@ -34,10 +35,7 @@ export default function DireccionPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 animate-fade-in">
-      <div>
-        <h1 className="page-title">Dirección</h1>
-        <p className="page-subtitle">Cómo está el estudio hoy</p>
-      </div>
+      <PageHeader title="Dirección" subtitle="Cómo está el estudio hoy" />
 
       {accesoEditorial && <AvisoEditorial />}
       <Numeros data={data} />
@@ -68,9 +66,9 @@ function Numeros({ data }: { data: TableroDireccion }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {tiles.map((t) => (
-        <Link key={t.label} to={t.to} className={cn(card, 'px-4 py-3 transition-colors hover:border-zinc-300 dark:hover:border-white/20')}>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.label}</p>
-          <p className={cn('mt-1 text-xl font-semibold tabular-nums sm:text-2xl', t.alerta ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-zinc-50')}>
+        <Link key={t.label} to={t.to} className={cn(card, 'px-4 py-3.5')}>
+          <p className="text-[11.5px] font-semibold text-zinc-500 dark:text-zinc-400">{t.label}</p>
+          <p className={cn('mt-1 text-xl font-extrabold tracking-tight tabular-nums sm:text-2xl', t.alerta ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-white')}>
             {t.valor}
           </p>
         </Link>
@@ -90,9 +88,9 @@ function ParaResolver({ items }: { items: ItemAtencion[] }) {
 
   return (
     <section className={card}>
-      <header className="flex items-baseline justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/10">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Para resolver</h2>
-        {items.length > 0 && <span className="text-xs text-zinc-500">{items.length}</span>}
+      <header className="flex items-baseline justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/[0.08]">
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Para resolver</h2>
+        {items.length > 0 && <span className="text-xs font-bold tabular-nums text-zinc-500">{items.length}</span>}
       </header>
       {items.length === 0 ? (
         <p className="flex items-center gap-2 px-4 py-6 text-sm text-zinc-600 dark:text-zinc-300">
@@ -105,7 +103,7 @@ function ParaResolver({ items }: { items: ItemAtencion[] }) {
       )}
       {items.length > LIMITE && (
         <button type="button" onClick={() => setVerTodo((v) => !v)}
-          className="w-full border-t border-zinc-100 px-4 py-2.5 text-sm text-blue-600 hover:bg-zinc-50 dark:border-white/10 dark:text-blue-400 dark:hover:bg-white/5">
+          className="dashboard-link w-full border-t border-zinc-100 px-4 py-2.5 text-[13px] hover:bg-zinc-50 dark:border-white/[0.08] dark:hover:bg-white/[0.04]">
           {verTodo ? 'Ver menos' : `Ver los ${items.length}`}
         </button>
       )}
@@ -119,7 +117,7 @@ function FilaAtencion({ item }: { item: ItemAtencion }) {
 
   const cuerpo = (
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{item.titulo}</p>
+      <p className="text-sm font-semibold text-zinc-900 dark:text-white">{item.titulo}</p>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">{item.detalle}</p>
       {item.caratula && <p className="truncate text-xs text-zinc-500">{item.caratula}</p>}
     </div>
@@ -130,7 +128,7 @@ function FilaAtencion({ item }: { item: ItemAtencion }) {
     return (
       <li>
         <button type="button" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto}
-          className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-white/5">
+          className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-white/[0.04]">
           {punto}{cuerpo}
           {abierto ? <ChevronDown className="mt-0.5 h-4 w-4 text-zinc-400" /> : <ChevronRight className="mt-0.5 h-4 w-4 text-zinc-400" />}
         </button>
@@ -143,8 +141,8 @@ function FilaAtencion({ item }: { item: ItemAtencion }) {
   return (
     <li>
       {destino ? (
-        <Link to={destino} className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/5">
-          {punto}{cuerpo}<ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-zinc-300" />
+        <Link to={destino} className="group flex items-start gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-white/[0.04]">
+          {punto}{cuerpo}<ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400 transition-colors group-hover:text-[var(--brand-accent)] dark:text-zinc-600" />
         </Link>
       ) : (
         <div className="flex items-start gap-3 px-4 py-3">{punto}{cuerpo}</div>
@@ -179,23 +177,23 @@ function ListaExpedientes({ tipo, lista }: { tipo: ItemAtencion['tipo']; lista: 
       {tipo === 'estado_desactualizado' && pendientes.length > 1 && (
         <li className="py-1">
           <button type="button" onClick={pasarTodos} disabled={cambiar.isPending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+            className="btn btn-primary btn-sm">
             {cambiar.isPending && <Loader2 className="h-3 w-3 animate-spin" />} Pasar todos a en trámite
           </button>
         </li>
       )}
       {lista.map((x) => (
         <li key={x.id} className="flex items-center gap-2 py-1">
-          <Link to={tipo === 'consultas_dormidas' ? `/consultas/${x.id}` : `/expedientes/${x.id}`} className="min-w-0 flex-1 truncate text-sm text-zinc-700 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-400">
+          <Link to={tipo === 'consultas_dormidas' ? `/consultas/${x.id}` : `/expedientes/${x.id}`} className="min-w-0 flex-1 truncate text-sm text-zinc-700 hover:text-[#577c8e] dark:text-zinc-300 dark:hover:text-[var(--brand-accent)]">
             {x.caratula}
           </Link>
           {x.detalle && <span className="shrink-0 text-xs text-zinc-500">{x.detalle}</span>}
-          {x.n != null && <span className="shrink-0 text-xs text-zinc-500">{x.n}</span>}
+          {x.n != null && <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-500">{x.n}</span>}
           {tipo === 'estado_desactualizado' && (
             hechos.has(x.id)
-              ? <span className="shrink-0 text-xs text-emerald-600">En trámite</span>
+              ? <span className="shrink-0 text-xs font-semibold text-emerald-600 dark:text-emerald-400">En trámite</span>
               : <button type="button" onClick={() => pasarATramite(x.id)} disabled={cambiar.isPending}
-                  className="shrink-0 rounded-md border border-zinc-200 px-2 py-0.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+                  className="btn btn-ghost btn-sm min-h-0 shrink-0 py-1 text-[11.5px]">
                   Pasar a en trámite
                 </button>
           )}
@@ -217,23 +215,23 @@ function Equipo({ equipo }: { equipo: MiembroEquipo[] }) {
   ]
   return (
     <section className={card}>
-      <header className="border-b border-zinc-100 px-4 py-3 dark:border-white/10">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Equipo</h2>
+      <header className="border-b border-zinc-100 px-4 py-3 dark:border-white/[0.08]">
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Equipo</h2>
       </header>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-zinc-500">
-              <th className="px-4 py-2 font-normal">Persona</th>
-              {cols.map((c) => <th key={c.key} title={c.label} className={cn('px-2 py-2 text-right font-normal', c.movil === false && 'hidden sm:table-cell')}>{c.corto}</th>)}
+            <tr className="text-left text-[10.5px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400">
+              <th className="px-4 py-2.5">Persona</th>
+              {cols.map((c) => <th key={c.key} title={c.label} className={cn('px-2 py-2.5 text-right', c.movil === false && 'hidden sm:table-cell')}>{c.corto}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100 dark:divide-white/5">
             {equipo.map((p) => (
               <tr key={p.id}>
                 <td className="px-4 py-2.5">
-                  <span className="capitalize text-zinc-900 dark:text-zinc-100">{p.nombre.toLowerCase()}</span>
-                  <span className="ml-1.5 hidden text-xs text-zinc-400 sm:inline">{p.rol.charAt(0) + p.rol.slice(1).toLowerCase()}</span>
+                  <span className="font-semibold capitalize text-zinc-900 dark:text-white">{p.nombre.toLowerCase()}</span>
+                  <span className="ml-1.5 hidden text-xs text-zinc-500 sm:inline">{p.rol.charAt(0) + p.rol.slice(1).toLowerCase()}</span>
                 </td>
                 {cols.map((c) => {
                   const v = p[c.key] as number
@@ -260,15 +258,15 @@ function Plata({ plata }: { plata: NonNullable<TableroDireccion['plata']> }) {
   const dif = plata.ingresos_mes_ars - plata.ingresos_mes_anterior_ars
   return (
     <section className={card}>
-      <header className="flex items-baseline justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/10">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Plata</h2>
-        <Link to="/caja" className="text-xs text-blue-600 hover:underline dark:text-blue-400">Abrir caja</Link>
+      <header className="flex items-baseline justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/[0.08]">
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Plata</h2>
+        <Link to="/caja" className="dashboard-link text-xs">Abrir caja</Link>
       </header>
       <dl className="space-y-2.5 px-4 py-3 text-sm">
         <div>
           <div className="flex justify-between gap-3">
             <dt className="text-zinc-600 dark:text-zinc-400">Cobrado este mes</dt>
-            <dd className="text-right tabular-nums text-zinc-900 dark:text-zinc-100">
+            <dd className="text-right font-semibold tabular-nums text-zinc-900 dark:text-white">
               {pesos(plata.ingresos_mes_ars)}{plata.ingresos_mes_usd > 0 && ` + ${dolares(plata.ingresos_mes_usd)}`}
             </dd>
           </div>
@@ -278,24 +276,24 @@ function Plata({ plata }: { plata: NonNullable<TableroDireccion['plata']> }) {
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-zinc-600 dark:text-zinc-400">Por cobrar</dt>
-          <dd className="tabular-nums text-zinc-900 dark:text-zinc-100">
+          <dd className="font-semibold tabular-nums text-zinc-900 dark:text-white">
             {pesos(plata.por_cobrar_ars)}{plata.por_cobrar_usd > 0 && ` + ${dolares(plata.por_cobrar_usd)}`}
           </dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-zinc-600 dark:text-zinc-400">De eso, vencido</dt>
-          <dd className={cn('tabular-nums', plata.vencido_ars > 0 ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-zinc-100')}>
+          <dd className={cn('font-semibold tabular-nums', plata.vencido_ars > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-900 dark:text-white')}>
             {pesos(plata.vencido_ars)}{plata.vencido_usd > 0 && ` + ${dolares(plata.vencido_usd)}`}
           </dd>
         </div>
       </dl>
       {plata.deudores.length > 0 && (
-        <div className="border-t border-zinc-100 px-4 py-3 dark:border-white/10">
-          <p className="mb-1.5 text-xs text-zinc-500">Deben</p>
+        <div className="border-t border-zinc-100 px-4 py-3 dark:border-white/[0.08]">
+          <p className="eyebrow mb-2">Deben</p>
           <ul className="space-y-1">
             {plata.deudores.map((d) => (
               <li key={d.cliente_id} className="flex justify-between gap-3 text-sm">
-                <Link to={`/clientes/${d.cliente_id}`} className="min-w-0 truncate text-zinc-700 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-400">{d.nombre}</Link>
+                <Link to={`/clientes/${d.cliente_id}`} className="min-w-0 truncate text-zinc-700 hover:text-[#577c8e] dark:text-zinc-300 dark:hover:text-[var(--brand-accent)]">{d.nombre}</Link>
                 <span className="shrink-0 tabular-nums text-zinc-700 dark:text-zinc-300">
                   {d.vencido_ars > 0 ? pesos(d.vencido_ars) : dolares(d.vencido_usd)}
                 </span>
@@ -319,7 +317,7 @@ function DatosFaltantes({ datos }: { datos: TableroDireccion['datos'] }) {
   return (
     <p className="flex flex-wrap items-center justify-between gap-2 px-1 pb-4 text-xs text-zinc-500">
       <span>{partes.length > 0 ? <>Expedientes en trámite con datos incompletos: {partes.join(' · ')}.</> : 'Los expedientes en trámite tienen los datos completos.'}</span>
-      <Link to="/dashboard" className="text-blue-600 hover:underline dark:text-blue-400">Ver indicadores por fuero y etapa</Link>
+      <Link to="/dashboard" className="dashboard-link">Ver indicadores por fuero y etapa</Link>
     </p>
   )
 }

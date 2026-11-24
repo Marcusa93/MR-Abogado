@@ -11,6 +11,7 @@ import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { CrearTurnoDialog } from '@/components/expedientes/crear-turno-dialog'
 import { AgendarReuniónModal } from '@/components/shared/agendar-reunion-modal'
 import { EstadoBadge } from '@/components/shared/estado-badge'
+import { PageHeader } from '@/components/shared/page-header'
 import { formatDateWithWeekday } from '@/lib/utils/date-helpers'
 import { cn } from '@/lib/utils'
 import { toast } from '@/stores/toast-store'
@@ -36,6 +37,17 @@ import {
   Pencil,
   Video,
 } from 'lucide-react'
+
+// ---------------------------------------------------------------------------
+// Estilos compartidos de la pantalla
+// ---------------------------------------------------------------------------
+
+const LABEL = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400'
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
+const CARD_TITLE = 'text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white'
+const COUNT = 'ml-auto rounded-full border px-2 py-0.5 text-xs font-bold tabular-nums'
+const FILA = 'rounded-xl border border-zinc-200 bg-zinc-50 dark:border-white/[0.06] dark:bg-white/[0.03]'
+const LINK_EXP = 'block truncate text-[11px] font-medium text-cyan-700 hover:underline dark:text-cyan-300'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -218,16 +230,16 @@ function SeguimientoForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-lg border border-amber-500/20 bg-amber-950/20 p-3">
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.05] p-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+          <label className={LABEL}>
             Canal
           </label>
           <select
             value={canal}
             onChange={(e) => setCanal(e.target.value as CreateSeguimientoInput['canal'])}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
+            className="field h-9 py-0 text-[13px]"
           >
             <option value="WEB">Web</option>
             <option value="TELEFONO">Tel{'é'}fono</option>
@@ -236,8 +248,8 @@ function SeguimientoForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
-            Pr{'ó'}ximo control <span className="text-zinc-700 dark:text-zinc-300 font-normal">(F = hoy)</span>
+          <label className={LABEL}>
+            Pr{'ó'}ximo control <span className="font-normal normal-case tracking-normal text-zinc-400">(F = hoy)</span>
           </label>
           <input
             type="date"
@@ -250,13 +262,13 @@ function SeguimientoForm({
                 setProximoControl(new Date().toISOString().split('T')[0])
               }
             }}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
+            className="field h-9 py-0 text-[13px]"
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+        <label className={LABEL}>
           Resultado / Estado del organismo
         </label>
         <input
@@ -264,19 +276,19 @@ function SeguimientoForm({
           value={resultado}
           onChange={(e) => setResultado(e.target.value)}
           placeholder="Ej: En proceso, Resolución dictada..."
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
+          className="field h-9 py-0 text-[13px]"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-200">
+        <label className={LABEL}>
           Notas
         </label>
         <textarea
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
           rows={2}
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:ring-cyan-500/15"
+          className="field text-[13px]"
         />
       </div>
 
@@ -284,14 +296,14 @@ function SeguimientoForm({
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="btn btn-ghost btn-sm border-transparent"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={createSeguimiento.isPending}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-3 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50"
+          className="btn btn-primary btn-sm"
         >
           {createSeguimiento.isPending ? (
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -378,19 +390,19 @@ function SemanaAudienciasView({
   }, 0)
 
   return (
-    <div className="rounded-xl border border-white/10 glass-card p-5">
+    <div className="app-card p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
-          <CalendarClock className="h-5 w-5 text-sky-400" />
+          <CalendarClock className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 leading-none">
+            <h2 className={cn(CARD_TITLE, 'leading-none')}>
               Audiencias de la semana
             </h2>
-            <p className="text-[11px] text-zinc-500 mt-0.5 capitalize">{weekLabel}</p>
+            <p className="mt-1 text-[11.5px] font-medium capitalize text-zinc-500">{weekLabel}</p>
           </div>
           {totalSemana > 0 && (
-            <span className="rounded-full bg-sky-900/40 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
+            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-bold tabular-nums text-cyan-700 dark:text-cyan-300">
               {totalSemana}
             </span>
           )}
@@ -399,26 +411,28 @@ function SemanaAudienciasView({
           {weekOffset !== 0 && (
             <button
               onClick={() => setWeekOffset(0)}
-              className="rounded-lg px-2 py-1 text-[11px] font-medium text-amber-400 hover:bg-amber-900/30"
+              className="btn btn-ghost btn-sm"
             >
               Esta semana
             </button>
           )}
           <button
             onClick={() => setWeekOffset((w) => w - 1)}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+            aria-label="Semana anterior"
+            className="btn btn-ghost btn-icon h-8 w-8 border-transparent"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button
             onClick={() => setWeekOffset((w) => w + 1)}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+            aria-label="Semana siguiente"
+            className="btn btn-ghost btn-icon h-8 w-8 border-transparent"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
           <button
             onClick={onNuevaAudiencia}
-            className="ml-1 flex items-center gap-1 rounded-lg bg-gradient-cyan px-2.5 py-1.5 text-xs font-medium text-zinc-950 hover:opacity-90"
+            className="btn btn-primary btn-sm ml-1"
           >
             <Plus className="h-3 w-3" />
             Nueva
@@ -442,10 +456,10 @@ function SemanaAudienciasView({
                 className={cn(
                   'rounded-xl border flex flex-col min-h-[130px] overflow-hidden',
                   isToday
-                    ? 'border-amber-500/40 bg-amber-500/[0.07]'
+                    ? 'border-cyan-500/40 bg-cyan-500/[0.07]'
                     : hasAudiencias
-                    ? 'border-sky-500/25 bg-sky-500/[0.06]'
-                    : 'border-white/5 bg-white/[0.02]'
+                    ? 'border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.04]'
+                    : 'border-zinc-100 bg-zinc-50/60 dark:border-white/5 dark:bg-white/[0.015]'
                 )}
               >
                 {/* Encabezado del día */}
@@ -453,24 +467,24 @@ function SemanaAudienciasView({
                   className={cn(
                     'px-2 py-1.5 text-center border-b',
                     isToday
-                      ? 'border-amber-500/20 bg-amber-500/10'
+                      ? 'border-cyan-500/20 bg-cyan-500/10'
                       : hasAudiencias
-                      ? 'border-sky-500/15 bg-sky-500/10'
-                      : 'border-white/5'
+                      ? 'border-zinc-200 dark:border-white/[0.06]'
+                      : 'border-zinc-100 dark:border-white/5'
                   )}
                 >
                   <div
                     className={cn(
-                      'text-[10px] font-semibold uppercase tracking-wider',
-                      isToday ? 'text-amber-400' : isPast ? 'text-zinc-600' : 'text-zinc-400'
+                      'text-[10px] font-bold uppercase tracking-[0.1em]',
+                      isToday ? 'text-cyan-700 dark:text-cyan-300' : isPast ? 'text-zinc-400 dark:text-zinc-600' : 'text-zinc-500 dark:text-zinc-400'
                     )}
                   >
                     {DIAS_CORTO[i]}
                   </div>
                   <div
                     className={cn(
-                      'text-base font-bold leading-none mt-0.5',
-                      isToday ? 'text-amber-300' : isPast ? 'text-zinc-600' : 'text-zinc-200'
+                      'mt-0.5 text-base font-extrabold leading-none tabular-nums',
+                      isToday ? 'text-cyan-700 dark:text-cyan-200' : isPast ? 'text-zinc-400 dark:text-zinc-600' : 'text-zinc-900 dark:text-zinc-100'
                     )}
                   >
                     {day.getDate()}
@@ -478,7 +492,7 @@ function SemanaAudienciasView({
                   <div
                     className={cn(
                       'text-[9px] mt-0.5',
-                      isPast && !isToday ? 'text-zinc-700' : 'text-zinc-500'
+                      isPast && !isToday ? 'text-zinc-400 dark:text-zinc-700' : 'text-zinc-500'
                     )}
                   >
                     {MESES_CORTO[day.getMonth()]}
@@ -489,7 +503,7 @@ function SemanaAudienciasView({
                 <div className="flex-1 p-1.5 space-y-1.5">
                   {dayTurnos.length === 0 ? (
                     <div className="h-full flex items-center justify-center">
-                      <span className="text-[10px] text-zinc-700">–</span>
+                      <span className="text-[10px] text-zinc-300 dark:text-zinc-700">–</span>
                     </div>
                   ) : (
                     dayTurnos.map((turno) => (
@@ -498,8 +512,8 @@ function SemanaAudienciasView({
                         className={cn(
                           'w-full rounded-lg p-2 text-left transition-colors group relative',
                           turno.estado === 'CONFIRMADA'
-                            ? 'bg-sky-900/40 border border-sky-700/30'
-                            : 'bg-white/5 border border-white/5'
+                            ? 'border border-cyan-500/30 bg-cyan-500/10'
+                            : 'border border-zinc-200 bg-white dark:border-white/[0.06] dark:bg-white/[0.05]'
                         )}
                       >
                       <button
@@ -509,25 +523,25 @@ function SemanaAudienciasView({
                         {/* Hora — dato más importante */}
                         <div className="flex items-center gap-1 mb-1">
                           {turno.hora ? (
-                            <span className="text-[13px] font-bold text-sky-200 tabular-nums leading-none">
+                            <span className="text-[13px] font-extrabold leading-none tabular-nums text-zinc-900 dark:text-white">
                               {turno.hora.slice(0, 5)}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-zinc-500 italic">sin hora</span>
+                            <span className="text-[10px] font-medium text-zinc-500">sin hora</span>
                           )}
                           {turno.estado === 'CONFIRMADA' && (
-                            <span className="rounded-full bg-emerald-900/50 px-1.5 py-0.5 text-[8px] font-medium text-emerald-400">
+                            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[8.5px] font-semibold text-emerald-700 dark:text-emerald-300">
                               conf.
                             </span>
                           )}
                         </div>
                         {/* Tipo */}
-                        <div className="text-[10px] text-zinc-300 leading-tight truncate font-medium">
+                        <div className="truncate text-[10.5px] font-semibold leading-tight text-zinc-700 dark:text-zinc-300">
                           {turno.tipo_audiencia?.nombre ?? 'Audiencia'}
                         </div>
                         {/* Caratula / cliente */}
                         {turno.expediente && (
-                          <div className="text-[9px] text-amber-400 truncate mt-0.5">
+                          <div className="mt-0.5 truncate text-[9.5px] font-semibold text-cyan-700 dark:text-cyan-300">
                             {turno.expediente.clientes
                               ? turno.expediente.clientes.apellido.toUpperCase()
                               : turno.expediente.caratula.slice(0, 18)}
@@ -536,7 +550,7 @@ function SemanaAudienciasView({
                         {/* Organismo */}
                         {turno.organismo && (
                           <div className="flex items-center gap-0.5 mt-0.5">
-                            <MapPin className="h-2.5 w-2.5 text-zinc-600 shrink-0" />
+                            <MapPin className="h-2.5 w-2.5 shrink-0 text-zinc-400 dark:text-zinc-600" />
                             <span className="text-[9px] text-zinc-500 truncate">
                               {turno.organismo.nombre}
                             </span>
@@ -545,7 +559,7 @@ function SemanaAudienciasView({
                       </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); onEditAudiencia(turno) }}
-                          className="absolute top-1 right-1 rounded p-0.5 text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-sky-400 transition-all"
+                          className="absolute top-1 right-1 rounded p-0.5 text-zinc-400 opacity-0 transition-all hover:text-cyan-600 group-hover:opacity-100 dark:text-zinc-600 dark:hover:text-cyan-400"
                           title="Editar audiencia"
                         >
                           <Pencil className="h-2.5 w-2.5" />
@@ -565,7 +579,7 @@ function SemanaAudienciasView({
         const ds = t.fecha
         return weekDays.some((d) => d.toISOString().split('T')[0] === ds) && !t.hora
       }) && (
-        <p className="mt-2 text-[10px] text-zinc-600">
+        <p className="mt-2 text-[10.5px] text-zinc-500">
           Algunas audiencias no tienen hora registrada. Editá el turno para agregarla.
         </p>
       )}
@@ -629,25 +643,25 @@ function MiniCalendar({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <button onClick={prevMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-200">
+        <button onClick={prevMonth} aria-label="Mes anterior" className="btn btn-ghost btn-icon h-8 w-8 border-transparent">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 capitalize">
+          <span className="text-sm font-bold capitalize tracking-tight text-zinc-900 dark:text-white">
             {currentMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
           </span>
-          <button onClick={goToday} className="rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-400 hover:bg-amber-900/30">
+          <button onClick={goToday} className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300">
             Hoy
           </button>
         </div>
-        <button onClick={nextMonth} className="rounded-lg p-1 text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-200">
+        <button onClick={nextMonth} aria-label="Mes siguiente" className="btn btn-ghost btn-icon h-8 w-8 border-transparent">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       <div className="grid grid-cols-7 gap-px mb-1">
         {WEEKDAYS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-medium text-zinc-700 dark:text-zinc-300 py-1">
+          <div key={d} className="py-1 text-center text-[10px] font-bold uppercase tracking-[0.06em] text-zinc-500">
             {d}
           </div>
         ))}
@@ -667,14 +681,14 @@ function MiniCalendar({
               key={i}
               onClick={() => setSelectedDate(isSelected ? null : dateStr)}
               className={cn(
-                'relative flex flex-col items-center justify-center rounded-lg py-1.5 text-xs transition-colors',
+                'relative flex flex-col items-center justify-center rounded-lg py-1.5 text-xs tabular-nums transition-colors',
                 isSelected
-                  ? 'bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/40'
+                  ? 'bg-cyan-500/20 font-bold text-cyan-800 ring-1 ring-cyan-500/40 dark:text-cyan-200'
                   : isToday
-                  ? 'bg-amber-500/10 text-amber-400 font-bold'
+                  ? 'bg-cyan-500/10 font-bold text-cyan-700 dark:text-cyan-300'
                   : hasTurnos
-                  ? 'text-zinc-900 dark:text-zinc-100 hover:bg-white/5'
-                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/[0.03]'
+                  ? 'font-semibold text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-white/5'
+                  : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/[0.03]'
               )}
             >
               {day}
@@ -682,10 +696,10 @@ function MiniCalendar({
                 <div className="flex gap-0.5 mt-0.5">
                   {count <= 3 ? (
                     Array.from({ length: count }).map((_, j) => (
-                      <span key={j} className="h-1 w-1 rounded-full bg-sky-400" />
+                      <span key={j} className="h-1 w-1 rounded-full bg-cyan-500 dark:bg-cyan-400" />
                     ))
                   ) : (
-                    <span className="text-[8px] font-bold text-sky-400">{count}</span>
+                    <span className="text-[8px] font-bold text-cyan-600 dark:text-cyan-400">{count}</span>
                   )}
                 </div>
               )}
@@ -695,8 +709,8 @@ function MiniCalendar({
       </div>
 
       {selectedDate && (
-        <div className="mt-4 border-t border-white/5 pt-3">
-          <p className="text-xs font-medium text-zinc-500 mb-2 capitalize">
+        <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-white/[0.06]">
+          <p className="mb-2 text-xs font-semibold capitalize text-zinc-500">
             {new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-AR', {
               weekday: 'long',
               day: 'numeric',
@@ -704,28 +718,28 @@ function MiniCalendar({
             })}
           </p>
           {selectedTurnos.length === 0 ? (
-            <p className="text-xs text-zinc-600 text-center py-2">Sin audiencias</p>
+            <p className="py-2 text-center text-xs font-medium text-zinc-500">Sin audiencias</p>
           ) : (
             <div className="space-y-1.5">
               {selectedTurnos.map((turno) => (
                 <button
                   key={turno.id}
                   onClick={() => turno.expediente && onTurnoClick(turno.expediente.id)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-white/5 bg-white/5 p-2 text-left hover:bg-white/10"
+                  className={cn(FILA, 'flex w-full items-center gap-2 p-2 text-left hover:bg-zinc-100 dark:hover:bg-white/[0.06]')}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       {turno.hora && (
-                        <span className="text-xs font-bold text-sky-300 tabular-nums shrink-0">
+                        <span className="shrink-0 text-xs font-extrabold tabular-nums text-zinc-900 dark:text-white">
                           {turno.hora.slice(0, 5)}
                         </span>
                       )}
-                      <span className="text-xs font-medium text-zinc-200 truncate">
+                      <span className="truncate text-xs font-semibold text-zinc-700 dark:text-zinc-200">
                         {turno.tipo_audiencia?.nombre ?? 'Audiencia'}
                       </span>
                     </div>
                     {turno.expediente && (
-                      <p className="mt-0.5 text-[10px] text-amber-400 truncate">
+                      <p className="mt-0.5 truncate text-[10.5px] font-medium text-cyan-700 dark:text-cyan-300">
                         {turno.expediente.clientes
                           ? `${turno.expediente.clientes.apellido} ${turno.expediente.clientes.nombre}`
                           : turno.expediente.caratula}
@@ -734,10 +748,10 @@ function MiniCalendar({
                   </div>
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
+                      TAG, 'px-1.5 text-[9.5px]',
                       turno.estado === 'CONFIRMADA'
-                        ? 'bg-emerald-900/30 text-emerald-400'
-                        : 'bg-amber-900/30 text-amber-400'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                     )}
                   >
                     {turno.estado}
@@ -802,17 +816,17 @@ function EditarAudienciaDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-zinc-100">Editar audiencia</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="app-card w-full max-w-md rounded-3xl p-5 shadow-2xl dark:bg-[var(--popover)]">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">Editar audiencia</h2>
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {audiencia.expediente && (
-          <p className="text-xs text-amber-400 mb-4 truncate">
+          <p className="mb-4 truncate text-xs font-semibold text-cyan-700 dark:text-cyan-300">
             {audiencia.expediente.clientes
               ? `${audiencia.expediente.clientes.apellido}, ${audiencia.expediente.clientes.nombre}`
               : audiencia.expediente.caratula}
@@ -822,31 +836,31 @@ function EditarAudienciaDialog({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Fecha</label>
+              <label className={LABEL}>Fecha</label>
               <input
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+                className="field h-10 py-0"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-300">Hora</label>
+              <label className={LABEL}>Hora</label>
               <input
                 type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
-                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+                className="field h-10 py-0"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Estado</label>
+            <label className={LABEL}>Estado</label>
             <select
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
-              className="h-8 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+              className="field h-10 py-0"
             >
               {ESTADO_AUDIENCIA_OPTS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -855,21 +869,21 @@ function EditarAudienciaDialog({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-300">Notas</label>
+            <label className={LABEL}>Notas</label>
             <textarea
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-zinc-100 focus:border-sky-500/40 focus:outline-none"
+              className="field"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="mt-4 flex justify-end gap-2 pb-[env(safe-area-inset-bottom)] sm:pb-0">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+            className="btn btn-ghost border-transparent"
           >
             Cancelar
           </button>
@@ -877,7 +891,7 @@ function EditarAudienciaDialog({
             type="button"
             onClick={handleSave}
             disabled={!fecha || updateTurno.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {updateTurno.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
             Guardar
@@ -930,11 +944,11 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
   const hoy = new Date().toISOString().split('T')[0]
 
   return (
-    <div className="rounded-xl border border-white/10 glass-card p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Video className="h-4 w-4 text-teal-400" />
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Reuniones próximas</h2>
-        <span className="ml-auto rounded-full bg-teal-900/30 px-2 py-0.5 text-xs font-medium text-teal-400">
+    <div className="app-card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Video className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+        <h2 className={CARD_TITLE}>Reuniones próximas</h2>
+        <span className={cn(COUNT, 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300')}>
           {reuniones.length}
         </span>
       </div>
@@ -950,23 +964,23 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
             <div
               key={r.id}
               className={cn(
-                'rounded-lg border px-3 py-2.5',
-                esHoy ? 'border-amber-500/30 bg-amber-500/[0.06]' : 'border-white/5 bg-white/[0.02]'
+                'rounded-xl border px-3 py-2.5',
+                esHoy ? 'border-cyan-500/30 bg-cyan-500/[0.06]' : 'border-zinc-200 bg-zinc-50 dark:border-white/[0.06] dark:bg-white/[0.03]'
               )}
             >
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-zinc-100">
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-white">
                       {r.apellido ? `${r.apellido}, ${r.nombre}` : r.nombre}
                     </p>
                     {esHoy && (
-                      <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                      <span className={cn(TAG, 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300')}>
                         Hoy
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                  <p className="mt-0.5 text-[11px] text-zinc-500">
                     {TIPO_ASUNTO_SHORT[r.tipo_asunto] ?? r.tipo_asunto} · {r.canal}
                   </p>
 
@@ -976,7 +990,7 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
                         type="datetime-local"
                         value={nuevaFecha}
                         onChange={(e) => setNuevaFecha(e.target.value)}
-                        className="h-7 flex-1 rounded-lg border border-white/10 bg-zinc-800 px-2 text-xs text-zinc-100 focus:outline-none"
+                        className="field h-8 min-w-0 flex-1 py-0 text-xs"
                       />
                       <button
                         onClick={async () => {
@@ -993,13 +1007,14 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
                           }
                         }}
                         disabled={!nuevaFecha || actualizarFecha.isPending}
-                        className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                        className="btn btn-primary btn-sm h-8 min-h-0"
                       >
                         {actualizarFecha.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'OK'}
                       </button>
                       <button
                         onClick={() => setEditandoId(null)}
-                        className="text-zinc-500 hover:text-zinc-300"
+                        aria-label="Cancelar"
+                        className="btn btn-ghost btn-icon h-8 w-8 border-transparent"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1008,7 +1023,7 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
                 </div>
 
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span className="text-[11px] font-medium text-teal-300 tabular-nums">
+                  <span className="text-[11px] font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">
                     {dt.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} {horaStr}
                   </span>
                   <div className="flex items-center gap-1">
@@ -1017,14 +1032,14 @@ function ReunionesPanelSecretaria({ reuniones }: { reuniones: Reunion[] }) {
                         setEditandoId(r.id)
                         setNuevaFecha(r.fecha_turno.slice(0, 16))
                       }}
-                      className="rounded p-1 text-zinc-500 hover:text-teal-400"
+                      className="rounded p-1 text-zinc-500 hover:text-cyan-600 dark:hover:text-cyan-400"
                       title="Reprogramar"
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
                     <button
                       onClick={() => navigate(`/consultas/${r.id}`)}
-                      className="rounded-md bg-white/5 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-white/10"
+                      className="btn btn-ghost btn-sm min-h-0 px-2 py-0.5 text-[11px]"
                     >
                       Ver
                     </button>
@@ -1076,7 +1091,7 @@ export default function AgendaSecretariaPage() {
   if (agendaLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-700 dark:text-zinc-300" />
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-400" />
       </div>
     )
   }
@@ -1094,38 +1109,34 @@ export default function AgendaSecretariaPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">
-            Agenda
-          </h1>
-          <p className="page-subtitle">
-            Audiencias, seguimientos y tareas pendientes
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* KPIs rápidos */}
-          {audienciasHoy.length > 0 && (
-            <span className="rounded-full bg-sky-900/40 px-3 py-1 text-xs font-medium text-sky-300">
-              {audienciasHoy.length} audiencia{audienciasHoy.length > 1 ? 's' : ''} hoy
-            </span>
-          )}
-          {tareasVencidas.length > 0 && (
-            <span className="rounded-full bg-rose-900/30 px-3 py-1 text-xs font-medium text-rose-400">
-              {tareasVencidas.length} tarea{tareasVencidas.length > 1 ? 's' : ''} vencida{tareasVencidas.length > 1 ? 's' : ''}
-            </span>
-          )}
-          {/* Botón agendar reunión */}
-          <button
-            type="button"
-            onClick={() => setReunionOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-teal-600/20 border border-teal-500/30 px-3 py-1.5 text-xs font-medium text-teal-300 hover:bg-teal-600/30 transition-colors"
-          >
-            <Users className="h-3.5 w-3.5" />
-            Agendar reunión
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Agenda"
+        subtitle="Audiencias, seguimientos y tareas pendientes"
+        actions={
+          <>
+            {/* KPIs rápidos */}
+            {audienciasHoy.length > 0 && (
+              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">
+                {audienciasHoy.length} audiencia{audienciasHoy.length > 1 ? 's' : ''} hoy
+              </span>
+            )}
+            {tareasVencidas.length > 0 && (
+              <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+                {tareasVencidas.length} tarea{tareasVencidas.length > 1 ? 's' : ''} vencida{tareasVencidas.length > 1 ? 's' : ''}
+              </span>
+            )}
+            {/* Botón agendar reunión */}
+            <button
+              type="button"
+              onClick={() => setReunionOpen(true)}
+              className="btn btn-secondary"
+            >
+              <Users className="h-4 w-4" />
+              Agendar reunión
+            </button>
+          </>
+        }
+      />
 
       {/* ── HERO: Vista semanal de audiencias ── */}
       <SemanaAudienciasView
@@ -1138,19 +1149,19 @@ export default function AgendaSecretariaPage() {
       {/* ── Grid principal ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Expedientes para revisar — 2/3 */}
-        <div className="lg:col-span-2 rounded-xl border border-white/10 glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <FileSearch className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+        <div className="app-card p-5 lg:col-span-2">
+          <div className="mb-4 flex items-center gap-2">
+            <FileSearch className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            <h2 className={CARD_TITLE}>
               Expedientes para revisar
             </h2>
-            <span className="ml-auto rounded-full bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-400">
+            <span className={cn(COUNT, 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300')}>
               {expedientes.length}
             </span>
           </div>
 
           {expedientes.length === 0 ? (
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 text-center py-6">
+            <p className="py-6 text-center text-xs font-medium text-zinc-500">
               No hay expedientes pendientes de control.
             </p>
           ) : (
@@ -1164,10 +1175,10 @@ export default function AgendaSecretariaPage() {
                     <div
                       key={exp.id}
                       className={cn(
-                        'rounded-lg border transition-colors',
+                        'rounded-xl border transition-colors',
                         isDone
-                          ? 'border-emerald-900 bg-emerald-950/20'
-                          : 'border-white/5 bg-white/[0.03] hover:bg-white/[0.05]'
+                          ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
+                          : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:bg-white/[0.05]'
                       )}
                     >
                       <div className="flex items-center gap-3 p-3">
@@ -1175,10 +1186,10 @@ export default function AgendaSecretariaPage() {
 
                         <div
                           className={cn(
-                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold',
+                            'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold tabular-nums',
                             exp.dias_sin_control > 30
-                              ? 'bg-rose-900/40 text-rose-400'
-                              : 'bg-amber-900/40 text-amber-400'
+                              ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
                           )}
                           title={`${exp.dias_sin_control} días sin control`}
                         >
@@ -1189,13 +1200,13 @@ export default function AgendaSecretariaPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => navigate(`/expedientes/${exp.id}`)}
-                              className="font-mono text-xs text-amber-400 hover:underline truncate max-w-[220px]"
+                              className="min-w-0 max-w-[220px] truncate text-[13px] font-semibold text-zinc-900 hover:text-[#577c8e] dark:text-white dark:hover:text-[var(--brand-accent)]"
                             >
                               {exp.caratula || exp.numero_expediente}
                             </button>
                             <EstadoBadge estado={exp.estado_interno} compact />
                           </div>
-                          <p className="text-xs text-zinc-500 truncate mt-0.5">
+                          <p className="mt-0.5 truncate text-xs text-zinc-500">
                             {exp.clientes
                               ? `${exp.clientes.apellido}, ${exp.clientes.nombre}`
                               : 'Sin cliente'}
@@ -1205,7 +1216,7 @@ export default function AgendaSecretariaPage() {
                         {!isDone && (
                           <button
                             onClick={() => toggleExpand(exp.id)}
-                            className="shrink-0 rounded-lg border border-white/10 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10 hover:text-zinc-200"
+                            className="btn btn-ghost btn-icon h-8 w-8 shrink-0"
                             title="Registrar seguimiento"
                           >
                             {isExpanded ? (
@@ -1233,7 +1244,7 @@ export default function AgendaSecretariaPage() {
               {expedientes.length > 8 && (
                 <button
                   onClick={() => setMostrarTodosExps((v) => !v)}
-                  className="mt-3 w-full text-center text-xs text-amber-400 hover:underline"
+                  className="dashboard-link mt-3 w-full text-center text-xs"
                 >
                   {mostrarTodosExps
                     ? 'Ver menos'
@@ -1247,18 +1258,18 @@ export default function AgendaSecretariaPage() {
         {/* Columna derecha: tareas + alertas + mini calendario — 1/3 */}
         <div className="space-y-5">
           {/* Tareas vencidas */}
-          <div className="rounded-xl border border-white/10 glass-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-rose-400" />
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          <div className="app-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+              <h2 className={CARD_TITLE}>
                 Tareas vencidas
               </h2>
-              <span className="ml-auto rounded-full bg-rose-900/30 px-2 py-0.5 text-xs font-medium text-rose-400">
+              <span className={cn(COUNT, 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
                 {tareasVencidas.length}
               </span>
               <button
                 onClick={() => setCrearTareaOpen(true)}
-                className="flex items-center gap-1 rounded-lg bg-gradient-cyan px-2 py-1 text-xs font-medium text-zinc-950 hover:opacity-90"
+                className="btn btn-primary btn-sm"
               >
                 <Plus className="h-3 w-3" />
                 Nueva
@@ -1266,33 +1277,33 @@ export default function AgendaSecretariaPage() {
             </div>
 
             {tareasVencidas.length === 0 ? (
-              <p className="text-xs text-zinc-600 text-center py-3">Sin tareas vencidas.</p>
+              <p className="py-3 text-center text-xs font-medium text-zinc-500">Sin tareas vencidas.</p>
             ) : (
               <div className="space-y-1.5">
                 {tareasVencidas.slice(0, 6).map((tarea) => (
                   <div
                     key={tarea.id}
-                    className="flex items-center gap-2.5 rounded-lg border border-white/5 bg-white/[0.03] p-2.5"
+                    className={cn(FILA, 'flex items-center gap-2.5 p-2.5')}
                   >
                     <button
                       onClick={() => completarTarea.mutate(tarea.id)}
-                      className="shrink-0 text-zinc-700 hover:text-emerald-400"
+                      className="shrink-0 text-zinc-400 hover:text-emerald-500 dark:text-zinc-600 dark:hover:text-emerald-400"
                       title="Completar"
                     >
                       <CheckSquare className="h-4 w-4" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-100 truncate">{tarea.titulo}</p>
+                      <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{tarea.titulo}</p>
                       {tarea.expediente && (
                         <button
                           onClick={() => navigate(`/expedientes/${tarea.expediente!.id}`)}
-                          className="text-[10px] text-amber-400 hover:underline truncate block"
+                          className={LINK_EXP}
                         >
                           {tarea.expediente.caratula || (tarea.expediente as any).numero_expediente}
                         </button>
                       )}
                     </div>
-                    <span className="shrink-0 text-[10px] font-medium text-rose-400 whitespace-nowrap">
+                    <span className="shrink-0 whitespace-nowrap text-[10.5px] font-semibold tabular-nums text-rose-600 dark:text-rose-400">
                       {tarea.fecha_vencimiento ? formatDateWithWeekday(tarea.fecha_vencimiento) : ''}
                     </span>
                   </div>
@@ -1300,7 +1311,7 @@ export default function AgendaSecretariaPage() {
                 {tareasVencidas.length > 6 && (
                   <button
                     onClick={() => navigate('/tareas')}
-                    className="w-full text-center text-xs text-amber-400 hover:underline pt-1"
+                    className="dashboard-link w-full pt-1 text-center text-xs"
                   >
                     Ver todas ({tareasVencidas.length})
                   </button>
@@ -1310,33 +1321,33 @@ export default function AgendaSecretariaPage() {
           </div>
 
           {/* Alertas */}
-          <div className="rounded-xl border border-white/10 glass-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Bell className="h-4 w-4 text-amber-400" />
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          <div className="app-card p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Bell className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+              <h2 className={CARD_TITLE}>
                 Alertas
               </h2>
-              <span className="ml-auto rounded-full bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-400">
+              <span className={cn(COUNT, 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                 {alertasList.length}
               </span>
             </div>
 
             {alertasList.length === 0 ? (
-              <p className="text-xs text-zinc-600 text-center py-3">Sin alertas.</p>
+              <p className="py-3 text-center text-xs font-medium text-zinc-500">Sin alertas.</p>
             ) : (
               <div className="space-y-1.5">
                 {alertasList.slice(0, 5).map((alerta) => (
                   <div
                     key={alerta.id}
-                    className="flex items-start gap-2.5 rounded-lg border border-white/5 bg-white/[0.03] p-2.5"
+                    className={cn(FILA, 'flex items-start gap-2.5 p-2.5')}
                   >
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-100 truncate">{alerta.titulo}</p>
+                      <p className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{alerta.titulo}</p>
                       {alerta.expediente && (
                         <button
                           onClick={() => navigate(`/expedientes/${alerta.expediente!.id}`)}
-                          className="text-[10px] text-amber-400 hover:underline truncate block"
+                          className={LINK_EXP}
                         >
                           {alerta.expediente.caratula || (alerta.expediente as any).numero_expediente}
                         </button>
@@ -1344,7 +1355,7 @@ export default function AgendaSecretariaPage() {
                     </div>
                     <button
                       onClick={() => resolverAlerta.mutate(alerta.id)}
-                      className="shrink-0 rounded-lg bg-emerald-900/30 px-2 py-1 text-[10px] font-medium text-emerald-400 hover:bg-emerald-900/50 whitespace-nowrap"
+                      className="btn btn-sm min-h-0 shrink-0 border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
                     >
                       Resolver
                     </button>
@@ -1353,7 +1364,7 @@ export default function AgendaSecretariaPage() {
                 {alertasList.length > 5 && (
                   <button
                     onClick={() => navigate('/alertas')}
-                    className="w-full text-center text-xs text-amber-400 hover:underline pt-1"
+                    className="dashboard-link w-full pt-1 text-center text-xs"
                   >
                     Ver todas ({alertasList.length})
                   </button>
@@ -1363,10 +1374,10 @@ export default function AgendaSecretariaPage() {
           </div>
 
           {/* Mini calendario */}
-          <div className="rounded-xl border border-white/10 glass-card p-4">
-            <div className="flex items-center gap-2 mb-3">
+          <div className="app-card p-4">
+            <div className="mb-3 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-zinc-500" />
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              <h2 className="eyebrow">
                 Calendario
               </h2>
             </div>
