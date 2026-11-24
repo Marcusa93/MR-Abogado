@@ -208,10 +208,10 @@ export function CommandPalette() {
         onClick={closeCommandPalette}
       />
 
-      <div className="relative z-10 w-full max-w-xl rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl overflow-hidden animate-scale-in">
+      <div className="relative z-10 w-full max-w-xl rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--popover)] shadow-2xl overflow-hidden animate-scale-in">
 
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 dark:border-white/10">
+        <div className="flex items-center gap-3 border-b border-zinc-100 px-5 py-4 dark:border-white/10">
           <Search className="h-4 w-4 text-zinc-400 shrink-0" />
           <input
             ref={inputRef}
@@ -219,7 +219,7 @@ export function CommandPalette() {
             value={query}
             onChange={e => { setQuery(e.target.value); setSelectedIndex(0) }}
             placeholder="Buscar expediente o ir a..."
-            className="flex-1 bg-transparent text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none"
+            className="flex-1 bg-transparent text-[15px] font-medium text-zinc-900 placeholder-zinc-400 focus:outline-none dark:text-white"
           />
           {query && (
             <button
@@ -242,7 +242,7 @@ export function CommandPalette() {
           {showAcciones && (
             <div>
               {query.length < 2 && (
-                <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <p className="eyebrow px-4 py-1.5">
                   Acciones rápidas
                 </p>
               )}
@@ -260,19 +260,19 @@ export function CommandPalette() {
                       onMouseEnter={() => setSelectedIndex(accionOffset + idx)}
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                        isSelected ? 'bg-amber-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
+                        isSelected ? 'bg-cyan-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
                       )}
                     >
                       <div className={cn(
                         'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                        isSelected ? 'bg-amber-500/20' : 'bg-zinc-100 dark:bg-white/10'
+                        isSelected ? 'bg-cyan-500/20' : 'bg-zinc-100 dark:bg-white/10'
                       )}>
-                        <Icon className={cn('h-3.5 w-3.5', isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400')} />
+                        <Icon className={cn('h-3.5 w-3.5', isSelected ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-500 dark:text-zinc-400')} />
                       </div>
-                      <span className={cn('text-sm font-medium', isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-700 dark:text-zinc-300')}>
+                      <span className={cn('text-sm font-medium', isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-300')}>
                         {accion.label}
                       </span>
-                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-amber-500" />}
+                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-cyan-400" />}
                     </button>
                   )
                 })}
@@ -282,7 +282,7 @@ export function CommandPalette() {
           {/* Expedientes */}
           {showExpedientes && (
             <div>
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <p className="eyebrow px-4 py-1.5">
                 Expedientes
               </p>
               {items
@@ -298,28 +298,28 @@ export function CommandPalette() {
                       onMouseEnter={() => setSelectedIndex(expOffset + idx)}
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                        isSelected ? 'bg-amber-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
+                        isSelected ? 'bg-cyan-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
                       )}
                     >
                       <div className={cn(
                         'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                        isSelected ? 'bg-amber-500/20' : 'bg-zinc-100 dark:bg-white/10'
+                        isSelected ? 'bg-cyan-500/20' : 'bg-zinc-100 dark:bg-white/10'
                       )}>
-                        <FolderOpen className={cn('h-3.5 w-3.5', isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400')} />
+                        <FolderOpen className={cn('h-3.5 w-3.5', isSelected ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-500 dark:text-zinc-400')} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={cn('text-sm font-medium truncate', isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-700 dark:text-zinc-300')}>
+                        <p className={cn('text-sm font-medium truncate', isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-300')}>
                           {exp.caratula || exp.numero || 'Sin carátula'}
                         </p>
                         <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">
-                          {exp.numero && <span className="font-mono mr-2">{exp.numero}</span>}
+                          {exp.numero && <span className="mr-2 tabular-nums">{exp.numero}</span>}
                           {exp.clientes && `${exp.clientes.nombre} ${exp.clientes.apellido}`}
                           {exp.estado_interno && (
                             <span className="ml-2 opacity-70">· {exp.estado_interno.replace(/_/g, ' ')}</span>
                           )}
                         </p>
                       </div>
-                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-cyan-400 shrink-0" />}
                     </button>
                   )
                 })}
@@ -329,7 +329,7 @@ export function CommandPalette() {
           {/* Clientes */}
           {showClientes && (
             <div>
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <p className="eyebrow px-4 py-1.5">
                 Clientes
               </p>
               {items
@@ -348,19 +348,19 @@ export function CommandPalette() {
                       onMouseEnter={() => setSelectedIndex(clienteOffset + idx)}
                       className={cn(
                         'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                        isSelected ? 'bg-amber-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
+                        isSelected ? 'bg-cyan-500/10' : 'hover:bg-zinc-50 dark:hover:bg-white/5'
                       )}
                     >
                       <div className={cn(
                         'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-                        isSelected ? 'bg-amber-500/20' : 'bg-zinc-100 dark:bg-white/10'
+                        isSelected ? 'bg-cyan-500/20' : 'bg-zinc-100 dark:bg-white/10'
                       )}>
-                        <Users className={cn('h-3.5 w-3.5', isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500 dark:text-zinc-400')} />
+                        <Users className={cn('h-3.5 w-3.5', isSelected ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-500 dark:text-zinc-400')} />
                       </div>
-                      <span className={cn('text-sm font-medium', isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-zinc-700 dark:text-zinc-300')}>
+                      <span className={cn('text-sm font-medium', isSelected ? 'text-zinc-900 dark:text-white' : 'text-zinc-700 dark:text-zinc-300')}>
                         {label}
                       </span>
-                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                      {isSelected && <ArrowRight className="ml-auto h-3.5 w-3.5 text-cyan-400 shrink-0" />}
                     </button>
                   )
                 })}

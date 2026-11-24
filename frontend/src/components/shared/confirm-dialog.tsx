@@ -61,7 +61,7 @@ export function ConfirmDialog({
 
       {/* Dialog */}
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm glass-card rounded-xl p-6 shadow-2xl animate-scale-in">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl animate-scale-in dark:border-white/10 dark:bg-[var(--popover)]">
           {/* Icon */}
           <div
             className={cn(
@@ -78,7 +78,7 @@ export function ConfirmDialog({
           </div>
 
           {/* Content */}
-          <h3 className="mb-2 text-center text-base font-semibold text-zinc-900 dark:text-zinc-50">
+          <h3 className="mb-2 text-center text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
             {title}
           </h3>
           <p className="mb-6 text-center text-sm text-zinc-600 dark:text-zinc-300">
@@ -91,7 +91,7 @@ export function ConfirmDialog({
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/5 transition-colors disabled:opacity-50"
+              className="btn btn-ghost flex-1"
             >
               {cancelLabel}
             </button>
@@ -101,10 +101,10 @@ export function ConfirmDialog({
               onClick={handleConfirm}
               disabled={isPending}
               className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50',
+                'btn flex-1',
                 isDanger
                   ? 'bg-rose-600 text-white hover:bg-rose-700'
-                  : 'bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900'
+                  : 'btn-primary'
               )}
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}

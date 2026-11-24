@@ -214,7 +214,7 @@ function SaeNotifItem({
             </span>
           )}
           {notif.numero_expediente && (
-            <span className="font-mono text-zinc-300">Exp. {notif.numero_expediente}</span>
+            <span className="font-semibold tabular-nums text-zinc-300">Exp. {notif.numero_expediente}</span>
           )}
           {notif.plazo_estimado_dias != null && notif.plazo_estimado_dias > 0 && (
             <span className={cn(
@@ -323,7 +323,7 @@ function AlertasGroup({
           hasNew ? 'hover:bg-emerald-500/[0.08]' : 'hover:bg-white/[0.06]',
         )}
       >
-        <div className="mt-0.5 shrink-0 rounded-lg bg-amber-500/15 p-1 text-amber-400 relative">
+        <div className="relative mt-0.5 shrink-0 rounded-lg bg-cyan-500/15 p-1 text-cyan-300">
           <FolderOpen className="h-3.5 w-3.5" />
           {hasNew && (
             <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-zinc-900" />
@@ -334,7 +334,7 @@ function AlertasGroup({
             {label}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] font-medium text-amber-400">
+            <span className="text-[10px] font-semibold text-cyan-300">
               {group.length} notificaciones
             </span>
             {subtitle && (
@@ -351,7 +351,7 @@ function AlertasGroup({
         )}
       </button>
       {expanded && (
-        <div className="bg-black/10 dark:bg-black/20 pl-3 border-l-2 border-amber-500/30 ml-3 mb-1 mr-1 rounded-r">
+        <div className="bg-black/10 dark:bg-black/20 pl-3 border-l-2 border-cyan-500/30 ml-3 mb-1 mr-1 rounded-r">
           {group.map((alerta) => (
             <NotificationItem
               key={alerta.id}
@@ -543,14 +543,14 @@ export function NotificationDropdown() {
           {/* Panel */}
           <div
             ref={panelRef}
-            className="fixed left-3 right-3 top-16 z-[100] max-h-[calc(100vh-6rem)] sm:left-auto sm:right-4 sm:w-[400px] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0f151c] shadow-2xl animate-fade-in flex flex-col"
+            className="fixed left-3 right-3 top-16 z-[100] max-h-[calc(100vh-6rem)] sm:left-auto sm:right-4 sm:w-[400px] overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--popover)] shadow-2xl animate-fade-in flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Novedades del SAE</h3>
                 {totalCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded bg-cyan-500/15 px-1.5 font-mono text-[10px] font-semibold text-cyan-600 dark:text-cyan-300">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-500/15 px-1.5 text-[10px] font-bold tabular-nums text-cyan-600 dark:text-cyan-300">
                     {totalCount}
                   </span>
                 )}
@@ -564,7 +564,7 @@ export function NotificationDropdown() {
                 <button
                   onClick={() => markAllSaeRead.mutate()}
                   disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
-                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-amber-400 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
+                  className="flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-[var(--brand-accent)] transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
                   title="Marcar todas leídas"
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
@@ -644,7 +644,7 @@ export function NotificationDropdown() {
                   {/* Internal alertas section: plegada, no suma en la campana */}
                   {verEstudio && displayAlerts.length > 0 && (
                     <div>
-                      <div className="px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">Del estudio</div>
+                      <div className="eyebrow px-4 py-2">Del estudio</div>
                       {renderAlertList(
                         displayAlerts,
                         isNewAlert,
