@@ -665,7 +665,7 @@ export function BogaBotChat() {
           ...(pos
             ? { bottom: 'auto', right: 'auto', left: pos.x, top: pos.y }
             : {
-                bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+                bottom: 'calc(var(--bottom-nav-h, 0px) + max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem)))',
                 right: 'max(1.25rem, calc(env(safe-area-inset-right) + 0.5rem))',
               }
           ),

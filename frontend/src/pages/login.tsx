@@ -96,13 +96,8 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Background effects */}
+      {/* Fondo: la grilla y el halo del hero del sitio */}
       <div className="absolute inset-0 login-bg-pattern" />
-      <div className="absolute inset-0 dot-pattern opacity-30 dark:opacity-40" />
-
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 left-1/4 h-96 w-96 rounded-full bg-[var(--brand-navy)]/8 dark:bg-[var(--brand-accent)]/10 blur-3xl animate-pulse-subtle" />
-      <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full bg-[var(--brand-accent)]/5 blur-3xl animate-pulse-subtle [animation-delay:1.5s]" />
 
       {/* Login card */}
       <div
@@ -111,7 +106,7 @@ export default function LoginPage() {
           showIntro ? 'translate-y-6 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100',
         ].join(' ')}
       >
-        <div className="glass-card-glow rounded-2xl p-8">
+        <div className="app-card rounded-3xl p-8 sm:p-10">
           {/* Logo */}
           <div className="mb-8 flex flex-col items-center gap-5">
             {/* Light mode: blue logotype */}
@@ -127,11 +122,15 @@ export default function LoginPage() {
               className="hidden dark:block h-32 w-auto object-contain md:h-36"
             />
             <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-[0.08em] text-[var(--brand-navy)] dark:text-[var(--brand-ice)]">
+              <span className="dashboard-kicker">
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                Sistema del estudio
+              </span>
+              <h1 className="mt-4 text-[1.65rem] font-extrabold tracking-tight text-[var(--brand-navy)] dark:text-white">
                 Estudio Jurídico
               </h1>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
-                Sistema de gestión de expedientes
+              <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                Gestión de expedientes, consultas y agenda
               </p>
             </div>
           </div>
@@ -155,9 +154,9 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="email" className="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                 Email
               </label>
               <input
@@ -170,12 +169,12 @@ export default function LoginPage() {
                 required
                 autoComplete="email"
                 disabled={isLoading}
-                className="h-10 w-full rounded-lg border border-zinc-300 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-[var(--brand-accent)] dark:focus:border-[var(--brand-accent)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20 dark:focus:ring-[var(--brand-accent)]/15 disabled:opacity-50 transition-all"
+                className="field h-11 disabled:opacity-50"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="password" className="block text-xs font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                 Contraseña
               </label>
               <input
@@ -187,14 +186,14 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 disabled={isLoading}
-                className="h-10 w-full rounded-lg border border-zinc-300 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-[var(--brand-accent)] dark:focus:border-[var(--brand-accent)]/60 focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20 dark:focus:ring-[var(--brand-accent)]/15 disabled:opacity-50 transition-all"
+                className="field h-11 disabled:opacity-50"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="flex h-10 w-full items-center justify-center rounded-lg bg-[var(--brand-navy)] hover:bg-[var(--brand-medium)] text-sm font-semibold text-white transition-all hover:shadow-lg hover:shadow-[var(--brand-navy)]/20 focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary h-11 w-full text-sm"
             >
               {isLoading ? (
                 <>

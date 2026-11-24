@@ -28,13 +28,11 @@ import {
   ClipboardList,
   Calculator,
   Scale,
-  Search,
   Briefcase,
   PenLine,
   Newspaper,
   Compass,
 } from 'lucide-react'
-import { useUIStore } from '@/stores/ui-store'
 import { useTieneAccesoCaja } from '@/hooks/use-caja'
 import { useAccesoEditorial } from '@/hooks/use-editorial'
 
@@ -126,7 +124,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const { data: tieneAccesoCaja } = useTieneAccesoCaja()
   const { data: accesoEditorial } = useAccesoEditorial()
   const [collapsedGroups, setCollapsedGroups] = useState<Set<GroupKey>>(loadCollapsedGroups)
-  const openCommandPalette = useUIStore(s => s.openCommandPalette)
 
   const toggleGroup = (g: GroupKey) => {
     setCollapsedGroups((prev) => {
@@ -146,7 +143,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   }
 
   const badgeColors: Record<BadgeKey, string> = {
-    agenda: 'bg-violet-500 text-white',
+    agenda: 'bg-white/90 text-[#1c2633]',
     sae: 'bg-cyan-400 text-cyan-950',
   }
 
@@ -161,7 +158,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       <Link
         to="/inicio"
         className={cn(
-          'flex h-14 items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
+          'flex h-[3.75rem] items-center border-b border-[var(--sidebar-border)] px-4 hover:opacity-80 transition-opacity',
           isCollapsed ? 'justify-center' : 'gap-3'
         )}
       >
@@ -222,7 +219,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   <button
                     type="button"
                     onClick={() => toggleGroup(groupKey)}
-                    className="flex w-full items-center gap-1.5 px-3 pt-4 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                    className="flex w-full items-center gap-1.5 px-3 pt-5 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
                     aria-expanded={!collapsed}
                   >
                     {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -244,12 +241,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       title={isCollapsed ? item.label : undefined}
                       data-tour={`nav-${item.href.replace(/^\//, '')}`}
                       className={cn(
-                        'group relative flex items-center gap-3 rounded-md px-3 py-[7px] text-[13.5px] font-medium transition-colors duration-150',
+                        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold tracking-[-0.005em] transition-colors duration-150',
                         isCollapsed && 'justify-center px-2',
-                        groupKey === 'herramientas' && !isCollapsed && 'py-[5px] text-[13px]',
+                        groupKey === 'herramientas' && !isCollapsed && 'py-[6px] text-[12.5px] font-medium',
                         isActive
-                          ? 'bg-[var(--brand-navy)]/[0.07] text-[var(--brand-navy)] dark:bg-white/[0.06] dark:text-white'
-                          : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-100'
+                          ? 'bg-[var(--brand-navy)]/[0.07] text-[var(--brand-navy)] dark:bg-[rgb(102_172_204/0.13)] dark:text-white'
+                          : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-white'
                       )}
                     >
                       <Icon
@@ -258,14 +255,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           groupKey === 'herramientas' && !isCollapsed && 'h-4 w-4',
                           isActive
                             ? 'text-[var(--brand-navy)] dark:text-[var(--brand-accent)]'
-                            : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+                            : 'text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-200'
                         )}
                       />
                       {!isCollapsed && <span className="animate-fade-in">{item.label}</span>}
                       {item.badgeKey && badgeCounts[item.badgeKey] > 0 && (
                         <span
                           className={cn(
-                            'ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded px-1 font-mono text-[10px] font-semibold leading-none',
+                            'ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums leading-none',
                             badgeColors[item.badgeKey],
                             isCollapsed && 'absolute -right-0.5 -top-0.5 h-4 min-w-4 ml-0 text-[9px]'
                           )}
@@ -274,7 +271,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         </span>
                       )}
                       {isActive && (
-                        <span className="absolute inset-y-1.5 left-0 w-[2px] rounded-full bg-[var(--brand-accent)]" aria-hidden />
+                        <span className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-[var(--brand-accent)]" aria-hidden />
                       )}
                     </Link>
                   )
@@ -285,46 +282,25 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         })()}
       </nav>
 
-      {/* Footer */}
+      {/* Pie: configuración y plegar (la búsqueda vive en el encabezado) */}
       <div className="border-t border-[var(--sidebar-border)] p-2">
-        <div className="flex items-center justify-between">
-          {/* Cmd+K trigger */}
-          <button
-            type="button"
-            onClick={openCommandPalette}
-            title="Buscar o ir a… (Cmd+K)"
+        <div className={cn('flex items-center', isCollapsed ? 'flex-col gap-1' : 'justify-between')}>
+          <Link
+            to="/configuracion"
+            title="Configuración"
             className={cn(
-              'flex items-center gap-2 rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors',
-              isCollapsed ? 'p-1.5' : 'px-2 py-1.5 flex-1'
+              'flex items-center gap-2.5 rounded-lg transition-colors hover:bg-zinc-100 dark:hover:bg-white/5',
+              isCollapsed ? 'p-2' : 'flex-1 px-3 py-2 text-[12.5px] font-semibold',
+              pathname.startsWith('/configuracion') ? 'text-[var(--brand-accent)]' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200',
             )}
           >
-            <Search className="h-4 w-4 shrink-0" />
-            {!isCollapsed && (
-              <span className="flex-1 text-xs truncate">Buscar…</span>
-            )}
-            {!isCollapsed && (
-              <kbd className="rounded border border-zinc-200 dark:border-white/10 px-1 text-[10px] font-medium opacity-60">
-                ⌘K
-              </kbd>
-            )}
-          </button>
-
-          {!isCollapsed && (
-            <Link
-              to="/configuracion"
-              title="Configuración"
-              className={cn(
-                'rounded-lg p-1.5 transition-colors hover:bg-zinc-100 dark:hover:bg-white/5',
-                pathname.startsWith('/configuracion') ? 'text-[var(--brand-accent)]' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200',
-              )}
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-          )}
+            <Settings className="h-4 w-4 shrink-0" />
+            {!isCollapsed && <span>Configuración</span>}
+          </Link>
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+            className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
             title={isCollapsed ? 'Expandir' : 'Colapsar'}
           >
             {isCollapsed ? (

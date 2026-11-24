@@ -59,7 +59,7 @@ export function UserMenu() {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-xs font-semibold text-zinc-950 hover:bg-amber-400 transition-colors"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[11px] font-extrabold tracking-wide text-[#1c2633] ring-2 ring-white/10 ring-offset-2 ring-offset-[var(--header-bg)] hover:bg-[var(--brand-accent)] transition-colors"
         title={fullName}
       >
         {initials}

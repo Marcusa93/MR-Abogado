@@ -407,7 +407,7 @@ function DesktopInstallCard({
     <div
       role="dialog"
       aria-labelledby="pwa-install-title"
-      className="fixed z-50 left-3 right-3 bottom-3 sm:left-auto sm:bottom-6 sm:right-6 sm:max-w-sm animate-fade-in-up"
+      className="fixed z-50 left-3 right-3 bottom-[calc(0.75rem+var(--bottom-nav-h,0px))] sm:left-auto sm:bottom-[calc(1.5rem+var(--bottom-nav-h,0px))] sm:right-6 sm:max-w-sm animate-fade-in-up"
     >
       <div className="rounded-2xl border border-amber-500/30 bg-white dark:bg-zinc-900 shadow-2xl shadow-black/30 overflow-hidden">
         <div className="flex items-start gap-3 px-4 py-4">

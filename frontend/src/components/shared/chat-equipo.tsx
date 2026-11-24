@@ -382,7 +382,7 @@ export function ChatEquipo({ enEncabezado = true }: { enEncabezado?: boolean } =
 
   const defaultBtnStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+    bottom: 'calc(var(--bottom-nav-h, 0px) + max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem)))',
     left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
   }
 
@@ -394,7 +394,7 @@ export function ChatEquipo({ enEncabezado = true }: { enEncabezado?: boolean } =
     ? panelStyle(pos.x, pos.y)
     : {
         position: 'fixed',
-        bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
+        bottom: 'calc(var(--bottom-nav-h, 0px) + max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
         left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
         animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
       }

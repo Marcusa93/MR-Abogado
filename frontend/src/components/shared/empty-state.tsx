@@ -29,20 +29,20 @@ export function EmptyState({
       )}
     >
       <div className={cn(
-        'flex items-center justify-center rounded-xl bg-white/5',
+        'flex items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10',
         size === 'sm' ? 'h-10 w-10' : 'h-14 w-14'
       )}>
         <Icon
           className={cn(
-            'text-zinc-700 dark:text-zinc-300',
+            'text-cyan-600 dark:text-cyan-400',
             size === 'sm' ? 'h-5 w-5' : 'h-7 w-7'
           )}
         />
       </div>
       <h3
         className={cn(
-          'font-semibold text-zinc-900 dark:text-zinc-50',
-          size === 'sm' ? 'mt-3 text-sm' : 'mt-4 text-base'
+          'font-bold tracking-tight text-zinc-900 dark:text-white',
+          size === 'sm' ? 'mt-3 text-sm' : 'mt-4 text-lg'
         )}
       >
         {title}
@@ -50,7 +50,7 @@ export function EmptyState({
       {description && (
         <p
           className={cn(
-            'text-zinc-600 dark:text-zinc-300 max-w-sm',
+            'text-zinc-600 dark:text-zinc-400 max-w-sm font-medium',
             size === 'sm' ? 'mt-1 text-xs' : 'mt-2 text-sm'
           )}
         >
@@ -61,8 +61,8 @@ export function EmptyState({
         <button
           onClick={onAction}
           className={cn(
-            'rounded-lg bg-gradient-cyan font-medium text-zinc-950 hover:opacity-90 transition-colors',
-            size === 'sm' ? 'mt-3 px-3 py-1.5 text-xs' : 'mt-4 px-4 py-2 text-sm'
+            'btn btn-primary',
+            size === 'sm' ? 'btn-sm mt-3' : 'mt-5'
           )}
         >
           {actionLabel}

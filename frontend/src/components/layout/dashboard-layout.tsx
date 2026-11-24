@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './sidebar'
 import { Header } from './header'
+import { MobileNav } from './mobile-nav'
 import { BogaBotChat } from '@/components/chat/bogabot-chat'
 import { useAlertasRealtime, requestNotificationPermission } from '@/hooks/use-alertas'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
@@ -81,13 +82,14 @@ export function DashboardLayout() {
           </div>
         )}
 
-        <main className="dashboard-shell mesh-gradient-bg flex-1 overflow-y-auto p-4 pb-20 sm:p-6 sm:pb-6">
+        <main className="dashboard-shell mesh-gradient-bg flex-1 overflow-y-auto p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-8">
           <div className="mx-auto min-h-full max-w-[1440px] animate-fade-in">
             <Outlet />
           </div>
         </main>
       </div>
 
+      <MobileNav onOpenMenu={() => setIsMobileOpen(true)} />
       <BogaBotChat />
       <OnboardingTour />
       <InstallPwaPrompt />
