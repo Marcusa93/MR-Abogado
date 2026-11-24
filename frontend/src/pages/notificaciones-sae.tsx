@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PageHeader } from '@/components/shared/page-header'
 import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
 import {
@@ -56,7 +57,7 @@ function PlazoPropuestoCard({ p }: { p: PlazoPropuesto }) {
   const tituloTarea = `${tipoLabel.charAt(0).toUpperCase() + tipoLabel.slice(1)} — ${caratula ?? 'Exp. sin carátula'}`
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.07] p-3 sm:p-4">
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4">
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
           <Clock className="h-4 w-4 shrink-0 text-amber-400" />
@@ -122,7 +123,7 @@ function PlazoPropuestoCard({ p }: { p: PlazoPropuesto }) {
         {p.expediente_id && (
           <Link
             to={`/expedientes/${p.expediente_id}`}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+            className="btn btn-ghost btn-sm"
           >
             <FileText className="h-3 w-3" />
             Ver expediente
@@ -137,7 +138,7 @@ function PlazoPropuestosPanel() {
   const { data: plazos = [], isLoading } = usePlazoPropuestos()
   if (isLoading || plazos.length === 0) return null
   return (
-    <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 sm:p-4">
+    <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
       <div className="flex items-center gap-2 mb-3">
         <Clock className="h-4 w-4 text-amber-400" />
         <span className="text-sm font-semibold text-amber-200">
@@ -202,7 +203,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
             </span>
           )}
           {notif.numero_expediente && (
-            <span className="font-mono text-zinc-300 bg-white/5 rounded px-1.5 py-0.5">
+            <span className="rounded-full bg-white/5 px-2 py-0.5 font-semibold tabular-nums text-zinc-300">
               Exp. {notif.numero_expediente}
             </span>
           )}
@@ -228,18 +229,18 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
       {/* Chips: tipo + prioridad IA */}
       <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
         {notif.tipo && (
-          <span className="inline-block rounded-md bg-violet-500/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-200">
+          <span className="inline-block rounded-full border border-violet-400/30 bg-violet-500/10 px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-violet-200">
             {notif.tipo}
           </span>
         )}
         {notif.prioridad === 'urgente' && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/25 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-200">
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-rose-200">
             🚨 Urgente
             {notif.plazo_estimado_dias != null && ` · ${notif.plazo_estimado_dias}d`}
           </span>
         )}
         {notif.prioridad === 'info' && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-500/15 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-zinc-400">
             Info
           </span>
         )}
@@ -337,7 +338,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
         {notif.expediente_id ? (
           <Link
             to={`/expedientes/${notif.expediente_id}`}
-            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/20"
+            className="btn btn-secondary btn-sm"
           >
             <FileText className="h-3 w-3" />
             Abrir expediente
@@ -351,7 +352,7 @@ function NotifCard({ notif }: { notif: SaeNotificacion }) {
           href={notif.raw_payload?.ver_url || PORTAL_URL}
           target="_blank"
           rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10"
+          className="btn btn-ghost btn-sm"
         >
           <ExternalLink className="h-3 w-3" />
           Ver en portal
@@ -464,42 +465,32 @@ export default function NotificacionesSaePage() {
   }
 
   return (
-    <div className="p-3 sm:p-5 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-cyan-500/10 p-2">
-            <Bell className="h-5 w-5 text-cyan-400" />
-          </div>
-          <div>
-            <h1 className="page-title">Notificaciones SAE</h1>
-            <p className="page-subtitle">
-              Casillero electrónico · "Depositada en casillero" es la fecha que inicia el plazo procesal.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSyncNow}
-            disabled={trigger.isPending}
-            className="btn btn-primary btn-sm"
-            title="Forzar revisión del portal ahora (sin esperar al cron 2x/día)"
-          >
-            {trigger.isPending
-              ? <Loader2 className="h-3 w-3 animate-spin" />
-              : <RefreshCw className="h-3 w-3" />}
-            {trigger.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
-          </button>
-          <a
-            href={PORTAL_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Portal SAE
-          </a>
-        </div>
-      </div>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        className="mb-5"
+        eyebrow="Casillero electrónico"
+        title="Notificaciones SAE"
+        subtitle={<>"Depositada en casillero" es la fecha que inicia el plazo procesal.</>}
+        actions={
+          <>
+            <a href={PORTAL_URL} target="_blank" rel="noreferrer noopener" className="btn btn-ghost">
+              <ExternalLink className="h-4 w-4" />
+              Portal SAE
+            </a>
+            <button
+              onClick={handleSyncNow}
+              disabled={trigger.isPending}
+              className="btn btn-primary"
+              title="Forzar revisión del portal ahora (sin esperar al cron 2x/día)"
+            >
+              {trigger.isPending
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <RefreshCw className="h-4 w-4" />}
+              {trigger.isPending ? 'Sincronizando…' : 'Sincronizar ahora'}
+            </button>
+          </>
+        }
+      />
 
       {lastResult && (
         lastResult.debug
@@ -507,7 +498,7 @@ export default function NotificacionesSaePage() {
         || (lastResult.fueros_iterados ?? []).length > 0
         || (lastResult.skip_reasons?.length ?? 0) > 0
       ) && (
-        <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.03] p-3">
+        <div className="mb-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-4">
           <button
             onClick={() => setDebugOpen(!debugOpen)}
             className="w-full text-left flex items-center justify-between"
@@ -563,7 +554,7 @@ export default function NotificacionesSaePage() {
       )}
 
       {prefs && !prefs.sae_notif_enabled && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 flex items-start gap-2">
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
           <BellOff className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
           <div className="flex-1">
             <p className="text-sm font-medium text-amber-200">Las notificaciones automáticas están desactivadas</p>
@@ -578,39 +569,33 @@ export default function NotificacionesSaePage() {
 
       {/* Búsqueda */}
       <div className="mb-3 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por expediente, tipo, oficina, carátula…"
-          className="field h-9 w-full pl-9 pr-3 py-0"
+          className="field h-11 w-full pl-10"
         />
       </div>
 
       <div className="mb-4 flex items-center gap-2">
         <button
           onClick={() => setFilter('unread')}
-          className={cn(
-            'h-7 rounded-lg border px-2.5 text-xs transition-colors',
-            filter === 'unread' ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
-          )}
+          aria-pressed={filter === 'unread'}
+          className="chip"
         >
           No leídas
         </button>
         <button
           onClick={() => setFilter('all')}
-          className={cn(
-            'h-7 rounded-lg border px-2.5 text-xs transition-colors',
-            filter === 'all' ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
-          )}
+          aria-pressed={filter === 'all'}
+          className="chip"
         >
           Todas (historial)
         </button>
-        <div className="flex rounded-lg border border-white/10 overflow-hidden text-[11px]">
+        <div className="segmented" role="group" aria-label="Orden">
           {(['prioridad', 'fecha'] as const).map(s => (
-            <button key={s} onClick={() => setSortBy(s)}
-              className={cn('h-7 px-2.5 transition-colors',
-                sortBy === s ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-zinc-400 hover:bg-white/10')}>
+            <button key={s} onClick={() => setSortBy(s)} aria-pressed={sortBy === s} className="px-2.5 text-[11px] font-semibold">
               {s === 'prioridad' ? 'Prioridad' : 'Fecha'}
             </button>
           ))}
@@ -627,7 +612,7 @@ export default function NotificacionesSaePage() {
             onError: (err) => toast.error(err.message),
           })}
           disabled={markAll.isPending || notifs.length === 0}
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10 disabled:opacity-30"
+          className="btn btn-ghost btn-sm"
         >
           {markAll.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
           Marcar todo leído
@@ -647,7 +632,7 @@ export default function NotificacionesSaePage() {
             : 'El sistema chequea el portal 2 veces por día. Si activaste las notificaciones, las vas a ver acá apenas se publiquen.'}
         />
       ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
+        <div className="app-card p-8 text-center">
           <Search className="h-8 w-8 mx-auto text-zinc-600 dark:text-zinc-300 mb-2" />
           <p className="text-sm text-zinc-300">Ninguna notificación coincide con "{search}"</p>
           <button
@@ -663,7 +648,7 @@ export default function NotificacionesSaePage() {
         </div>
       )}
 
-      <div className="mt-6 rounded-lg border border-white/5 bg-white/[0.02] p-3 flex items-start gap-2">
+      <div className="app-card mt-6 flex items-start gap-2 p-4">
         <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-zinc-500 dark:text-zinc-400" />
         <div className="space-y-1">
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
