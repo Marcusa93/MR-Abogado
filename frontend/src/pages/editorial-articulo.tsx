@@ -309,9 +309,9 @@ export default function EditorialArticuloPage() {
   }
 
   // Acciones: la principal siempre visible; el resto en línea en escritorio y en el menú en el celular
-  const BTN = 'flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-medium disabled:opacity-40'
-  const BTN_OUT = `${BTN} border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5`
-  const BTN_OK = `${BTN} bg-emerald-600 text-white hover:bg-emerald-700`
+  const BTN = 'btn btn-sm min-h-9 shrink-0 disabled:opacity-40'
+  const BTN_OUT = `${BTN} btn-ghost`
+  const BTN_OK = `${BTN} btn-primary`
   type Accion = { key: string; label: string; icon: typeof Save; onClick: () => void; disabled?: boolean; cargando?: boolean; tono?: 'ok' | 'out' | 'warn'; title?: string }
   const principales: Accion[] = []
   const secundarias: Accion[] = []
@@ -425,16 +425,16 @@ export default function EditorialArticuloPage() {
       {/* Barra superior: fija al hacer scroll en el celular */}
       <div ref={barraRef} className="sticky top-[-1rem] z-20 -mx-4 -mt-4 border-b border-zinc-200 bg-[var(--layout-bg)]/95 px-4 pb-2 pt-[calc(1rem+0.25rem)] backdrop-blur sm:top-[-1.5rem] sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-[calc(1.5rem+0.25rem)] lg:static lg:m-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none dark:border-white/10">
         <div className="flex items-center gap-2">
-          <Link to="/editorial" className="-ml-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-500/10" title="Volver"><ArrowLeft className="h-5 w-5 lg:h-4 lg:w-4" /></Link>
+          <Link to="/editorial" className="btn btn-ghost btn-icon -ml-1.5 shrink-0 border-transparent" title="Volver"><ArrowLeft className="h-5 w-5 lg:h-4 lg:w-4" /></Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                aprobado ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
+              <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold',
+                aprobado ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                 {ESTADO_ARTICULO_LABEL[art.estado]}
               </span>
               {sucio && <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />sin guardar</span>}
             </div>
-            <p className="mt-0.5 truncate text-[11px] text-zinc-500">
+            <p className="mt-0.5 truncate text-[11px] font-medium tabular-nums text-zinc-500">
               v{art.version} · {palabras(cuerpo)} palabras<span className="hidden sm:inline">{art.modelo_ia ? ` · ${art.modelo_ia.replace('anthropic/', '')}` : ''}</span>
             </p>
           </div>
@@ -449,9 +449,9 @@ export default function EditorialArticuloPage() {
         <div className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4 no-scrollbar sm:-mx-6 sm:px-6 lg:hidden">
           {SECCIONES.map(([x, label, n]) => (
             <button key={x} type="button" onClick={(e) => { irA(x); e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }) }}
-              className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-medium',
-                seccion === x ? 'bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]' : 'text-zinc-500 hover:bg-zinc-500/10')}>
-              {label}{n ? <span className="tabular-nums opacity-70">{n}</span> : null}
+              aria-pressed={seccion === x}
+              className="chip min-h-8">
+              {label}{n ? <span className="chip-count">{n}</span> : null}
             </button>
           ))}
         </div>
@@ -469,12 +469,12 @@ export default function EditorialArticuloPage() {
       )}
 
       {(lineas?.ejes.length ?? 0) > 0 && (
-        <label className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
           Línea temática
           <select value={art.eje_id ?? ''} disabled={!puedeAprobar && aprobado}
             onChange={(e) => editarEditorial.mutate({ tabla: 'editorial_articulos', accion: 'update', id, datos: { eje_id: e.target.value || null } },
               { onSuccess: () => toast.success('Línea temática actualizada') })}
-            className="min-h-8 rounded-lg border border-zinc-200 bg-white px-2 text-base sm:text-xs dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+            className="field min-h-8 w-auto py-1 text-base normal-case tracking-normal sm:text-xs">
             <option value="">Sin asignar (se asigna sola al aprobar)</option>
             {lineas!.ejes.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
           </select>
@@ -483,15 +483,15 @@ export default function EditorialArticuloPage() {
 
       {/* Avisos */}
       {devolviendo && (
-        <div className="space-y-2 rounded-xl border border-orange-500/30 bg-orange-500/5 p-3">
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Observaciones para devolver el artículo</p>
+        <div className="space-y-2.5 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4">
+          <p className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Observaciones para devolver el artículo</p>
           <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={4} autoFocus
             placeholder="Qué hay que corregir, ampliar o sacar…"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100" />
+            className="field text-base sm:text-sm" />
           <div className="flex flex-wrap items-center gap-2">
             <DictarBoton label="Dictar" onTexto={(t) => setObservaciones((p) => (p.trim() ? `${p.trim()} ${t}` : t))} />
             <span className="flex-1" />
-            <button type="button" onClick={() => setDevolviendo(false)} className={`${BTN} text-zinc-500 hover:bg-zinc-500/10`}>Cancelar</button>
+            <button type="button" onClick={() => setDevolviendo(false)} className={`${BTN} btn-ghost border-transparent`}>Cancelar</button>
             <button type="button" onClick={devolver} disabled={!observaciones.trim() || pidiendo === 'devolver'}
               className={`${BTN} bg-orange-600 text-white hover:bg-orange-700`}>
               {pidiendo === 'devolver' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />} Devolver y avisar
@@ -520,7 +520,7 @@ export default function EditorialArticuloPage() {
               </button>
             )}
             <button type="button" onClick={() => actualizarPropuesta.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Descartada') })}
-              className={`${BTN} text-zinc-500 hover:bg-zinc-500/10`}>No hace falta</button>
+              className={`${BTN} btn-ghost border-transparent`}>No hace falta</button>
           </div>
         </Aviso>
       ))}
@@ -534,11 +534,11 @@ export default function EditorialArticuloPage() {
         <div className={cn('min-w-0 space-y-3', seccion !== 'articulo' && 'hidden lg:block')}>
           {/* IA: redactar / reescribir / revisar */}
           {!aprobado && (
-            <div className="dashboard-panel rounded-2xl p-3 sm:p-4">
+            <div className="app-card p-3 sm:p-4">
               {art.cuerpo && !iaAbierta ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" onClick={() => setIaAbierta(true)} disabled={!!pidiendo}
-                    className={`${BTN} flex-1 bg-[var(--brand-navy)] text-white hover:opacity-90 sm:flex-none dark:bg-white dark:text-[var(--brand-navy)]`}>
+                    className={`${BTN} btn-primary flex-1 sm:flex-none`}>
                     {pidiendo === 'redactar' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                     {pidiendo === 'redactar' ? 'Redactando…' : 'Reescribir con IA'}
                   </button>
@@ -551,18 +551,18 @@ export default function EditorialArticuloPage() {
                 <div className="space-y-2.5">
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">{art.cuerpo ? 'Reescribir con IA' : 'Redactar el borrador'}</p>
-                      <p className="text-xs text-zinc-500">{art.cuerpo ? 'La IA rehace el texto sobre la última versión guardada, respetando tus cambios.' : 'La IA redacta a partir de la investigación. Después lo editás vos.'}</p>
+                      <p className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">{art.cuerpo ? 'Reescribir con IA' : 'Redactar el borrador'}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{art.cuerpo ? 'La IA rehace el texto sobre la última versión guardada, respetando tus cambios.' : 'La IA redacta a partir de la investigación. Después lo editás vos.'}</p>
                     </div>
-                    {art.cuerpo && <button type="button" onClick={() => setIaAbierta(false)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-500/10" title="Cerrar"><X className="h-4 w-4" /></button>}
+                    {art.cuerpo && <button type="button" onClick={() => setIaAbierta(false)} className="btn btn-ghost btn-icon h-8 w-8 border-transparent" title="Cerrar"><X className="h-4 w-4" /></button>}
                   </div>
                   <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoArticulo)}
-                    className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-base sm:min-h-9 sm:w-auto sm:text-xs dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+                    className="field min-h-10 py-1 text-base sm:min-h-9 sm:w-auto sm:text-xs">
                     {(Object.keys(TIPO_ARTICULO_LABEL) as TipoArticulo[]).map((t) => <option key={t} value={t}>{TIPO_ARTICULO_LABEL[t]}</option>)}
                   </select>
                   <textarea value={indicaciones} onChange={(e) => setIndicaciones(e.target.value)} rows={3}
                     placeholder="Indicaciones (opcional): enfoque, extensión, qué agregar o sacar, a quién va dirigido…"
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200" />
+                    className="field text-base sm:text-sm" />
                   {(() => {
                     const hs = investigacionExterna?.hallazgos ?? []
                     if (!hs.length) return null
@@ -570,7 +570,7 @@ export default function EditorialArticuloPage() {
                     const parcial = hs.filter((h) => h.estado === 'parcial').length
                     const resto = hs.length - ok - parcial
                     return (
-                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
                         Se va a redactar con tu investigación de Gemini: <b>{ok} hallazgos comprobados</b> como base
                         {parcial ? `, ${parcial} parcial${parcial > 1 ? 'es' : ''} con cautela` : ''}
                         {resto ? ` y ${resto} sin comprobar marcado${resto > 1 ? 's' : ''} [VERIFICAR]` : ''}. La bibliografía sale de esas fuentes.
@@ -579,7 +579,7 @@ export default function EditorialArticuloPage() {
                     )
                   })()}
                   {!art.cuerpo && art.investigacion && (
-                    <button type="button" onClick={() => irA('investigacion')} className="text-xs font-medium text-[var(--brand-accent)] underline underline-offset-2 lg:hidden dark:text-[var(--brand-ice)]">
+                    <button type="button" onClick={() => irA('investigacion')} className="dashboard-link text-xs underline underline-offset-2 lg:hidden">
                       Leer la investigación antes de redactar
                     </button>
                   )}
@@ -587,7 +587,7 @@ export default function EditorialArticuloPage() {
                     <DictarBoton label="Dictar" disabled={!!pidiendo} onTexto={(t) => setIndicaciones((p) => (p.trim() ? `${p.trim()} ${t}` : t))} />
                     <span className="flex-1" />
                     <button type="button" onClick={redactar} disabled={!!pidiendo}
-                      className={`${BTN} min-h-10 bg-[var(--brand-navy)] px-4 text-sm text-white hover:opacity-90 sm:min-h-9 sm:text-xs dark:bg-white dark:text-[var(--brand-navy)]`}>
+                      className="btn btn-primary min-h-10 shrink-0 sm:min-h-9">
                       {pidiendo === 'redactar' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                       {pidiendo === 'redactar' ? 'Redactando… (1-2 min)' : art.cuerpo ? 'Reescribir' : 'Redactar borrador'}
                     </button>
@@ -599,13 +599,13 @@ export default function EditorialArticuloPage() {
 
           {/* El texto */}
           {(art.cuerpo || cuerpo) && (
-            <div className="dashboard-panel rounded-2xl !overflow-visible p-2 sm:p-4">
+            <div className="app-card !overflow-visible p-2 sm:p-4">
               {!aprobado && (
-                <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-zinc-500/10 p-1 sm:mb-3 sm:inline-grid">
+                <div className="segmented mb-2 grid grid-cols-2 sm:mb-3 sm:inline-grid" role="group" aria-label="Vista">
                   {(['previa', 'editar'] as const).map((v) => (
                     <button key={v} type="button" onClick={() => setVista(v)}
-                      className={cn('flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-medium sm:min-h-8',
-                        vista === v ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+                      aria-pressed={vista === v}
+                      className="min-h-9 px-4 text-xs font-semibold sm:min-h-8">
                       {v === 'previa' ? <Eye className="h-3.5 w-3.5" /> : <PenLine className="h-3.5 w-3.5" />}
                       {v === 'previa' ? 'Vista previa' : 'Editar'}
                     </button>
@@ -638,10 +638,10 @@ export default function EditorialArticuloPage() {
 
           {/* Adaptaciones (solo aprobado) */}
           {aprobado && (
-            <div className="dashboard-panel space-y-3 rounded-2xl p-3 sm:p-4">
+            <div className="app-card space-y-3 p-3 sm:p-4">
               <div>
-                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Adaptaciones</p>
-                <p className="text-xs text-zinc-500">Versiones cortas del artículo aprobado para redes y boletín.</p>
+                <p className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Adaptaciones</p>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Versiones cortas del artículo aprobado para redes y boletín.</p>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                 {([['linkedin', 'LinkedIn'], ['redes', 'Instagram / Facebook'], ['boletin', 'Boletín']] as const).map(([f, label]) => (
@@ -652,16 +652,16 @@ export default function EditorialArticuloPage() {
                 ))}
               </div>
               {(['linkedin', 'redes', 'boletin'] as const).filter((f) => art.adaptaciones?.[f]).map((f) => (
-                <div key={f} className="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+                <div key={f} className="rounded-xl border border-zinc-200 p-3 dark:border-white/[0.08]">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <p className="flex-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">{f === 'redes' ? 'Instagram / Facebook' : f === 'boletin' ? 'Boletín' : 'LinkedIn'}</p>
-                    <button type="button" onClick={() => copiar(art.adaptaciones[f]!, 'Texto')} className={`${BTN} text-zinc-600 hover:bg-zinc-500/10 dark:text-zinc-300`}><Copy className="h-3.5 w-3.5" /> Copiar</button>
+                    <p className="eyebrow flex-1">{f === 'redes' ? 'Instagram / Facebook' : f === 'boletin' ? 'Boletín' : 'LinkedIn'}</p>
+                    <button type="button" onClick={() => copiar(art.adaptaciones[f]!, 'Texto')} className={`${BTN} btn-ghost border-transparent`}><Copy className="h-3.5 w-3.5" /> Copiar</button>
                     <button type="button" disabled={enviarContenidos.isPending}
                       onClick={() => enviarContenidos.mutate(
                         { titulo: art.titulo, texto: art.adaptaciones[f]!, categoria: f === 'linkedin' ? 'linkedin' : f === 'boletin' ? 'newsletter' : 'instagram' },
                         { onSuccess: () => toast.success('Enviado a Contenidos como borrador'), onError: (e) => toast.error('No se pudo enviar', e instanceof Error ? e.message : undefined) },
                       )}
-                      className={`${BTN} text-[var(--brand-accent)] hover:bg-zinc-500/10 dark:text-[var(--brand-ice)]`}>
+                      className={`${BTN} btn-secondary`}>
                       <Send className="h-3.5 w-3.5" /> A Contenidos
                     </button>
                   </div>
@@ -673,12 +673,12 @@ export default function EditorialArticuloPage() {
         </div>
 
         {/* Panel de apoyo: al costado en escritorio, como sección en el celular */}
-        <aside className={cn('dashboard-panel h-fit rounded-2xl p-3 sm:p-4 lg:sticky lg:top-0 lg:p-3', seccion === 'articulo' && 'hidden lg:block')}>
-          <div className="mb-3 hidden grid-cols-5 gap-1 lg:grid">
+        <aside className={cn('app-card h-fit p-3 sm:p-4 lg:sticky lg:top-0 lg:p-3', seccion === 'articulo' && 'hidden lg:block')}>
+          <div className="segmented mb-3 hidden w-full grid-cols-5 lg:grid" role="group" aria-label="Panel">
             {([['investigacion', 'Investig.'], ['revision', 'Revisión'], ['verificar', 'Verificar'], ['bibliografia', 'Biblio.'], ['versiones', 'Versiones']] as const).map(([p, label]) => (
               <button key={p} type="button" onClick={() => setPanel(p)}
-                className={cn('rounded-md px-1.5 py-1 text-[11px] font-medium',
-                  panel === p ? 'bg-zinc-200 text-zinc-900 dark:bg-white/10 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700')}>
+                aria-pressed={panel === p}
+                className="px-1 text-[11px] font-semibold">
                 {label}
               </button>
             ))}
@@ -688,14 +688,14 @@ export default function EditorialArticuloPage() {
               <div className="space-y-4">
                 <HallazgosPanel articuloId={id} informeCargado={!!art.informe_cargado_at} puedeCargar={!aprobado} />
                 {art.investigacion && (
-                  <div className="border-t border-zinc-200 pt-3 dark:border-white/10">
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Investigación de la IA (sin fuentes comprobadas)</p>
+                  <div className="border-t border-zinc-200 pt-3 dark:border-white/[0.08]">
+                    <p className="eyebrow mb-1.5">Investigación de la IA (sin fuentes comprobadas)</p>
                     <MarkdownView texto={art.investigacion} className="text-sm" />
                   </div>
                 )}
                 {art.informe_externo && (
-                  <details className="border-t border-zinc-200 pt-3 dark:border-white/10">
-                    <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Informe original de Gemini</summary>
+                  <details className="border-t border-zinc-200 pt-3 dark:border-white/[0.08]">
+                    <summary className="eyebrow cursor-pointer">Informe original de Gemini</summary>
                     <MarkdownView texto={art.informe_externo} className="mt-2 text-sm" />
                   </details>
                 )}
@@ -706,24 +706,24 @@ export default function EditorialArticuloPage() {
               : <p className="text-sm text-zinc-500">Todavía no hay revisión. Pedila con "Revisión crítica", arriba del texto.</p>)}
             {panel === 'bibliografia' && (
               <div className="space-y-2 text-sm">
-                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                <p className="eyebrow flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5" /> Referencias (APA 7) · siempre al final del documento
                 </p>
                 {biblioTexto !== null ? (
                   <>
                     <textarea value={biblioTexto} onChange={(e) => setBiblioTexto(e.target.value)} rows={10}
                       placeholder="Una entrada por línea"
-                      className="w-full rounded-lg border border-zinc-200 bg-transparent p-2 text-base leading-relaxed sm:text-xs dark:border-white/10" />
+                      className="field text-base leading-relaxed sm:text-xs" />
                     <div className="flex gap-2">
                       <button type="button" disabled={guardarBiblio.isPending}
                         onClick={() => guardarBiblio.mutate(
                           biblioTexto.split('\n').map((l) => l.trim()).filter(Boolean),
                           { onSuccess: () => { setBiblioTexto(null); toast.success('Bibliografía guardada') },
                             onError: (e) => toast.error('No se pudo guardar', e instanceof Error ? e.message : undefined) })}
-                        className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40 dark:bg-white dark:text-zinc-900">
+                        className="btn btn-primary btn-sm">
                         Guardar
                       </button>
-                      <button type="button" onClick={() => setBiblioTexto(null)} className="text-xs text-zinc-500 hover:underline">Cancelar</button>
+                      <button type="button" onClick={() => setBiblioTexto(null)} className="btn btn-ghost btn-sm border-transparent">Cancelar</button>
                     </div>
                   </>
                 ) : (
@@ -736,9 +736,9 @@ export default function EditorialArticuloPage() {
                       </ul>
                     ) : <p className="text-xs text-zinc-500">Todavía no hay bibliografía. Se arma sola al redactar o al descargar.</p>}
                     <div className="flex flex-wrap gap-3 pt-1">
-                      <button type="button" onClick={() => setBiblioTexto((art.bibliografia ?? []).join('\n'))} className="text-xs text-zinc-600 hover:underline dark:text-zinc-300">Editar</button>
+                      <button type="button" onClick={() => setBiblioTexto((art.bibliografia ?? []).join('\n'))} className="text-xs font-semibold text-zinc-600 hover:underline dark:text-zinc-300">Editar</button>
                       <button type="button" disabled={pidiendo === 'apa'} onClick={() => { void generarBibliografia().then((b) => { if (b) toast.success('Bibliografía APA generada') }) }}
-                        className="flex items-center gap-1 text-xs text-zinc-600 hover:underline disabled:opacity-40 dark:text-zinc-300">
+                        className="flex items-center gap-1 text-xs font-semibold text-zinc-600 hover:underline disabled:opacity-40 dark:text-zinc-300">
                         {pidiendo === 'apa' && <Loader2 className="h-3 w-3 animate-spin" />}{art.bibliografia?.length ? 'Regenerar con IA' : 'Generar con IA'}
                       </button>
                     </div>
@@ -757,18 +757,18 @@ export default function EditorialArticuloPage() {
                     correrIA('verificar_citas', {}, 'Citas verificadas')
                   }} />
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">A comprobar antes de aprobar</p>
+                  <p className="eyebrow">A comprobar antes de aprobar</p>
                   {art.a_verificar?.length ? (
                     <ul className="mt-1 list-disc space-y-1 pl-4 text-zinc-700 dark:text-zinc-300">{art.a_verificar.map((v, i) => <li key={i}>{v}</li>)}</ul>
                   ) : <p className="mt-1 text-xs text-zinc-500">Nada indicado por la IA.</p>}
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Referencias</p>
+                  <p className="eyebrow">Referencias</p>
                   {art.referencias?.length ? (
                     <ul className="mt-1 space-y-1.5">
                       {art.referencias.map((r, i) => (
                         <li key={i} className="text-zinc-700 dark:text-zinc-300">
-                          <span className={cn('mr-1 rounded px-1 text-[10px] font-semibold', r.verificada ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300')}>
+                          <span className={cn('mr-1 rounded-full border px-1.5 text-[10px] font-semibold', r.verificada ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                             {r.verificada ? 'con fuente' : 'sin verificar'}
                           </span>
                           {r.cita}{r.fuente ? <span className="text-zinc-500"> — {r.fuente}</span> : null}
@@ -783,10 +783,10 @@ export default function EditorialArticuloPage() {
               <ul className="space-y-1.5">
                 {versiones.length === 0 && <li className="text-xs text-zinc-500">Sin versiones todavía.</li>}
                 {versiones.map((v) => (
-                  <li key={v.id} className="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs dark:border-white/10">
+                  <li key={v.id} className="flex items-center gap-2 rounded-xl border border-zinc-200 px-2.5 py-2 text-xs dark:border-white/[0.08]">
                     <History className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
                     <span className="min-w-0 flex-1">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">v{v.version}</span>
+                      <span className="font-bold tabular-nums text-zinc-800 dark:text-zinc-200">v{v.version}</span>
                       <span className="text-zinc-500"> · {v.origen === 'ia' ? `IA${v.autor_id && v.autor_id !== yo ? ` (pedida por ${quien(v.autor_id)})` : ''}` : quien(v.autor_id)} · {new Date(v.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     </span>
                     {v.version !== art.version && (
@@ -795,7 +795,7 @@ export default function EditorialArticuloPage() {
                       </button>
                     )}
                     {!aprobado && v.version !== art.version && (
-                      <button type="button" onClick={() => restaurar(v)} className="flex items-center gap-0.5 text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
+                      <button type="button" onClick={() => restaurar(v)} className="dashboard-link flex items-center gap-0.5 hover:underline">
                         <RotateCcw className="h-3 w-3" /> usar
                       </button>
                     )}
@@ -855,11 +855,11 @@ function Aviso({ tono, icon: Icon, titulo, accion, children }: {
 }) {
   const t = TONOS[tono]
   return (
-    <div className={cn('flex gap-2.5 rounded-xl border px-3 py-2.5 text-sm text-zinc-800 dark:text-zinc-200', t.caja)}>
+    <div className={cn('flex gap-2.5 rounded-2xl border px-4 py-3 text-sm text-zinc-800 dark:text-zinc-200', t.caja)}>
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', t.icono)} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
-          <p className={cn('flex-1 font-medium leading-snug', t.titulo)}>{titulo}</p>
+          <p className={cn('flex-1 font-semibold leading-snug', t.titulo)}>{titulo}</p>
           {accion && <button type="button" onClick={accion.onClick} className={cn('shrink-0 text-xs font-semibold underline underline-offset-2', t.titulo)}>{accion.label}</button>}
         </div>
         {children && <div className="mt-1">{children}</div>}
@@ -884,15 +884,15 @@ function MenuMas({ acciones }: { acciones: { key: string; label: string; icon: t
   return (
     <div ref={ref} className="relative lg:hidden">
       <button type="button" onClick={() => setAbierto((v) => !v)} aria-label="Más acciones" aria-expanded={abierto}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+        className="btn btn-ghost btn-icon h-9 w-9">
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {abierto && (
-        <div className="absolute right-0 top-11 z-40 w-60 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-zinc-900">
+        <div className="absolute right-0 top-11 z-40 w-60 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-2xl dark:border-white/10 dark:bg-[var(--popover)]">
           {acciones.map((x) => (
             <button key={x.key} type="button" disabled={x.disabled}
               onClick={() => { setAbierto(false); x.onClick() }}
-              className="flex min-h-11 w-full items-center gap-2.5 px-3 text-left text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 dark:text-zinc-200 dark:hover:bg-white/5">
+              className="flex min-h-11 w-full items-center gap-2.5 px-4 text-left text-[13px] font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white">
               <x.icon className="h-4 w-4 shrink-0 text-zinc-400" /> {x.label}
             </button>
           ))}
@@ -923,13 +923,13 @@ function GuiaArticulo({ pasos, articuloId, ocupado }: { pasos: PasoGuia[]; artic
   const nActual = actual ? visibles.indexOf(actual) + 1 : visibles.length
 
   return (
-    <div className="rounded-2xl border border-[var(--brand-accent)]/30 bg-[var(--brand-accent)]/5 p-3 dark:border-[var(--brand-ice)]/25 dark:bg-[var(--brand-ice)]/5 sm:p-4">
+    <div className="rounded-2xl border border-[var(--brand-accent)]/30 bg-[var(--brand-accent)]/[0.06] p-3 sm:p-4">
       {/* Progreso */}
       <div className="flex items-center gap-2">
         <div className="flex flex-1 gap-1">
           {visibles.map((p) => (
             <span key={p.key} className={cn('h-1.5 flex-1 rounded-full',
-              p.hecho ? 'bg-emerald-500' : p === actual ? 'bg-[var(--brand-accent)] dark:bg-[var(--brand-ice)]' : 'bg-zinc-300 dark:bg-white/15')} />
+              p.hecho ? 'bg-emerald-500' : p === actual ? 'bg-[var(--brand-accent)]' : 'bg-zinc-300 dark:bg-white/15')} />
           ))}
         </div>
         <span className="shrink-0 text-[11px] font-medium tabular-nums text-zinc-500">{hechos}/{visibles.length}</span>
@@ -938,19 +938,19 @@ function GuiaArticulo({ pasos, articuloId, ocupado }: { pasos: PasoGuia[]; artic
       {/* Paso actual */}
       {actual ? (
         <div className="mt-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Paso {nActual} de {visibles.length}{actual.opcional ? ' · opcional' : ''}</p>
-          <p className="mt-0.5 text-base font-semibold text-zinc-900 dark:text-zinc-50">{actual.titulo}</p>
+          <p className="eyebrow">Paso {nActual} de {visibles.length}{actual.opcional ? ' · opcional' : ''}</p>
+          <p className="mt-1 text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">{actual.titulo}</p>
           {actual.detalle && <p className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-300">{actual.detalle}</p>}
           <div className="mt-2.5 flex flex-wrap gap-2">
             {actual.accion && (
               <button type="button" onClick={actual.accion.onClick} disabled={ocupado}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--brand-navy)] px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:flex-none dark:bg-white dark:text-[var(--brand-navy)]">
+                className="btn btn-primary flex-1 max-sm:min-h-10 sm:flex-none">
                 {actual.accion.cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {actual.accion.label}
               </button>
             )}
             {actual.secundaria && (
               <button type="button" onClick={actual.secundaria.onClick} disabled={ocupado}
-                className="flex min-h-10 items-center justify-center rounded-xl border border-zinc-200 px-4 text-sm font-medium text-zinc-700 disabled:opacity-50 dark:border-white/10 dark:text-zinc-200">
+                className="btn btn-ghost max-sm:min-h-10">
                 {actual.secundaria.label}
               </button>
             )}
@@ -961,7 +961,7 @@ function GuiaArticulo({ pasos, articuloId, ocupado }: { pasos: PasoGuia[]; artic
       )}
 
       {/* Lista completa */}
-      <button type="button" onClick={alternar} className="mt-3 flex min-h-8 items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+      <button type="button" onClick={alternar} className="mt-3 flex min-h-8 items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-white">
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', verLista && 'rotate-180')} /> {verLista ? 'Ocultar los pasos' : 'Ver todos los pasos'}
       </button>
       {verLista && (
@@ -971,12 +971,12 @@ function GuiaArticulo({ pasos, articuloId, ocupado }: { pasos: PasoGuia[]; artic
               {p.hecho
                 ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
                 : <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold',
-                    p === actual ? 'border-[var(--brand-accent)] text-[var(--brand-accent)] dark:border-[var(--brand-ice)] dark:text-[var(--brand-ice)]' : 'border-zinc-300 text-zinc-400 dark:border-white/20')}>{i + 1}</span>}
-              <span className={cn('flex-1', p.hecho ? 'text-zinc-400 line-through decoration-zinc-400/40' : p === actual ? 'font-medium text-zinc-900 dark:text-zinc-50' : 'text-zinc-600 dark:text-zinc-300')}>
+                    p === actual ? 'border-[var(--brand-accent)] text-[var(--brand-accent)]' : 'border-zinc-300 text-zinc-400 dark:border-white/20')}>{i + 1}</span>}
+              <span className={cn('flex-1', p.hecho ? 'text-zinc-400 line-through decoration-zinc-400/40' : p === actual ? 'font-semibold text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-300')}>
                 {p.titulo}{p.opcional ? ' (opcional)' : ''}
               </span>
               {!p.hecho && p !== actual && p.accion && (
-                <button type="button" onClick={p.accion.onClick} disabled={ocupado} className="shrink-0 text-xs text-[var(--brand-accent)] underline disabled:opacity-50 dark:text-[var(--brand-ice)]">{p.accion.label}</button>
+                <button type="button" onClick={p.accion.onClick} disabled={ocupado} className="dashboard-link shrink-0 text-xs underline disabled:opacity-50">{p.accion.label}</button>
               )}
             </li>
           ))}

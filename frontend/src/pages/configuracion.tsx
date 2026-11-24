@@ -8,6 +8,7 @@ import { SaeCredentialsSection } from '@/components/configuracion/sae-credential
 import { ThemeSection } from '@/components/configuracion/theme-section'
 import { UsersSection } from '@/components/configuracion/users-section'
 import { CatalogoEditor } from '@/components/configuracion/catalogo-editor'
+import { PageHeader } from '@/components/shared/page-header'
 import { List, MapPin } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -16,7 +17,7 @@ import { List, MapPin } from 'lucide-react'
 
 function SaeNotifSection() {
   return (
-    <div className="glass-card rounded-xl border border-white/10 p-5">
+    <div className="app-card p-5">
       <SaeNotifConfig />
     </div>
   )
@@ -24,7 +25,7 @@ function SaeNotifSection() {
 
 function NotifPrefsSection() {
   return (
-    <div className="glass-card rounded-xl border border-white/10 p-5">
+    <div className="app-card p-5">
       <NotifPrefsConfig />
     </div>
   )
@@ -40,15 +41,10 @@ export default function ConfiguracionPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="page-title">
-          Configuraci{'ó'}n
-        </h1>
-        <p className="page-subtitle">
-          Ajustes del perfil, apariencia y administraci{'ó'}n del sistema.
-        </p>
-      </div>
+      <PageHeader
+        title={<>Configuraci{'ó'}n</>}
+        subtitle={<>Ajustes del perfil, apariencia y administraci{'ó'}n del sistema.</>}
+      />
 
       {/* Profile + Theme + Password */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -65,8 +61,8 @@ export default function ConfiguracionPage() {
       <NotifPrefsSection />
 
       {/* Integraciones */}
-      <div className="border-t border-white/10 pt-6">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
+      <div className="border-t border-zinc-200 pt-6 dark:border-white/[0.08]">
+        <h2 className="mb-4 text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
           Integraciones
         </h2>
         <div className="space-y-4">
@@ -77,8 +73,8 @@ export default function ConfiguracionPage() {
       {/* Admin sections */}
       {isAdmin && (
         <>
-          <div className="border-t border-white/10 pt-6">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 mb-4">
+          <div className="border-t border-zinc-200 pt-6 dark:border-white/[0.08]">
+            <h2 className="mb-4 text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
               Administraci{'ó'}n
             </h2>
           </div>

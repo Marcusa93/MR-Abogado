@@ -7,6 +7,7 @@ import { useAuditLog, useAuditStats, type AuditEntry } from '@/hooks/use-audit-l
 import { useTeamMembers } from '@/hooks/use-team-members'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
 import { ErrorState } from '@/components/shared/error-state'
+import { PageHeader } from '@/components/shared/page-header'
 import { cn } from '@/lib/utils'
 import {
   Activity,
@@ -31,13 +32,13 @@ import {
 // ---------------------------------------------------------------------------
 
 const ACCION_CONFIG: Record<string, { icon: typeof Activity; label: string; color: string }> = {
-  LOGIN: { icon: LogIn, label: 'Inicio de sesión', color: 'text-amber-400' },
-  INSERT: { icon: FilePlus, label: 'Creación', color: 'text-emerald-400' },
-  UPDATE: { icon: FileEdit, label: 'Modificación', color: 'text-amber-400' },
-  DELETE: { icon: Trash2, label: 'Eliminación', color: 'text-rose-400' },
-  STATE_CHANGE: { icon: ArrowRightLeft, label: 'Cambio de estado', color: 'text-violet-400' },
-  SENSITIVE_ACCESS: { icon: Eye, label: 'Acceso sensible', color: 'text-rose-400' },
-  VIEW: { icon: Eye, label: 'Consulta', color: 'text-sky-400' },
+  LOGIN: { icon: LogIn, label: 'Inicio de sesión', color: 'text-cyan-700 dark:text-cyan-300' },
+  INSERT: { icon: FilePlus, label: 'Creación', color: 'text-emerald-600 dark:text-emerald-400' },
+  UPDATE: { icon: FileEdit, label: 'Modificación', color: 'text-cyan-700 dark:text-cyan-300' },
+  DELETE: { icon: Trash2, label: 'Eliminación', color: 'text-rose-600 dark:text-rose-400' },
+  STATE_CHANGE: { icon: ArrowRightLeft, label: 'Cambio de estado', color: 'text-violet-600 dark:text-violet-400' },
+  SENSITIVE_ACCESS: { icon: Eye, label: 'Acceso sensible', color: 'text-rose-600 dark:text-rose-400' },
+  VIEW: { icon: Eye, label: 'Consulta', color: 'text-sky-600 dark:text-sky-400' },
 }
 
 const TABLA_LABELS: Record<string, string> = {
@@ -229,13 +230,10 @@ export default function ActividadPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="page-title">Actividad</h1>
-            <p className="page-subtitle">Monitoreo de acciones de los usuarios del sistema</p>
-          </div>
+      <PageHeader
+        title="Actividad"
+        subtitle="Monitoreo de acciones de los usuarios del sistema"
+        actions={
           <button
             type="button"
             onClick={() => {
@@ -258,45 +256,41 @@ export default function ActividadPage() {
               a.click()
               URL.revokeObjectURL(url)
             }}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+            className="btn btn-ghost"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4" />
             Exportar CSV
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats cards */}
       {!statsLoading && stats && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={Activity} label="Acciones totales" value={stats.total} color="text-amber-400" />
-          <StatCard icon={LogIn} label="Inicios de sesión" value={stats.byAction['LOGIN'] ?? 0} color="text-emerald-400" />
-          <StatCard icon={ArrowRightLeft} label="Cambios de estado" value={stats.byAction['STATE_CHANGE'] ?? 0} color="text-violet-400" />
-          <StatCard icon={FileEdit} label="Modificaciones" value={(stats.byAction['UPDATE'] ?? 0) + (stats.byAction['INSERT'] ?? 0)} color="text-amber-400" />
+          <StatCard icon={Activity} label="Acciones totales" value={stats.total} color="text-cyan-700 dark:text-cyan-300" />
+          <StatCard icon={LogIn} label="Inicios de sesión" value={stats.byAction['LOGIN'] ?? 0} color="text-emerald-600 dark:text-emerald-400" />
+          <StatCard icon={ArrowRightLeft} label="Cambios de estado" value={stats.byAction['STATE_CHANGE'] ?? 0} color="text-violet-600 dark:text-violet-400" />
+          <StatCard icon={FileEdit} label="Modificaciones" value={(stats.byAction['UPDATE'] ?? 0) + (stats.byAction['INSERT'] ?? 0)} color="text-cyan-700 dark:text-cyan-300" />
         </div>
       )}
 
       {/* Top users */}
       {!statsLoading && stats && stats.topUsers.length > 0 && (
-        <div className="glass-card rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Usuarios más activos (periodo seleccionado)</h3>
+        <div className="app-card p-4 sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-[var(--brand-accent)]" />
+            <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Usuarios más activos (periodo seleccionado)</h3>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {stats.topUsers.map((u) => (
               <button
                 key={u.id}
                 onClick={() => { setUserId(u.id); setPage(0) }}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                  userId === u.id
-                    ? 'border-amber-500/30 bg-amber-950/30 text-amber-300'
-                    : 'border-white/5 bg-white/5 text-zinc-700 dark:text-zinc-300 hover:bg-white/10'
-                )}
+                aria-pressed={userId === u.id}
+                className="chip"
               >
-                <span className="font-medium">{u.nombre}</span>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold">{u.count}</span>
+                <span>{u.nombre}</span>
+                <span className="chip-count">{u.count}</span>
               </button>
             ))}
           </div>
@@ -304,18 +298,18 @@ export default function ActividadPage() {
       )}
 
       {/* Filters */}
-      <div className="glass-card rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
-          <h3 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Filtros</h3>
+      <div className="app-card p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-[var(--brand-accent)]" />
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Filtros</h3>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Usuario</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Usuario</label>
             <select
               value={userId}
               onChange={(e) => { setUserId(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
+              className="field h-10 py-0 text-[13px]"
             >
               <option value="">Todos</option>
               {(team ?? []).map((m) => (
@@ -324,11 +318,11 @@ export default function ActividadPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Acción</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Acción</label>
             <select
               value={accion}
               onChange={(e) => { setAccion(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
+              className="field h-10 py-0 text-[13px]"
             >
               <option value="">Todas</option>
               {Object.entries(ACCION_CONFIG).map(([k, v]) => (
@@ -337,21 +331,21 @@ export default function ActividadPage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Desde</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Desde</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => { setDateFrom(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
+              className="field h-10 py-0 text-[13px]"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-medium text-zinc-700 dark:text-zinc-300">Hasta</label>
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Hasta</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => { setDateTo(e.target.value); setPage(0) }}
-              className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none"
+              className="field h-10 py-0 text-[13px]"
             />
           </div>
         </div>
@@ -363,13 +357,13 @@ export default function ActividadPage() {
       ) : isError ? (
         <ErrorState message="Error al cargar la actividad" onRetry={() => refetch()} />
       ) : entries.length === 0 ? (
-        <div className="glass-card rounded-xl p-8 text-center">
-          <Activity className="mx-auto h-10 w-10 text-zinc-600 dark:text-zinc-300 mb-3" />
+        <div className="app-card p-8 text-center">
+          <Activity className="mx-auto mb-3 h-10 w-10 text-zinc-400 dark:text-zinc-600" />
           <p className="text-sm text-zinc-600 dark:text-zinc-300">No hay actividad para los filtros seleccionados</p>
         </div>
       ) : (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="divide-y divide-white/5">
+        <div className="app-card">
+          <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
             {entries.map((entry) => {
               const config = ACCION_CONFIG[entry.accion] ?? { icon: Activity, label: entry.accion, color: 'text-zinc-600 dark:text-zinc-300' }
               const Icon = config.icon
@@ -379,35 +373,35 @@ export default function ActividadPage() {
                 <div
                   key={entry.id}
                   onClick={() => setAbierto(abierto === entry.id ? null : entry.id)}
-                  className={cn('flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-zinc-100 dark:hover:bg-white/[0.02] transition-colors', abierto === entry.id && 'bg-zinc-50 dark:bg-white/[0.02]')}
+                  className={cn('flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.03] sm:px-5', abierto === entry.id && 'bg-zinc-50 dark:bg-white/[0.03]')}
                 >
                   {/* Icon */}
-                  <div className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/5', config.color)}>
+                  <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-white/[0.06]', config.color)}>
                     <Icon className="h-3.5 w-3.5" />
                   </div>
 
                   {/* Content */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-zinc-800 dark:text-zinc-200">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{userName}</span>
+                    <p className="text-[13.5px] text-zinc-800 dark:text-zinc-200">
+                      <span className="font-bold text-zinc-900 dark:text-white">{userName}</span>
                       {' '}
                       <span className="text-zinc-600 dark:text-zinc-300">{describeAuditEntry(entry, nombres)}</span>
                     </p>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <span className={cn('text-[10px] font-medium', config.color)}>{config.label}</span>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className={cn('text-[11px] font-semibold', config.color)}>{config.label}</span>
                       {entry.tabla !== 'auth' && (
-                        <span className="text-[10px] text-zinc-600 dark:text-zinc-300">
+                        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                           {TABLA_LABELS[entry.tabla] ?? entry.tabla}
                         </span>
                       )}
                       {enlaceRegistro(entry) && (
-                        <Link to={enlaceRegistro(entry)!} onClick={(e) => e.stopPropagation()} className="text-[10px] text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
+                        <Link to={enlaceRegistro(entry)!} onClick={(e) => e.stopPropagation()} className="dashboard-link text-[11px] hover:underline">
                           Ver
                         </Link>
                       )}
                     </div>
                     {abierto === entry.id && entry.accion === 'UPDATE' && camposCambiados(entry).length > 0 && (
-                      <dl className="mt-2 space-y-1 rounded-lg border border-zinc-200 bg-white/60 p-2 text-xs dark:border-white/10 dark:bg-white/[0.02]">
+                      <dl className="dashboard-panel-muted mt-2 space-y-1 p-2.5 text-xs">
                         {camposCambiados(entry).map((k) => (
                           <div key={k} className="flex flex-wrap gap-x-2">
                             <dt className="font-medium text-zinc-700 dark:text-zinc-200">{CAMPO_LABELS[k] ?? k}:</dt>
@@ -421,8 +415,8 @@ export default function ActividadPage() {
 
                   {/* Timestamp */}
                   <div className="shrink-0 text-right">
-                    <p className="text-xs text-zinc-700 dark:text-zinc-300">{timeAgo(entry.created_at)}</p>
-                    <p className="text-[10px] text-zinc-600 dark:text-zinc-300">{formatDateTime(entry.created_at)}</p>
+                    <p className="text-xs font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">{timeAgo(entry.created_at)}</p>
+                    <p className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">{formatDateTime(entry.created_at)}</p>
                   </div>
                 </div>
               )
@@ -431,25 +425,25 @@ export default function ActividadPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-white/5 px-4 py-3">
-              <p className="text-xs text-zinc-700 dark:text-zinc-300">
+            <div className="flex items-center justify-between border-t border-zinc-100 px-4 py-3 dark:border-white/[0.06] sm:px-5">
+              <p className="text-xs font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} de {total}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  className="btn btn-ghost btn-icon h-8 w-8"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-2">
+                <span className="px-2 text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300">
                   {page + 1} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="rounded p-1.5 text-zinc-600 dark:text-zinc-300 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  className="btn btn-ghost btn-icon h-8 w-8"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -468,12 +462,12 @@ export default function ActividadPage() {
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof Activity; label: string; value: number; color: string }) {
   return (
-    <div className="glass-card rounded-xl border border-white/5 p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className={cn('h-4 w-4', color)} />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">{label}</span>
+    <div className="app-card p-4">
+      <div className="mb-1.5 flex items-center gap-2">
+        <Icon className={cn('h-4 w-4 shrink-0', color)} />
+        <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400">{label}</span>
       </div>
-      <p className={cn('text-2xl font-bold', color)}>{value}</p>
+      <p className="text-2xl font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">{value}</p>
     </div>
   )
 }

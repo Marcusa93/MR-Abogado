@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useBlocker, useSearchParams } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { PageHeader } from '@/components/shared/page-header'
 import { useCreateExpediente } from '@/hooks/use-expedientes'
 import { useTiposProceso } from '@/hooks/use-proceso'
 import { toast } from '@/stores/toast-store'
@@ -36,10 +37,9 @@ const FUERO_OPTIONS: { value: string; label: string }[] = [
 // Styles
 // ---------------------------------------------------------------------------
 
-const inputClass =
-  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
-const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
-const errorClass = 'mt-1 text-xs text-rose-500'
+const inputClass = 'field h-9 py-0'
+const labelClass = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400'
+const errorClass = 'mt-1 text-xs font-medium text-rose-500'
 
 // ---------------------------------------------------------------------------
 // Page
@@ -155,21 +155,19 @@ export default function NuevoExpedientePage() {
       <div>
         <button
           onClick={() => navigate(-1)}
-          className="mb-3 flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="mb-3 flex items-center gap-1 text-sm font-semibold text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="page-title">
-          Nuevo Expediente
-        </h1>
-        <p className="page-subtitle">
-          El número de expediente se genera automáticamente (EXP-{new Date().getFullYear()}-XXXX).
-        </p>
+        <PageHeader
+          title="Nuevo Expediente"
+          subtitle={<>El número de expediente se genera automáticamente (EXP-{new Date().getFullYear()}-XXXX).</>}
+        />
         {consultaBanner && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-purple-200 dark:border-purple-800/40 bg-purple-50 dark:bg-purple-900/10 px-3 py-2">
-            <ArrowRightCircle className="h-4 w-4 shrink-0 text-purple-500" />
-            <span className="text-sm text-purple-700 dark:text-purple-300">
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5">
+            <ArrowRightCircle className="h-4 w-4 shrink-0 text-cyan-700 dark:text-cyan-300" />
+            <span className="text-sm text-cyan-800 dark:text-cyan-200">
               Convirtiendo consulta de <strong>{consultaBanner.label}</strong>
             </span>
           </div>
@@ -177,7 +175,7 @@ export default function NuevoExpedientePage() {
       </div>
 
       {/* Form */}
-      <div className="glass-card rounded-xl p-6">
+      <div className="app-card p-5 sm:p-6">
         <div className="space-y-5">
           {/* Cliente */}
           <div>
@@ -189,7 +187,7 @@ export default function NuevoExpedientePage() {
               <button
                 type="button"
                 onClick={() => navigate('/clientes/nuevo')}
-                className="flex h-9 items-center gap-1 rounded-lg border border-white/10 px-3 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-white/5"
+                className="btn btn-ghost btn-icon h-9 w-9"
                 title="Crear cliente nuevo"
               >
                 <UserPlus className="h-3.5 w-3.5" />
@@ -247,7 +245,7 @@ export default function NuevoExpedientePage() {
             </div>
             <div>
               <label className={labelClass}>Estado inicial</label>
-              <p className="mb-1 text-[10px] text-zinc-500 dark:text-zinc-400">Si el trámite ya fue iniciado, seleccioná el estado actual</p>
+              <p className="mb-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">Si el trámite ya fue iniciado, seleccioná el estado actual</p>
               <select
                 value={estadoInicial}
                 onChange={(e) => setEstadoInicial(e.target.value)}
@@ -267,23 +265,23 @@ export default function NuevoExpedientePage() {
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field resize-none"
             />
           </div>
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/5 pt-4">
+        <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-200 pt-4 dark:border-white/[0.08]">
           <button
             onClick={() => navigate(-1)}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/5"
+            className="btn btn-ghost"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={createExpediente.isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-cyan px-5 py-2 text-sm font-medium text-zinc-950 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary px-5"
           >
             {createExpediente.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

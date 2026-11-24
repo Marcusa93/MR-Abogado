@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import {
   useClientesPlaceholderPendientes,
   useBuscarClientesAutocomplete,
@@ -32,12 +33,12 @@ export default function ResolverClientesPage() {
           { label: 'Clientes', href: '/clientes' },
           { label: 'Resolver duplicados' },
         ]} />
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
             <AlertCircle className="h-5 w-5" />
-            <span className="font-medium">No tenés permiso para consolidar clientes.</span>
+            <span className="font-bold">No tenés permiso para consolidar clientes.</span>
           </div>
-          <p className="text-sm text-zinc-500 mt-2">
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             Esta función está disponible para director, admin y secretaria.
           </p>
         </div>
@@ -52,23 +53,21 @@ export default function ResolverClientesPage() {
         { label: 'Resolver duplicados' },
       ]} />
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Resolver clientes duplicados</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-2xl">
-            Cuando se importan expedientes desde SAE sin asociar a un cliente, el sistema crea un
-            cliente <strong>placeholder</strong>. Acá los identificás y los consolidás en el cliente real
-            — un único click y todos los expedientes pasan al cliente correcto.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Resolver clientes duplicados"
+        subtitle={<span className="block max-w-2xl">
+          Cuando se importan expedientes desde SAE sin asociar a un cliente, el sistema crea un
+          cliente <strong>placeholder</strong>. Acá los identificás y los consolidás en el cliente real
+          — un único click y todos los expedientes pasan al cliente correcto.
+        </span>}
+      />
 
       {isLoading ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-8 flex justify-center">
+        <div className="app-card flex justify-center p-8">
           <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
         </div>
       ) : placeholders.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-8">
+        <div className="app-card p-8">
           <EmptyState
             icon={CheckCircle2}
             title="No hay placeholders pendientes"
@@ -78,31 +77,31 @@ export default function ResolverClientesPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Lista de placeholders */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] overflow-hidden">
-            <div className="border-b border-zinc-200 dark:border-white/5 px-4 py-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">
+          <div className="app-card">
+            <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3.5 dark:border-white/[0.06]">
+              <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">
                 Placeholders SAE pendientes
-                <span className="ml-2 text-xs font-normal text-zinc-500">({placeholders.length})</span>
+                <span className="ml-2 text-xs font-medium tabular-nums text-zinc-500">({placeholders.length})</span>
               </h2>
             </div>
-            <ul className="divide-y divide-zinc-100 dark:divide-white/5 max-h-[600px] overflow-y-auto">
+            <ul className="max-h-[600px] divide-y divide-zinc-100 overflow-y-auto dark:divide-white/[0.06]">
               {placeholders.map(p => (
                 <li
                   key={p.id}
                   className={cn(
                     'p-4 cursor-pointer transition-colors',
                     selected?.id === p.id
-                      ? 'bg-violet-500/5 border-l-2 border-violet-500'
-                      : 'hover:bg-zinc-50 dark:hover:bg-white/[0.02] border-l-2 border-transparent',
+                      ? 'border-l-2 border-[var(--brand-accent)] bg-cyan-500/[0.06]'
+                      : 'border-l-2 border-transparent hover:bg-zinc-50 dark:hover:bg-white/[0.03]',
                   )}
                   onClick={() => setSelected(p)}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                      <p className="truncate text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">
                         {p.nombre}
                       </p>
-                      <p className="text-xs text-zinc-500 mt-0.5">DNI placeholder: {p.dni}</p>
+                      <p className="mt-0.5 text-xs tabular-nums text-zinc-500">DNI placeholder: {p.dni}</p>
                       {p.caratulas && p.caratulas.length > 0 && (
                         <ul className="mt-2 space-y-1">
                           {p.caratulas.slice(0, 3).map((c, i) => (
@@ -120,7 +119,7 @@ export default function ResolverClientesPage() {
                       )}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-400">
+                      <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-cyan-500/30 bg-cyan-500/10 tabular-nums text-cyan-700 dark:text-cyan-300">
                         {p.expedientes_count} exp.
                       </span>
                     </div>
@@ -131,9 +130,9 @@ export default function ResolverClientesPage() {
           </div>
 
           {/* Panel de merge */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] overflow-hidden">
-            <div className="border-b border-zinc-200 dark:border-white/5 px-4 py-3">
-              <h2 className="text-sm font-semibold">Mergear con cliente real</h2>
+          <div className="app-card">
+            <div className="border-b border-zinc-100 px-4 py-3.5 dark:border-white/[0.06]">
+              <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Mergear con cliente real</h2>
             </div>
             {selected ? (
               <MergePanel placeholder={selected} onDone={() => setSelected(null)} />
@@ -191,9 +190,9 @@ function MergePanel({
   return (
     <div className="p-4 space-y-4">
       {/* Origen */}
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-        <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">Placeholder a consolidar</p>
-        <p className="text-sm font-medium">{placeholder.nombre}</p>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300">Placeholder a consolidar</p>
+        <p className="text-sm font-bold text-zinc-900 dark:text-white">{placeholder.nombre}</p>
         <p className="text-xs text-zinc-500">{placeholder.expedientes_count} expediente(s) — DNI {placeholder.dni}</p>
       </div>
 
@@ -203,35 +202,35 @@ function MergePanel({
 
       {/* Destino */}
       <div>
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5 block">
+        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
           Buscar cliente destino (apellido, DNI o CUIL)
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <input
             type="text"
             value={termino}
             onChange={e => { setTermino(e.target.value); setDestino(null) }}
             placeholder="Ej: Rossi, 24567890..."
-            className="w-full text-sm bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-md pl-9 pr-3 py-2 placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/50"
+            className="field h-11 pl-10"
           />
         </div>
 
         {destino ? (
-          <div className="mt-2 rounded-md border border-violet-500/30 bg-violet-500/5 p-3 flex items-start justify-between">
+          <div className="mt-2 flex items-start justify-between rounded-xl border border-cyan-500/30 bg-cyan-500/[0.06] p-3">
             <div>
-              <p className="text-sm font-medium">{destino.apellido}, {destino.nombre}</p>
+              <p className="text-sm font-bold text-zinc-900 dark:text-white">{destino.apellido}, {destino.nombre}</p>
               <p className="text-xs text-zinc-500">
                 DNI {destino.dni}{destino.cuil ? ` · CUIL ${destino.cuil}` : ''} ·{' '}
                 {destino.expedientes_count} expediente(s) actuales
               </p>
             </div>
-            <button onClick={() => setDestino(null)} className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800">
+            <button onClick={() => setDestino(null)} aria-label="Quitar" className="rounded-md p-1 hover:bg-zinc-200 dark:hover:bg-white/[0.08]">
               <X className="h-4 w-4 text-zinc-400" />
             </button>
           </div>
         ) : termino.trim().length > 0 && (
-          <ul className="mt-2 max-h-56 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-white/5">
+          <ul className="mt-2 max-h-56 divide-y divide-zinc-100 overflow-y-auto rounded-xl border border-zinc-200 dark:divide-white/[0.06] dark:border-white/10">
             {isFetching && (
               <li className="px-3 py-2 text-xs text-zinc-500 flex items-center gap-1.5">
                 <Loader2 className="h-3 w-3 animate-spin" /> buscando...
@@ -240,7 +239,7 @@ function MergePanel({
             {!isFetching && candidatosFiltrados.length === 0 && (
               <li className="px-3 py-3 text-xs text-zinc-500 italic">
                 Ningún cliente real coincide. Si el cliente no existe,{' '}
-                <Link to="/clientes/nuevo" className="text-violet-500 hover:underline">creálo primero</Link>{' '}
+                <Link to="/clientes/nuevo" className="dashboard-link hover:underline">creálo primero</Link>{' '}
                 y volvé acá.
               </li>
             )}
@@ -248,14 +247,14 @@ function MergePanel({
               <li
                 key={c.id}
                 onClick={() => setDestino(c)}
-                className="px-3 py-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/[0.02]"
+                className="cursor-pointer px-3 py-2 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium">{c.apellido}, {c.nombre}</p>
-                    <p className="text-xs text-zinc-500">DNI {c.dni}</p>
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-white">{c.apellido}, {c.nombre}</p>
+                    <p className="text-xs tabular-nums text-zinc-500">DNI {c.dni}</p>
                   </div>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                  <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 tabular-nums text-zinc-600 dark:text-zinc-300">
                     {c.expedientes_count} exp.
                   </span>
                 </div>
@@ -268,8 +267,8 @@ function MergePanel({
       {/* Resumen + acción */}
       {destino && (
         <div className="space-y-3">
-          <div className="rounded-md border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/50 p-3 text-xs text-zinc-600 dark:text-zinc-400">
-            <p className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">Esto va a pasar:</p>
+          <div className="dashboard-panel-muted p-3 text-xs text-zinc-600 dark:text-zinc-400">
+            <p className="mb-1 font-bold text-zinc-900 dark:text-white">Esto va a pasar:</p>
             <ul className="space-y-1">
               <li>• Los {placeholder.expedientes_count} expediente(s) pasan al cliente destino</li>
               <li>• Los adjuntos y contactos asociados al placeholder se mueven</li>
@@ -281,7 +280,7 @@ function MergePanel({
           <button
             onClick={handleMerge}
             disabled={merge.isPending}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-violet-500 text-white hover:bg-violet-600 text-sm font-medium disabled:opacity-50"
+            className="btn btn-primary w-full"
           >
             {merge.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirmar consolidación

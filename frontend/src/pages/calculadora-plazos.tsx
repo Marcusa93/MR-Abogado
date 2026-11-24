@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Calculator, Copy, Check, AlertTriangle, Info, BookOpen, ChevronRight } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Info, BookOpen, ChevronRight } from 'lucide-react'
 import { useFeriasJudiciales } from '@/hooks/use-ferias-judiciales'
 import { useCalendarioJudicial } from '@/hooks/use-calendario-judicial'
 import { CalendarioInhabiles } from '@/components/plazos/calendario-inhabiles'
@@ -10,6 +10,7 @@ import {
   type FeriaPeriod,
 } from '@/lib/utils/judicial-calendar'
 import { toast } from '@/stores/toast-store'
+import { PageHeader } from '@/components/shared/page-header'
 import { cn } from '@/lib/utils'
 
 // ---------------------------------------------------------------------------
@@ -124,48 +125,39 @@ export default function CalculadoraPlazos() {
     <div className="mx-auto max-w-2xl space-y-6">
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 dark:bg-amber-500/10">
-          <Calculator className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-        </div>
-        <div>
-          <h1 className="page-title">
-            Calculadora de plazos procesales
-          </h1>
-          <p className="page-subtitle">
-            CPCC Tucumán — descuenta ferias, feriados nacionales y provinciales y días inhábiles judiciales
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Calculadora de plazos procesales"
+        subtitle="CPCC Tucumán — descuenta ferias, feriados nacionales y provinciales y días inhábiles judiciales"
+      />
 
       {/* Formulario */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 divide-y divide-zinc-100 dark:divide-white/5">
+      <div className="app-card divide-y divide-zinc-100 dark:divide-white/[0.06]">
 
         {/* Fecha de actuación */}
         <div className="px-5 py-4">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
             Fecha de la actuación
           </label>
           <input
             type="date"
             value={fecha}
             onChange={e => setFecha(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+            className="field h-10"
           />
-          <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+          <p className="mt-1.5 text-xs text-zinc-500">
             Firma del escrito o fecha indicada en la cédula
           </p>
         </div>
 
         {/* Tipo de plazo */}
         <div className="px-5 py-4">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
             Tipo de plazo
           </label>
           <select
             value={tipoId}
             onChange={e => setTipoId(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+            className="field h-10"
           >
             {TIPOS_PLAZO.map(t => (
               <option key={t.id} value={t.id}>
@@ -180,7 +172,7 @@ export default function CalculadoraPlazos() {
         {/* Personalizado */}
         {tipoId === 'personalizado' && (
           <div className="px-5 py-4">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
               Cantidad de días
             </label>
             <div className="flex items-center gap-3">
@@ -190,30 +182,22 @@ export default function CalculadoraPlazos() {
                 max={365}
                 value={diasCustom}
                 onChange={e => setDiasCustom(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-24 rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                className="field h-10 w-24 tabular-nums"
               />
-              <div className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 p-1">
+              <div className="segmented" role="group" aria-label="Tipo de días">
                 <button
                   type="button"
                   onClick={() => setHabilesCustom(true)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                    habitlesCustom
-                      ? 'bg-amber-500 text-white'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
-                  )}
+                  aria-pressed={habitlesCustom}
+                  className="px-3 text-xs font-semibold"
                 >
                   Hábiles
                 </button>
                 <button
                   type="button"
                   onClick={() => setHabilesCustom(false)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                    !habitlesCustom
-                      ? 'bg-amber-500 text-white'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'
-                  )}
+                  aria-pressed={!habitlesCustom}
+                  className="px-3 text-xs font-semibold"
                 >
                   Corridos
                 </button>
@@ -225,22 +209,22 @@ export default function CalculadoraPlazos() {
 
       {/* Resultado */}
       {(feriasLoading || inhabilesLoading) && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-6 text-center text-sm text-zinc-500">
+        <div className="app-card px-5 py-6 text-center text-sm text-zinc-500">
           Cargando calendario judicial…
         </div>
       )}
 
       {!feriasLoading && !inhabilesLoading && resultado && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/5 overflow-hidden">
+        <div className="app-card !border-[var(--brand-accent)]/40">
 
           {/* Fecha vencimiento — prominente */}
-          <div className="px-5 py-5 border-b border-amber-500/15">
-            <div className="flex items-start justify-between gap-4">
+          <div className="border-b border-zinc-100 px-5 py-5 dark:border-white/[0.06]">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                <p className="eyebrow mb-1.5">
                   Vencimiento
                 </p>
-                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                <p className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
                   {formatFecha(resultado.vencimiento)}
                 </p>
                 <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -248,17 +232,17 @@ export default function CalculadoraPlazos() {
                   {tipo.base ? ` · ${tipo.base}` : ''}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-start gap-2 sm:items-end">
                 {diasHastaVencimiento !== null && (
                   <span className={cn(
-                    'rounded-lg px-3 py-1.5 text-sm font-semibold',
+                    'rounded-full border px-3 py-1 text-[13px] font-bold tabular-nums',
                     diasHastaVencimiento < 0
-                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
                       : diasHastaVencimiento <= 3
-                      ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400'
+                      ? 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300'
                       : diasHastaVencimiento <= 7
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                   )}>
                     {diasHastaVencimiento < 0
                       ? `Venció hace ${Math.abs(diasHastaVencimiento)} días`
@@ -270,7 +254,7 @@ export default function CalculadoraPlazos() {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                  className="btn btn-ghost btn-sm"
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? 'Copiado' : 'Copiar'}
@@ -283,16 +267,16 @@ export default function CalculadoraPlazos() {
           <div className="px-5 py-4 space-y-3">
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Actuación</p>
-                <p className="font-medium text-zinc-800 dark:text-zinc-200">
+                <p className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Actuación</p>
+                <p className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                   {formatFechaCorta(fecha)}
                 </p>
               </div>
               <div className="flex items-center gap-1">
                 <ChevronRight className="h-3.5 w-3.5 text-zinc-400 -ml-1" />
                 <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Notificación</p>
-                  <p className="font-medium text-zinc-800 dark:text-zinc-200">
+                  <p className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Notificación</p>
+                  <p className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                     {formatFechaCorta(resultado.notificacion)}
                   </p>
                 </div>
@@ -300,8 +284,8 @@ export default function CalculadoraPlazos() {
               <div className="flex items-center gap-1">
                 <ChevronRight className="h-3.5 w-3.5 text-zinc-400 -ml-1" />
                 <div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">Primer día</p>
-                  <p className="font-medium text-zinc-800 dark:text-zinc-200">
+                  <p className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Primer día</p>
+                  <p className="font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">
                     {formatFechaCorta(resultado.primerDia)}
                   </p>
                 </div>
@@ -310,7 +294,7 @@ export default function CalculadoraPlazos() {
 
             {/* Advertencia feria */}
             {feriasPeriodo.length > 0 && (
-              <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
                 <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                 <div className="text-xs text-amber-700 dark:text-amber-300">
                   <p className="font-semibold mb-0.5">Período de feria judicial en el rango</p>
@@ -326,7 +310,7 @@ export default function CalculadoraPlazos() {
 
             {/* Advertencia vencimiento en fin de semana (no debería pasar con habiles, pero sí con corridos) */}
             {venDow !== null && (venDow === 0 || venDow === 6) && !habiles && (
-              <div className="flex items-start gap-2 rounded-lg bg-zinc-500/10 border border-zinc-500/20 px-3 py-2.5">
+              <div className="dashboard-panel-muted flex items-start gap-2 px-3 py-2.5">
                 <Info className="h-4 w-4 text-zinc-500 dark:text-zinc-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-zinc-600 dark:text-zinc-400">
                   El vencimiento cae en {venDow === 6 ? 'sábado' : 'domingo'}.
@@ -339,7 +323,7 @@ export default function CalculadoraPlazos() {
       )}
 
       {/* Nota informativa */}
-      <div className="flex items-start gap-2 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-4 py-3">
+      <div className="dashboard-panel-muted flex items-start gap-2 px-4 py-3">
         <BookOpen className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           Cálculo según CPCC Tucumán: la cédula se notifica el primer día hábil posterior a la firma,

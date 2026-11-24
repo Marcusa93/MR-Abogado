@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Users, Mic2, Loader2, X, Calendar, FolderOpen, AlertCircle, Sparkles } from 'lucide-react'
+import { Search, Users, Loader2, X, Calendar, FolderOpen, AlertCircle, Sparkles } from 'lucide-react'
 import { useSearchAudiencias, usePersonasRecurrentes, type AudienciaSearchHit, type PersonaRecurrente } from '@/hooks/use-audiencias-search'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import { cn } from '@/lib/utils'
 
 type Tab = 'buscar' | 'personas'
@@ -42,22 +43,17 @@ export default function BuscarAudienciasPage() {
     <div className="space-y-6 animate-fade-in pb-12">
       <Breadcrumb items={[{ label: 'Buscar audiencias' }]} />
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Mic2 className="h-5 w-5 text-cyan-400" />
-            Buscador de audiencias
-          </h1>
-          <p className="page-subtitle max-w-2xl">
-            Buscá frases, conceptos o nombres en todas tus audiencias transcriptas. La búsqueda es semántica:
-            no hace falta coincidencia literal — encontrá temas aunque estén dichos con otras palabras.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Buscador de audiencias"
+        subtitle={<span className="block max-w-2xl">
+          Buscá frases, conceptos o nombres en todas tus audiencias transcriptas. La búsqueda es semántica:
+          no hace falta coincidencia literal — encontrá temas aunque estén dichos con otras palabras.
+        </span>}
+      />
 
       {/* Tabs */}
-      <div className="border-b border-zinc-200 dark:border-white/10">
-        <nav className="flex gap-1 -mb-px">
+      <div className="border-b border-zinc-200 dark:border-white/[0.08]">
+        <nav className="-mb-px flex gap-1">
           {[
             { id: 'buscar' as const, label: 'Buscar', icon: Search },
             { id: 'personas' as const, label: 'Personas', icon: Users },
@@ -69,16 +65,16 @@ export default function BuscarAudienciasPage() {
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 className={cn(
-                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] font-semibold transition-colors',
                   isActive
-                    ? 'border-cyan-400 text-cyan-400'
-                    : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:border-slate-600 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    ? 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
+                    : 'border-transparent text-zinc-500 hover:border-zinc-400 hover:text-zinc-800 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-white'
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {t.label}
                 {t.id === 'personas' && personas.data && personas.data.length > 0 && (
-                  <span className="ml-1 rounded-full bg-cyan-500/15 px-1.5 py-0 text-[10px] font-bold text-cyan-400">
+                  <span className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-500/15 px-1 text-[10px] font-bold tabular-nums text-cyan-700 dark:text-cyan-300">
                     {personas.data.length}
                   </span>
                 )}
@@ -98,13 +94,13 @@ export default function BuscarAudienciasPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscá frases o conceptos…"
-              className="w-full h-11 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-10 pr-10 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field h-11 pl-10 pr-10"
               autoFocus
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
                 title="Limpiar"
               >
                 <X className="h-4 w-4" />
@@ -115,13 +111,13 @@ export default function BuscarAudienciasPage() {
           {/* Ejemplos cuando no hay query */}
           {!query.trim() && (
             <div className="max-w-2xl space-y-2">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Probá con</p>
+              <p className="eyebrow">Probá con</p>
               <div className="flex flex-wrap gap-1.5">
                 {EJEMPLOS.map((e) => (
                   <button
                     key={e}
                     onClick={() => { setQuery(e); setDebounced(e) }}
-                    className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 text-xs text-cyan-300 hover:bg-cyan-500/10 transition-colors"
+                    className="chip"
                   >
                     {e}
                   </button>
@@ -143,7 +139,7 @@ export default function BuscarAudienciasPage() {
           )}
 
           {search.isError && (
-            <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-300 flex items-center gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {search.error instanceof Error ? search.error.message : 'Error al buscar'}
             </div>
@@ -187,18 +183,18 @@ function ResultCard({ hit, query }: { hit: AudienciaSearchHit; query: string }) 
   const matchPct = Math.round(hit.top_score * 100)
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:bg-white/[0.04] transition-colors overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-200 dark:border-white/5 flex items-start justify-between gap-3">
+    <div className="app-card">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 px-4 py-3 dark:border-white/[0.06]">
         <div className="min-w-0 flex-1">
           <Link
             to={`/expedientes/${hit.expediente_id}`}
-            className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-cyan-400 transition-colors line-clamp-1"
+            className="line-clamp-1 text-[14px] font-bold tracking-tight text-zinc-900 transition-colors hover:text-[var(--brand-accent)] dark:text-white"
           >
             {titulo}
           </Link>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {hit.expediente_numero && (
-              <span className="font-mono">{hit.expediente_numero}</span>
+              <span className="tabular-nums">{hit.expediente_numero}</span>
             )}
             {hit.transcript_at && (
               <span className="flex items-center gap-1">
@@ -213,7 +209,7 @@ function ResultCard({ hit, query }: { hit: AudienciaSearchHit; query: string }) 
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-400"
+            className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
             title="Similaridad semántica del mejor snippet"
           >
             <Sparkles className="h-2.5 w-2.5" />
@@ -221,7 +217,7 @@ function ResultCard({ hit, query }: { hit: AudienciaSearchHit; query: string }) 
           </span>
           <Link
             to={`/expedientes/${hit.expediente_id}#audiencias`}
-            className="inline-flex items-center gap-1 rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+            className="btn btn-ghost btn-sm"
             title="Ver expediente"
           >
             <FolderOpen className="h-3 w-3" />
@@ -231,7 +227,7 @@ function ResultCard({ hit, query }: { hit: AudienciaSearchHit; query: string }) 
       </div>
       <div className="p-4 space-y-2">
         {hit.snippets.map((s) => (
-          <div key={s.chunk_index} className="rounded-md bg-zinc-100/50 dark:bg-white/[0.03] px-3 py-2 text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed">
+          <div key={s.chunk_index} className="dashboard-panel-muted px-3 py-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-200">
             <Highlighted text={s.content} terms={query} />
           </div>
         ))}
@@ -261,7 +257,7 @@ function Highlighted({ text, terms }: { text: string; terms: string }) {
     <>
       {parts.map((p, i) =>
         regex.test(p)
-          ? <mark key={i} className="bg-cyan-500/25 text-cyan-100 rounded px-0.5">{p}</mark>
+          ? <mark key={i} className="rounded bg-cyan-500/25 px-0.5 text-cyan-900 dark:text-cyan-100">{p}</mark>
           : <span key={i}>{p}</span>
       )}
     </>
@@ -312,13 +308,13 @@ function PersonasTab({
   return (
     <div className="space-y-4">
       <div className="max-w-md relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
         <input
           type="text"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filtrar por nombre…"
-          className="w-full h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+          className="field h-11 pl-10"
         />
       </div>
 
@@ -331,13 +327,13 @@ function PersonasTab({
           <button
             key={p.nombre_normalizado}
             onClick={() => onSelect(p)}
-            className="text-left rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] hover:border-cyan-500/30 hover:bg-cyan-500/[0.04] transition-colors px-3 py-2.5 group"
+            className="app-card group px-3.5 py-3 text-left"
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-1 group-hover:text-cyan-400 transition-colors">
+              <p className="line-clamp-1 text-[14px] font-bold tracking-tight text-zinc-900 transition-colors group-hover:text-[var(--brand-accent)] dark:text-white">
                 {p.nombre_display}
               </p>
-              <span className="shrink-0 inline-flex items-center rounded-full bg-cyan-500/10 px-1.5 py-0 text-[10px] font-bold text-cyan-400">
+              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-cyan-500/30 bg-cyan-500/10 tabular-nums text-cyan-700 dark:text-cyan-300">
                 {p.apariciones}
               </span>
             </div>

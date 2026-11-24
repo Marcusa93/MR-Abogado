@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Calculator, AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check, Printer,
+  AlertTriangle, Info, BookOpen, Save, Loader2, ShieldCheck, Pencil, X, Link2, Sparkles, Copy, Check, Printer,
 } from 'lucide-react'
 import { DanoPdfPreview } from '@/components/danos/dano-pdf-preview'
 import { useValoresReferencia, useUpsertValorReferencia, type IndicadorReferencia } from '@/hooks/use-valores-referencia'
@@ -18,6 +18,7 @@ import type {
   PunitivoNivel, Vulnerabilidad, FuenteIngreso, Alerta,
 } from '@/lib/danos/types'
 import { toast } from '@/stores/toast-store'
+import { PageHeader } from '@/components/shared/page-header'
 import { cn } from '@/lib/utils'
 
 function formatPesos(n: number): string {
@@ -32,9 +33,9 @@ function todayISO(): string {
 }
 
 const ESCENARIO_META: Record<Escenario, { label: string; accent: string; ring: string }> = {
-  conservador: { label: 'Conservador', accent: 'text-zinc-600 dark:text-zinc-300', ring: 'border-zinc-200 dark:border-white/10' },
-  razonable:   { label: 'Razonable',   accent: 'text-amber-700 dark:text-amber-300', ring: 'border-amber-500/40' },
-  expansivo:   { label: 'Expansivo',   accent: 'text-emerald-700 dark:text-emerald-300', ring: 'border-emerald-500/30' },
+  conservador: { label: 'Conservador', accent: 'text-zinc-600 dark:text-zinc-300', ring: '' },
+  razonable:   { label: 'Razonable',   accent: 'text-cyan-700 dark:text-cyan-300', ring: '!border-cyan-500/40' },
+  expansivo:   { label: 'Expansivo',   accent: 'text-emerald-700 dark:text-emerald-300', ring: '!border-emerald-500/30' },
 }
 
 const ALERTA_STYLE: Record<Alerta['severidad'], string> = {
@@ -158,24 +159,24 @@ function formFromInput(input: CalculoDanosInput, cbt: number): FormState {
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1.5">{label}</label>
+      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</label>
       {children}
-      {hint && <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-zinc-500">{hint}</p>}
     </div>
   )
 }
 
-const inputCls = 'w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50'
-const selectCls = 'w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/50'
+const inputCls = 'field'
+const selectCls = 'field'
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button type="button" onClick={() => onChange(!on)}
-      className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-        on ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-           : 'border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400')}>
-      <span className={cn('h-4 w-4 rounded border flex items-center justify-center',
-        on ? 'bg-amber-500 border-amber-500' : 'border-zinc-300 dark:border-white/20')}>
+      className={cn('flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors',
+        on ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200'
+           : 'border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.04]')}>
+      <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+        on ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]' : 'border-zinc-300 dark:border-white/20')}>
         {on && <span className="h-2 w-2 rounded-sm bg-white" />}
       </span>
       {label}
@@ -185,9 +186,9 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5">
-      <div className="px-5 py-3 border-b border-zinc-100 dark:border-white/5">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{title}</h2>
+    <div className="app-card">
+      <div className="border-b border-zinc-100 px-5 py-3.5 dark:border-white/[0.06]">
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">{title}</h2>
       </div>
       <div className="px-5 py-4 space-y-4">{children}</div>
     </div>
@@ -223,21 +224,21 @@ function ValoresEditor({ cbt, smvm, vigencia }: { cbt: number; smvm?: number; vi
   ]
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5">
-      <div className="px-5 py-3 border-b border-zinc-100 dark:border-white/5 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Valores de referencia</h2>
-        {vigencia && <span className="text-xs text-zinc-400">CBT vigente {vigencia}</span>}
+    <div className="app-card">
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-3.5 dark:border-white/[0.06]">
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Valores de referencia</h2>
+        {vigencia && <span className="text-xs font-medium tabular-nums text-zinc-500">CBT vigente {vigencia}</span>}
       </div>
-      <div className="divide-y divide-zinc-100 dark:divide-white/5">
+      <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
         {filas.map(f => (
           <div key={f.ind} className="px-5 py-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm text-zinc-600 dark:text-zinc-300">{f.label}</span>
               <div className="flex items-center gap-3">
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">{f.val > 0 ? formatPesos(f.val) : '— sin cargar'}</span>
+                <span className="font-bold tabular-nums text-zinc-900 dark:text-white">{f.val > 0 ? formatPesos(f.val) : '— sin cargar'}</span>
                 {puedeEditar && editando !== f.ind && (
                   <button type="button" onClick={() => abrir(f.ind, f.val)}
-                    className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 px-2 py-1 text-[11px] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5">
+                    className="btn btn-ghost btn-sm">
                     <Pencil className="h-3 w-3" /> Editar
                   </button>
                 )}
@@ -246,19 +247,19 @@ function ValoresEditor({ cbt, smvm, vigencia }: { cbt: number; smvm?: number; vi
             {editando === f.ind && (
               <div className="mt-3 flex items-end gap-3 flex-wrap">
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Nuevo valor</label>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Nuevo valor</label>
                   <input type="number" min={0} value={valor} onChange={e => setValor(Number(e.target.value))} className={cn(inputCls, 'w-40')} />
                 </div>
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Vigente desde</label>
+                  <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Vigente desde</label>
                   <input type="date" value={vigDesde} onChange={e => setVigDesde(e.target.value)} className={cn(inputCls, 'w-44')} />
                 </div>
                 <button type="button" onClick={guardar} disabled={upsert.isPending}
-                  className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  className="btn btn-primary">
                   {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
                 </button>
                 <button type="button" onClick={() => setEditando(null)}
-                  className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 px-2 py-2 text-sm text-zinc-500">
+                  className="btn btn-ghost btn-icon" aria-label="Cancelar">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -498,37 +499,32 @@ export default function CalculadoraDanos() {
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 dark:bg-amber-500/10">
-          <Calculator className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-        </div>
-        <div>
-          <h1 className="page-title">Estimador de daños</h1>
-          <p className="page-subtitle">
-            Cálculo auditable — CCyC + LDC, criterios de Tucumán
-            {valores?.vigenciaDesde && ` · CBT vigente ${valores.vigenciaDesde}`}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Estimador de daños"
+        subtitle={<>
+          Cálculo auditable — CCyC + LDC, criterios de Tucumán
+          {valores?.vigenciaDesde && ` · CBT vigente ${valores.vigenciaDesde}`}
+        </>}
+      />
 
       {calculoId && (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">
+        <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-medium text-cyan-800 dark:text-cyan-200">
           <Pencil className="h-3.5 w-3.5" />
           Editando un cálculo guardado. Al guardar se actualiza el existente.
         </div>
       )}
       {!calculoId && (consultaId || expedienteId) && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-medium text-cyan-800 dark:text-cyan-200">
           <Link2 className="h-3.5 w-3.5" />
           Al guardar, este cálculo queda vinculado {consultaId ? 'a la consulta' : 'al expediente'}.
         </div>
       )}
 
       {/* Análisis del caso en lenguaje natural */}
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] dark:bg-amber-500/[0.04]">
-        <div className="px-5 py-3 border-b border-amber-500/15 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-amber-500" />
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Analizar caso (lenguaje natural)</h2>
+      <div className="app-card !border-[var(--brand-accent)]/35">
+        <div className="flex items-center gap-2 border-b border-zinc-100 px-5 py-3.5 dark:border-white/[0.06]">
+          <Sparkles className="h-4 w-4 text-[var(--brand-accent)]" />
+          <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Analizar caso (lenguaje natural)</h2>
         </div>
         <div className="px-5 py-4 space-y-3">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -541,24 +537,24 @@ export default function CalculadoraDanos() {
           />
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={handleAnalizar} disabled={analizando}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50">
+              className="btn btn-primary">
               {analizando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               Analizar caso
             </button>
             {consultaId && (
               <button type="button" onClick={handleTraerConsulta}
-                className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5">
+                className="btn btn-ghost">
                 <Link2 className="h-4 w-4" /> Traer hechos de la consulta
               </button>
             )}
           </div>
           {resumenIA && (
-            <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-white/50 dark:bg-white/[0.02] px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
-              <span className="font-medium">Detectado:</span> {resumenIA}
+            <div className="dashboard-panel-muted px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+              <span className="font-semibold">Detectado:</span> {resumenIA}
             </div>
           )}
           {faltantes.length > 0 && (
-            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
               <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1">
                 <AlertTriangle className="h-3.5 w-3.5" /> Información faltante o a precisar
               </p>
@@ -591,10 +587,8 @@ export default function CalculadoraDanos() {
         <div className="flex flex-wrap gap-2">
           {RUBROS.map(r => (
             <button key={r.key} type="button" onClick={() => toggleRubro(r.key)}
-              className={cn('rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-                f.rubros.has(r.key)
-                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : 'border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5')}>
+              aria-pressed={f.rubros.has(r.key)}
+              className="chip">
               {r.label}
             </button>
           ))}
@@ -627,7 +621,7 @@ export default function CalculadoraDanos() {
             </Field>
           )}
           {f.fuenteIngreso !== 'acreditado' && !valores?.smvm && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">No hay SMVM cargado en valores de referencia; cargalo para el cálculo subsidiario.</p>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">No hay SMVM cargado en valores de referencia; cargalo para el cálculo subsidiario.</p>
           )}
         </Card>
       )}
@@ -676,7 +670,7 @@ export default function CalculadoraDanos() {
             </Field>
           )}
           {f.npAuto && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Toggle on={f.npAfectacionSalud} onChange={v => set('npAfectacionSalud', v)} label="Afectación de salud" />
               <Toggle on={f.npReiteracion} onChange={v => set('npReiteracion', v)} label="Reiteración" />
             </div>
@@ -688,14 +682,14 @@ export default function CalculadoraDanos() {
           </Field>
 
           {baseComp?.desdeReales ? (
-            <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/[0.02] p-3 space-y-2">
+            <div className="dashboard-panel-muted space-y-2 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                  <span className="font-medium">{baseComp.usados.length}</span> precedente{baseComp.usados.length !== 1 ? 's' : ''} comparable{baseComp.usados.length !== 1 ? 's' : ''} — mediana {formatPesos(baseComp.base)}
+                  <span className="font-bold tabular-nums">{baseComp.usados.length}</span> precedente{baseComp.usados.length !== 1 ? 's' : ''} comparable{baseComp.usados.length !== 1 ? 's' : ''} — mediana {formatPesos(baseComp.base)}
                 </p>
                 <button type="button"
                   onClick={() => setF(prev => ({ ...prev, npBase: baseComp.base, npBaseDesdeReales: true }))}
-                  className="rounded-lg bg-amber-500 hover:bg-amber-600 px-2.5 py-1 text-[11px] font-medium text-white transition-colors shrink-0">
+                  className="btn btn-primary btn-sm shrink-0">
                   Usar mediana
                 </button>
               </div>
@@ -703,12 +697,12 @@ export default function CalculadoraDanos() {
                 {baseComp.usados.slice(0, 5).map(n => (
                   <li key={n.precedente.id} className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                     <span className="truncate">{n.precedente.caratula}</span>
-                    <span className="shrink-0">{formatPesos(n.montoHoy ?? 0)}{!n.normalizado && ' *'}</span>
+                    <span className="shrink-0 tabular-nums">{formatPesos(n.montoHoy ?? 0)}{!n.normalizado && ' *'}</span>
                   </li>
                 ))}
               </ul>
               {baseComp.usados.some(n => !n.normalizado) && (
-                <p className="text-[10px] text-zinc-400">* monto nominal sin normalizar (falta unidad CBT/SMVM).</p>
+                <p className="text-[11px] text-zinc-500">* monto nominal sin normalizar (falta unidad CBT/SMVM).</p>
               )}
             </div>
           ) : (
@@ -719,7 +713,7 @@ export default function CalculadoraDanos() {
 
           {(rol === 'ADMIN' || rol === 'ABOGADO' || rol === 'DIRECTOR') && (
             <button type="button" onClick={() => setShowPrecedentes(true)}
-              className="text-xs text-amber-600 dark:text-amber-400 hover:underline">
+              className="dashboard-link text-xs hover:underline">
               Gestionar precedentes →
             </button>
           )}
@@ -730,13 +724,13 @@ export default function CalculadoraDanos() {
       {usaPunitivo && (
         <Card title="Daño punitivo (art. 52 bis LDC)">
           {!f.relacionConsumo && (
-            <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2.5', ALERTA_STYLE.error)}>
+            <div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2.5', ALERTA_STYLE.error)}>
               <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
               <p className="text-xs">Requiere relación de consumo. Activala en "Datos del caso".</p>
             </div>
           )}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Procedencia</p>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Procedencia</p>
             <div className="flex flex-wrap gap-2">
               <Toggle on={f.procGrave} onChange={v => set('procGrave', v)} label="Incumpl. grave con daño" />
               <Toggle on={f.procReiteracion} onChange={v => set('procReiteracion', v)} label="Reiteración" />
@@ -763,7 +757,7 @@ export default function CalculadoraDanos() {
             </Field>
           )}
           {f.punMetodo === 'irigoyen_testa' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="Compensatorio (C)"><input type="number" min={0} value={f.punCompensatorio} onChange={e => set('punCompensatorio', Number(e.target.value))} className={inputCls} /></Field>
               <Field label="Pc (0-1)"><input type="number" min={0} max={1} step={0.05} value={f.punPc} onChange={e => set('punPc', Number(e.target.value))} className={inputCls} /></Field>
               <Field label="Pd (0-1)"><input type="number" min={0} max={1} step={0.05} value={f.punPd} onChange={e => set('punPd', Number(e.target.value))} className={inputCls} /></Field>
@@ -780,33 +774,33 @@ export default function CalculadoraDanos() {
 
       {/* Resultado */}
       {valoresLoading && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 px-5 py-6 text-center text-sm text-zinc-500">Cargando valores de referencia…</div>
+        <div className="app-card px-5 py-6 text-center text-sm text-zinc-500">Cargando valores de referencia…</div>
       )}
       {resultado && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {(['conservador', 'razonable', 'expansivo'] as Escenario[]).map(esc => {
               const e = resultado.escenarios[esc]
               const meta = ESCENARIO_META[esc]
               return (
-                <div key={esc} className={cn('rounded-xl border bg-white dark:bg-white/5 px-4 py-4', meta.ring)}>
-                  <p className={cn('text-xs font-semibold uppercase tracking-wider mb-1', meta.accent)}>{meta.label}</p>
-                  <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{formatPesos(e.total)}</p>
+                <div key={esc} className={cn('app-card px-4 py-4', meta.ring)}>
+                  <p className={cn('mb-1 text-[10.5px] font-bold uppercase tracking-[0.12em]', meta.accent)}>{meta.label}</p>
+                  <p className="text-lg font-extrabold leading-tight tracking-tight tabular-nums text-zinc-900 dark:text-white">{formatPesos(e.total)}</p>
                 </div>
               )
             })}
           </div>
 
           {/* Desglose del razonable */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
-            <div className="px-5 py-3 border-b border-zinc-100 dark:border-white/5">
-              <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Desglose (escenario razonable)</h2>
+          <div className="app-card">
+            <div className="border-b border-zinc-100 px-5 py-3.5 dark:border-white/[0.06]">
+              <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Desglose (escenario razonable)</h2>
             </div>
-            <div className="divide-y divide-zinc-100 dark:divide-white/5">
+            <div className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
               {resultado.escenarios.razonable.rubros.map(r => (
                 <div key={r.key} className="flex items-center justify-between px-5 py-2.5 text-sm">
                   <span className="text-zinc-600 dark:text-zinc-300">{r.label}</span>
-                  <span className="font-medium text-zinc-900 dark:text-zinc-100">{formatPesos(r.monto)}</span>
+                  <span className="font-bold tabular-nums text-zinc-900 dark:text-white">{formatPesos(r.monto)}</span>
                 </div>
               ))}
               {resultado.escenarios.razonable.rubros.length === 0 && (
@@ -819,7 +813,7 @@ export default function CalculadoraDanos() {
           {resultado.auditoria.alertas.length > 0 && (
             <div className="space-y-2">
               {resultado.auditoria.alertas.map((a, i) => (
-                <div key={i} className={cn('flex items-start gap-2 rounded-lg border px-3 py-2.5', ALERTA_STYLE[a.severidad])}>
+                <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2.5', ALERTA_STYLE[a.severidad])}>
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                   <p className="text-xs">{a.mensaje}</p>
                 </div>
@@ -828,16 +822,16 @@ export default function CalculadoraDanos() {
           )}
 
           {/* Auditoría */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-5 py-4 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          <div className="app-card space-y-2 px-5 py-4">
+            <div className="eyebrow flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" /> Auditoría
             </div>
             <div className="flex items-center gap-2 text-sm">
               <span className="text-zinc-500 dark:text-zinc-400">Nivel de confianza:</span>
-              <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium',
-                resultado.auditoria.nivelConfianza === 'alto' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                : resultado.auditoria.nivelConfianza === 'medio' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                : 'bg-rose-500/15 text-rose-700 dark:text-rose-300')}>
+              <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold',
+                resultado.auditoria.nivelConfianza === 'alto' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : resultado.auditoria.nivelConfianza === 'medio' ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
                 {resultado.auditoria.nivelConfianza}
               </span>
             </div>
@@ -852,26 +846,26 @@ export default function CalculadoraDanos() {
           </div>
 
           {/* Fundamentación IA */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-4 space-y-3">
-            <div className="flex items-center justify-between gap-3">
+          <div className="app-card space-y-3 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                  <Sparkles className="h-4 w-4 text-amber-500" /> Fundamentación
+                <h2 className="flex items-center gap-2 text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">
+                  <Sparkles className="h-4 w-4 text-[var(--brand-accent)]" /> Fundamentación
                 </h2>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">Redacta la justificación con IA. Los montos no se recalculan.</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Redacta la justificación con IA. Los montos no se recalculan.</p>
               </div>
               <button type="button" onClick={handleGenerarNarrativa} disabled={generandoNarrativa}
-                className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-50 shrink-0">
+                className="btn btn-secondary shrink-0">
                 {generandoNarrativa ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {narrativa ? 'Regenerar' : 'Generar fundamentación'}
               </button>
             </div>
             {narrativa && (
-              <div className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50 dark:bg-white/[0.02] p-4">
+              <div className="dashboard-panel-muted p-4">
                 <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{narrativa}</p>
                 <button type="button"
                   onClick={() => { navigator.clipboard.writeText(narrativa); setCopiado(true); setTimeout(() => setCopiado(false), 2000) }}
-                  className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                  className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-white">
                   {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   {copiado ? 'Copiado' : 'Copiar'}
                 </button>
@@ -880,16 +874,16 @@ export default function CalculadoraDanos() {
           </div>
 
           {/* Guardar */}
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-5 py-4 flex items-center gap-3">
+          <div className="app-card flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
             <input type="text" placeholder="Título del cálculo (ej. Romero c/ Prepaga)"
-              value={titulo} onChange={e => setTitulo(e.target.value)} className={cn(inputCls, 'flex-1')} />
+              value={titulo} onChange={e => setTitulo(e.target.value)} className={cn(inputCls, 'h-10 sm:flex-1')} />
             <button type="button" onClick={handleGuardar} disabled={createDano.isPending || updateDano.isPending}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50">
+              className="btn btn-primary">
               {(createDano.isPending || updateDano.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {calculoId ? 'Actualizar' : 'Guardar'}
             </button>
             <button type="button" onClick={imprimirDictamen}
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors">
+              className="btn btn-ghost">
               <Printer className="h-4 w-4" /> Imprimir dictamen
             </button>
           </div>
@@ -897,7 +891,7 @@ export default function CalculadoraDanos() {
       )}
 
       {/* Nota */}
-      <div className="flex items-start gap-2 rounded-lg bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/10 px-4 py-3">
+      <div className="dashboard-panel-muted flex items-start gap-2 px-4 py-3">
         <div className="flex gap-2">
           <BookOpen className="h-4 w-4 text-zinc-400 mt-0.5 shrink-0" />
         </div>

@@ -10,6 +10,7 @@ import {
 } from '@/hooks/use-alertas'
 // Alertas don't have prioridad field
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { TIPO_ALERTA_LABELS, type TipoAlerta } from '@/types/enums'
@@ -41,51 +42,53 @@ import {
 const TIPO_ICON_MAP: Record<string, { icon: typeof Bell; bg: string; text: string }> = {
   VENCIMIENTO_TAREA: {
     icon: Clock,
-    bg: 'bg-amber-900/40',
-    text: 'text-amber-400',
+    bg: 'bg-amber-500/10 border-amber-500/30',
+    text: 'text-amber-700 dark:text-amber-300',
   },
   TURNO_PROXIMO: {
     icon: CalendarClock,
-    bg: 'bg-blue-900/40',
-    text: 'text-blue-400',
+    bg: 'bg-cyan-500/10 border-cyan-500/30',
+    text: 'text-cyan-700 dark:text-cyan-300',
   },
   SEGUIMIENTO_PENDIENTE: {
     icon: AlertTriangle,
-    bg: 'bg-orange-900/40',
-    text: 'text-orange-400',
+    bg: 'bg-orange-500/10 border-orange-500/30',
+    text: 'text-orange-700 dark:text-orange-300',
   },
   DOCUMENTO_FALTANTE: {
     icon: FileText,
-    bg: 'bg-violet-900/40',
-    text: 'text-violet-400',
+    bg: 'bg-violet-500/10 border-violet-500/30',
+    text: 'text-violet-700 dark:text-violet-300',
   },
   COBRO_PENDIENTE: {
     icon: DollarSign,
-    bg: 'bg-emerald-900/40',
-    text: 'text-emerald-400',
+    bg: 'bg-emerald-500/10 border-emerald-500/30',
+    text: 'text-emerald-700 dark:text-emerald-300',
   },
   ESTADO_CAMBIO: {
     icon: ArrowRightLeft,
-    bg: 'bg-amber-900/40',
-    text: 'text-amber-400',
+    bg: 'bg-cyan-500/10 border-cyan-500/30',
+    text: 'text-cyan-700 dark:text-cyan-300',
   },
   SISTEMA: {
     icon: Monitor,
-    bg: 'bg-white/5',
+    bg: 'bg-zinc-500/10 border-zinc-500/25',
     text: 'text-zinc-600 dark:text-zinc-300',
   },
   MENCION: {
     icon: AtSign,
-    bg: 'bg-pink-900/40',
-    text: 'text-pink-400',
+    bg: 'bg-pink-500/10 border-pink-500/30',
+    text: 'text-pink-700 dark:text-pink-300',
   },
 }
 
 const DEFAULT_ICON = {
   icon: Bell,
-  bg: 'bg-white/5',
+  bg: 'bg-zinc-500/10 border-zinc-500/25',
   text: 'text-zinc-600 dark:text-zinc-300',
 }
+
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
 
 const TIPO_URGENCY: Record<string, number> = {
   TAREA_VENCIDA: 0, VENCIMIENTO_TAREA: 0,
@@ -127,12 +130,12 @@ function AlertaCard({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 glass-card p-4 transition-all hover:shadow-sm">
+    <div className="app-card p-4">
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div
           className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
             tipoConfig.bg
           )}
         >
@@ -143,31 +146,31 @@ function AlertaCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
+              <h3 className="truncate text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">
                 {alerta.titulo}
               </h3>
               {alerta.mensaje && (
-                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300 line-clamp-2">
+                <p className="mt-0.5 line-clamp-2 text-[12.5px] text-zinc-600 dark:text-zinc-300">
                   {alerta.mensaje}
                 </p>
               )}
             </div>
             {alerta.tipo && (
-              <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', tipoConfig.bg, tipoConfig.text)}>
+              <span className={cn(TAG, tipoConfig.bg, tipoConfig.text)}>
                 {TIPO_ALERTA_LABELS[alerta.tipo as TipoAlerta] ?? alerta.tipo}
               </span>
             )}
           </div>
 
           {/* Meta row */}
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
-            <span>{timeAgo(alerta.created_at)}</span>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="tabular-nums">{timeAgo(alerta.created_at)}</span>
             {alerta.expediente && (
               <>
-                <span>{'\u00B7'}</span>
+                <span className="text-zinc-400 dark:text-zinc-600" aria-hidden>{'\u00B7'}</span>
                 <button
                   onClick={() => navigate(`/expedientes/${alerta.expediente!.id}`)}
-                  className="inline-flex items-center gap-1 text-amber-400 hover:underline"
+                  className="dashboard-link inline-flex min-w-0 items-center gap-1 hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
                   {alerta.expediente.caratula || alerta.expediente.numero}
@@ -177,11 +180,11 @@ function AlertaCard({
           </div>
 
           {/* Actions */}
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               onClick={() => onResolve(alerta.id)}
               disabled={isResolving}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-900/30 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-900/50"
+              className="btn btn-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
             >
               {isResolving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -193,7 +196,7 @@ function AlertaCard({
 
             <button
               onClick={() => onMarkRead(alerta.id)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10"
+              className="btn btn-ghost btn-sm"
             >
               <Eye className="h-3 w-3" />
               Leída
@@ -202,7 +205,7 @@ function AlertaCard({
             {!showPosponer ? (
               <button
                 onClick={() => setShowPosponer(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10"
+                className="btn btn-ghost btn-sm"
               >
                 <Calendar className="h-3 w-3" />
                 Posponer
@@ -222,7 +225,7 @@ function AlertaCard({
                     <button
                       key={days}
                       onClick={() => onPostpone(alerta.id, dateStr)}
-                      className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-zinc-700 dark:text-zinc-300 hover:bg-white/10 border border-white/10"
+                      className="chip"
                     >
                       {label}
                     </button>
@@ -233,18 +236,18 @@ function AlertaCard({
                   value={posponerFecha}
                   onChange={(e) => setPosponerFecha(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="h-7 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-cyan-500/15"
+                  className="field h-8 w-auto py-0 text-xs"
                 />
                 <button
                   onClick={handlePosponer}
                   disabled={!posponerFecha}
-                  className="rounded-lg bg-amber-900/30 px-2.5 py-1 text-xs font-medium text-amber-400 hover:bg-amber-900/50 disabled:opacity-50"
+                  className="btn btn-primary btn-sm"
                 >
                   OK
                 </button>
                 <button
                   onClick={() => setShowPosponer(false)}
-                  className="text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  className="btn btn-ghost btn-sm border-transparent"
                 >
                   Cancelar
                 </button>
@@ -322,36 +325,29 @@ export default function AlertasPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="page-title">
-            Alertas
-          </h1>
-          <p className="page-subtitle">
-            Notificaciones y alertas pendientes de tus expedientes.
-          </p>
-        </div>
-        {alertas && alertas.length > 0 && (
+      <PageHeader
+        title="Alertas"
+        subtitle="Notificaciones y alertas pendientes de tus expedientes."
+        actions={alertas && alertas.length > 0 ? (
           <button
             onClick={() => marcarTodasLeidas.mutate()}
             disabled={marcarTodasLeidas.isPending}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-white/10"
+            className="btn btn-ghost"
           >
-            <CheckCheck className="h-3 w-3" />
+            <CheckCheck className="h-4 w-4" />
             Marcar todas leídas
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-zinc-700 dark:text-zinc-300" />
+          <Loader2 className="h-6 w-6 animate-spin text-zinc-500 dark:text-zinc-400" />
         </div>
       ) : isError ? (
-        <div className="rounded-xl border border-rose-900 bg-rose-950/30 p-6 text-center">
-          <p className="text-sm text-rose-400">Error al cargar alertas.</p>
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">Error al cargar alertas.</p>
         </div>
       ) : !alertas || alertas.length === 0 ? (
         <div className="space-y-6">
@@ -360,9 +356,9 @@ export default function AlertasPage() {
             title="Sin alertas pendientes"
             description="No tienes alertas activas en este momento."
           />
-          <div className="mx-auto max-w-md glass-card rounded-xl p-5">
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-3">El sistema genera alertas automáticamente cuando:</p>
-            <ul className="space-y-2 text-xs text-zinc-500 dark:text-zinc-300">
+          <div className="app-card mx-auto max-w-md p-5">
+            <p className="mb-3 text-[13px] font-bold tracking-tight text-zinc-900 dark:text-white">El sistema genera alertas automáticamente cuando:</p>
+            <ul className="space-y-2 text-[12.5px] text-zinc-600 dark:text-zinc-300">
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                 Un expediente lleva más de 30 días sin movimiento
@@ -376,7 +372,7 @@ export default function AlertasPage() {
                 Se acerca una audiencia
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
                 Hay documentación faltante en expedientes activos
               </li>
               <li className="flex items-start gap-2">
@@ -391,46 +387,41 @@ export default function AlertasPage() {
           {/* Búsqueda + filtros */}
           <div className="space-y-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por título, expediente, tipo…"
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field h-11 pl-10 pr-10"
               />
               {search && (
                 <button onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-900 dark:hover:text-white">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold tabular-nums text-cyan-700 dark:text-cyan-300">
                 <Bell className="h-3 w-3" />
                 {alertas.length} alerta{alertas.length > 1 ? 's' : ''}
               </span>
               {tiposPresentes.map(tipo => {
-                const cfg = TIPO_ICON_MAP[tipo] ?? DEFAULT_ICON
                 return (
                   <button key={tipo}
                     onClick={() => setFilterTipo(f => f === tipo ? null : tipo)}
-                    className={cn(
-                      'h-7 rounded-full border px-2.5 text-[11px] transition-colors',
-                      filterTipo === tipo
-                        ? cn('border-transparent', cfg.bg, cfg.text)
-                        : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10',
-                    )}>
+                    aria-pressed={filterTipo === tipo}
+                    className="chip">
                     {TIPO_ALERTA_LABELS[tipo as TipoAlerta] ?? tipo}
                   </button>
                 )
               })}
               <div className="flex-1" />
-              <div className="flex rounded-lg border border-white/10 overflow-hidden text-[11px]">
+              <div className="segmented" role="group" aria-label="Ordenar">
                 {(['prioridad', 'fecha'] as const).map(s => (
                   <button key={s} onClick={() => setSortBy(s)}
-                    className={cn('h-7 px-2.5 transition-colors',
-                      sortBy === s ? 'bg-amber-500/20 text-amber-300' : 'bg-white/5 text-zinc-400 hover:bg-white/10')}>
+                    aria-pressed={sortBy === s}
+                    className="px-2.5 text-xs font-semibold">
                     {s === 'prioridad' ? 'Prioridad' : 'Fecha'}
                   </button>
                 ))}
@@ -438,9 +429,9 @@ export default function AlertasPage() {
             </div>
             {hasFilters && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500">{filteredSorted.length} de {alertas.length}</span>
+                <span className="text-xs font-medium tabular-nums text-zinc-500">{filteredSorted.length} de {alertas.length}</span>
                 <button onClick={() => { setSearch(''); setFilterTipo(null) }}
-                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  className="flex items-center gap-1 text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-white">
                   <X className="h-3 w-3" />
                   Limpiar
                 </button>
@@ -450,11 +441,11 @@ export default function AlertasPage() {
 
           {/* Lista */}
           {filteredSorted.length === 0 ? (
-            <div className="rounded-lg border border-white/5 bg-white/[0.02] p-8 text-center">
-              <Search className="h-8 w-8 mx-auto text-zinc-600 mb-2" />
-              <p className="text-sm text-zinc-300">Ninguna alerta coincide con los filtros.</p>
+            <div className="app-card p-8 text-center">
+              <Search className="mx-auto mb-2 h-8 w-8 text-zinc-400 dark:text-zinc-600" />
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">Ninguna alerta coincide con los filtros.</p>
               <button onClick={() => { setSearch(''); setFilterTipo(null) }}
-                className="mt-3 text-xs text-amber-400 hover:underline">
+                className="dashboard-link mt-3 text-xs hover:underline">
                 Limpiar filtros
               </button>
             </div>
@@ -498,9 +489,9 @@ export default function AlertasPage() {
                   <div key={group.expId ?? '__none__'}>
                     {group.items.length > 1 && (
                       <div className="flex items-center gap-2 mb-2 px-1">
-                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{group.label}</span>
-                        <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">{group.items.length}</span>
-                        <div className="flex-1 border-t border-white/5" />
+                        <span className="min-w-0 truncate text-xs font-bold text-zinc-700 dark:text-zinc-200">{group.label}</span>
+                        <span className={cn(TAG, 'border-zinc-500/25 bg-zinc-500/10 tabular-nums text-zinc-600 dark:text-zinc-300')}>{group.items.length}</span>
+                        <div className="flex-1 border-t border-zinc-200 dark:border-white/[0.06]" />
                       </div>
                     )}
                     <div className="space-y-2">

@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
 import { formatDate } from '@/lib/utils/date-helpers'
@@ -54,18 +55,18 @@ function previewContenido(c: Contenido): string | null {
 // ── Identidad visual por plataforma ──────────────────────────────────────────
 type Tema = { border: string; pill: string; bar: string }
 const CATEGORIA_THEME: Record<string, Tema> = {
-  instagram:         { border: 'border-pink-500/30',   pill: 'bg-pink-500/15 text-pink-300',     bar: 'bg-pink-500' },
-  linkedin:          { border: 'border-sky-500/30',    pill: 'bg-sky-500/15 text-sky-300',       bar: 'bg-sky-500' },
-  facebook:          { border: 'border-blue-500/30',   pill: 'bg-blue-500/15 text-blue-300',     bar: 'bg-blue-500' },
-  twitter:           { border: 'border-zinc-400/30',   pill: 'bg-zinc-400/15 text-zinc-200',     bar: 'bg-zinc-400' },
-  video_guion:       { border: 'border-red-500/30',    pill: 'bg-red-500/15 text-red-300',       bar: 'bg-red-500' },
-  newsletter:        { border: 'border-amber-500/30',  pill: 'bg-amber-500/15 text-amber-300',   bar: 'bg-amber-500' },
-  email_cliente:     { border: 'border-teal-500/30',   pill: 'bg-teal-500/15 text-teal-300',     bar: 'bg-teal-500' },
-  whatsapp_difusion: { border: 'border-emerald-500/30',pill: 'bg-emerald-500/15 text-emerald-300',bar: 'bg-emerald-500' },
-  blog:              { border: 'border-violet-500/30', pill: 'bg-violet-500/15 text-violet-300',  bar: 'bg-violet-500' },
-  otro:              { border: 'border-white/10',      pill: 'bg-white/5 text-zinc-300',          bar: 'bg-zinc-500' },
+  instagram:         { border: 'border-pink-500/30',   pill: 'border-pink-500/30 bg-pink-500/10 text-pink-700 dark:text-pink-300',         bar: 'bg-pink-500' },
+  linkedin:          { border: 'border-sky-500/30',    pill: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',             bar: 'bg-sky-500' },
+  facebook:          { border: 'border-blue-500/30',   pill: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',         bar: 'bg-blue-500' },
+  twitter:           { border: 'border-zinc-400/30',   pill: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-700 dark:text-zinc-200',         bar: 'bg-zinc-400' },
+  video_guion:       { border: 'border-red-500/30',    pill: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300',             bar: 'bg-red-500' },
+  newsletter:        { border: 'border-cyan-500/30',   pill: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',         bar: 'bg-cyan-500' },
+  email_cliente:     { border: 'border-teal-500/30',   pill: 'border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300',         bar: 'bg-teal-500' },
+  whatsapp_difusion: { border: 'border-emerald-500/30',pill: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300', bar: 'bg-emerald-500' },
+  blog:              { border: 'border-violet-500/30', pill: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300', bar: 'bg-violet-500' },
+  otro:              { border: 'border-zinc-200 dark:border-white/10', pill: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300', bar: 'bg-zinc-500' },
 }
-const GUION_THEME: Tema = { border: 'border-fuchsia-500/40', pill: 'bg-fuchsia-500/15 text-fuchsia-300', bar: 'bg-fuchsia-500' }
+const GUION_THEME: Tema = { border: 'border-fuchsia-500/40', pill: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300', bar: 'bg-fuchsia-500' }
 
 function temaDe(c: Contenido): Tema {
   if (parseGuionReel(c)) return GUION_THEME
@@ -79,7 +80,7 @@ function EstadoPipeline({ estado, bar }: { estado: EstadoContenido; bar: string 
   return (
     <div className="flex gap-1" title={ESTADO_LABEL[estado]}>
       {[1, 2, 3, 4].map((i) => (
-        <span key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? bar : 'bg-white/10')} />
+        <span key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? bar : 'bg-zinc-200 dark:bg-white/10')} />
       ))}
     </div>
   )
@@ -90,11 +91,11 @@ const ESTADO_LABEL: Record<string, string> = Object.fromEntries(
 )
 
 const ESTADO_CLS: Record<EstadoContenido, string> = {
-  borrador: 'bg-zinc-500/15 text-zinc-300',
-  en_revision: 'bg-amber-500/15 text-amber-300',
-  aprobado: 'bg-emerald-500/15 text-emerald-300',
-  publicado: 'bg-violet-500/15 text-violet-300',
-  archivado: 'bg-rose-500/10 text-rose-400',
+  borrador: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300',
+  en_revision: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  aprobado: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  publicado: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  archivado: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
 }
 
 const CATEGORIA_ICON: Record<CategoriaContenido, React.ComponentType<{ className?: string }>> = {
@@ -155,10 +156,10 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
       <button
         type="button"
         onClick={() => startGoogleDriveOAuth().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo iniciar la conexión con Drive'))}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
+        className="btn border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
         title="Conectá (o reconectá) tu Google Drive para elegir videos o guiones"
       >
-        <FolderOpen className="h-4 w-4" /> {status?.connected ? 'Reconectar Drive' : 'Conectar Drive'}
+        <FolderOpen className="h-4 w-4" /> <span className="hidden sm:inline">{status?.connected ? 'Reconectar Drive' : 'Conectar Drive'}</span>
       </button>
     )
   }
@@ -195,10 +196,10 @@ function DriveVideoButton({ onPicked, disabled }: { onPicked: (fileId: string) =
       type="button"
       onClick={handleClick}
       disabled={disabled || loading}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+      className="btn btn-ghost"
       title="Elegir un video o un guion de tu Drive"
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />} Desde Drive
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />} <span className="hidden sm:inline">Desde Drive</span>
     </button>
   )
 }
@@ -288,43 +289,36 @@ export default function ContenidosPage() {
     <div className="space-y-6 animate-fade-in pb-12">
       <Breadcrumb items={[{ label: 'Contenidos' }]} />
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-violet-400" />
-            Contenidos del estudio
-          </h1>
-          <p className="page-subtitle">
-            Borradores y posts para redes, newsletters, emails y otras comunicaciones.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Contenidos del estudio"
+        subtitle="Borradores y posts para redes, newsletters, emails y otras comunicaciones."
+        actions={
+        <>
           {/* Toggle vista */}
-          <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5">
+          <div className="segmented" role="group" aria-label="Vista">
             <button
               onClick={() => setView('tablero')}
-              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                view === 'tablero' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              aria-pressed={view === 'tablero'}
+              className="px-2.5 text-xs font-semibold"
               title="Vista tablero"
             >
-              <LayoutGrid className="h-3.5 w-3.5" /> Tablero
+              <LayoutGrid className="h-4 w-4" /> <span className="hidden sm:inline">Tablero</span>
             </button>
             <button
               onClick={() => setView('calendario')}
-              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                view === 'calendario' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              aria-pressed={view === 'calendario'}
+              className="px-2.5 text-xs font-semibold"
               title="Vista calendario"
             >
-              <CalendarDays className="h-3.5 w-3.5" /> Calendario
+              <CalendarDays className="h-4 w-4" /> <span className="hidden sm:inline">Calendario</span>
             </button>
             <button
               onClick={() => setView('lista')}
-              className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                view === 'lista' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-400 hover:text-zinc-200')}
+              aria-pressed={view === 'lista'}
+              className="px-2.5 text-xs font-semibold"
               title="Vista lista"
             >
-              <ListIcon className="h-3.5 w-3.5" /> Lista
+              <ListIcon className="h-4 w-4" /> <span className="hidden sm:inline">Lista</span>
             </button>
           </div>
           <input
@@ -337,43 +331,44 @@ export default function ContenidosPage() {
           <button
             onClick={() => videoInputRef.current?.click()}
             disabled={generar.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:opacity-50 transition-colors"
+            className="btn btn-ghost"
             title="Generar borradores por plataforma a partir de un video (subida directa)"
           >
             {generar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
-            Desde video
+            <span className="hidden sm:inline">Desde video</span>
           </button>
           <DriveVideoButton onPicked={(fileId) => runGenerar({ driveFileId: fileId })} disabled={generar.isPending} />
           <button
             onClick={() => setGuionDialogOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-500/15 px-3 py-2 text-sm font-medium text-fuchsia-300 hover:bg-fuchsia-500/25 transition-colors"
+            className="btn btn-ghost"
             title="Decí o escribí un tema y la IA arma un guion de Reel estructurado"
           >
             <Clapperboard className="h-4 w-4" />
-            Guion de Reel
+            <span className="hidden sm:inline">Guion de Reel</span>
           </button>
           <button
             onClick={() => setCalendarioOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+            className="btn btn-ghost"
             title="Generar el plan editorial de un mes completo"
           >
             <CalendarRange className="h-4 w-4" />
-            Generar mes
+            <span className="hidden sm:inline">Generar mes</span>
           </button>
           <button
             onClick={() => { setEditing(null); setDialogOpen(true) }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/15 px-3 py-2 text-sm font-medium text-violet-300 hover:bg-violet-500/25 transition-colors"
+            className="btn btn-primary"
           >
             <Plus className="h-4 w-4" />
             Nuevo contenido
           </button>
-        </div>
-      </div>
+        </>
+        }
+      />
 
       {/* Selector de plataformas para generar desde video/Drive */}
-      <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.03] px-3 py-2.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mr-1">
+      <div className="app-card px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="eyebrow mr-1">
             Generar para:
           </span>
           {PLATAFORMAS_GENERABLES.map((p) => {
@@ -385,12 +380,8 @@ export default function ContenidosPage() {
                 type="button"
                 onClick={() => togglePlataforma(p.key)}
                 disabled={generar.isPending}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
-                  active
-                    ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
-                    : 'border-white/10 bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-white/10',
-                )}
+                aria-pressed={active}
+                className="chip disabled:opacity-50"
                 title={active ? `No generar para ${p.label}` : `Generar para ${p.label}`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -398,7 +389,7 @@ export default function ContenidosPage() {
               </button>
             )
           })}
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-500 ml-auto">
+          <span className="ml-auto text-[11px] text-zinc-500">
             Tildá las redes antes de cargar el video o el Drive.
           </span>
         </div>
@@ -408,14 +399,14 @@ export default function ContenidosPage() {
       <IdeasQueue ideas={ideas} />
 
       {genStage && (
-        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] px-3 py-2.5">
-          <div className="flex items-center gap-2 text-xs text-cyan-200">
+        <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3">
+          <div className="flex items-center gap-2 text-xs text-cyan-800 dark:text-cyan-200">
             <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-            <span className="font-medium">{genStage}</span>
+            <span className="font-semibold">{genStage}</span>
           </div>
-          <p className="mt-1 text-[10px] text-cyan-300/60">Escribiendo con tu voz para cada red. Puede tardar 1-2 min — no cierres la pestaña.</p>
+          <p className="mt-1 text-[11px] text-cyan-700/80 dark:text-cyan-300/70">Escribiendo con tu voz para cada red. Puede tardar 1-2 min — no cierres la pestaña.</p>
           <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-cyan-500/10">
-            <div className="h-full w-1/3 animate-pulse rounded-full bg-cyan-400/60" />
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--brand-accent)]" />
           </div>
         </div>
       )}
@@ -425,12 +416,12 @@ export default function ContenidosPage() {
         <button
           type="button"
           onClick={() => setFiltrosOpen((v) => !v)}
-          className="sm:hidden mb-2 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300"
+          className="btn btn-ghost btn-sm mb-2 sm:hidden"
         >
           <ListIcon className="h-3.5 w-3.5" />
           Filtros
           {((filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)) > 0 && (
-            <span className="rounded-full bg-violet-500/30 px-1.5 text-[10px] text-violet-200">
+            <span className="rounded-full bg-cyan-500/15 px-1.5 text-[10px] font-bold tabular-nums text-cyan-700 dark:text-cyan-300">
               {(filterEstado !== 'all' ? 1 : 0) + (filterCategoria !== 'all' ? 1 : 0)}
             </span>
           )}
@@ -438,41 +429,35 @@ export default function ContenidosPage() {
       </div>
       <div className={cn('space-y-3', filtrosOpen ? 'block' : 'hidden sm:block')}>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5">Estado</p>
+          <p className="eyebrow mb-2">Estado</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setFilterEstado('all')}
-              className={cn(
-                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                filterEstado === 'all' ? 'bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30' : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-              )}
+              aria-pressed={filterEstado === 'all'}
+              className="chip"
             >
-              Todos ({contenidos.length})
+              Todos <span className="chip-count">{contenidos.length}</span>
             </button>
             {ESTADOS_CONTENIDO.map((e) => (
               <button
                 key={e.value}
                 onClick={() => setFilterEstado(e.value)}
-                className={cn(
-                  'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                  filterEstado === e.value ? `${ESTADO_CLS[e.value]} ring-1 ring-current` : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                )}
+                aria-pressed={filterEstado === e.value}
+                className="chip"
               >
-                {e.label} {countsByEstado[e.value] ? `(${countsByEstado[e.value]})` : ''}
+                {e.label}{!!countsByEstado[e.value] && <span className="chip-count">{countsByEstado[e.value]}</span>}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1.5">Categoría</p>
+          <p className="eyebrow mb-2">Categoría</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setFilterCategoria('all')}
-              className={cn(
-                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                filterCategoria === 'all' ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30' : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-              )}
+              aria-pressed={filterCategoria === 'all'}
+              className="chip"
             >
               Todas
             </button>
@@ -482,10 +467,8 @@ export default function ContenidosPage() {
                 <button
                   key={c.value}
                   onClick={() => setFilterCategoria(c.value)}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors',
-                    filterCategoria === c.value ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30' : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                  )}
+                  aria-pressed={filterCategoria === c.value}
+                  className="chip"
                 >
                   <Icon className="h-3 w-3" />
                   {c.label}
@@ -535,62 +518,62 @@ export default function ContenidosPage() {
             return (
               <div
                 key={c.id}
-                className={cn('rounded-xl border bg-zinc-900/30 p-4 hover:bg-white/[0.04] transition-colors group flex flex-col', tema.border)}
+                className={cn('app-card group flex flex-col p-4', tema.border)}
               >
                 {c.imagen_url && (
-                  <img src={c.imagen_url} alt="" className="w-full h-32 object-cover rounded-lg mb-3" loading="lazy" />
+                  <img src={c.imagen_url} alt="" className="mb-3 h-32 w-full rounded-xl object-cover" loading="lazy" />
                 )}
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', tema.pill)}>
+                  <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1', tema.pill)}>
                     <Icon className="h-3 w-3" />
                     {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
                   </span>
                   {guion && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                    <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300">
                       <Clapperboard className="h-3 w-3" /> Guion
                     </span>
                   )}
                 </div>
 
-                <h3 className={cn('text-zinc-50 leading-snug mb-2', guion ? 'text-sm font-semibold line-clamp-3' : 'text-sm font-medium line-clamp-2')}>
+                <h3 className={cn('mb-2 text-[14px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white', guion ? 'line-clamp-3' : 'line-clamp-2')}>
                   {headline}
                 </h3>
 
                 {guion ? (
-                  <div className="flex items-center gap-2.5 text-[10px] text-zinc-500 mb-2">
+                  <div className="mb-2 flex items-center gap-2.5 text-[11px] font-medium text-zinc-500">
                     {guion.escenas.length > 0 && <span className="inline-flex items-center gap-1"><ListIcon className="h-2.5 w-2.5" /> {guion.escenas.length} escenas</span>}
                     {guion.duracion_estimada && <span className="inline-flex items-center gap-1"><Video className="h-2.5 w-2.5" /> {guion.duracion_estimada}</span>}
                   </div>
                 ) : previewContenido(c) ? (
-                  <p className="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed mb-2">{previewContenido(c)}</p>
+                  <p className="mb-2 line-clamp-2 text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-400">{previewContenido(c)}</p>
                 ) : null}
 
                 {c.hashtags && (
                   <div className="flex items-center gap-1 mb-2">
-                    <Hash className="h-3 w-3 text-cyan-400 shrink-0" />
-                    <p className="text-[10px] text-cyan-400/80 line-clamp-1">{c.hashtags}</p>
+                    <Hash className="h-3 w-3 shrink-0 text-[var(--brand-accent)]" />
+                    <p className="line-clamp-1 text-[11px] text-cyan-700 dark:text-cyan-400/80">{c.hashtags}</p>
                   </div>
                 )}
 
                 <div className="mt-auto pt-2.5">
                   <EstadoPipeline estado={c.estado} bar={tema.bar} />
                   <div className="flex items-center justify-between gap-2 mt-2">
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-[11px] font-medium tabular-nums text-zinc-500">
                       {c.publicar_el
                         ? <>📅 {formatDate(c.publicar_el)}</>
                         : ESTADO_LABEL[c.estado]}
                     </p>
-                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-60 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => abrirContenido(c)}
-                        className="rounded p-1 text-zinc-500 hover:text-cyan-400"
+                        className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-[var(--brand-accent)] dark:hover:bg-white/[0.06]"
                         title={guion ? 'Ver guion' : 'Editar'}
                       >
                         <Edit2 className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => setConfirmDelete(c.id)}
-                        className="rounded p-1 text-zinc-500 hover:text-rose-400"
+                        className="rounded-lg p-1.5 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-500"
                         title="Eliminar"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -679,14 +662,14 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#10161d] shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--popover)]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/[0.08]">
           <div className="flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-emerald-400" />
-            <h2 className="text-sm font-semibold text-zinc-100">Generar calendario editorial</h2>
+            <CalendarRange className="h-5 w-5 text-[var(--brand-accent)]" />
+            <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">Generar calendario editorial</h2>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-white/5">
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -694,12 +677,12 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
         <div className="px-5 py-4 space-y-5">
           {/* Selector de mes */}
           <div>
-            <p className="text-xs font-medium text-zinc-400 mb-2">Mes a planificar</p>
+            <p className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 mb-2">Mes a planificar</p>
             <div className="flex items-center gap-2">
               <select
                 value={month}
                 onChange={e => setMonth(Number(e.target.value))}
-                className="flex-1 rounded-lg border border-white/10 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500/50"
+                className="field h-10 flex-1 py-0"
               >
                 {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
@@ -708,7 +691,7 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
               <select
                 value={year}
                 onChange={e => setYear(Number(e.target.value))}
-                className="w-24 rounded-lg border border-white/10 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500/50"
+                className="field h-10 w-24 py-0"
               >
                 {[now.getFullYear(), now.getFullYear() + 1].map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -719,7 +702,7 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
 
           {/* Selector de plataformas */}
           <div>
-            <p className="text-xs font-medium text-zinc-400 mb-2">Plataformas a cubrir</p>
+            <p className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400 mb-2">Plataformas a cubrir</p>
             <div className="space-y-2">
               {PLATAFORMAS_CALENDARIO.map(p => {
                 const Icon = p.icon
@@ -730,25 +713,25 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
                     type="button"
                     onClick={() => togglePlat(p.key)}
                     className={cn(
-                      'w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors',
                       active
-                        ? 'border-emerald-500/30 bg-emerald-500/[0.07]'
-                        : 'border-white/8 bg-white/[0.02] hover:bg-white/[0.04]'
+                        ? 'border-cyan-500/40 bg-cyan-500/10'
+                        : 'border-zinc-200 hover:bg-zinc-50 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:bg-white/[0.04]'
                     )}
                   >
-                    <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
-                      active ? 'bg-emerald-500/15' : 'bg-white/5'
+                    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      active ? 'bg-cyan-500/15' : 'bg-zinc-100 dark:bg-white/[0.06]'
                     )}>
-                      <Icon className={cn('h-3.5 w-3.5', active ? 'text-emerald-300' : 'text-zinc-500')} />
+                      <Icon className={cn('h-4 w-4', active ? 'text-cyan-700 dark:text-cyan-300' : 'text-zinc-500')} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={cn('text-xs font-medium', active ? 'text-zinc-100' : 'text-zinc-400')}>{p.label}</p>
-                      <p className="text-[10px] text-zinc-600">{p.desc}</p>
+                      <p className={cn('text-[13px] font-bold', active ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400')}>{p.label}</p>
+                      <p className="text-[11px] text-zinc-500">{p.desc}</p>
                     </div>
-                    <div className={cn('h-4 w-4 shrink-0 rounded border flex items-center justify-center',
-                      active ? 'border-emerald-500/50 bg-emerald-500/20' : 'border-white/10'
+                    <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                      active ? 'border-cyan-500/60 bg-cyan-500/20' : 'border-zinc-300 dark:border-white/15'
                     )}>
-                      {active && <div className="h-2 w-2 rounded-sm bg-emerald-400" />}
+                      {active && <div className="h-2 w-2 rounded-sm bg-[var(--brand-accent)]" />}
                     </div>
                   </button>
                 )
@@ -758,20 +741,20 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
 
           {/* Estimado */}
           {plats.size > 0 && (
-            <div className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2.5">
-              <p className="text-xs text-zinc-400">
-                Se crearán aproximadamente <span className="font-semibold text-emerald-300">~{estimado} borradores</span> distribuidos en los días hábiles de {mesLabel} {year}.
+            <div className="dashboard-panel-muted px-3 py-2.5">
+              <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                Se crearán aproximadamente <span className="font-bold text-zinc-900 dark:text-white">~{estimado} borradores</span> distribuidos en los días hábiles de {mesLabel} {year}.
                 Cada uno incluye el tema y el gancho sugerido — después los completás con texto completo o guion.
               </p>
             </div>
           )}
         </div>
 
-        <div className="border-t border-white/10 px-5 py-4 flex gap-2 justify-end">
+        <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-white/[0.08] sm:pb-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
+            className="btn btn-ghost border-transparent"
           >
             Cancelar
           </button>
@@ -779,7 +762,7 @@ function CalendarioGenerarDialog({ onClose, onSuccess }: { onClose: () => void; 
             type="button"
             onClick={handleGenerar}
             disabled={generar.isPending || plats.size === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors"
+            className="btn btn-primary"
           >
             {generar.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Generando con IA…</>
@@ -847,17 +830,17 @@ function ContenidoCalendar({ contenidos, onEdit, onCreateForDate }: {
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-200">{MESES[m]} {y}</h2>
+        <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">{MESES[m]} {y}</h2>
         <div className="flex items-center gap-1">
-          <button onClick={prev} className="rounded-md border border-white/10 bg-white/5 p-1.5 text-zinc-300 hover:bg-white/10" title="Mes anterior"><ChevronLeft className="h-4 w-4" /></button>
-          <button onClick={() => setCursor({ y: hoy.getFullYear(), m: hoy.getMonth() })} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10">Hoy</button>
-          <button onClick={next} className="rounded-md border border-white/10 bg-white/5 p-1.5 text-zinc-300 hover:bg-white/10" title="Mes siguiente"><ChevronRight className="h-4 w-4" /></button>
+          <button onClick={prev} className="btn btn-ghost btn-icon h-8 w-8" title="Mes anterior"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={() => setCursor({ y: hoy.getFullYear(), m: hoy.getMonth() })} className="btn btn-ghost btn-sm">Hoy</button>
+          <button onClick={next} className="btn btn-ghost btn-icon h-8 w-8" title="Mes siguiente"><ChevronRight className="h-4 w-4" /></button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5">
+      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-200 dark:border-white/[0.09] dark:bg-white/[0.06]">
         {DIAS_SEMANA.map((d) => (
-          <div key={d} className="bg-zinc-900/60 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-zinc-500">{d}</div>
+          <div key={d} className="bg-zinc-50 px-2 py-1.5 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:bg-[var(--card)]">{d}</div>
         ))}
         {cells.map((d, i) => {
           const items = d ? (byDate[dateStr(d)] ?? []) : []
@@ -871,11 +854,11 @@ function ContenidoCalendar({ contenidos, onEdit, onCreateForDate }: {
             >
               {d && (
                 <>
-                  <div className={cn('mb-1 text-[11px]', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-500/30 font-semibold text-violet-200' : 'text-zinc-500')}>{d}</div>
-                  <div className="space-y-1">
+                  <div className={cn('mb-1 text-[11px] tabular-nums', esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-navy)] font-bold text-white dark:bg-white dark:text-[#1c2633]' : 'font-medium text-zinc-500')}>{d}</div>
+                  <div className="space-y-1.5">
                     {items.map((c) => (
                       <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
-                        className={cn('flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[10px] leading-tight transition-all hover:brightness-125', temaDe(c).pill)}
+                        className={cn('flex w-full items-center gap-1 rounded-md border px-1.5 py-1 text-left text-[10px] font-semibold leading-tight transition-all hover:brightness-110', temaDe(c).pill)}
                         title={`${c.titulo} · ${ESTADO_LABEL[c.estado]} · arrastrá para reagendar`}>
                         <span className="truncate">{c.titulo}</span>
                       </CalChip>
@@ -892,7 +875,7 @@ function ContenidoCalendar({ contenidos, onEdit, onCreateForDate }: {
         <CalSinFecha count={sinFecha.length}>
           {sinFecha.map((c) => (
             <CalChip key={c.id} c={c} onClick={() => onEdit(c)}
-              className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-all hover:brightness-125', temaDe(c).pill)}
+              className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all hover:brightness-110', temaDe(c).pill)}
               title={`${ESTADO_LABEL[c.estado]} · arrastrá a un día para agendar`}>
               <span className="max-w-[160px] truncate">{c.titulo}</span>
             </CalChip>
@@ -914,13 +897,13 @@ function CalDia({ id, vacio, children, onCreateClick }: {
   const { setNodeRef, isOver } = useDroppable({ id: id ?? `empty-${Math.random()}`, disabled: !id })
   return (
     <div ref={id ? setNodeRef : undefined}
-      className={cn('group/day min-h-[92px] bg-zinc-950/40 p-1.5 transition-colors flex flex-col', vacio && 'opacity-40', isOver && 'bg-violet-500/15 ring-1 ring-inset ring-violet-400/50')}>
+      className={cn('group/day flex min-h-[92px] flex-col bg-white p-1.5 transition-colors dark:bg-[var(--card)]', vacio && 'opacity-40', isOver && '!bg-cyan-500/10 ring-1 ring-inset ring-cyan-500/50')}>
       <div className="flex-1">{children}</div>
       {id && onCreateClick && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onCreateClick() }}
-          className="mt-0.5 flex w-full items-center justify-center rounded py-0.5 text-zinc-700 opacity-0 group-hover/day:opacity-100 hover:bg-white/5 hover:text-zinc-400 transition-all"
+          className="mt-0.5 flex w-full items-center justify-center rounded-md py-0.5 text-zinc-400 opacity-0 transition-all hover:bg-zinc-100 hover:text-zinc-700 group-hover/day:opacity-100 dark:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-zinc-300"
           title="Agregar contenido en esta fecha"
         >
           <Plus className="h-3 w-3" />
@@ -934,8 +917,8 @@ function CalDia({ id, vacio, children, onCreateClick }: {
 function CalSinFecha({ count, children }: { count: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'sin-fecha' })
   return (
-    <div ref={setNodeRef} className={cn('rounded-lg p-2 transition-colors', isOver && 'bg-zinc-500/10 ring-1 ring-inset ring-zinc-400/40')}>
-      <p className="mb-2 text-[11px] uppercase tracking-wide text-zinc-500">
+    <div ref={setNodeRef} className={cn('rounded-2xl p-2 transition-colors', isOver && 'bg-cyan-500/10 ring-1 ring-inset ring-cyan-500/40')}>
+      <p className="eyebrow mb-2">
         Sin fecha ({count}) — arrastrá a un día para agendar, o soltá acá para quitar la fecha
       </p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
@@ -1023,19 +1006,19 @@ function BoardColumn({ estado, label, items, orden, onEdit, onDelete, onMover, d
   return (
     <div
       ref={setNodeRef}
-      className={cn('rounded-xl border p-2 transition-colors', isOver ? 'border-violet-400/50 bg-violet-500/[0.06]' : 'border-white/10 bg-zinc-900/20')}
+      className={cn('rounded-2xl border p-2 transition-colors', isOver ? 'border-cyan-500/50 bg-cyan-500/[0.06]' : 'border-zinc-200 bg-zinc-50 dark:border-white/[0.06] dark:bg-white/[0.02]')}
     >
       <div className="flex items-center justify-between px-1 py-1.5 mb-1">
-        <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[estado])}>
+        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold px-2.5 py-0.5 text-[11px]', ESTADO_CLS[estado])}>
           {label}
         </span>
-        <span className="text-[10px] text-zinc-500">{items.length}</span>
+        <span className="text-xs font-bold tabular-nums text-zinc-500">{items.length}</span>
       </div>
       <div className="space-y-2 min-h-[44px]">
         {items.map((c) => (
           <BoardCard key={c.id} c={c} orden={orden} onEdit={onEdit} onDelete={onDelete} onMover={onMover} disabled={disabled} />
         ))}
-        {items.length === 0 && <p className="px-1 py-3 text-center text-[10px] text-zinc-600">Soltá una tarjeta acá</p>}
+        {items.length === 0 && <p className="px-1 py-3 text-center text-[11px] font-medium text-zinc-500">Soltá una tarjeta acá</p>}
       </div>
     </div>
   )
@@ -1064,44 +1047,44 @@ function BoardCard({ c, orden, onEdit, onDelete, onMover, disabled }: {
       style={style}
       {...attributes}
       {...listeners}
-      className={cn('rounded-lg border bg-zinc-900/40 p-2.5 group cursor-grab active:cursor-grabbing', tema.border)}
+      className={cn('app-card group cursor-grab rounded-xl p-2.5 active:cursor-grabbing', tema.border)}
     >
       {c.imagen_url && (
-        <img src={c.imagen_url} alt="" className="w-full h-24 object-cover rounded-md mb-2" loading="lazy" />
+        <img src={c.imagen_url} alt="" className="mb-2 h-24 w-full rounded-lg object-cover" loading="lazy" />
       )}
       <div className="flex items-center gap-1.5 mb-1.5">
-        <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0 text-[9px] font-medium', tema.pill)}>
+        <span className={cn('inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold', tema.pill)}>
           <Icon className="h-2.5 w-2.5" /> {guion ? 'Reel' : CATEGORIA_LABEL[c.categoria]}
         </span>
-        {guion && <Clapperboard className="h-3 w-3 text-fuchsia-400" />}
+        {guion && <Clapperboard className="h-3 w-3 text-fuchsia-600 dark:text-fuchsia-400" />}
       </div>
-      <p className={cn('text-zinc-50 leading-snug mb-1', guion ? 'text-xs font-semibold line-clamp-3' : 'text-xs font-medium line-clamp-2')}>{headline}</p>
+      <p className={cn('mb-1 text-[13px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white', guion ? 'line-clamp-3' : 'line-clamp-2')}>{headline}</p>
       {guion ? (
-        <p className="text-[9px] text-zinc-500 mb-1.5">{guion.escenas.length} escenas{guion.duracion_estimada ? ` · ${guion.duracion_estimada}` : ''}</p>
+        <p className="mb-1.5 text-[10.5px] font-medium text-zinc-500">{guion.escenas.length} escenas{guion.duracion_estimada ? ` · ${guion.duracion_estimada}` : ''}</p>
       ) : previewContenido(c) ? (
-        <p className="text-[10px] text-zinc-500 line-clamp-2 leading-snug mb-1.5">{previewContenido(c)}</p>
+        <p className="mb-1.5 line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{previewContenido(c)}</p>
       ) : null}
-      {c.publicar_el && <p className="text-[10px] text-zinc-500 mb-1.5">📅 {formatDate(c.publicar_el)}</p>}
+      {c.publicar_el && <p className="mb-1.5 text-[11px] font-medium tabular-nums text-zinc-500">📅 {formatDate(c.publicar_el)}</p>}
       <div className="mb-1.5"><EstadoPipeline estado={c.estado} bar={tema.bar} /></div>
       <div
-        className="flex items-center justify-between gap-1 pt-1.5 border-t border-white/5"
+        className="flex items-center justify-between gap-1 border-t border-zinc-100 pt-1.5 dark:border-white/[0.06]"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-0.5">
           <button onClick={() => onMover(c, -1)} disabled={disabled || i <= 0}
-            className="rounded p-1 text-zinc-500 hover:text-violet-300 disabled:opacity-30 disabled:hover:text-zinc-500" title="Mover atrás">
+            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-white" title="Mover atrás">
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           <button onClick={() => onMover(c, 1)} disabled={disabled || i >= orden.length - 1}
-            className="rounded p-1 text-zinc-500 hover:text-violet-300 disabled:opacity-30 disabled:hover:text-zinc-500" title="Mover adelante">
+            className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-white" title="Mover adelante">
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
-        <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(c)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}>
+        <div className="flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+          <button onClick={() => onEdit(c)} className="rounded-md p-1 text-zinc-500 hover:bg-zinc-100 hover:text-[var(--brand-accent)] dark:hover:bg-white/[0.06]" title={parseGuionReel(c) ? 'Ver guion' : 'Editar'}>
             <Edit2 className="h-3 w-3" />
           </button>
-          <button onClick={() => onDelete(c.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+          <button onClick={() => onDelete(c.id)} className="rounded-md p-1 text-zinc-500 hover:bg-rose-500/10 hover:text-rose-500" title="Eliminar">
             <Trash2 className="h-3 w-3" />
           </button>
         </div>
@@ -1223,48 +1206,48 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
     } catch (e) { toast.error(e instanceof Error ? e.message : 'No se pudo publicar en LinkedIn') }
   }
 
-  const inputCls = 'w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/20'
+  const inputCls = 'field'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#10161d] shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3 sticky top-0 bg-[#10161d] backdrop-blur">
-          <h3 className="text-sm font-semibold text-zinc-100">{editing ? 'Editar contenido' : 'Nuevo contenido'}</h3>
-          <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--popover)]" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4 dark:border-white/[0.08] dark:bg-[var(--popover)]">
+          <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">{editing ? 'Editar contenido' : 'Nuevo contenido'}</h3>
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={submit} className="p-4 space-y-3">
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Título</label>
+        <form onSubmit={submit} className="space-y-4 p-5">
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Título</label>
             <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} required autoFocus className={inputCls} placeholder="Ej: Tips para divorcios express" />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Categoría</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Categoría</label>
               <select value={categoria} onChange={e => setCategoria(e.target.value as CategoriaContenido)} className={inputCls}>
                 {CATEGORIAS_CONTENIDO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Publicar el (opcional)</label>
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Publicar el (opcional)</label>
               <input type="date" value={publicarEl} onChange={e => setPublicarEl(e.target.value)} className={inputCls} />
             </div>
           </div>
 
           {editing && (
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Estado del flujo</label>
-              <div className="flex flex-wrap gap-1">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Estado del flujo</label>
+              <div className="flex flex-wrap gap-1.5">
                 {ESTADOS_CONTENIDO.map((e) => (
                   <button
                     key={e.value}
                     type="button"
                     onClick={() => setEstado(e.value)}
-                    className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                      estado === e.value ? `${ESTADO_CLS[e.value]} ring-1 ring-current` : 'bg-white/5 text-zinc-400 hover:bg-white/10')}
+                    aria-pressed={estado === e.value}
+                    className="chip"
                   >
                     {e.label}
                   </button>
@@ -1273,8 +1256,8 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
             </div>
           )}
 
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Contenido</label>
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Contenido</label>
             <textarea
               value={cuerpo}
               onChange={e => setCuerpo(e.target.value)}
@@ -1284,21 +1267,21 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Hashtags (opcional)</label>
+          <div className="space-y-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Hashtags (opcional)</label>
             <input type="text" value={hashtags} onChange={e => setHashtags(e.target.value)} className={inputCls} placeholder="#abogados #derecho #tucuman" />
           </div>
 
           {/* Imagen adjunta */}
           <div className="space-y-2">
-            <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-medium">Imagen (opcional)</label>
+            <label className="block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Imagen (opcional)</label>
             {imagenUrl ? (
               <div className="relative">
-                <img src={imagenUrl} alt="Vista previa" className="w-full max-h-48 object-cover rounded-lg" />
+                <img src={imagenUrl} alt="Vista previa" className="max-h-48 w-full rounded-xl object-cover" />
                 <button
                   type="button"
                   onClick={() => setImagenUrl(null)}
-                  className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-zinc-300 hover:text-rose-400 transition-colors"
+                  className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-zinc-200 transition-colors hover:text-rose-400"
                   title="Quitar imagen"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -1309,7 +1292,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
                 type="button"
                 onClick={() => imagenRef.current?.click()}
                 disabled={uploadImagen.isPending}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.03] py-4 text-xs text-zinc-400 hover:border-white/25 hover:text-zinc-300 disabled:opacity-50 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-300 py-4 text-xs font-semibold text-zinc-500 transition-colors hover:border-[var(--brand-accent)] hover:text-zinc-800 disabled:opacity-50 dark:border-white/15 dark:bg-white/[0.02] dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 {uploadImagen.isPending
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Subiendo…</>
@@ -1338,42 +1321,42 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
 
           {/* Tips de horario por plataforma */}
           {HORARIOS_TIPS[categoria] && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2">
-              <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400/70 mt-0.5" />
-              <p className="text-[11px] text-amber-300/80 leading-relaxed">{HORARIOS_TIPS[categoria]}</p>
+            <div className="flex items-start gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-2">
+              <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-300" />
+              <p className="text-[11px] leading-relaxed text-cyan-800 dark:text-cyan-200/80">{HORARIOS_TIPS[categoria]}</p>
             </div>
           )}
 
           {editing && (
-            <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04] p-3 space-y-2">
-              <p className="text-[11px] uppercase tracking-wider font-medium text-cyan-300/80">Publicar</p>
-              <p className="text-[11px] text-zinc-400">
+            <div className="dashboard-panel-muted space-y-2 p-3.5">
+              <p className="eyebrow">Publicar</p>
+              <p className="text-[11.5px] leading-relaxed text-zinc-600 dark:text-zinc-400">
                 Copia el texto + hashtags y abre el editor de la red.{' '}
                 {dest?.prefilled ? 'En X queda pre-cargado.' : 'Pegalo (Ctrl/Cmd+V) en el editor que se abre.'} Vos/Facundo dan el último click desde su cuenta.
               </p>
 
               {esX && tweetsHilo.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] text-zinc-300">
+                  <p className="text-[11.5px] font-medium text-zinc-700 dark:text-zinc-300">
                     Hilo de {tweetsHilo.length} {tweetsHilo.length === 1 ? 'tweet' : 'tweets'} — posteá en orden: el 1 abre X, los demás copialos y pegalos como respuesta.
                   </p>
                   {tweetsHilo.map((tw, i) => {
                     const over = tw.length > 280
                     return (
-                      <div key={i} className="rounded-md border border-white/10 bg-white/5 p-2">
+                      <div key={i} className="rounded-xl border border-zinc-200 bg-white p-2.5 dark:border-white/10 dark:bg-white/[0.03]">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-zinc-500">
-                            Tweet {i + 1} · <span className={over ? 'text-rose-400 font-medium' : 'text-zinc-500'}>{tw.length}/280</span>
+                          <span className="text-[11px] font-medium tabular-nums text-zinc-500">
+                            Tweet {i + 1} · <span className={over ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-zinc-500'}>{tw.length}/280</span>
                           </span>
                           <button
                             type="button"
                             onClick={() => (i === 0 ? abrirTweetEnX(tw) : copiarTweet(tw))}
-                            className="inline-flex items-center gap-1 rounded bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-300 hover:bg-cyan-500/25"
+                            className="btn btn-secondary btn-sm min-h-0 px-2 py-1 text-[11px]"
                           >
                             {i === 0 ? <><Send className="h-3 w-3" /> Copiar + abrir X</> : 'Copiar'}
                           </button>
                         </div>
-                        <p className="mt-1 text-[11px] text-zinc-300 whitespace-pre-wrap leading-snug">{tw}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-[12px] leading-snug text-zinc-700 dark:text-zinc-300">{tw}</p>
                       </div>
                     )
                   })}
@@ -1386,7 +1369,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
                     type="button"
                     onClick={handlePublicarLinkedIn}
                     disabled={liPublish.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-[#0a66c2] px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-50 transition"
+                    className="btn btn-sm bg-[#0a66c2] text-white hover:brightness-110"
                     title={liStatus.accountName ? `Publicar como ${liStatus.accountName}` : 'Publicar en tu LinkedIn'}
                   >
                     {liPublish.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Linkedin className="h-3.5 w-3.5" />}
@@ -1396,7 +1379,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
                   <button
                     type="button"
                     onClick={() => connectLinkedIn().catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo conectar LinkedIn'))}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0a66c2]/40 px-3 py-1.5 text-xs font-medium text-[#4aa3e8] hover:bg-[#0a66c2]/10 transition"
+                    className="btn btn-sm border border-[#0a66c2]/40 text-[#0a66c2] hover:bg-[#0a66c2]/10 dark:text-[#4aa3e8]"
                   >
                     <Linkedin className="h-3.5 w-3.5" /> Conectar LinkedIn
                   </button>
@@ -1405,7 +1388,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
                   <button
                     type="button"
                     onClick={handlePublicar}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
+                    className="btn btn-secondary btn-sm"
                   >
                     <Send className="h-3.5 w-3.5" />
                     {dest ? `Copiar y abrir ${dest.label}` : 'Copiar texto'}
@@ -1415,7 +1398,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
                   <button
                     type="button"
                     onClick={handleMarcarPublicado}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                    className="btn btn-sm border border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300"
                   >
                     Marcar como publicado
                   </button>
@@ -1427,7 +1410,7 @@ function ContenidoDialog({ editing, defaultPublicarEl, onClose }: { editing: Con
           <button
             type="submit"
             disabled={isPending || !titulo.trim()}
-            className="w-full rounded-md bg-violet-500/15 px-3 py-2.5 text-sm font-medium text-violet-300 hover:bg-violet-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="btn btn-primary w-full"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {editing ? 'Guardar cambios' : 'Crear contenido'}

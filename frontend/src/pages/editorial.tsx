@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { AlertTriangle, BookMarked, Layers, PenLine, BookOpen, Sparkles, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Newspaper, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BookMarked, Layers, PenLine, BookOpen, Sparkles, CalendarClock, ChevronDown, Clock, FileSearch, FileText, Gavel, Loader2, MessageSquareWarning, Plus, Radar, RefreshCw, Search, ShieldAlert, UserRound, X } from 'lucide-react'
 import {
   useAccesoEditorial, usePropuestas, useArticulos, useEditorialIA, useActualizarPropuesta, useCrearPropuestaManual,
   usePuedeAprobarEditorial, useEquipoEditorial, useAsignarPropuesta, nombreCorto,
   TIPO_ARTICULO_LABEL, ESTADO_ARTICULO_LABEL, type Propuesta, type EstadoArticulo, type MiembroEditorial,
 } from '@/hooks/use-editorial'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
+import { PageHeader } from '@/components/shared/page-header'
 import { InvestigarConGemini } from '@/components/editorial/investigacion-externa'
 import { LineasPanel, EstiloPanel, BibliotecaPanel } from '@/components/editorial/paneles-aprendizaje'
 import { toast } from '@/stores/toast-store'
@@ -18,32 +19,32 @@ import { useAuthStore } from '@/stores/auth-store'
 // Marco ve todo lo que producen, les asigna temas y es el único que aprueba.
 
 const ORIGEN: Record<Propuesta['origen'], { label: string; icon: typeof Radar; cls: string }> = {
-  sentencia: { label: 'Sentencia nueva', icon: Gavel, cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
-  radar: { label: 'Radar', icon: Radar, cls: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' },
-  manual: { label: 'Manual', icon: Plus, cls: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300' },
-  actuacion: { label: 'Desde un expediente', icon: FileSearch, cls: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
-  actualizacion: { label: 'Actualización', icon: RefreshCw, cls: 'bg-orange-500/10 text-orange-700 dark:text-orange-300' },
+  sentencia: { label: 'Sentencia nueva', icon: Gavel, cls: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+  radar: { label: 'Radar', icon: Radar, cls: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' },
+  manual: { label: 'Manual', icon: Plus, cls: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300' },
+  actuacion: { label: 'Desde un expediente', icon: FileSearch, cls: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+  actualizacion: { label: 'Actualización', icon: RefreshCw, cls: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300' },
 }
 
 const hoyISO = () => new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
 const fechaCorta = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/')
 
 const ESTADO_CLS: Record<EstadoArticulo, string> = {
-  investigacion: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
-  borrador: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  aprobado: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  publicado: 'bg-emerald-600/15 text-emerald-800 dark:text-emerald-300',
-  archivado: 'bg-zinc-500/10 text-zinc-500',
+  investigacion: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  borrador: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  aprobado: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  publicado: 'border-emerald-600/40 bg-emerald-600/15 text-emerald-800 dark:text-emerald-300',
+  archivado: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-500',
 }
 
 function Puntaje({ label, valor }: { label: string; valor: number | null }) {
   if (!valor) return null
   return (
-    <span className="flex items-center gap-1 text-[11px] text-zinc-500" title={`${label}: ${valor}/5`}>
+    <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500" title={`${label}: ${valor}/5`}>
       {label}
       <span className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((i) => (
-          <span key={i} className={cn('h-1.5 w-1.5 rounded-full', i <= valor ? 'bg-[var(--brand-accent)] dark:bg-[var(--brand-ice)]' : 'bg-zinc-300 dark:bg-white/15')} />
+          <span key={i} className={cn('h-1.5 w-1.5 rounded-full', i <= valor ? 'bg-[var(--brand-accent)]' : 'bg-zinc-300 dark:bg-white/15')} />
         ))}
       </span>
     </span>
@@ -54,7 +55,7 @@ function Campo({ titulo, texto }: { titulo: string; texto: string | null }) {
   if (!texto) return null
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{titulo}</p>
+      <p className="eyebrow">{titulo}</p>
       <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">{texto}</p>
     </div>
   )
@@ -79,7 +80,7 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
   })
   if (p.asignado_a && !abierto) {
     return (
-      <button type="button" onClick={() => enviar(null)} disabled={asignar.isPending} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
+      <button type="button" onClick={() => enviar(null)} disabled={asignar.isPending} className="btn btn-ghost flex-1 border-transparent max-sm:min-h-10 sm:flex-none">
         Quitar asignación
       </button>
     )
@@ -87,29 +88,29 @@ function Asignar({ p, equipo, yo }: { p: Propuesta; equipo: MiembroEditorial[]; 
   if (!abierto) {
     return (
       <button type="button" onClick={() => { setA(colaboradores[0]?.id ?? ''); setAbierto(true) }}
-        className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
+        className="btn btn-ghost flex-1 max-sm:min-h-10 sm:flex-none">
         <UserRound className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Asignar
       </button>
     )
   }
   return (
-    <div className="order-first basis-full space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
-      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Proponer este tema a</p>
+    <div className="dashboard-panel-muted order-first basis-full space-y-2.5 rounded-2xl p-3.5">
+      <p className="text-[13px] font-bold tracking-tight text-zinc-900 dark:text-white">Proponer este tema a</p>
       <select value={a} onChange={(e) => setA(e.target.value)}
-        className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white px-2.5 text-base sm:min-h-9 sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200">
+        className="field min-h-10 text-base sm:min-h-9 sm:text-sm">
         {colaboradores.map((m) => <option key={m.id} value={m.id}>{nombreCorto(m)}</option>)}
       </select>
       <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
         placeholder="Indicaciones (opcional): enfoque, a quién va dirigido, para cuándo…"
-        className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
-      <label className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        className="field text-base sm:text-sm" />
+      <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
         Fecha límite (opcional)
         <input type="date" value={plazo} min={hoyISO()} onChange={(e) => setPlazo(e.target.value)}
-          className="min-h-9 rounded-lg border border-zinc-200 bg-white px-2 text-base sm:text-sm dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100" />
+          className="field min-h-9 w-auto py-1 text-base normal-case tracking-normal sm:text-sm" />
       </label>
       <div className="flex gap-2 sm:justify-end">
-        <button type="button" onClick={() => setAbierto(false)} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">Cancelar</button>
-        <button type="button" onClick={() => enviar(a)} disabled={!a || asignar.isPending} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]">
+        <button type="button" onClick={() => setAbierto(false)} className="btn btn-ghost flex-1 border-transparent max-sm:min-h-10 sm:flex-none">Cancelar</button>
+        <button type="button" onClick={() => enviar(a)} disabled={!a || asignar.isPending} className="btn btn-primary flex-1 max-sm:min-h-10 sm:flex-none">
           {asignar.isPending && <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" />} Asignar y avisar
         </button>
       </div>
@@ -137,32 +138,32 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
   })
 
   return (
-    <div className="dashboard-panel rounded-2xl p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', o.cls)}>
+        <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1', o.cls)}>
           <o.icon className="h-3 w-3" /> {o.label}
         </span>
-        <span className="text-[11px] text-zinc-500">{new Date(p.created_at).toLocaleDateString('es-AR')}</span>
+        <span className="text-[11px] font-medium tabular-nums text-zinc-500">{new Date(p.created_at).toLocaleDateString('es-AR')}</span>
         {p.tipo_sugerido && <span className="text-[11px] text-zinc-500">· sugiere {TIPO_ARTICULO_LABEL[p.tipo_sugerido].toLowerCase()}</span>}
-        {p.estado === 'en_curso' && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-700 dark:text-amber-300">En curso</span>}
+        {p.estado === 'en_curso' && <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">En curso</span>}
         {asignado && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:text-indigo-300">
+          <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-indigo-400/30 bg-indigo-400/10 text-indigo-700 dark:text-indigo-300">
             <UserRound className="h-3 w-3" /> {p.asignado_a === yo ? 'Para vos' : `Para ${asignado.nombre}`}
           </span>
         )}
         {autor && <span className="text-[11px] text-zinc-500">· propuesta de {autor.nombre}</span>}
         {p.asignado_a && p.fecha_limite && (
-          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-            p.fecha_limite < hoyISO() && p.estado === 'propuesta' ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300')}>
+          <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1',
+            p.fecha_limite < hoyISO() && p.estado === 'propuesta' ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300')}>
             <CalendarClock className="h-3 w-3" /> para el {fechaCorta(p.fecha_limite)}
           </span>
         )}
       </div>
-      <h3 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-50">{p.titulo}</h3>
+      <h3 className="mt-2 text-[15px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white">{p.titulo}</h3>
       {p.pregunta && <p className="mt-1 text-sm italic text-zinc-600 dark:text-zinc-300">{p.pregunta}</p>}
       {p.asignado_a && p.nota_asignacion && (
-        <p className="mt-2 rounded-lg bg-indigo-500/5 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
-          <span className="font-medium">Indicaciones de Marco:</span> {p.nota_asignacion}
+        <p className="mt-2 rounded-xl border border-indigo-400/20 bg-indigo-500/5 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300">
+          <span className="font-semibold">Indicaciones de Marco:</span> {p.nota_asignacion}
         </p>
       )}
       <div className="mt-2 flex flex-wrap gap-3">
@@ -172,26 +173,26 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
       </div>
 
       {abierta && (
-        <div className="mt-3 space-y-2.5 border-t border-zinc-200 pt-3 dark:border-white/10">
+        <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-white/[0.08]">
           <Campo titulo={p.origen === 'actualizacion' ? 'Qué cambió' : 'Problema jurídico'} texto={p.problema} />
           <Campo titulo={p.origen === 'actualizacion' ? 'Qué revisar' : 'Hipótesis inicial'} texto={p.hipotesis} />
           <Campo titulo="Enfoque diferencial" texto={p.enfoque} />
           <Campo titulo="Relevancia" texto={p.relevancia} />
           {p.fuentes?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Fuentes</p>
+              <p className="eyebrow">Fuentes</p>
               <ul className="mt-0.5 space-y-0.5 text-sm text-zinc-700 dark:text-zinc-300">
-                {p.fuentes.map((f, i) => <li key={i}><span className="font-mono text-[11px] text-zinc-400">[{f.tipo ?? '?'}]</span> {f.descripcion}</li>)}
+                {p.fuentes.map((f, i) => <li key={i}><span className="text-[11px] font-semibold text-zinc-400">[{f.tipo ?? '?'}]</span> {f.descripcion}</li>)}
               </ul>
             </div>
           )}
           {p.riesgos && (
-            <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-sm text-amber-800 dark:text-amber-300">
+            <div className="flex gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 text-sm text-amber-800 dark:text-amber-300">
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" /> {p.riesgos}
             </div>
           )}
           {p.movement_id && p.expediente_id && (
-            <Link to={`/expedientes/${p.expediente_id}?tab=actuaciones&mid=${p.movement_id}`} className="inline-flex items-center gap-1 text-xs text-[var(--brand-accent)] hover:underline dark:text-[var(--brand-ice)]">
+            <Link to={`/expedientes/${p.expediente_id}?tab=actuaciones&mid=${p.movement_id}`} className="dashboard-link inline-flex items-center gap-1 text-xs hover:underline">
               <Gavel className="h-3 w-3" /> Ver la sentencia de origen (interna, no publicable)
             </Link>
           )}
@@ -199,21 +200,21 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
       )}
 
       <button type="button" onClick={() => setAbierta((v) => !v)}
-        className="mt-2 flex min-h-8 items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+        className="mt-2 flex min-h-8 items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-white">
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', abierta && 'rotate-180')} />
         {abierta ? 'Ver menos' : p.origen === 'actualizacion' ? 'Ver qué cambió' : 'Ver problema, hipótesis y fuentes'}
       </button>
 
       {p.estado === 'propuesta' && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-white/10 sm:justify-end">
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-white/[0.08] sm:justify-end">
           {p.origen === 'actualizacion' && p.articulo_id ? (
             <>
               <button type="button" disabled={actualizar.isPending}
                 onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
+                className="btn btn-ghost flex-1 border-transparent max-sm:min-h-10 sm:flex-none">
                 No hace falta
               </button>
-              <Link to={`/editorial/${p.articulo_id}`} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]">
+              <Link to={`/editorial/${p.articulo_id}`} className="btn btn-primary flex-1 max-sm:min-h-10 sm:flex-none">
                 <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Abrir el artículo
               </Link>
             </>
@@ -221,17 +222,17 @@ function PropuestaCard({ p, equipo, puedeAprobar, yo }: { p: Propuesta; equipo: 
             <>
               <button type="button" disabled={actualizar.isPending || ia.isPending}
                 onClick={() => actualizar.mutate({ id: p.id, estado: 'descartada' }, { onSuccess: () => toast.info('Propuesta descartada') })}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs text-zinc-500 hover:bg-zinc-500/10">
+                className="btn btn-ghost flex-1 border-transparent max-sm:min-h-10 sm:flex-none">
                 Descartar
               </button>
               {puedeAprobar && <Asignar p={p} equipo={equipo} yo={yo} />}
               <button type="button" onClick={() => setGemini(true)} disabled={ia.isPending}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs border border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                className="btn btn-ghost flex-1 max-sm:min-h-10 sm:flex-none"
                 title="Investigación con fuentes comprobadas: el sistema arma el pedido para Gemini Deep Research y comprueba cada cita del informe">
                 <Sparkles className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Con Gemini
               </button>
               <button type="button" onClick={investigar} disabled={ia.isPending}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium sm:min-h-8 sm:flex-none sm:rounded-lg sm:text-xs bg-[var(--brand-navy)] text-white hover:opacity-90 disabled:opacity-60 dark:bg-white dark:text-[var(--brand-navy)]"
+                className="btn btn-primary flex-1 max-sm:min-h-10 sm:flex-none"
                 title="Modo investigación: normas, jurisprudencia de tu base, interpretaciones y tesis. No redacta el artículo todavía.">
                 {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" /> : <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
                 {ia.isPending ? 'Investigando…' : 'Investigar'}
@@ -257,12 +258,12 @@ function NuevaPropuesta({ onClose, equipo, puedeAprobar, yo }: { onClose: () => 
   const [titulo, setTitulo] = useState('')
   const [problema, setProblema] = useState('')
   const [pregunta, setPregunta] = useState('')
-  const cls = 'w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-base sm:text-sm text-zinc-800 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100'
+  const cls = 'field text-base sm:text-sm'
   return (
-    <div className="dashboard-panel space-y-2 rounded-2xl p-4">
+    <div className="app-card space-y-2.5 p-4 sm:p-5">
       <div className="flex items-center">
-        <p className="flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-50">Nuevo tema</p>
-        <button type="button" onClick={onClose} className="-m-1.5 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-500/10 hover:text-zinc-600" aria-label="Cerrar"><X className="h-5 w-5 sm:h-4 sm:w-4" /></button>
+        <p className="flex-1 text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Nuevo tema</p>
+        <button type="button" onClick={onClose} className="btn btn-ghost btn-icon -m-1.5 border-transparent" aria-label="Cerrar"><X className="h-5 w-5 sm:h-4 sm:w-4" /></button>
       </div>
       <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título tentativo" className={cls} autoFocus />
       <textarea value={problema} onChange={(e) => setProblema(e.target.value)} rows={3} placeholder="El problema jurídico que querés pensar (qué viste, por qué importa)" className={cls} />
@@ -289,7 +290,7 @@ function NuevaPropuesta({ onClose, equipo, puedeAprobar, yo }: { onClose: () => 
           },
           onError: (e) => toast.error('No se pudo crear', e instanceof Error ? e.message : undefined),
         })}
-        className="flex min-h-10 w-full items-center justify-center rounded-xl bg-[var(--brand-navy)] px-4 text-sm font-medium text-white disabled:opacity-50 sm:min-h-9 sm:w-auto sm:rounded-lg sm:text-xs dark:bg-white dark:text-[var(--brand-navy)]">
+        className="btn btn-primary w-full max-sm:min-h-10 sm:w-auto">
         Crear propuesta
       </button>
     </div>
@@ -346,43 +347,39 @@ export default function EditorialPage() {
       <div className="hidden sm:block"><Breadcrumb items={[{ label: 'Editorial' }]} /></div>
 
       {/* Encabezado */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1">
-          <h1 className="page-title flex items-center gap-2">
-            <Newspaper className="h-5 w-5 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" /> Editorial
-          </h1>
-          <p className="page-subtitle max-w-2xl">
-            {puedeAprobar
-              ? 'Propuestas de artículos y lo que trabaja tu equipo. Nada se publica sin tu aprobación.'
-              : 'Los artículos salen a nombre de Marco Rossi: vos investigás y redactás, él revisa y aprueba.'}
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-          <button type="button" onClick={() => { setNueva(true); setTab('propuestas') }}
-            className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:min-h-9 sm:text-xs dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5">
-            <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> Nuevo tema
-          </button>
-          <button type="button" onClick={radar} disabled={ia.isPending}
-            className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 sm:min-h-9 sm:text-xs dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-            title="Analiza las novedades de la semana y propone de 0 a 5 temas (corre solo de lunes a viernes a las 7)">
-            {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" /> : <Radar className="h-4 w-4 sm:h-3.5 sm:w-3.5" />}
-            {ia.isPending ? 'Buscando…' : 'Correr radar'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Editorial"
+        subtitle={puedeAprobar
+          ? 'Propuestas de artículos y lo que trabaja tu equipo. Nada se publica sin tu aprobación.'
+          : 'Los artículos salen a nombre de Marco Rossi: vos investigás y redactás, él revisa y aprueba.'}
+        actions={
+          <>
+            <button type="button" onClick={() => { setNueva(true); setTab('propuestas') }}
+              className="btn btn-ghost">
+              <Plus className="h-4 w-4" /> Nuevo tema
+            </button>
+            <button type="button" onClick={radar} disabled={ia.isPending}
+              className="btn btn-primary"
+              title="Analiza las novedades de la semana y propone de 0 a 5 temas (corre solo de lunes a viernes a las 7)">
+              {ia.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
+              {ia.isPending ? 'Buscando…' : 'Correr radar'}
+            </button>
+          </>
+        }
+      />
 
       {/* Aviso de aprobaciones pendientes */}
       {puedeAprobar && nAprobacion > 0 && tab === 'propuestas' && (
         <button type="button" onClick={() => { setTab('articulos'); setFiltroArt('aprobacion') }}
-          className="flex w-full items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-left text-sm text-emerald-800 dark:text-emerald-300">
+          className="flex w-full items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left text-sm font-medium text-emerald-800 dark:text-emerald-300">
           <Clock className="h-4 w-4 shrink-0" />
           <span className="flex-1">{nAprobacion === 1 ? 'Un artículo espera tu aprobación' : `${nAprobacion} artículos esperan tu aprobación`}</span>
-          <span className="text-xs font-medium underline">Ver</span>
+          <span className="text-xs font-bold underline">Ver</span>
         </button>
       )}
 
       {/* Pestañas */}
-      <div className="no-scrollbar -mx-4 flex overflow-x-auto border-b border-zinc-200 px-4 sm:mx-0 sm:px-0 dark:border-white/10">
+      <div className="no-scrollbar -mx-4 flex overflow-x-auto border-b border-zinc-200 px-4 sm:mx-0 sm:px-0 dark:border-white/[0.08]">
         {([
           ['propuestas', 'Propuestas', pendientes.length, BookOpen],
           ['articulos', 'Artículos', articulos.length, FileText],
@@ -391,10 +388,10 @@ export default function EditorialPage() {
           ['biblioteca', 'Fuentes', 0, BookMarked],
         ] as const).map(([id, label, n, Icon]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
-            className={cn('-mb-px flex min-h-11 shrink-0 items-center justify-center gap-1.5 border-b-2 px-3.5 text-sm font-medium',
-              tab === id ? 'border-[var(--brand-accent)] text-zinc-900 dark:border-[var(--brand-ice)] dark:text-zinc-50' : 'border-transparent text-zinc-500 hover:text-zinc-700')}>
+            className={cn('-mb-px flex min-h-11 shrink-0 items-center justify-center gap-1.5 border-b-2 px-3.5 text-[13px] font-semibold transition-colors',
+              tab === id ? 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white' : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white')}>
             <Icon className="h-4 w-4" /> {label}
-            {n > 0 && <span className="rounded-full bg-zinc-500/15 px-1.5 text-[11px] tabular-nums">{n}</span>}
+            {n > 0 && <span className="rounded-full bg-zinc-500/15 px-1.5 text-[10.5px] font-bold tabular-nums">{n}</span>}
           </button>
         ))}
       </div>
@@ -416,7 +413,7 @@ export default function EditorialPage() {
           {isLoading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-zinc-400" /></div>
           ) : propVisibles.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
+            <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
               {propuestas.length === 0
                 ? 'Todavía no hay propuestas. Aparecen cuando entra una sentencia, con el radar de la mañana o cuando cargás una.'
                 : 'No hay propuestas en este filtro.'}
@@ -436,32 +433,32 @@ export default function EditorialPage() {
             ]} />
           )}
           {artVisibles.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
+            <p className="rounded-2xl border border-dashed border-zinc-300 px-4 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
               {articulos.length === 0 ? 'Sin artículos todavía. Empezá investigando una propuesta.' : 'No hay artículos en este filtro.'}
             </p>
           ) : artVisibles.map((a) => {
             const quien = persona(a.asignado_a ?? a.creado_por)
             return (
-              <Link key={a.id} to={`/editorial/${a.id}`} className="dashboard-panel block rounded-xl px-4 py-3 transition-opacity hover:opacity-90 active:opacity-80">
+              <Link key={a.id} to={`/editorial/${a.id}`} className="app-card block px-4 py-3.5 sm:px-5">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ESTADO_CLS[a.estado])}>{ESTADO_ARTICULO_LABEL[a.estado]}</span>
+                  <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold', ESTADO_CLS[a.estado])}>{ESTADO_ARTICULO_LABEL[a.estado]}</span>
                   {esperanAprobacion(a) && (
-                    <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                    <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
                       <Clock className="h-3 w-3" /> {puedeAprobar ? 'Espera tu aprobación' : 'Aprobación pedida'}
                     </span>
                   )}
                   {a.estado === 'borrador' && a.devuelto_at && (
-                    <span className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:text-orange-300">
+                    <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300">
                       <MessageSquareWarning className="h-3 w-3" /> Con observaciones
                     </span>
                   )}
                   {(a.alertas_confidencialidad?.length ?? 0) > 0 && (
-                    <span className="flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400"><AlertTriangle className="h-3 w-3" /> confidencialidad</span>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400"><AlertTriangle className="h-3 w-3" /> confidencialidad</span>
                   )}
                 </div>
-                <p className="mt-1.5 font-medium leading-snug text-zinc-900 dark:text-zinc-50">{a.titulo}</p>
-                {a.bajada && <p className="mt-0.5 line-clamp-2 text-sm text-zinc-500 sm:line-clamp-1">{a.bajada}</p>}
-                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
+                <p className="mt-1.5 text-[14px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white">{a.titulo}</p>
+                {a.bajada && <p className="mt-0.5 line-clamp-2 text-[13px] text-zinc-500 dark:text-zinc-400 sm:line-clamp-1">{a.bajada}</p>}
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[11.5px] font-medium tabular-nums text-zinc-500">
                   <span>{TIPO_ARTICULO_LABEL[a.tipo]}</span>
                   <span>· v{a.version}</span>
                   <span>· {new Date(a.updated_at).toLocaleDateString('es-AR')}</span>
@@ -481,11 +478,9 @@ function Chips<T extends string>({ valor, onChange, opciones }: { valor: T; onCh
     <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0">
       {opciones.map(([v, label, n]) => (
         <button key={v} type="button" onClick={() => onChange(v)}
-          className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium',
-            valor === v
-              ? 'border-transparent bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
-              : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5')}>
-          {label} <span className="tabular-nums opacity-70">{n}</span>
+          aria-pressed={valor === v}
+          className="chip min-h-8">
+          {label} <span className="chip-count">{n}</span>
         </button>
       ))}
     </div>

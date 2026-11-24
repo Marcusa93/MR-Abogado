@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
+import { PageHeader } from '@/components/shared/page-header'
 import type { Consulta, ConsultaTipoAsunto } from '@/hooks/use-consultas'
 import { TIPO_ASUNTO_LABEL } from '@/hooks/use-consultas'
 import { useWorkloadMiembros } from '@/hooks/use-workload'
@@ -39,23 +40,23 @@ function ConsultaCard({ consulta }: { consulta: Consulta }) {
   return (
     <Link
       to={`/consultas/${consulta.id}`}
-      className="block rounded-lg border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 space-y-1"
+      className="app-card block space-y-1.5 p-3.5"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-zinc-100 leading-snug">
+        <p className="text-[14px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white">
           {consulta.apellido ? `${consulta.apellido}, ${consulta.nombre}` : consulta.nombre}
         </p>
-        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-zinc-500 mt-0.5" />
+        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">
+        <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300">
           {TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto] ?? consulta.tipo_asunto}
         </span>
-        <span className="text-[10px] text-zinc-400">
+        <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
           {CONSULTA_ESTADO_LABELS[consulta.estado] ?? consulta.estado}
         </span>
         {!consulta.diagnostico_ia && (
-          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">Sin dictamen</span>
+          <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">Sin dictamen</span>
         )}
       </div>
     </Link>
@@ -100,38 +101,38 @@ function ExpedienteCard({ miembro }: { miembro: { id: string; rol: string; exped
   return (
     <Link
       to={`/expedientes/${exp.id}`}
-      className="flex items-start gap-3 rounded-lg border border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3"
+      className="app-card flex items-start gap-3 p-3.5"
     >
-      <FolderOpen className="h-4 w-4 shrink-0 text-amber-400/70 mt-0.5" />
+      <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-accent)]" />
       <div className="min-w-0 flex-1 space-y-1">
         {exp.numero && (
-          <p className="text-[10px] text-zinc-500">{exp.numero}</p>
+          <p className="text-[11px] font-semibold tabular-nums text-zinc-500">{exp.numero}</p>
         )}
-        <p className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">
+        <p className="line-clamp-2 text-[14px] font-bold leading-snug tracking-tight text-zinc-900 dark:text-white">
           {exp.caratula ?? '—'}
         </p>
         <div className="flex items-center gap-1.5 flex-wrap">
           {exp.fuero && (
-            <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-400 capitalize">
+            <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 capitalize text-zinc-600 dark:text-zinc-300">
               {exp.fuero}
             </span>
           )}
           {exp.estado_interno && (
-            <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-400 capitalize">
+            <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 capitalize text-zinc-600 dark:text-zinc-300">
               {exp.estado_interno.replace(/_/g, ' ').toLowerCase()}
             </span>
           )}
           <span className={cn(
-            'rounded px-1.5 py-0.5 text-[10px] font-medium capitalize',
+            'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold capitalize',
             miembro.rol === 'abogado'
-              ? 'bg-indigo-500/15 text-indigo-300'
-              : 'bg-zinc-500/10 text-zinc-400'
+              ? 'border-indigo-400/30 bg-indigo-400/10 text-indigo-700 dark:text-indigo-300'
+              : 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'
           )}>
             {miembro.rol}
           </span>
         </div>
       </div>
-      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-zinc-600 mt-0.5" />
+      <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-600" />
     </Link>
   )
 }
@@ -168,45 +169,43 @@ export default function CriterioPage() {
       <Breadcrumb items={[{ label: 'Tablero' }]} />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-        <div>
-          <h1 className="page-title">
-            {greeting()}, {profile?.nombre || 'Claudio'}
-          </h1>
-          <p className="page-subtitle capitalize">{fechaHoy}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap text-xs text-zinc-400">
-          <Link to="/tareas" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 transition-colors">
-            <CheckSquare className="h-3.5 w-3.5" /> Todas las tareas
-          </Link>
-          <Link to="/consultas" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 transition-colors">
-            <ClipboardList className="h-3.5 w-3.5" /> Consultas
-          </Link>
-          <Link to="/expedientes" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 transition-colors">
-            <FolderOpen className="h-3.5 w-3.5" /> Expedientes
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title={<>{greeting()}, {profile?.nombre || 'Claudio'}</>}
+        subtitle={<span className="capitalize">{fechaHoy}</span>}
+        actions={
+          <>
+            <Link to="/tareas" className="btn btn-ghost btn-sm">
+              <CheckSquare className="h-3.5 w-3.5" /> Todas las tareas
+            </Link>
+            <Link to="/consultas" className="btn btn-ghost btn-sm">
+              <ClipboardList className="h-3.5 w-3.5" /> Consultas
+            </Link>
+            <Link to="/expedientes" className="btn btn-ghost btn-sm">
+              <FolderOpen className="h-3.5 w-3.5" /> Expedientes
+            </Link>
+          </>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-zinc-400 uppercase tracking-wider font-medium">Tareas activas</p>
-          <p className="mt-1 text-2xl sm:text-3xl font-bold text-zinc-100">{tareas.length}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="app-card p-3.5 sm:p-4">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400">Tareas activas</p>
+          <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white sm:text-3xl">{tareas.length}</p>
         </div>
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 sm:p-4">
-          <div className="flex items-center gap-1 text-[11px] sm:text-xs text-rose-400 uppercase tracking-wider font-medium">
+        <div className="app-card !border-rose-500/30 p-3.5 sm:p-4">
+          <div className="flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-rose-600 dark:text-rose-400">
             <AlertTriangle className="h-3 w-3 shrink-0" /> Urgentes
           </div>
-          <p className="mt-1 text-2xl sm:text-3xl font-bold text-rose-300">{urgentesYAltas.length}</p>
+          <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums text-rose-600 dark:text-rose-300 sm:text-3xl">{urgentesYAltas.length}</p>
         </div>
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.05] p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-violet-400 uppercase tracking-wider font-medium">Consultas</p>
-          <p className="mt-1 text-2xl sm:text-3xl font-bold text-violet-300">{consultas.length}</p>
+        <div className="app-card p-3.5 sm:p-4">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400">Consultas</p>
+          <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white sm:text-3xl">{consultas.length}</p>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 sm:p-4">
-          <p className="text-[11px] sm:text-xs text-amber-400 uppercase tracking-wider font-medium">Expedientes</p>
-          <p className="mt-1 text-2xl sm:text-3xl font-bold text-amber-300">{miembros.length}</p>
+        <div className="app-card p-3.5 sm:p-4">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-zinc-500 dark:text-zinc-400">Expedientes</p>
+          <p className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white sm:text-3xl">{miembros.length}</p>
         </div>
       </div>
 
@@ -221,10 +220,10 @@ export default function CriterioPage() {
         {/* Consultas — 2 de 5 columnas en desktop */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-violet-400" />
-            <h2 className="text-sm font-semibold text-zinc-200">Consultas asignadas</h2>
+            <ClipboardList className="h-4 w-4 text-[var(--brand-accent)]" />
+            <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Consultas asignadas</h2>
             {consultas.length > 0 && (
-              <span className="rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-bold text-violet-300">
+              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 tabular-nums text-zinc-600 dark:text-zinc-300">
                 {consultas.length}
               </span>
             )}
@@ -232,7 +231,7 @@ export default function CriterioPage() {
           {loadingConsultas ? (
             <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-zinc-500" /></div>
           ) : consultas.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-white/10 px-4 py-5 text-center text-xs text-zinc-500">
+            <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-5 text-center text-xs text-zinc-500 dark:border-white/10">
               Sin consultas asignadas
             </div>
           ) : (
@@ -243,7 +242,7 @@ export default function CriterioPage() {
 
           {/* Sin dictamen — atención especial */}
           {consultas.some(c => !c.diagnostico_ia) && (
-            <p className="text-[10px] text-amber-300/70 text-center">
+            <p className="text-center text-[11px] text-amber-700/80 dark:text-amber-300/70">
               Las marcadas "Sin dictamen" aún no tienen análisis de IA
             </p>
           )}
@@ -254,10 +253,10 @@ export default function CriterioPage() {
       {(loadingMiembros || miembros.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-zinc-200">Expedientes asignados</h2>
+            <FolderOpen className="h-4 w-4 text-[var(--brand-accent)]" />
+            <h2 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Expedientes asignados</h2>
             {miembros.length > 0 && (
-              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 tabular-nums text-zinc-600 dark:text-zinc-300">
                 {miembros.length}
               </span>
             )}

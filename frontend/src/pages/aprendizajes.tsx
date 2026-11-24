@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Brain, Sparkles, CheckCheck, Check, X, Edit2, Loader2, FileText, ChevronDown, ChevronRight, GraduationCap, RefreshCw, ChevronRight as Next, Tag, Merge } from 'lucide-react'
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import {
   useAprendizajes, useAutoresAprendizajes, useAprobarAprendizaje, useDescartarAprendizaje, useEditarAprendizaje,
   type Aprendizaje, type Confidence, type Scope, type TargetKind,
@@ -31,8 +32,8 @@ const TARGET_KIND_CLS: Record<TargetKind, string> = {
 
 const CONFIDENCE_CLS: Record<Confidence, string> = {
   baja: 'text-zinc-500',
-  media: 'text-zinc-300',
-  alta: 'text-emerald-400',
+  media: 'text-zinc-600 dark:text-zinc-300',
+  alta: 'text-emerald-600 dark:text-emerald-400',
 }
 
 const SCOPE_LABEL: Record<Scope, string> = {
@@ -74,14 +75,11 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
   const confCls = CONFIDENCE_CLS[a.confidence]
 
   return (
-    <div className={cn(
-      'rounded-lg border p-4 transition-colors',
-      'border-zinc-200 bg-white dark:border-white/[0.08] dark:bg-[var(--card)] hover:border-zinc-300 dark:hover:border-white/15'
-    )}>
+    <div className="app-card p-4">
       {/* Header con badges */}
       <div className="flex items-center gap-2 flex-wrap mb-2">
         {mostrarAutor && a.owner && (
-          <span className="text-[11px] font-medium text-zinc-300">{`${a.owner.nombre ?? ''} ${a.owner.apellido ?? ''}`.trim()}</span>
+          <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">{`${a.owner.nombre ?? ''} ${a.owner.apellido ?? ''}`.trim()}</span>
         )}
         {(() => {
           const src = (a.contenido_estructurado as { source?: { type?: string; expediente_id?: string; auto?: boolean } } | null)?.source
@@ -89,13 +87,13 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
           const label = src.type === 'movement' ? 'IA — sentencia SAE' : 'IA — sentencia subida'
           return (
             <>
-              <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-medium text-cyan-300">
+              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
                 <Sparkles className="h-3 w-3" /> {label}
               </span>
               {src.expediente_id && (
                 <Link
                   to={`/expedientes/${src.expediente_id}`}
-                  className="text-[10px] text-cyan-300 hover:text-cyan-200 underline truncate"
+                  className="dashboard-link truncate text-[11px] underline"
                   title="Ver expediente origen"
                 >
                   → expediente
@@ -108,36 +106,36 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
           {TARGET_KIND_LABEL[a.target_kind]}
         </span>
         {a.target_ref_text && (
-          <span className="text-[10px] text-zinc-400">→ {a.target_ref_text}</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">→ {a.target_ref_text}</span>
         )}
-        <span className={cn('ml-auto font-mono text-[10.5px]', confCls)}>
+        <span className={cn('ml-auto text-[11px] font-semibold', confCls)}>
           confianza {a.confidence}
         </span>
-        <span className="font-mono text-[10.5px] text-zinc-500">
+        <span className="text-[11px] font-medium tabular-nums text-zinc-500">
           {SCOPE_LABEL[a.scope].toLowerCase()}
         </span>
-        <span className="font-mono text-[10.5px] text-zinc-500">
+        <span className="text-[11px] font-medium tabular-nums text-zinc-500">
           {a.observed_in_cases} {a.observed_in_cases === 1 ? 'caso' : 'casos'}
         </span>
       </div>
 
       {/* Contenido */}
       {!editing ? (
-        <p className="text-sm text-zinc-200 leading-relaxed mb-3">{a.contenido}</p>
+        <p className="mb-3 text-[13.5px] leading-relaxed text-zinc-800 dark:text-zinc-200">{a.contenido}</p>
       ) : (
         <div className="space-y-2 mb-3">
           <textarea
             value={contenidoEdit}
             onChange={(e) => setContenidoEdit(e.target.value)}
             rows={3}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 focus:border-cyan-500/40 focus:outline-none"
+            className="field"
           />
           <div className="flex items-center gap-2">
-            <label className="text-[10px] text-zinc-400">Confianza:</label>
+            <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Confianza:</label>
             <select
               value={confidenceEdit}
               onChange={(e) => setConfidenceEdit(e.target.value as Confidence)}
-              className="h-7 rounded border border-white/10 bg-white/5 px-2 text-xs text-zinc-200"
+              className="field h-8 w-auto py-0 text-xs"
             >
               <option value="baja">Baja</option>
               <option value="media">Media</option>
@@ -151,18 +149,18 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
       {(a.source_escrito_id || a.source_diff) && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-[10px] text-zinc-500 hover:text-zinc-300 inline-flex items-center gap-1"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
         >
           {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           Origen
         </button>
       )}
       {expanded && (
-        <div className="mt-2 rounded bg-black/30 p-2 text-[10px] text-zinc-400 space-y-1">
+        <div className="dashboard-panel-muted mt-2 space-y-1 p-2.5 text-[11px] text-zinc-500 dark:text-zinc-400">
           {a.source_escrito_id && (
             <div className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
-              <Link to={`/escritos/${a.source_escrito_id}`} className="text-cyan-300 hover:underline truncate">
+              <Link to={`/escritos/${a.source_escrito_id}`} className="dashboard-link truncate hover:underline">
                 Escrito {a.source_escrito_id.slice(0, 8)}…
               </Link>
             </div>
@@ -175,14 +173,14 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
       )}
 
       {/* Acciones */}
-      <div className="mt-3 flex items-center gap-2 pt-3 border-t border-white/5">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3 dark:border-white/[0.06]">
         {!editing ? (
           <>
             {a.proposed && (
               <button
                 onClick={handleAprobar}
                 disabled={aprobar.isPending}
-                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-30"
+                className="btn btn-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
               >
                 {aprobar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                 Aceptar
@@ -190,7 +188,7 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
             )}
             <button
               onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+              className="btn btn-ghost btn-sm"
             >
               <Edit2 className="h-3 w-3" />
               Editar
@@ -198,7 +196,7 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
             <button
               onClick={handleDescartar}
               disabled={descartar.isPending}
-              className="ml-auto inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20 disabled:opacity-30"
+              className="btn btn-sm ml-auto border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
             >
               {descartar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
               {a.proposed ? 'Descartar' : 'Archivar'}
@@ -209,14 +207,14 @@ function AprendizajeCard({ a, mostrarAutor }: { a: Aprendizaje; mostrarAutor?: b
             <button
               onClick={handleGuardarEdicion}
               disabled={editar.isPending}
-              className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary btn-sm"
             >
               {editar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
               Guardar
             </button>
             <button
               onClick={() => { setEditing(false); setContenidoEdit(a.contenido); setConfidenceEdit(a.confidence) }}
-              className="text-xs text-zinc-400 hover:text-zinc-200"
+              className="btn btn-ghost btn-sm border-transparent"
             >
               Cancelar
             </button>
@@ -249,9 +247,9 @@ const CATEGORIA_LABEL: Record<PreguntaQuiz['categoria'], string> = {
   derecho: 'Derecho',
 }
 const CATEGORIA_CLS: Record<PreguntaQuiz['categoria'], string> = {
-  patron: 'bg-violet-500/15 text-violet-300',
-  caso: 'bg-cyan-500/15 text-cyan-300',
-  derecho: 'bg-amber-500/15 text-amber-300',
+  patron: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  caso: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  derecho: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300',
 }
 
 function QuizDiario() {
@@ -303,23 +301,23 @@ function QuizDiario() {
   if (estado === 'idle') {
     return (
       <div className="flex flex-col items-center gap-6 py-12">
-        <div className="rounded-full bg-amber-500/10 p-4">
-          <GraduationCap className="h-8 w-8 text-amber-400" />
+        <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4">
+          <GraduationCap className="h-8 w-8 text-cyan-700 dark:text-cyan-300" />
         </div>
         <div className="text-center">
-          <h2 className="text-base font-semibold text-zinc-100 mb-1">Repaso del día</h2>
-          <p className="text-sm text-zinc-500 max-w-sm">
+          <h2 className="mb-1 text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">Repaso del día</h2>
+          <p className="max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
             5 preguntas generadas por IA sobre los patrones del estudio, tus casos activos y conceptos de derecho.
           </p>
         </div>
         {error && (
-          <p className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2 max-w-sm text-center">
+          <p className="max-w-sm rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-700 dark:text-amber-300">
             {error}
           </p>
         )}
         <button
           onClick={generarQuiz}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-zinc-900 hover:opacity-90 transition-opacity"
+          className="btn btn-primary px-5"
         >
           <Sparkles className="h-4 w-4" />
           Generar quiz
@@ -331,8 +329,8 @@ function QuizDiario() {
   if (estado === 'cargando') {
     return (
       <div className="flex flex-col items-center gap-4 py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
-        <p className="text-sm text-zinc-500">Generando preguntas…</p>
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--brand-accent)]" />
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Generando preguntas…</p>
       </div>
     )
   }
@@ -341,28 +339,28 @@ function QuizDiario() {
     return (
       <div className="flex flex-col items-center gap-6 py-10 max-w-md mx-auto">
         <div className={cn(
-          'rounded-full p-4',
-          puntaje >= 4 ? 'bg-emerald-500/10' : puntaje >= 3 ? 'bg-amber-500/10' : 'bg-rose-500/10'
+          'rounded-2xl border p-4',
+          puntaje >= 4 ? 'border-emerald-500/30 bg-emerald-500/10' : puntaje >= 3 ? 'border-amber-500/30 bg-amber-500/10' : 'border-rose-500/30 bg-rose-500/10'
         )}>
           <GraduationCap className={cn(
             'h-8 w-8',
-            puntaje >= 4 ? 'text-emerald-400' : puntaje >= 3 ? 'text-amber-400' : 'text-rose-400'
+            puntaje >= 4 ? 'text-emerald-600 dark:text-emerald-400' : puntaje >= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
           )} />
         </div>
         <div className="text-center">
-          <p className="text-3xl font-bold text-zinc-100 tabular-nums">{puntaje}/{preguntas.length}</p>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-3xl font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">{puntaje}/{preguntas.length}</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {puntaje === preguntas.length ? '¡Perfecto!' : puntaje >= 3 ? 'Muy bien.' : 'A repasar un poco más.'}
           </p>
         </div>
         {/* Resumen de errores */}
         {preguntas.filter((_, i) => seleccionadas[i] !== preguntas[i].respuesta_correcta).length > 0 && (
           <div className="w-full space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Para repasar</p>
+            <p className="eyebrow">Para repasar</p>
             {preguntas.map((p, i) => seleccionadas[i] !== p.respuesta_correcta ? (
-              <div key={p.id} className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2.5">
-                <p className="text-xs text-zinc-300 mb-1">{p.enunciado}</p>
-                <p className="text-[11px] text-emerald-400">Correcta: {p.respuesta_correcta}</p>
+              <div key={p.id} className="rounded-xl border border-rose-500/25 bg-rose-500/5 px-3 py-2.5">
+                <p className="mb-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">{p.enunciado}</p>
+                <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">Correcta: {p.respuesta_correcta}</p>
                 <p className="text-[11px] text-zinc-500 mt-0.5">{p.explicacion}</p>
               </div>
             ) : null)}
@@ -371,7 +369,7 @@ function QuizDiario() {
         <div className="flex gap-2">
           <button
             onClick={generarQuiz}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 transition-colors"
+            className="btn btn-ghost"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Nuevo quiz
@@ -387,7 +385,7 @@ function QuizDiario() {
     <div className="max-w-xl mx-auto py-4">
       {/* Progreso */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-zinc-500">{idx + 1} / {preguntas.length}</p>
+        <p className="text-xs font-semibold tabular-nums text-zinc-500">{idx + 1} / {preguntas.length}</p>
         <div className="flex gap-1">
           {preguntas.map((_, i) => (
             <div
@@ -399,8 +397,8 @@ function QuizDiario() {
                     ? 'bg-emerald-500'
                     : 'bg-rose-500'
                   : i === idx
-                  ? 'bg-amber-400'
-                  : 'bg-white/10'
+                  ? 'bg-[var(--brand-accent)]'
+                  : 'bg-zinc-200 dark:bg-white/10'
               )}
             />
           ))}
@@ -408,36 +406,36 @@ function QuizDiario() {
       </div>
 
       {/* Tarjeta de pregunta */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="app-card p-5">
         {/* Categoría */}
         <div className="flex items-center gap-2 mb-3">
           <Tag className="h-3 w-3 text-zinc-500" />
-          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', CATEGORIA_CLS[preguntaActual.categoria])}>
+          <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold', CATEGORIA_CLS[preguntaActual.categoria])}>
             {CATEGORIA_LABEL[preguntaActual.categoria]}
           </span>
         </div>
 
-        <p className="text-sm font-medium text-zinc-100 leading-relaxed mb-4">{preguntaActual.enunciado}</p>
+        <p className="mb-4 text-[15px] font-semibold leading-relaxed text-zinc-900 dark:text-white">{preguntaActual.enunciado}</p>
 
         {/* Opciones */}
         <div className="space-y-2">
           {preguntaActual.opciones.map((opcion) => {
             const estaSeleccionada = seleccion === opcion
             const esLaCorrecta = opcion === preguntaActual.respuesta_correcta
-            let cls = 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] text-zinc-300'
+            let cls = 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.02] dark:text-zinc-300 dark:hover:bg-white/[0.05]'
             if (confirmada) {
-              if (esLaCorrecta) cls = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-              else if (estaSeleccionada) cls = 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-              else cls = 'border-white/5 bg-white/[0.01] text-zinc-500'
+              if (esLaCorrecta) cls = 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+              else if (estaSeleccionada) cls = 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+              else cls = 'border-zinc-100 text-zinc-400 dark:border-white/5 dark:bg-white/[0.01] dark:text-zinc-500'
             } else if (estaSeleccionada) {
-              cls = 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+              cls = 'border-cyan-500/40 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200'
             }
             return (
               <button
                 key={opcion}
                 disabled={confirmada}
                 onClick={() => setSeleccionadas(prev => ({ ...prev, [idx]: opcion }))}
-                className={cn('w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-colors', cls)}
+                className={cn('w-full rounded-xl border px-3.5 py-2.5 text-left text-sm font-medium transition-colors', cls)}
               >
                 {opcion}
               </button>
@@ -448,10 +446,10 @@ function QuizDiario() {
         {/* Explicación post-confirmación */}
         {confirmada && (
           <div className={cn(
-            'mt-4 rounded-lg border px-3 py-2.5 text-xs leading-relaxed',
+            'mt-4 rounded-xl border px-3 py-2.5 text-xs leading-relaxed',
             esCorrecto
-              ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-200'
-              : 'border-rose-500/20 bg-rose-500/5 text-rose-200'
+              ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-800 dark:text-emerald-200'
+              : 'border-rose-500/25 bg-rose-500/5 text-rose-800 dark:text-rose-200'
           )}>
             <span className="font-semibold mr-1">{esCorrecto ? '¡Correcto!' : 'Incorrecto.'}</span>
             {preguntaActual.explicacion}
@@ -465,7 +463,7 @@ function QuizDiario() {
           <button
             disabled={!seleccion}
             onClick={() => setConfirmadas(prev => ({ ...prev, [idx]: true }))}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/90 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-amber-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="btn btn-primary"
           >
             <Check className="h-4 w-4" />
             Confirmar
@@ -473,7 +471,7 @@ function QuizDiario() {
         ) : idx < preguntas.length - 1 ? (
           <button
             onClick={() => setIdx(i => i + 1)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 hover:bg-white/15 transition-colors"
+            className="btn btn-primary"
           >
             Siguiente
             <Next className="h-4 w-4" />
@@ -481,7 +479,7 @@ function QuizDiario() {
         ) : (
           <button
             onClick={() => setEstado('fin')}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium text-zinc-900 hover:opacity-90 transition-opacity"
+            className="btn btn-primary"
           >
             Ver resultado
           </button>
@@ -531,15 +529,14 @@ export default function AprendizajesPage() {
 
   return (
     <div className="p-5 max-w-4xl mx-auto">
-      <div className="mb-5">
-        <h1 className="page-title">Aprendizajes</h1>
-        <p className="page-subtitle">
-          Lo que la IA aprende de las correcciones a los escritos. Los aprobados se aplican al redactar.
-        </p>
-      </div>
+      <PageHeader
+        className="mb-5"
+        title="Aprendizajes"
+        subtitle="Lo que la IA aprende de las correcciones a los escritos. Los aprobados se aplican al redactar."
+      />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-zinc-200 dark:border-white/[0.06] mb-4 overflow-x-auto">
+      <div className="no-scrollbar mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-white/[0.08]">
         {([
           { v: 'propuestos', label: 'Propuestos', icon: Sparkles },
           { v: 'activos', label: 'Activos', icon: Check },
@@ -550,10 +547,10 @@ export default function AprendizajesPage() {
             key={t.v}
             onClick={() => setTab(t.v)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] font-semibold transition-colors',
               tab === t.v
-                ? 'border-cyan-400 text-zinc-900 dark:text-white'
-                : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-200'
+                ? 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white'
             )}
           >
             <t.icon className="h-3.5 w-3.5" />
@@ -565,33 +562,30 @@ export default function AprendizajesPage() {
       {tab !== 'quiz' && (
         <div className="mb-4 flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => setAutor('')}
-            className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-              autorEfectivo === yo ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
-            Míos{tab === 'propuestos' && mios > 0 ? <span className="ml-1 font-mono text-zinc-500">{mios}</span> : null}
+            aria-pressed={autorEfectivo === yo} className="chip">
+            Míos{tab === 'propuestos' && mios > 0 ? <span className="chip-count">{mios}</span> : null}
           </button>
           {esDirector && otros.map(o => (
             <button key={o.id} type="button" onClick={() => setAutor(o.id)}
-              className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                autorEfectivo === o.id ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
-              {o.nombre}{tab === 'propuestos' ? <span className="ml-1 font-mono text-zinc-500">{o.total}</span> : null}
+              aria-pressed={autorEfectivo === o.id} className="chip">
+              {o.nombre}{tab === 'propuestos' ? <span className="chip-count">{o.total}</span> : null}
             </button>
           ))}
           {esDirector && (
             <button type="button" onClick={() => setAutor('todos')}
-              className={cn('rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                autorEfectivo === 'todos' ? 'border-white/20 bg-white/10 text-white' : 'border-white/[0.08] text-zinc-400 hover:text-zinc-200')}>
+              aria-pressed={autorEfectivo === 'todos'} className="chip">
               Todo el equipo
             </button>
           )}
           {(tab === 'propuestos' || tab === 'activos') && autorEfectivo !== 'todos' && aprendizajes.length > 3 && (
             <button type="button" onClick={() => setOrdenar(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5">
+              className="btn btn-ghost btn-sm ml-auto">
               <Merge className="h-3.5 w-3.5" /> Ordenar repetidos
             </button>
           )}
           {tab === 'propuestos' && altaConfianza.length > 1 && (
             <button type="button" onClick={aprobarAltaConfianza} disabled={aprobandoTodos}
-              className={cn('inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/5 disabled:opacity-50', !(autorEfectivo !== 'todos' && aprendizajes.length > 3) && 'ml-auto')}>
+              className={cn('btn btn-ghost btn-sm', !(autorEfectivo !== 'todos' && aprendizajes.length > 3) && 'ml-auto')}>
               {aprobandoTodos ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
               Aprobar los {altaConfianza.length} de confianza alta
             </button>
