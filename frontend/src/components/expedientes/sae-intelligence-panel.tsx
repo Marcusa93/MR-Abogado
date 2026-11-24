@@ -272,7 +272,7 @@ export function SaeIntelligencePanel({ expedienteId }: Props) {
       <div id="sae-intel-body" className={cn('p-4 space-y-4', collapsed && 'hidden')}>
         {/* ── Brief / TL;DR ── */}
         {brief ? (
-          <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+          <div className="app-card p-3">
             <div className="flex items-start justify-between gap-3 mb-2">
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-violet-400 font-medium">Brief</p>

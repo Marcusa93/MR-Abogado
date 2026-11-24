@@ -178,32 +178,27 @@ export default function ImportarSaePage() {
       />
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={() => navigate('/expedientes')}
-            className="flex items-center justify-center h-8 w-8 rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors"
+            className="btn btn-ghost btn-icon shrink-0"
             title="Volver a expedientes"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 border border-cyan-500/20">
-              <Database className="h-4.5 w-4.5 text-cyan-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Importar desde SAE</h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Sistema de Actuación Electrónica — Tucumán</p>
-            </div>
+          <div className="min-w-0">
+            <h1 className="page-title">Importar desde SAE</h1>
+            <p className="page-subtitle">Sistema de Actuación Electrónica — Tucumán</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {hasLoaded && !isLoading && (
             <button
               onClick={handleLoad}
               disabled={isLoading || isImporting}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-ghost"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Actualizar</span>
@@ -212,7 +207,7 @@ export default function ImportarSaePage() {
           <button
             onClick={handleLoad}
             disabled={isLoading || isImporting}
-            className="flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-4 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -226,12 +221,12 @@ export default function ImportarSaePage() {
 
       {/* ── Loading state ── */}
       {isLoading && (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-white/10 bg-white/[0.03] py-16">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/15 border border-cyan-500/20">
-            <Loader2 className="h-6 w-6 text-cyan-400 animate-spin" />
+        <div className="app-card flex flex-col items-center justify-center gap-4 px-4 py-16">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-500/30 bg-cyan-500/10">
+            <Loader2 className="h-6 w-6 animate-spin text-cyan-700 dark:text-cyan-300" />
           </div>
           <div className="text-center">
-            <p className="font-medium text-zinc-200">Conectando con SAE...</p>
+            <p className="font-bold text-zinc-900 dark:text-white">Conectando con SAE...</p>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               Esto puede tardar unos segundos mientras consultamos todas las jurisdicciones.
             </p>
@@ -241,16 +236,16 @@ export default function ImportarSaePage() {
 
       {/* ── Error state ── */}
       {!isLoading && loadError && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-400 mt-0.5" />
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+          <div className="flex flex-wrap items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-red-300">Error al conectar con SAE</p>
-              <p className="mt-1 text-sm text-red-400/80 break-words">{loadError.message}</p>
+              <p className="font-bold text-red-700 dark:text-red-300">Error al conectar con SAE</p>
+              <p className="mt-1 break-words text-sm text-red-700/80 dark:text-red-400/80">{loadError.message}</p>
               {loadError.message.includes('credenciales') && (
                 <button
                   onClick={() => navigate('/configuracion')}
-                  className="mt-3 flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                  className="dashboard-link mt-3 flex items-center gap-1.5 text-sm"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   Ir a Configuración para ingresar credenciales SAE
@@ -259,7 +254,7 @@ export default function ImportarSaePage() {
             </div>
             <button
               onClick={handleLoad}
-              className="shrink-0 flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+              className="btn btn-sm shrink-0 border border-red-500/30 bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-300"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Reintentar
@@ -270,19 +265,19 @@ export default function ImportarSaePage() {
 
       {/* ── Empty / prompt state ── */}
       {!isLoading && !loadError && !hasLoaded && (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-white/10 bg-white/[0.02] py-16 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500/10 border border-cyan-500/15">
-            <Database className="h-7 w-7 text-cyan-400/60" />
+        <div className="app-card flex flex-col items-center justify-center gap-4 px-4 py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/30 bg-cyan-500/10">
+            <Database className="h-7 w-7 text-cyan-700 dark:text-cyan-300" />
           </div>
           <div>
-            <p className="font-medium text-zinc-300">Consultá tus expedientes en SAE</p>
+            <p className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Consultá tus expedientes en SAE</p>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
               Hacé clic en "Cargar expedientes SAE" para consultar todos tus expedientes en el sistema judicial de Tucumán.
             </p>
           </div>
           <button
             onClick={handleLoad}
-            className="flex items-center gap-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-5 py-2 text-sm font-medium text-cyan-400 hover:bg-cyan-500/25 transition-colors"
+            className="btn btn-primary px-5"
           >
             <Database className="h-4 w-4" />
             Cargar expedientes SAE
@@ -295,21 +290,21 @@ export default function ImportarSaePage() {
         <div className="flex flex-col gap-4">
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <button
                 onClick={toggleAll}
                 disabled={visibleNewRows.length === 0 || isImporting}
-                className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 text-sm font-semibold text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:text-white"
               >
-                <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-cyan-400' : 'text-zinc-500 dark:text-zinc-400')} />
+                <CheckSquare className={cn('h-4 w-4', visibleAllSelected ? 'text-[var(--brand-accent)]' : 'text-zinc-500 dark:text-zinc-400')} />
                 {visibleAllSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
                 {filtersActive && visibleNewRows.length > 0 && (
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300">({visibleNewRows.length})</span>
+                  <span className="text-xs tabular-nums text-zinc-500">({visibleNewRows.length})</span>
                 )}
               </button>
-              <span className="text-xs text-zinc-600 dark:text-zinc-300">·</span>
-              <span className="text-sm text-zinc-400">
-                <span className="font-medium text-zinc-200">{rows.length}</span> encontrados
+              <span className="text-xs text-zinc-400 dark:text-zinc-600" aria-hidden>·</span>
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                <span className="font-bold tabular-nums text-zinc-900 dark:text-white">{rows.length}</span> encontrados
                 {alreadyImportedCount > 0 && (
                   <span className="text-zinc-500 dark:text-zinc-400"> ({alreadyImportedCount} ya importados)</span>
                 )}
@@ -319,11 +314,11 @@ export default function ImportarSaePage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {importMutation.isSuccess && (
                 <button
                   onClick={() => navigate('/expedientes')}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-white/10 transition-colors"
+                  className="btn btn-ghost"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   Ver expedientes
@@ -332,7 +327,7 @@ export default function ImportarSaePage() {
               <button
                 onClick={handleImport}
                 disabled={!someSelected || isImporting}
-                className="flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-4 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn btn-primary"
               >
                 {isImporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -350,19 +345,19 @@ export default function ImportarSaePage() {
 
           {/* Search + status filter */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por número o carátula..."
-                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field h-11 pl-10 pr-10"
               />
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-300"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
                   title="Limpiar búsqueda"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -379,52 +374,47 @@ export default function ImportarSaePage() {
                 <button
                   key={key}
                   onClick={() => setStatusFilter(key)}
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                    statusFilter === key
-                      ? key === 'error'
-                        ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30'
-                        : 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30'
-                      : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                  )}
+                  aria-pressed={statusFilter === key}
+                  className="chip"
                 >
-                  {label} ({count})
+                  {key === 'error' && <span className="h-2 w-2 rounded-full bg-red-500" />}
+                  {label} <span className="chip-count">{count}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-hidden rounded-xl border border-white/10">
+          <div className="app-card">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 bg-white/[0.03]">
+                  <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-white/[0.08] dark:bg-white/[0.03]">
                     <th className="w-10 px-4 py-3">
                       <span className="sr-only">Seleccionar</span>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <th className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                       Número SAE
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <th className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                       Carátula
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    <th className="px-4 py-3 text-left text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
                       Estado
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.05]">
+                <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
                   {visibleRows.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-10">
                         <div className="flex flex-col items-center gap-2 text-center">
-                          <Search className="h-7 w-7 text-zinc-600 dark:text-zinc-300" />
-                          <p className="text-sm text-zinc-400">Ningún expediente coincide con el filtro.</p>
+                          <Search className="h-7 w-7 text-zinc-400 dark:text-zinc-600" />
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">Ningún expediente coincide con el filtro.</p>
                           {filtersActive && (
                             <button
                               onClick={() => { setSearch(''); setStatusFilter('all') }}
-                              className="text-xs text-cyan-400 hover:text-cyan-300"
+                              className="dashboard-link text-xs"
                             >
                               Limpiar filtros
                             </button>
@@ -447,8 +437,8 @@ export default function ImportarSaePage() {
                               ? 'cursor-default'
                               : isImporting
                               ? 'cursor-default'
-                              : 'cursor-pointer hover:bg-white/[0.03]',
-                            row.selected && !row.ya_importado && 'bg-cyan-500/[0.04]'
+                              : 'cursor-pointer hover:bg-zinc-50 dark:hover:bg-white/[0.03]',
+                            row.selected && !row.ya_importado && 'bg-cyan-500/[0.06]'
                           )}
                         >
                           {/* Checkbox */}
@@ -459,19 +449,19 @@ export default function ImportarSaePage() {
                               disabled={row.ya_importado || isImporting}
                               onChange={() => toggleRow(row.procid)}
                               onClick={e => e.stopPropagation()}
-                              className="h-4 w-4 rounded border-white/20 bg-white/5 accent-cyan-500 cursor-pointer disabled:cursor-default"
+                              className="h-4 w-4 cursor-pointer rounded border-zinc-300 accent-[var(--brand-accent)] disabled:cursor-default dark:border-white/20"
                             />
                           </td>
 
                           {/* Número SAE */}
-                          <td className={cn('px-4 py-3 font-mono text-xs whitespace-nowrap', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-300')}>
-                            {row.numero_sae || <span className="text-zinc-600 dark:text-zinc-300 italic">—</span>}
+                          <td className={cn('whitespace-nowrap px-4 py-3 text-xs font-semibold tabular-nums', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-800 dark:text-zinc-200')}>
+                            {row.numero_sae || <span className="italic text-zinc-400 dark:text-zinc-500">—</span>}
                           </td>
 
                           {/* Carátula */}
-                          <td className={cn('px-4 py-3 max-w-xs', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-300')}>
+                          <td className={cn('max-w-xs px-4 py-3', row.ya_importado ? 'text-zinc-500 dark:text-zinc-400' : 'text-zinc-800 dark:text-zinc-200')}>
                             <span className="line-clamp-2 leading-snug">
-                              {row.caratula || <span className="text-zinc-600 dark:text-zinc-300 italic">Sin carátula</span>}
+                              {row.caratula || <span className="italic text-zinc-400 dark:text-zinc-500">Sin carátula</span>}
                             </span>
                           </td>
 
@@ -479,12 +469,12 @@ export default function ImportarSaePage() {
                           <td className="px-4 py-3">
                             {hasImportError ? (
                               <div className="flex flex-col gap-1 max-w-xs">
-                                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2.5 py-0.5 text-[11px] font-medium text-red-400 self-start">
+                                <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 self-start border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300">
                                   <AlertCircle className="h-3 w-3" />
                                   Error
                                 </span>
                                 {importResult?.error && (
-                                  <span className="text-[11px] text-red-400/80 break-words leading-snug">
+                                  <span className="break-words text-[11px] leading-snug text-red-700/80 dark:text-red-400/80">
                                     {importResult.error}
                                   </span>
                                 )}
@@ -492,22 +482,22 @@ export default function ImportarSaePage() {
                             ) : row.ya_importado && row.expediente_id ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/expedientes/${row.expediente_id}`) }}
-                                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400 transition-colors"
+                                className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:text-emerald-300"
                                 title="Ir al expediente importado"
                               >
                                 Ver expediente
                                 <ExternalLink className="h-3 w-3" />
                               </button>
                             ) : row.ya_importado ? (
-                              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400">
+                              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300">
                                 Ya importado
                               </span>
                             ) : row.ya_existe_en_estudio ? (
-                              <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-400">
+                              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
                                 Existe en estudio · vincular
                               </span>
                             ) : (
-                              <span className="inline-flex items-center rounded-full bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-400">
+                              <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300">
                                 Nuevo
                               </span>
                             )}
@@ -532,11 +522,11 @@ export default function ImportarSaePage() {
 
       {/* ── No results after load ── */}
       {!isLoading && hasLoaded && !loadError && rows.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] py-14 text-center">
-          <Database className="h-8 w-8 text-zinc-600 dark:text-zinc-300" />
+        <div className="app-card flex flex-col items-center justify-center gap-3 px-4 py-14 text-center">
+          <Database className="h-8 w-8 text-zinc-400 dark:text-zinc-600" />
           <div>
-            <p className="font-medium text-zinc-400">No se encontraron expedientes en SAE</p>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            <p className="font-bold text-zinc-900 dark:text-white">No se encontraron expedientes en SAE</p>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               No hay expedientes asociados a tu cuenta en ninguna jurisdicción.
             </p>
           </div>

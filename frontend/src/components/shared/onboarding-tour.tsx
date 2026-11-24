@@ -345,6 +345,13 @@ export function OnboardingTour() {
       return
     }
     const r = el.getBoundingClientRect()
+    // Oculto en esta pantalla (p. ej. la ayuda en el celular, que pasó al menú del usuario):
+    // se muestra el paso centrado, sin resaltar nada.
+    if (r.width === 0 && r.height === 0) {
+      setRect(null)
+      setReady(true)
+      return
+    }
     if (r.top < 0 || r.bottom > window.innerHeight) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
@@ -466,7 +473,7 @@ export function OnboardingTour() {
 
       {/* Tooltip card */}
       <div
-        className="absolute z-10 w-[400px] max-w-[calc(100vw-16px)] rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl animate-fade-in"
+        className="absolute z-10 w-[400px] max-w-[calc(100vw-16px)] app-card shadow-2xl animate-fade-in"
         style={{
           top: pos.top, left: pos.left, transform: pos.transform,
           transition: 'top 0.25s ease, left 0.25s ease',

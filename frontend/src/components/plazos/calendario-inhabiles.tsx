@@ -187,7 +187,7 @@ export function CalendarioInhabiles() {
             <input value={nuevo.descripcion} onChange={(e) => setNuevo({ ...nuevo, descripcion: e.target.value })} placeholder="Motivo (ej.: asueto, paro, corte de luz)" className={cn(campo, 'sm:col-span-2')} />
             <input value={nuevo.referencia} onChange={(e) => setNuevo({ ...nuevo, referencia: e.target.value })} placeholder="Referencia (ej.: Acordada 1234/26)" className={campo} />
             <button type="button" onClick={handleAgregar} disabled={agregar.isPending}
-              className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+              className="btn btn-primary h-9">
               {agregar.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Guardar
             </button>
           </div>
@@ -202,7 +202,7 @@ export function CalendarioInhabiles() {
             <input type="date" value={nuevaFeria.inicio} onChange={(e) => setNuevaFeria({ ...nuevaFeria, inicio: e.target.value })} className={campo} aria-label="Desde" />
             <input type="date" value={nuevaFeria.fin} onChange={(e) => setNuevaFeria({ ...nuevaFeria, fin: e.target.value })} className={campo} aria-label="Hasta" />
             <button type="button" onClick={handleFeria} disabled={agregarFeria.isPending}
-              className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+              className="btn btn-primary h-9">
               {agregarFeria.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Guardar
             </button>
           </div>

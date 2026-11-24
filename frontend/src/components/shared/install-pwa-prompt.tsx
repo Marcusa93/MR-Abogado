@@ -91,7 +91,7 @@ function ModalShell({
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
     >
-      <div className="relative w-full sm:max-w-md bg-white dark:bg-[var(--card)] rounded-t-3xl sm:rounded-xl border border-amber-500/30 shadow-2xl animate-fade-in-up overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full sm:max-w-md bg-white dark:bg-[var(--popover)] rounded-t-3xl sm:rounded-3xl border border-zinc-200 dark:border-white/10 shadow-2xl animate-fade-in-up overflow-hidden max-h-[90vh] overflow-y-auto">
         <button
           type="button"
           onClick={onDismiss}
@@ -102,16 +102,16 @@ function ModalShell({
         </button>
 
         <div className="px-5 pt-6 pb-4">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-500 mb-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <div className="flex items-center gap-2 eyebrow mb-2">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--brand-accent)]" />
             {platformLabel}
           </div>
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
               <Smartphone className="h-6 w-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              <h3 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">
                 {title}
               </h3>
             </div>
@@ -137,7 +137,7 @@ function StepList({ children }: { children: React.ReactNode }) {
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 text-sm font-semibold">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#1c2633]">
         {n}
       </span>
       <div className="flex-1 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
@@ -198,7 +198,7 @@ function IOSSafariInstructions({ onDismiss }: { onDismiss: () => void }) {
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs font-semibold text-amber-600 dark:text-amber-500 hover:underline"
+            className="dashboard-link text-xs"
           >
             Ya lo instalé · No mostrar más
           </button>
@@ -279,7 +279,7 @@ function AndroidInstallModal({
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs font-semibold text-amber-600 dark:text-amber-500 hover:underline"
+            className="dashboard-link text-xs"
           >
             Ya lo instalé · No mostrar más
           </button>
@@ -294,7 +294,7 @@ function AndroidInstallModal({
           <button
             type="button"
             onClick={onInstall}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-amber-400 transition-colors"
+            className="btn btn-primary h-12 w-full text-sm"
           >
             <Download className="h-4 w-4" />
             Instalar ahora
@@ -407,11 +407,11 @@ function DesktopInstallCard({
     <div
       role="dialog"
       aria-labelledby="pwa-install-title"
-      className="fixed z-50 left-3 right-3 bottom-3 sm:left-auto sm:bottom-6 sm:right-6 sm:max-w-sm animate-fade-in-up"
+      className="fixed z-50 left-3 right-3 bottom-[calc(0.75rem+var(--bottom-nav-h,0px))] sm:left-auto sm:bottom-[calc(1.5rem+var(--bottom-nav-h,0px))] sm:right-6 sm:max-w-sm animate-fade-in-up"
     >
-      <div className="rounded-2xl border border-amber-500/30 bg-white dark:bg-zinc-900 shadow-2xl shadow-black/30 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-black/30 dark:border-white/10 dark:bg-[var(--popover)]">
         <div className="flex items-start gap-3 px-4 py-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
             <Smartphone className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -430,7 +430,7 @@ function DesktopInstallCard({
                 type="button"
                 onClick={onInstall}
                 disabled={!canInstall}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="btn btn-primary btn-sm"
               >
                 <Download className="h-3.5 w-3.5" />
                 {canInstall ? 'Instalar ahora' : 'Esperando...'}

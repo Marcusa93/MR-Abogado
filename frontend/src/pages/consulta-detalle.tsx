@@ -43,24 +43,33 @@ import { timeAgo } from '@/lib/utils/date-helpers'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+// Mismos tonos que la lista de Consultas: pastilla con borde
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
-  pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-  con_claudio: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  requiere_info: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  redactando: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  resuelta: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
-  descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+  pendiente: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  en_proceso: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  presupuestada: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  con_claudio: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
+  requiere_info: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  redactando: 'border-indigo-400/30 bg-indigo-400/10 text-indigo-700 dark:text-indigo-300',
+  convertida: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  resuelta: 'border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300',
+  descartada: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
 }
 
 const CHANCES_STYLE = {
-  alta: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  media: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  baja: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-  sin_datos: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+  alta: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  media: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  baja: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  sin_datos: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
 }
+
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
+const LABEL = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400'
+const CARD_TITLE = 'text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white'
+/** Opción elegible tipo tarjeta (tipo de honorario, tipo de intimación). */
+const OPCION = 'rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors'
+const OPCION_ACTIVA = 'border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+const OPCION_INACTIVA = 'border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20'
 
 const CHANCES_LABEL = {
   alta: 'Probabilidad alta',
@@ -176,21 +185,21 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+    <div className="app-card space-y-4 p-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-zinc-400" />
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Intimación fehaciente</h2>
+          <FileText className="h-4 w-4 text-[var(--brand-accent)]" />
+          <h2 className={CARD_TITLE}>Intimación fehaciente</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">¿Requiere intimación?</span>
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">¿Requiere intimación?</span>
           <button
             type="button"
             onClick={() => setActiva(v => !v)}
             className={cn(
               'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none',
-              activa ? 'bg-blue-600' : 'bg-zinc-300 dark:bg-zinc-600',
+              activa ? 'bg-[var(--brand-accent)]' : 'bg-zinc-300 dark:bg-white/15',
             )}
           >
             <span className={cn(
@@ -210,22 +219,17 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                 key={t}
                 type="button"
                 onClick={() => setTipo(t)}
-                className={cn(
-                  'rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all border',
-                  tipo === t
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300',
-                )}
+                className={cn(OPCION, tipo === t ? OPCION_ACTIVA : OPCION_INACTIVA)}
               >
                 {t === 'carta_documento' ? (
                   <>
-                    <div className="font-semibold">Carta Documento</div>
-                    <div className="text-[10px] opacity-70 mt-0.5">Correo Argentino · Formato extendido</div>
+                    <div className="font-bold">Carta Documento</div>
+                    <div className="mt-0.5 text-[10.5px] font-medium opacity-70">Correo Argentino · Formato extendido</div>
                   </>
                 ) : (
                   <>
-                    <div className="font-semibold">Telegrama Ley</div>
-                    <div className="text-[10px] opacity-70 mt-0.5">Art. 243 LCT · Texto breve · Uso laboral</div>
+                    <div className="font-bold">Telegrama Ley</div>
+                    <div className="mt-0.5 text-[10.5px] font-medium opacity-70">Art. 243 LCT · Texto breve · Uso laboral</div>
                   </>
                 )}
               </button>
@@ -234,26 +238,26 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
 
           {/* Destinatario */}
           <div className="space-y-2">
-            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">Destinatario</div>
+            <div className="eyebrow">Destinatario</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Nombre / Razón social</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Nombre / Razón social</label>
                 <input
                   type="text"
                   value={destNombre}
                   onChange={e => setDestNombre(e.target.value)}
                   placeholder="Ej: Juan García / Empresa S.A."
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Domicilio</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Domicilio</label>
                 <input
                   type="text"
                   value={destDomicilio}
                   onChange={e => setDestDomicilio(e.target.value)}
                   placeholder="Calle y número, ciudad"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
             </div>
@@ -261,36 +265,36 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
 
           {/* Remitente */}
           <div className="space-y-2">
-            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide">Remitente (quién envía)</div>
+            <div className="eyebrow">Remitente (quién envía)</div>
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Nombre completo</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Nombre completo</label>
                 <input
                   type="text"
                   value={remNombre}
                   onChange={e => setRemNombre(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
               <div>
-                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">D.N.I.</label>
+                <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">D.N.I.</label>
                 <input
                   type="text"
                   value={remDni}
                   onChange={e => setRemDni(e.target.value)}
                   placeholder="12.345.678"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Domicilio del remitente</label>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Domicilio del remitente</label>
               <input
                 type="text"
                 value={remDomicilio}
                 onChange={e => setRemDomicilio(e.target.value)}
                 placeholder="Calle y número, ciudad"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field"
               />
             </div>
           </div>
@@ -298,14 +302,14 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
           {/* Texto */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                 {tipo === 'carta_documento' ? 'Cuerpo de la carta documento' : 'Texto del telegrama'}
               </label>
               <button
                 type="button"
                 onClick={handleGenerar}
                 disabled={generando || !destNombre.trim()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-900 hover:from-blue-700 hover:to-violet-700 text-white dark:bg-white dark:text-zinc-900 rounded-lg disabled:opacity-50 transition-all"
+                className="btn btn-primary btn-sm"
               >
                 {generando
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Redactando…</>
@@ -321,10 +325,10 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
                 ? 'Por la presente me dirijo a Ud. a fin de INTIMARLE a que…'
                 : 'Usá el botón para redactar con IA o escribí directamente…'
               }
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+              className="field resize-y py-3"
             />
             {tipo === 'telegrama_ley' && cuerpo.trim() && (
-              <div className="text-right text-[10px] text-zinc-400 mt-1">
+              <div className="mt-1 text-right text-[10.5px] font-medium tabular-nums text-zinc-500">
                 {cuerpo.trim().split(/\s+/).filter(Boolean).length} palabras
               </div>
             )}
@@ -336,7 +340,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
               type="button"
               onClick={handleGuardar}
               disabled={update.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 rounded-lg transition-colors disabled:opacity-40"
+              className="btn btn-ghost btn-sm"
             >
               {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Guardar
@@ -345,7 +349,7 @@ function IntimacionSection({ consulta }: { consulta: { id: string; nombre: strin
               type="button"
               onClick={handleImprimir}
               disabled={!cuerpo.trim() || !destNombre.trim() || !remNombre.trim()}
-              className="flex items-center gap-2 px-4 py-1.5 text-xs font-medium border border-zinc-300 dark:border-white/15 text-zinc-700 dark:text-zinc-300 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors disabled:opacity-40"
+              className="btn btn-ghost btn-sm"
             >
               <Download className="h-3.5 w-3.5" />
               {tipo === 'carta_documento' ? 'Imprimir CD' : 'Imprimir Telegrama'}
@@ -398,7 +402,7 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
         <select
           value={tipo}
           onChange={e => setTipo(e.target.value as typeof tipo)}
-          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2 py-2 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+          className="field w-auto px-2.5 text-xs font-semibold"
         >
           <option value="nota">Nota</option>
           <option value="llamada">Llamada</option>
@@ -411,13 +415,13 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
           onChange={e => setTexto(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
           placeholder="Registrar seguimiento…"
-          className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+          className="field min-w-0 flex-1"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={!texto.trim() || addActividad.isPending}
-          className="px-3 py-2 text-sm font-medium bg-zinc-800 dark:bg-zinc-700 hover:bg-zinc-700 dark:hover:bg-zinc-600 text-white rounded-lg transition-colors disabled:opacity-50"
+          className="btn btn-primary btn-icon shrink-0 text-base"
         >
           +
         </button>
@@ -428,12 +432,12 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
         <div className="space-y-1.5">
           {actividad.map(a => (
             <div key={a.id} className="flex gap-2.5 text-sm">
-              <div className="mt-0.5 shrink-0 text-zinc-400">
+              <div className="mt-0.5 shrink-0 text-[var(--brand-accent)]">
                 {TIPO_ACTIVIDAD_ICON[a.tipo]}
               </div>
               <div className="min-w-0 flex-1">
                 <span className="text-zinc-800 dark:text-zinc-200">{a.descripcion}</span>
-                <div className="text-[11px] text-zinc-400 mt-0.5">
+                <div className="mt-0.5 text-[11px] font-medium text-zinc-500">
                   {a.created_profile
                     ? `${a.created_profile.nombre} ${a.created_profile.apellido} · `
                     : ''}
@@ -444,7 +448,7 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
           ))}
         </div>
       ) : (
-        <p className="text-xs text-zinc-400 italic">Sin actividad registrada todavía.</p>
+        <p className="text-xs font-medium text-zinc-500">Sin actividad registrada todavía.</p>
       )}
     </div>
   )
@@ -460,7 +464,7 @@ function AgregarArea({ excluidas, onElegir, disabled }: { excluidas: string[]; o
       value=""
       disabled={disabled}
       onChange={e => { if (e.target.value) onElegir(e.target.value) }}
-      className="rounded-lg border border-dashed border-zinc-300 dark:border-white/15 bg-transparent px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 focus:outline-none"
+      className="field w-auto border-dashed py-1.5 text-xs font-semibold"
       aria-label="Agregar un área al diagnóstico"
     >
       <option value="">+ Agregar área…</option>
@@ -547,14 +551,14 @@ function ModuloDiagnostico({
   }
 
   return (
-    <div className={cn('border border-zinc-100 dark:border-white/5 rounded-xl p-4 space-y-3', !incluido && 'opacity-60')}>
+    <div className={cn('dashboard-panel-muted space-y-3 rounded-2xl p-4', !incluido && 'opacity-60')}>
       {/* Header del módulo */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 rounded-full px-2.5 py-0.5">
+          <span className="tag-mono uppercase tracking-[0.08em]">
             {areaLabel || 'Sin área'}
           </span>
-          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[modulo.chances_estimadas])}>
+          <span className={cn(TAG, 'px-2.5 py-0.5 text-[11px]', CHANCES_STYLE[modulo.chances_estimadas])}>
             {CHANCES_LABEL[modulo.chances_estimadas]}
           </span>
           {!incluido && <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Fuera del documento</span>}
@@ -563,24 +567,24 @@ function ModuloDiagnostico({
           <button
             type="button"
             onClick={() => onCrearHonorario(modulo.area, modulo.tipo_honorario_sugerido)}
-            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
             <Plus className="h-3 w-3" /> Cotizar
           </button>
           <button type="button" onClick={alternarIncluir} disabled={update.isPending}
             title={incluido ? 'Sacar del documento (no se borra)' : 'Volver a incluir en el documento'}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            className="btn btn-ghost btn-icon h-8 w-8">
             {incluido ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
           <button type="button" onClick={quitarModulo} disabled={update.isPending} title="Quitar esta área del diagnóstico"
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+            className="btn btn-ghost btn-icon h-8 w-8 hover:text-red-600 dark:hover:text-red-400">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
           {!editando ? (
             <button
               type="button"
               onClick={() => { setEditLocal({ ...modulo }); setEditando(true) }}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               <Pencil className="h-3 w-3" /> Editar
             </button>
@@ -588,7 +592,7 @@ function ModuloDiagnostico({
             <button
               type="button"
               onClick={() => setEditando(false)}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               <X className="h-3 w-3" /> Cancelar
             </button>
@@ -599,42 +603,42 @@ function ModuloDiagnostico({
       {editando ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Área</label>
+            <label className={LABEL}>Área</label>
             <select
               value={editLocal.area}
               onChange={e => setEditLocal(prev => ({ ...prev, area: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="field"
             >
               {(Object.keys(TIPO_ASUNTO_LABEL) as ConsultaTipoAsunto[]).map(a => <option key={a} value={a}>{TIPO_ASUNTO_LABEL[a]}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
+              <label className={LABEL}>Fuero</label>
               <input
                 type="text"
                 value={editLocal.fuero}
                 onChange={e => setEditLocal(prev => ({ ...prev, fuero: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Pretensión</label>
+              <label className={LABEL}>Pretensión</label>
               <input
                 type="text"
                 value={editLocal.pretension}
                 onChange={e => setEditLocal(prev => ({ ...prev, pretension: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Probabilidad</label>
+            <label className={LABEL}>Probabilidad</label>
             <select
               value={editLocal.chances_estimadas}
               onChange={e => setEditLocal(prev => ({ ...prev, chances_estimadas: e.target.value as DiagnosticoModulo['chances_estimadas'] }))}
-              className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="field w-auto"
             >
               <option value="alta">Alta</option>
               <option value="media">Media</option>
@@ -644,17 +648,17 @@ function ModuloDiagnostico({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Análisis</label>
+            <label className={LABEL}>Análisis</label>
             <textarea
               rows={4}
               value={editLocal.observaciones}
               onChange={e => setEditLocal(prev => ({ ...prev, observaciones: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+              className="field resize-y"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+            <label className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
               <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
             </label>
             <div className="space-y-1.5">
@@ -667,21 +671,21 @@ function ModuloDiagnostico({
                       const arr = [...prev.acciones_recomendadas]; arr[i] = e.target.value
                       return { ...prev, acciones_recomendadas: arr }
                     })}
-                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="field min-w-0 flex-1 py-1.5"
                   />
-                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
+                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: prev.acciones_recomendadas.filter((_, j) => j !== i) }))} className="btn btn-icon h-9 w-9 shrink-0 text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: [...prev.acciones_recomendadas, ''] }))} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, acciones_recomendadas: [...prev.acciones_recomendadas, ''] }))} className="dashboard-link flex items-center gap-1 text-xs">
                 <Plus className="h-3 w-3" /> Agregar acción
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+            <label className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
               <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
             </label>
             <div className="space-y-1.5">
@@ -694,26 +698,26 @@ function ModuloDiagnostico({
                       const arr = [...(prev.riesgos ?? [])]; arr[i] = e.target.value
                       return { ...prev, riesgos: arr }
                     })}
-                    className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="field min-w-0 flex-1 py-1.5"
                   />
-                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) }))} className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors">
+                  <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) }))} className="btn btn-icon h-9 w-9 shrink-0 text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: [...(prev.riesgos ?? []), ''] }))} className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
+              <button type="button" onClick={() => setEditLocal(prev => ({ ...prev, riesgos: [...(prev.riesgos ?? []), ''] }))} className="flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline dark:text-amber-400">
                 <Plus className="h-3 w-3" /> Agregar riesgo
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Nota sobre honorarios</label>
+            <label className={LABEL}>Nota sobre honorarios</label>
             <textarea
               rows={2}
               value={editLocal.descripcion_honorarios ?? ''}
               onChange={e => setEditLocal(prev => ({ ...prev, descripcion_honorarios: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+              className="field resize-y"
             />
           </div>
 
@@ -721,7 +725,7 @@ function ModuloDiagnostico({
             type="button"
             onClick={handleSaveModulo}
             disabled={update.isPending}
-            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+            className="btn btn-primary w-full"
           >
             {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Guardar módulo
@@ -731,23 +735,23 @@ function ModuloDiagnostico({
         <>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
+              <div className="eyebrow mb-1">Fuero</div>
               <div className="text-zinc-800 dark:text-zinc-200">{modulo.fuero}</div>
             </div>
             <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
+              <div className="eyebrow mb-1">Pretensión</div>
               <div className="text-zinc-800 dark:text-zinc-200">{modulo.pretension}</div>
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
+            <div className="eyebrow mb-1">Análisis</div>
             <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{modulo.observaciones}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <div className="eyebrow mb-2 flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
               </div>
               <ol className="text-sm space-y-1.5 list-decimal list-inside text-zinc-700 dark:text-zinc-300">
@@ -756,7 +760,7 @@ function ModuloDiagnostico({
             </div>
             {modulo.riesgos && modulo.riesgos.length > 0 && (
               <div>
-                <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                <div className="eyebrow mb-2 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
                 </div>
                 <ul className="text-sm space-y-1.5 list-disc list-inside text-zinc-700 dark:text-zinc-300">
@@ -767,22 +771,22 @@ function ModuloDiagnostico({
           </div>
 
           {modulo.descripcion_honorarios && (
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2">
+            <div className="dashboard-panel-muted px-3 py-2 text-[11.5px] text-zinc-600 dark:text-zinc-400">
               <span className="font-medium">Honorarios sugeridos:</span> {modulo.descripcion_honorarios}
             </div>
           )}
 
           {modulo.checklist_cliente && modulo.checklist_cliente.length > 0 && (
-            <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+            <div className="border-t border-zinc-200/70 dark:border-white/[0.06] pt-3">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                  <ListChecks className="h-3.5 w-3.5 text-blue-500" />
+                <div className="eyebrow flex items-center gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                   Documentación a solicitar
                 </div>
                 <button
                   type="button"
                   onClick={handleAgregarChecklistAlSeguimiento}
-                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                  className="btn btn-ghost btn-sm"
                 >
                   Agregar al seguimiento
                 </button>
@@ -794,7 +798,7 @@ function ModuloDiagnostico({
                       type="checkbox"
                       checked={!!checklistEstado[i]}
                       onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
-                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-cyan-500/30"
+                      className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 accent-cyan-600 dark:border-zinc-600"
                     />
                     <span className={cn('text-zinc-700 dark:text-zinc-300 leading-snug', checklistEstado[i] && 'line-through text-zinc-400 dark:text-zinc-500')}>
                       {item}
@@ -819,10 +823,10 @@ const ESTADO_TAREA_LABEL: Record<string, string> = {
   CANCELADA: 'Cancelada',
 }
 const ESTADO_TAREA_STYLE: Record<string, string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
-  EN_PROGRESO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
-  COMPLETADA: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
-  CANCELADA: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+  PENDIENTE: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  EN_PROGRESO: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  COMPLETADA: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  CANCELADA: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
 }
 const PRIORIDAD_DOT: Record<string, string> = {
   URGENTE: 'bg-red-500',
@@ -850,8 +854,8 @@ function TareaConsultaItem({ tarea, onCompleted }: { tarea: TareaConsultaRow; on
         className={cn(
           'mt-0.5 shrink-0 h-4 w-4 rounded border transition-colors',
           completada
-            ? 'border-green-500 bg-green-500 flex items-center justify-center'
-            : 'border-zinc-300 dark:border-zinc-600 hover:border-green-500',
+            ? 'flex items-center justify-center border-emerald-500 bg-emerald-500'
+            : 'border-zinc-300 hover:border-emerald-500 dark:border-white/20',
         )}
         title={completada ? 'Completada' : 'Marcar como completada'}
       >
@@ -859,15 +863,15 @@ function TareaConsultaItem({ tarea, onCompleted }: { tarea: TareaConsultaRow; on
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={cn('text-sm text-zinc-800 dark:text-zinc-200', completada && 'line-through')}>
+          <span className={cn('text-sm font-semibold text-zinc-800 dark:text-zinc-100', completada && 'line-through')}>
             {tarea.titulo}
           </span>
-          <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', ESTADO_TAREA_STYLE[tarea.estado] ?? ESTADO_TAREA_STYLE.PENDIENTE)}>
+          <span className={cn(TAG, ESTADO_TAREA_STYLE[tarea.estado] ?? ESTADO_TAREA_STYLE.PENDIENTE)}>
             {ESTADO_TAREA_LABEL[tarea.estado] ?? tarea.estado}
           </span>
           <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', PRIORIDAD_DOT[tarea.prioridad] ?? PRIORIDAD_DOT.MEDIA)} title={tarea.prioridad} />
         </div>
-        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-zinc-400">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium tabular-nums text-zinc-500">
           <span>{asignadoNombre}</span>
           {tarea.fecha_vencimiento && (
             <span className={cn(
@@ -881,7 +885,7 @@ function TareaConsultaItem({ tarea, onCompleted }: { tarea: TareaConsultaRow; on
           {tarea.sae_movement_id && tarea.expediente_id && (
             <Link
               to={`/expedientes/${tarea.expediente_id}?tab=actuaciones&mid=${tarea.sae_movement_id}`}
-              className="inline-flex items-center gap-0.5 text-amber-500/70 hover:text-amber-400 transition-colors"
+              className="dashboard-link inline-flex items-center gap-0.5"
               title="Ver actuación vinculada"
             >
               <ExternalLink className="h-3 w-3" />
@@ -899,13 +903,13 @@ function TareasConsultaSection({ consultaId }: { consultaId: string }) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
+    <div className="app-card space-y-3 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ListTodo className="h-4 w-4 text-amber-500" />
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Tareas</h2>
+          <ListTodo className="h-4 w-4 text-[var(--brand-accent)]" />
+          <h2 className={CARD_TITLE}>Tareas</h2>
           {tareas.length > 0 && (
-            <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <span className="tag-mono">
               {tareas.filter(t => t.estado !== 'COMPLETADA').length} pendientes
             </span>
           )}
@@ -913,17 +917,17 @@ function TareasConsultaSection({ consultaId }: { consultaId: string }) {
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-amber-400 hover:text-amber-500 transition-colors"
+          className="btn btn-ghost btn-sm"
         >
           <Plus className="h-3.5 w-3.5" />
           Nueva tarea
         </button>
       </div>
 
-      {isLoading && <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />}
+      {isLoading && <div className="h-8 animate-pulse rounded-xl bg-zinc-100 dark:bg-white/[0.05]" />}
 
       {!isLoading && tareas.length === 0 && (
-        <p className="text-xs text-zinc-400 italic">Sin tareas vinculadas a esta consulta.</p>
+        <p className="text-xs font-medium text-zinc-500">Sin tareas vinculadas a esta consulta.</p>
       )}
 
       {tareas.length > 0 && (
@@ -1230,12 +1234,12 @@ export default function ConsultaDetallePage() {
 
   if (isLoading) return (
     <div className="max-w-2xl mx-auto space-y-4 animate-pulse">
-      {[1, 2, 3].map(i => <div key={i} className="h-32 bg-zinc-100 dark:bg-zinc-800 rounded-xl" />)}
+      {[1, 2, 3].map(i => <div key={i} className="h-32 rounded-2xl bg-zinc-100 dark:bg-white/[0.05]" />)}
     </div>
   )
   if (error || !consulta) return (
     <div className="max-w-2xl mx-auto">
-      <div className="rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-6 text-sm text-red-700 dark:text-red-400">
+      <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm font-medium text-red-700 dark:text-red-300">
         No se pudo cargar la consulta.
       </div>
     </div>
@@ -1247,78 +1251,78 @@ export default function ConsultaDetallePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-        <Link to="/consultas" className="flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
+      <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-zinc-500 dark:text-zinc-400">
+        <Link to="/consultas" className="dashboard-link flex shrink-0 items-center gap-1">
           <ArrowLeft className="h-3.5 w-3.5" />
           Consultas
         </Link>
-        <span>/</span>
-        <span className="text-zinc-700 dark:text-zinc-200 font-medium">{nombreCliente || 'Consulta'}</span>
+        <span className="text-zinc-400 dark:text-zinc-600">/</span>
+        <span className="truncate font-semibold text-zinc-800 dark:text-zinc-200">{nombreCliente || 'Consulta'}</span>
       </div>
 
 
       {/* Header */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5">
+      <div className="app-card p-5">
         {editandoDatos ? (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nombre *</label>
+                <label className={LABEL}>Nombre *</label>
                 <input
                   type="text"
                   value={datosEdit.nombre}
                   onChange={e => setDatosEdit(f => ({ ...f, nombre: e.target.value }))}
                   autoFocus
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Apellido</label>
+                <label className={LABEL}>Apellido</label>
                 <input
                   type="text"
                   value={datosEdit.apellido}
                   onChange={e => setDatosEdit(f => ({ ...f, apellido: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Teléfono</label>
+                <label className={LABEL}>Teléfono</label>
                 <input
                   type="tel"
                   value={datosEdit.telefono}
                   onChange={e => setDatosEdit(f => ({ ...f, telefono: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email</label>
+                <label className={LABEL}>Email</label>
                 <input
                   type="email"
                   value={datosEdit.email}
                   onChange={e => setDatosEdit(f => ({ ...f, email: e.target.value }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Cómo llegó</label>
+                <label className={LABEL}>Cómo llegó</label>
                 <select
                   value={datosEdit.canal}
                   onChange={e => setDatosEdit(f => ({ ...f, canal: e.target.value as ConsultaCanal }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 >
                   {Object.entries(CANAL_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Tipo de asunto</label>
+                <label className={LABEL}>Tipo de asunto</label>
                 <select
                   value={datosEdit.tipo_asunto}
                   onChange={e => setDatosEdit(f => ({ ...f, tipo_asunto: e.target.value as ConsultaTipoAsunto }))}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field"
                 >
                   {Object.entries(TIPO_ASUNTO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -1328,7 +1332,7 @@ export default function ConsultaDetallePage() {
               <button
                 type="button"
                 onClick={() => setEditandoDatos(false)}
-                className="px-4 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className="btn btn-ghost border-transparent"
               >
                 Cancelar
               </button>
@@ -1336,7 +1340,7 @@ export default function ConsultaDetallePage() {
                 type="button"
                 onClick={handleSaveDatos}
                 disabled={update.isPending}
-                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+                className="btn btn-primary"
               >
                 {update.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Guardar
@@ -1346,18 +1350,18 @@ export default function ConsultaDetallePage() {
         ) : (
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{nombreCliente || consulta.nombre}</h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <h1 className="page-title break-words text-xl sm:text-[1.4rem]">{nombreCliente || consulta.nombre}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] font-medium text-zinc-500 dark:text-zinc-400">
                 <span>{TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}</span>
-                <span>·</span>
+                <span className="text-zinc-400 dark:text-zinc-600" aria-hidden>·</span>
                 <span>{CANAL_LABEL[consulta.canal]}</span>
-                {consulta.telefono && <><span>·</span><span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{consulta.telefono}</span></>}
-                {consulta.email && <><span>·</span><span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{consulta.email}</span></>}
+                {consulta.telefono && <><span className="text-zinc-400 dark:text-zinc-600" aria-hidden>·</span><span className="flex items-center gap-1 tabular-nums"><Phone className="h-3.5 w-3.5" />{consulta.telefono}</span></>}
+                {consulta.email && <><span className="text-zinc-400 dark:text-zinc-600" aria-hidden>·</span><span className="flex min-w-0 items-center gap-1 break-all"><Mail className="h-3.5 w-3.5 shrink-0" />{consulta.email}</span></>}
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {/* Estado badge (solo lectura — el pipeline maneja transiciones) */}
-              <span className={cn('rounded-full px-3 py-1 text-xs font-medium', ESTADO_STYLE[consulta.estado])}>
+              <span className={cn(TAG, 'px-2.5 py-0.5 text-[11px]', ESTADO_STYLE[consulta.estado])}>
                 {ESTADO_LABEL[consulta.estado]}
               </span>
               {/* Editar datos */}
@@ -1375,7 +1379,7 @@ export default function ConsultaDetallePage() {
                   })
                   setEditandoDatos(true)
                 }}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+                className="btn btn-ghost btn-icon h-8 w-8"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -1385,7 +1389,7 @@ export default function ConsultaDetallePage() {
                 title="Eliminar consulta"
                 onClick={handleDelete}
                 disabled={deleteConsulta.isPending}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors disabled:opacity-50"
+                className="btn btn-ghost btn-icon h-8 w-8 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400"
               >
                 {deleteConsulta.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               </button>
@@ -1404,28 +1408,28 @@ export default function ConsultaDetallePage() {
       )}
 
       {/* 1. Entrevista y apuntes: lo primero cuando el cliente está presente */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
+      <div className="app-card space-y-3 p-5">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">1. Entrevista</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Transcribí la charla con el cliente o cargá apuntes. Al terminar, lo nuevo se incorpora a los hechos del caso.</p>
+          <h2 className={CARD_TITLE}>1. Entrevista</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Transcribí la charla con el cliente o cargá apuntes. Al terminar, lo nuevo se incorpora a los hechos del caso.</p>
         </div>
         <ConsultaContextos consultaId={consulta.id} onIncorporar={(texto, marcas) => setIncorporar({ texto, marcas })} />
       </div>
 
       {/* 2. Hechos del caso */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">2. Hechos del caso</h2>
+      <div className="app-card space-y-3 p-5">
+        <h2 className={CARD_TITLE}>2. Hechos del caso</h2>
         <textarea
           value={notas}
           onChange={e => setNotas(e.target.value)}
           placeholder="Describí los hechos del caso: qué pasó, cuándo, quiénes están involucrados, qué quiere el cliente, montos si aplica… (lo que surja de la entrevista se agrega acá)"
           rows={8}
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+          className="field resize-y py-3"
         />
 
         {/* Selector de áreas del derecho */}
-        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
-          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Áreas del derecho involucradas</div>
+        <div className="border-t border-zinc-200/70 dark:border-white/[0.06] pt-3">
+          <div className="eyebrow mb-2">Áreas del derecho involucradas</div>
           <div className="flex flex-wrap gap-1.5">
             {(Object.entries(TIPO_ASUNTO_LABEL) as [ConsultaTipoAsunto, string][]).map(([value, label]) => {
               const activa = areasActivas.includes(value)
@@ -1436,12 +1440,8 @@ export default function ConsultaDetallePage() {
                   onClick={() => setAreasActivas(prev =>
                     prev.includes(value) ? prev.filter(a => a !== value) : [...prev, value]
                   )}
-                  className={cn(
-                    'px-2.5 py-1 text-[11px] font-medium rounded-full border transition-colors',
-                    activa
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                      : 'border-zinc-200 dark:border-white/10 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20',
-                  )}
+                  aria-pressed={activa}
+                  className="chip"
                 >
                   {label}
                 </button>
@@ -1455,7 +1455,7 @@ export default function ConsultaDetallePage() {
             type="button"
             onClick={handleSaveNotas}
             disabled={update.isPending || (notas === consulta.notas_libres && JSON.stringify(areasActivas) === JSON.stringify(consulta.areas_derecho ?? []))}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-zinc-300 rounded-lg transition-colors disabled:opacity-40"
+            className="btn btn-ghost btn-sm"
           >
             <Save className="h-3.5 w-3.5" />
             Guardar notas
@@ -1464,7 +1464,7 @@ export default function ConsultaDetallePage() {
             type="button"
             onClick={handleOrdenarHechos}
             disabled={ordenarHechos.isPending || (!notas.trim() && !hayEntrevista)}
-            className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-zinc-900 hover:from-amber-600 hover:to-orange-600 text-white dark:bg-white dark:text-zinc-900 rounded-lg transition-all disabled:opacity-50 shadow-sm"
+            className="btn btn-primary"
           >
             {ordenarHechos.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin" />Ordenando…</>
@@ -1477,7 +1477,7 @@ export default function ConsultaDetallePage() {
               type="button"
               onClick={handleGenerarDiagnostico}
               disabled={generando || !notas.trim()}
-              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium bg-zinc-900 hover:from-blue-700 hover:to-violet-700 text-white dark:bg-white dark:text-zinc-900 rounded-lg transition-all disabled:opacity-50 shadow-sm"
+              className="btn btn-primary"
             >
               {generando ? (
                 <><Loader2 className="h-4 w-4 animate-spin" />Analizando…</>
@@ -1490,13 +1490,13 @@ export default function ConsultaDetallePage() {
       </div>
 
       {/* 3. Documentación del cliente */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">3. Documentación</h2>
+      <div className="app-card space-y-3 p-5">
+        <h2 className={CARD_TITLE}>3. Documentación</h2>
         <div>
-          <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Documentos adjuntos</h3>
+          <h3 className="eyebrow mb-2">Documentos adjuntos</h3>
           <ConsultaAdjuntos consultaId={consulta.id} />
         </div>
-        <div className="border-t border-zinc-100 dark:border-white/5 pt-3">
+        <div className="border-t border-zinc-200/70 dark:border-white/[0.06] pt-3">
           <DocumentacionRequerida caso={{ consultaId: consulta.id }} clienteNombre={consulta.nombre} clienteTelefono={consulta.telefono} />
         </div>
       </div>
@@ -1536,7 +1536,7 @@ export default function ConsultaDetallePage() {
 
       {/* Sin diagnóstico todavía: se puede armar a mano, área por área */}
       {!diag && !isSecretaria && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-zinc-300 dark:border-white/15 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed border-zinc-300 p-4 dark:border-white/15">
           <p className="text-sm text-zinc-500">Sin diagnóstico todavía. Generalo con IA desde los hechos o armalo a mano por área.</p>
           <AgregarArea excluidas={[]} onElegir={a => { void handleAgregarArea(a) }} disabled={update.isPending} />
         </div>
@@ -1544,9 +1544,9 @@ export default function ConsultaDetallePage() {
 
       {/* Diagnóstico IA */}
       {diag && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+        <div className="app-card space-y-4 p-5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico jurídico</h2>
+            <h2 className={CARD_TITLE}>Diagnóstico jurídico</h2>
             {hasModulos && !isSecretaria && (
               <AgregarArea excluidas={diag.modulos!.map(m => m.area)} onElegir={a => { void handleAgregarArea(a) }} disabled={update.isPending} />
             )}
@@ -1555,13 +1555,13 @@ export default function ConsultaDetallePage() {
               <div className="flex items-center gap-2">
                 {!editandoDiag ? (
                   <>
-                    <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[diag.chances_estimadas ?? 'sin_datos'])}>
+                    <span className={cn(TAG, 'px-2.5 py-0.5 text-[11px]', CHANCES_STYLE[diag.chances_estimadas ?? 'sin_datos'])}>
                       {CHANCES_LABEL[diag.chances_estimadas ?? 'sin_datos']}
                     </span>
                     <button
                       type="button"
                       onClick={() => { setDiagEdit({ ...diag }); setEditandoDiag(true) }}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                      className="btn btn-ghost btn-sm"
                     >
                       <Pencil className="h-3 w-3" /> Editar
                     </button>
@@ -1570,7 +1570,7 @@ export default function ConsultaDetallePage() {
                   <button
                     type="button"
                     onClick={() => { setEditandoDiag(false); setDiagEdit(null) }}
-                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                    className="btn btn-ghost btn-sm"
                   >
                     <X className="h-3 w-3" /> Cancelar
                   </button>
@@ -1599,31 +1599,31 @@ export default function ConsultaDetallePage() {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
+                  <label className={LABEL}>Fuero</label>
                   <input
                     type="text"
                     value={diagEdit.fuero ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, fuero: e.target.value } : prev)}
-                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="field"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Pretensión</label>
+                  <label className={LABEL}>Pretensión</label>
                   <input
                     type="text"
                     value={diagEdit.pretension ?? ''}
                     onChange={e => setDiagEdit(prev => prev ? { ...prev, pretension: e.target.value } : prev)}
-                    className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    className="field"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Probabilidad</label>
+                <label className={LABEL}>Probabilidad</label>
                 <select
                   value={diagEdit.chances_estimadas}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, chances_estimadas: e.target.value as DiagnosticoIA['chances_estimadas'] } : prev)}
-                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  className="field w-auto"
                 >
                   <option value="alta">Alta</option>
                   <option value="media">Media</option>
@@ -1633,17 +1633,17 @@ export default function ConsultaDetallePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Análisis</label>
+                <label className={LABEL}>Análisis</label>
                 <textarea
                   rows={5}
                   value={diagEdit.observaciones ?? ''}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, observaciones: e.target.value } : prev)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+                  className="field resize-y"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                   <CheckCircle2 className="h-3 w-3 text-green-500" /> Acciones recomendadas
                 </label>
                 <div className="space-y-1.5">
@@ -1658,12 +1658,12 @@ export default function ConsultaDetallePage() {
                           arr[i] = e.target.value
                           return { ...prev, acciones_recomendadas: arr }
                         })}
-                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                        className="field min-w-0 flex-1 py-1.5"
                       />
                       <button
                         type="button"
                         onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: (prev.acciones_recomendadas ?? []).filter((_, j) => j !== i) } : prev)}
-                        className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors"
+                        className="btn btn-icon h-9 w-9 shrink-0 text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1672,7 +1672,7 @@ export default function ConsultaDetallePage() {
                   <button
                     type="button"
                     onClick={() => setDiagEdit(prev => prev ? { ...prev, acciones_recomendadas: [...(prev.acciones_recomendadas ?? []), ''] } : prev)}
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="dashboard-link flex items-center gap-1 text-xs"
                   >
                     <Plus className="h-3 w-3" /> Agregar acción
                   </button>
@@ -1680,7 +1680,7 @@ export default function ConsultaDetallePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
+                <label className="mb-1.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                   <AlertTriangle className="h-3 w-3 text-amber-500" /> Riesgos
                 </label>
                 <div className="space-y-1.5">
@@ -1695,12 +1695,12 @@ export default function ConsultaDetallePage() {
                           arr[i] = e.target.value
                           return { ...prev, riesgos: arr }
                         })}
-                        className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                        className="field min-w-0 flex-1 py-1.5"
                       />
                       <button
                         type="button"
                         onClick={() => setDiagEdit(prev => prev ? { ...prev, riesgos: (prev.riesgos ?? []).filter((_, j) => j !== i) } : prev)}
-                        className="px-2 py-1 text-red-500 hover:text-red-600 rounded transition-colors"
+                        className="btn btn-icon h-9 w-9 shrink-0 text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1709,7 +1709,7 @@ export default function ConsultaDetallePage() {
                   <button
                     type="button"
                     onClick={() => setDiagEdit(prev => prev ? { ...prev, riesgos: [...(prev.riesgos ?? []), ''] } : prev)}
-                    className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                    className="flex items-center gap-1 text-xs font-semibold text-amber-700 hover:underline dark:text-amber-400"
                   >
                     <Plus className="h-3 w-3" /> Agregar riesgo
                   </button>
@@ -1717,12 +1717,12 @@ export default function ConsultaDetallePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Nota sobre honorarios</label>
+                <label className={LABEL}>Nota sobre honorarios</label>
                 <textarea
                   rows={2}
                   value={diagEdit.descripcion_honorarios ?? ''}
                   onChange={e => setDiagEdit(prev => prev ? { ...prev, descripcion_honorarios: e.target.value } : prev)}
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 resize-y"
+                  className="field resize-y"
                 />
               </div>
 
@@ -1741,7 +1741,7 @@ export default function ConsultaDetallePage() {
                   }
                 }}
                 disabled={update.isPending}
-                className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+                className="btn btn-primary w-full"
               >
                 {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Guardar diagnóstico
@@ -1751,23 +1751,23 @@ export default function ConsultaDetallePage() {
             <>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Fuero</div>
+                  <div className="eyebrow mb-1">Fuero</div>
                   <div className="text-zinc-800 dark:text-zinc-200">{diag.fuero ?? '—'}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Pretensión</div>
+                  <div className="eyebrow mb-1">Pretensión</div>
                   <div className="text-zinc-800 dark:text-zinc-200">{diag.pretension ?? '—'}</div>
                 </div>
               </div>
 
               <div>
-                <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-1">Análisis</div>
+                <div className="eyebrow mb-1">Análisis</div>
                 <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{diag.observaciones ?? ''}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <div className="eyebrow mb-2 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3 text-green-500" />
                     Acciones recomendadas
                   </div>
@@ -1777,7 +1777,7 @@ export default function ConsultaDetallePage() {
                 </div>
                 {(diag.riesgos?.length ?? 0) > 0 && (
                   <div>
-                    <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <div className="eyebrow mb-2 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3 text-amber-500" />
                       Riesgos
                     </div>
@@ -1789,22 +1789,22 @@ export default function ConsultaDetallePage() {
               </div>
 
               {diag.descripcion_honorarios && (
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2">
+                <div className="dashboard-panel-muted px-3 py-2 text-[11.5px] text-zinc-600 dark:text-zinc-400">
                   <span className="font-medium">Honorarios sugeridos:</span> {diag.descripcion_honorarios}
                 </div>
               )}
 
               {diag.checklist_cliente && diag.checklist_cliente.length > 0 && (
-                <div className="border-t border-zinc-100 dark:border-white/5 pt-4">
+                <div className="border-t border-zinc-200/70 dark:border-white/[0.06] pt-4">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
-                      <ListChecks className="h-3.5 w-3.5 text-blue-500" />
+                    <div className="eyebrow flex items-center gap-1.5">
+                      <ListChecks className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
                       Documentación / información a solicitar al cliente
                     </div>
                     <button
                       type="button"
                       onClick={handleAgregarChecklistAlSeguimiento}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                      className="btn btn-ghost btn-sm"
                     >
                       Agregar al seguimiento
                     </button>
@@ -1816,7 +1816,7 @@ export default function ConsultaDetallePage() {
                           type="checkbox"
                           checked={!!checklistEstado[i]}
                           onChange={e => setChecklistEstado(prev => ({ ...prev, [i]: e.target.checked }))}
-                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-cyan-500/30"
+                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 accent-cyan-600 dark:border-zinc-600"
                         />
                         <span className={cn(
                           'text-zinc-700 dark:text-zinc-300 leading-snug',
@@ -1836,12 +1836,12 @@ export default function ConsultaDetallePage() {
 
       {/* Notas del abogado sobre el diagnóstico */}
       {diag && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
+        <div className="app-card space-y-3 p-5">
           <div className="flex items-center gap-2">
-            <NotebookPen className="h-4 w-4 text-violet-500" />
-            <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Observaciones del abogado</h2>
+            <NotebookPen className="h-4 w-4 text-[var(--brand-accent)]" />
+            <h2 className={CARD_TITLE}>Observaciones del abogado</h2>
           </div>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Agregá todo lo que el diagnóstico IA omitió o que querés dejar asentado: daño punitivo, defensa del empleador, etc.
           </p>
           <textarea
@@ -1849,14 +1849,14 @@ export default function ConsultaDetallePage() {
             onChange={e => setNotasAbogado(e.target.value)}
             placeholder="Ej: agregar daño punitivo — el empleador ya fue condenado antes. Considerar art. 80 LCT por falta de entrega de documentación…"
             rows={5}
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+            className="field resize-y py-3"
           />
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={handleSaveNotasAbogado}
               disabled={update.isPending || notasAbogado === (consulta.notas_abogado ?? '')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-400 hover:text-violet-600 rounded-lg transition-colors disabled:opacity-40"
+              className="btn btn-ghost btn-sm"
             >
               <Save className="h-3.5 w-3.5" />
               Guardar observaciones
@@ -1865,7 +1865,7 @@ export default function ConsultaDetallePage() {
               type="button"
               onClick={handleEnriquecerConIA}
               disabled={enriqueciendo || !notasAbogado.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="btn btn-primary btn-sm"
             >
               {enriqueciendo ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" />Formalizando…</>
@@ -1884,10 +1884,10 @@ export default function ConsultaDetallePage() {
 
       {/* Honorarios por proceso — solo abogados */}
       {!isSecretaria && (
-        <div ref={presupuestoSectionRef} className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+        <div ref={presupuestoSectionRef} className="app-card scroll-mt-4 space-y-4 p-5">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Honorarios</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">Cada juicio, actuación administrativa o gestión con su honorario, agrupados por área.</p>
+            <h2 className={CARD_TITLE}>Honorarios</h2>
+            <p className="mt-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">Cada juicio, actuación administrativa o gestión con su honorario, agrupados por área.</p>
           </div>
           <CotizacionPanel
             key={consulta.id}
@@ -1911,18 +1911,17 @@ export default function ConsultaDetallePage() {
           if (a && !areasDoc.includes(a)) areasDoc.push(a)
         }
         return (
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
+          <div className="app-card space-y-3 p-5">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-zinc-500" />
-              <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Documento para el cliente</h2>
+              <h2 className={CARD_TITLE}>Documento para el cliente</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {modos.length > 1 && (
-                <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-500/10 p-1">
+                <div className="segmented" role="group" aria-label="Qué incluye el documento">
                   {modos.map(m => (
-                    <button key={m.id} type="button" onClick={() => setDocModo(m.id)}
-                      className={cn('min-h-8 rounded-lg px-3 text-xs font-medium',
-                        modoEfectivo === m.id ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+                    <button key={m.id} type="button" onClick={() => setDocModo(m.id)} aria-pressed={modoEfectivo === m.id}
+                      className="px-3 text-xs font-semibold">
                       {m.label}
                     </button>
                   ))}
@@ -1930,18 +1929,18 @@ export default function ConsultaDetallePage() {
               )}
               {areasDoc.length > 1 && (
                 <select value={docArea} onChange={e => setDocArea(e.target.value)} aria-label="Alcance del documento"
-                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none">
+                  className="field h-9 w-auto py-0 text-xs">
                   <option value="">Todas las áreas</option>
                   {areasDoc.map(a => <option key={a} value={a}>Solo {etiquetaArea(a).toLowerCase()}</option>)}
                 </select>
               )}
               <button type="button" onClick={() => { if (docModo !== modoEfectivo) setDocModo(modoEfectivo); void handleImprimirDocumento() }} disabled={imprimiendo}
-                className="ml-auto flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+                className="btn btn-secondary ml-auto">
                 {imprimiendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                 Imprimir o guardar PDF
               </button>
             </div>
-            <p className="text-[11px] text-zinc-500">
+            <p className="text-[11px] font-medium text-zinc-500">
               Tapa con la identidad del estudio y el cuerpo con el formato de los escritos (Times 12, interlineado 1,5). Las áreas y procesos marcados con el ojo tachado no salen.
             </p>
           </div>
@@ -1949,12 +1948,12 @@ export default function ConsultaDetallePage() {
       })()}
 
       {/* Acciones */}
-      {!isSecretaria && consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (
-        <div className="flex flex-wrap gap-3">
+      {consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (diag || !isSecretaria) && (
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleConvertir}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            className="btn btn-primary"
           >
             <FolderPlus className="h-4 w-4" />
             Convertir a expediente
@@ -1966,8 +1965,8 @@ export default function ConsultaDetallePage() {
       <TareasConsultaSection consultaId={consulta.id} />
 
       {/* Actividad / Seguimiento */}
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Seguimiento administrativo</h2>
+      <div className="app-card space-y-3 p-5">
+        <h2 className={CARD_TITLE}>Seguimiento administrativo</h2>
         <ActividadSection consultaId={consulta.id} />
       </div>
 

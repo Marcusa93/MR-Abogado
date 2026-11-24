@@ -334,14 +334,14 @@ function HoyStrip({ turnosHoy, tareasHoy }: { turnosHoy: ProximoTurno[]; tareasH
   return (
     <div className="relative overflow-x-auto scrollbar-none">
       <div className="flex min-w-max items-center gap-2 pb-0.5">
-        <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-amber-400">
+        <span className="dashboard-kicker shrink-0">
           Hoy
         </span>
         {turnosHoy.map((t) => (
           <Link key={t.id} to={`/expedientes/${t.expediente_id}`}
             className="group flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/20 hover:bg-white/[0.09]">
-            <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-            {t.hora && <span className="text-xs font-bold text-amber-300">{t.hora.slice(0, 5)}</span>}
+            <Clock className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+            {t.hora && <span className="text-xs font-bold tabular-nums text-white">{t.hora.slice(0, 5)}</span>}
             <span className="text-xs text-zinc-200">{t.cliente_nombre} {t.cliente_apellido}</span>
             <span className="text-[10px] text-zinc-500">{TIPO_TURNO_LABELS[t.tipo_turno] ?? t.tipo_turno}</span>
           </Link>

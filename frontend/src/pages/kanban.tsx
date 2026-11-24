@@ -15,6 +15,7 @@ import {
 import { SemaforoBadge } from '@/components/shared/semaforo-badge'
 import { getKanbanCardClass } from '@/lib/utils/estado-colors'
 import { EmptyState } from '@/components/shared/empty-state'
+import { PageHeader } from '@/components/shared/page-header'
 import { calcularSemaforoKanban } from '@/lib/utils/semaforo'
 import {
   getEstadoConfig,
@@ -61,15 +62,17 @@ function isValidTransition(from: string, to: string): boolean {
   return allowed.includes(to as EstadoInterno)
 }
 
+// Paleta sobria del sitio (navy, pizarra y celeste): el arcoíris no agregaba información.
+// Distintos entre sí para reconocer a cada persona, pero apagados como el resto del tema.
 const AVATAR_COLORS = [
-  'bg-amber-600',
+  'bg-cyan-700',
   'bg-violet-600',
-  'bg-rose-600',
-  'bg-amber-600',
-  'bg-emerald-600',
+  'bg-emerald-700',
+  'bg-rose-700',
+  'bg-amber-700',
   'bg-blue-600',
-  'bg-indigo-600',
-  'bg-pink-600',
+  'bg-teal-700',
+  'bg-slate-600',
 ]
 
 function getAvatarColor(name: string): string {
@@ -103,9 +106,9 @@ function PipelineBar({
   const total = columns.reduce((sum, c) => sum + c.count, 0)
 
   return (
-    <div className="glass-card rounded-xl px-4 py-3">
-      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-        <span className="font-bold text-lg text-zinc-800 dark:text-zinc-200">{total}</span>
+    <div className="app-card px-4 py-3">
+      <div className="mb-2 flex items-baseline gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <span className="text-lg font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">{total}</span>
         <span>expedientes en pipeline</span>
       </div>
       <div className="flex items-center gap-0.5 overflow-x-auto pb-1 no-scrollbar">
@@ -127,15 +130,15 @@ function PipelineBar({
               >
                 <span
                   className={cn(
-                    'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold',
+                    'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold tabular-nums',
                     hasCards
                       ? cn(cfg.counterBg, cfg.counterText)
-                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                      : 'bg-zinc-200 text-zinc-500 dark:bg-white/[0.06] dark:text-zinc-400'
                   )}
                 >
                   {col.count}
                 </span>
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-300 whitespace-nowrap hidden sm:inline">
+                <span className="hidden whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-300 sm:inline">
                   {col.label}
                 </span>
               </div>
@@ -172,13 +175,13 @@ function KanbanFiltersBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-700 dark:text-zinc-300" />
+      <div className="relative min-w-[180px] flex-1 sm:max-w-[320px]">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
         <input
           placeholder="Buscar nombre o expediente..."
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 text-sm text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+          className="field h-11 pl-10"
         />
       </div>
 
@@ -191,7 +194,7 @@ function KanbanFiltersBar({
             prioridad: (e.target.value || null) as KanbanFilters['prioridad'],
           })
         }
-        className="h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-700 dark:text-zinc-300 focus:border-cyan-500/40 focus:outline-none focus:ring-cyan-500/15"
+        className="field h-11 w-auto py-0 pr-8 text-[13px] font-medium"
       >
         <option value="">Prioridad</option>
         {PRIORIDAD_VALUES.map((p) => (
@@ -208,12 +211,8 @@ function KanbanFiltersBar({
             ...filters,
             profileId: filters.profileId ? null : user.id,
           })}
-          className={cn(
-            'h-8 rounded-lg border px-3 text-xs font-medium transition-colors',
-            filters.profileId
-              ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
-              : 'border-white/10 bg-white/5 text-zinc-500 hover:text-zinc-300'
-          )}
+          aria-pressed={!!filters.profileId}
+          className="chip"
         >
           Mis causas
         </button>
@@ -226,7 +225,7 @@ function KanbanFiltersBar({
             onFiltersChange({})
             onSearchChange('')
           }}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors"
+          className="btn btn-ghost btn-sm border-transparent"
         >
           <X className="h-3.5 w-3.5" />
           Limpiar
@@ -258,17 +257,17 @@ function KanbanDroppableColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'flex w-14 shrink-0 flex-col items-center rounded-xl border border-dashed transition-all duration-300',
-          'border-zinc-300 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/20'
+          'flex w-14 shrink-0 flex-col items-center overflow-hidden rounded-2xl border border-dashed transition-all duration-300',
+          'border-zinc-300 bg-zinc-50 dark:border-white/10 dark:bg-white/[0.015]'
         )}
       >
-        <div className={cn('h-1 w-full rounded-t-xl', cfg.dotClass)} />
+        <div className={cn('h-1 w-full', cfg.dotClass)} />
         <div className="flex-1 flex items-center justify-center py-4">
-          <span className="writing-vertical text-[10px] font-medium text-zinc-600 dark:text-zinc-300 whitespace-nowrap">
+          <span className="writing-vertical whitespace-nowrap text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
             {column.label}
           </span>
         </div>
-        <span className="mb-3 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+        <span className="mb-3 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[9px] font-bold tabular-nums text-zinc-600 dark:bg-white/[0.06] dark:text-zinc-400">
           0
         </span>
       </div>
@@ -279,27 +278,27 @@ function KanbanDroppableColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex w-[260px] sm:w-[300px] shrink-0 flex-col rounded-xl border transition-all duration-300',
-        'bg-zinc-50/50 dark:bg-white/[0.02]',
+        'flex w-[260px] sm:w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border transition-all duration-300',
+        'bg-zinc-50 dark:bg-white/[0.02]',
         isOver
-          ? 'border-amber-500/40 ring-1 ring-amber-500/15 shadow-lg'
-          : 'border-zinc-200 dark:border-white/[0.07]'
+          ? 'border-cyan-500/40 ring-1 ring-cyan-500/15 shadow-lg'
+          : 'border-zinc-200 dark:border-white/[0.06]'
       )}
     >
       {/* Color top bar */}
-      <div className={cn('h-1 w-full rounded-t-xl', cfg.dotClass)} />
+      <div className={cn('h-1 w-full', cfg.dotClass)} />
 
       {/* Column header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-200 dark:border-white/5">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2.5 dark:border-white/[0.06]">
         <div className="flex items-center gap-2 min-w-0">
           <span className={cn('h-2 w-2 shrink-0 rounded-full', cfg.dotClass)} />
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 truncate">
+          <span className="truncate text-[13px] font-bold tracking-tight text-zinc-800 dark:text-white">
             {column.label}
           </span>
         </div>
         <span
           className={cn(
-            'flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold',
+            'flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
             cfg.counterBg,
             cfg.counterText,
           )}
@@ -365,16 +364,16 @@ function KanbanDraggableCard({
       {...attributes}
       {...listeners}
       className={cn(
-        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white dark:bg-white/[0.02] p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
+        'group rounded-xl border-l-[3px] border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[var(--card)] p-3 transition-all duration-200 cursor-grab active:cursor-grabbing shadow-sm dark:shadow-none',
         estadoBorder,
-        'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/5 hover:border-white/[0.12]',
-        isDragging && 'opacity-50 shadow-2xl ring-2 ring-amber-500/25'
+        'hover:-translate-y-0.5 hover:shadow-lg hover:border-zinc-300 dark:hover:border-white/[0.14]',
+        isDragging && 'opacity-50 shadow-2xl ring-2 ring-cyan-500/25'
       )}
       onClick={onClick}
     >
       {/* Header: drag indicator + avatar + name + semaforo */}
       <div className="flex items-start gap-2">
-        <div className="mt-1 shrink-0 text-zinc-700 dark:text-zinc-200 group-hover:text-zinc-700 dark:text-zinc-300">
+        <div className="mt-1 shrink-0 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-600 dark:group-hover:text-zinc-400">
           <GripVertical className="h-3.5 w-3.5" />
         </div>
 
@@ -388,11 +387,11 @@ function KanbanDraggableCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate leading-tight">
+          <p className="truncate text-[13px] font-bold leading-tight tracking-tight text-zinc-900 dark:text-white">
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
-          <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
-            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
+          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="font-semibold tabular-nums">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
 
@@ -400,7 +399,7 @@ function KanbanDraggableCard({
       </div>
 
       {/* Footer info */}
-      <div className="mt-2 flex items-center gap-3 ml-[52px] text-[11px] text-zinc-700 dark:text-zinc-300">
+      <div className="mt-2 ml-[52px] flex items-center gap-3 text-[11px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
         {card.tareas_pendientes > 0 && (
           <span className="flex items-center gap-1" title={`${card.tareas_pendientes} tareas pendientes`}>
             <ClipboardList className="h-3 w-3" />
@@ -417,8 +416,8 @@ function KanbanDraggableCard({
           <span
             className={cn(
               'flex items-center gap-0.5',
-              dias > 30 && 'text-amber-500',
-              dias > 90 && 'text-rose-400'
+              dias > 30 && 'text-amber-600 dark:text-amber-400',
+              dias > 90 && 'text-rose-600 dark:text-rose-400'
             )}
             title={`${dias} días en este estado`}
           >
@@ -455,12 +454,12 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
   return (
     <div
       className={cn(
-        'w-[300px] rounded-xl border-l-[3px] border border-amber-500/30 bg-white dark:bg-[var(--card)] p-3 shadow-2xl shadow-amber-500/10',
+        'w-[300px] rounded-xl border-l-[3px] border border-cyan-500/30 bg-white dark:bg-[var(--popover)] p-3 shadow-2xl',
         estadoBorder
       )}
     >
       <div className="flex items-start gap-2">
-        <GripVertical className="mt-1 h-3.5 w-3.5 shrink-0 text-amber-400" />
+        <GripVertical className="mt-1 h-3.5 w-3.5 shrink-0 text-cyan-500 dark:text-cyan-400" />
         <div
           className={cn(
             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white',
@@ -470,11 +469,11 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate leading-tight">
+          <p className="truncate text-[13px] font-bold leading-tight tracking-tight text-zinc-900 dark:text-white">
             {card.caratula || `${card.cliente_apellido}, ${card.cliente_nombre}`}
           </p>
-          <p className="text-[11px] text-zinc-700 dark:text-zinc-300 mt-0.5">
-            <span className="font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{(card as any).numero ?? card.numero_expediente}</span>
+          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="font-semibold tabular-nums">{(card as any).numero ?? card.numero_expediente}</span>
           </p>
         </div>
       </div>
@@ -489,15 +488,15 @@ function KanbanOverlayCard({ card }: { card: KanbanCard }) {
 function KanbanSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="glass rounded-xl h-20" />
+      <div className="app-card h-20" />
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="w-[300px] shrink-0 rounded-xl glass">
-            <div className="h-1 w-full rounded-t-xl bg-slate-700" />
+          <div key={i} className="app-card w-[300px] shrink-0">
+            <div className="h-1 w-full bg-zinc-200 dark:bg-white/10" />
             <div className="p-3 space-y-3">
-              <div className="h-4 w-24 rounded bg-slate-700" />
+              <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-white/10" />
               {Array.from({ length: 3 }).map((_, j) => (
-                <div key={j} className="h-24 rounded-xl bg-zinc-50 dark:bg-zinc-900/60/50" />
+                <div key={j} className="h-24 rounded-xl bg-zinc-100 dark:bg-white/[0.04]" />
               ))}
             </div>
           </div>
@@ -591,43 +590,40 @@ export default function KanbanPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Tablero de Estados
-          </h1>
-          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-            Arrastrá los expedientes entre columnas para cambiar su estado.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {cambiarEstado.isPending && (
-            <div className="flex items-center gap-2 text-xs text-amber-400">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Actualizando estado...
-            </div>
-          )}
-          <button
-            onClick={() => navigate('/importar-sae')}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-medium text-cyan-400 hover:bg-cyan-500/20 transition-colors"
-          >
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Importar SAE</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Tablero de Estados"
+        subtitle="Arrastrá los expedientes entre columnas para cambiar su estado."
+        actions={
+          <>
+            {cambiarEstado.isPending && (
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-500 dark:text-cyan-400" />
+                Actualizando estado...
+              </div>
+            )}
+            <button
+              onClick={() => navigate('/importar-sae')}
+              className="btn btn-secondary"
+              title="Importar SAE"
+            >
+              <Database className="h-4 w-4" />
+              <span className="hidden sm:inline">Importar SAE</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Board */}
       {isLoading ? (
         <KanbanSkeleton />
       ) : isError ? (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-6 text-center space-y-3">
-          <p className="text-sm text-rose-400">
+        <div className="space-y-3 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 text-center">
+          <p className="text-sm font-medium text-rose-600 dark:text-rose-400">
             Error al cargar el tablero.
           </p>
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-colors"
+            className="btn btn-primary"
           >
             Reintentar
           </button>
@@ -664,10 +660,10 @@ export default function KanbanPage() {
                 >
                   {column.cards.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-white/10">
-                        <LayoutGrid className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/10">
+                        <LayoutGrid className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
                       </div>
-                      <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                      <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                         Arrastra expedientes aquí
                       </p>
                     </div>

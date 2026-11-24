@@ -81,7 +81,7 @@ function FijarDialog({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar en tu biblioteca…"
                   autoFocus
-                  className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="field h-9 w-full pl-9 pr-3 py-0"
                 />
               </div>
               <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
@@ -113,7 +113,7 @@ function FijarDialog({
                     <button
                       key={doc.id}
                       onClick={() => setSelected(doc)}
-                      className="w-full text-left flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] p-2.5 hover:bg-white/[0.04] hover:border-violet-500/30 transition-colors"
+                      className="w-full text-left flex items-center gap-2 app-card p-2.5 hover:bg-white/[0.04] hover:border-violet-500/30 transition-colors"
                     >
                       <FileText className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -151,7 +151,7 @@ function FijarDialog({
                   rows={3}
                   placeholder="Por qué fijás esta norma a este expediente"
                   disabled={fijar.isPending}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-2 focus:ring-violet-500/15"
+                  className="field w-full"
                 />
               </div>
             </div>
@@ -166,7 +166,7 @@ function FijarDialog({
                 <button
                   onClick={submit}
                   disabled={fijar.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50"
+                  className="btn btn-primary btn-sm"
                 >
                   {fijar.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pin className="h-3 w-3" />}
                   Fijar
@@ -197,7 +197,7 @@ export function TabNormativa({ expedienteId }: Props) {
         headerRight={
           <button
             onClick={() => setOpenFijar(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90"
+            className="btn btn-primary btn-sm"
           >
             <Plus className="h-3 w-3" />
             Fijar norma
@@ -221,7 +221,7 @@ export function TabNormativa({ expedienteId }: Props) {
             {rows.map(row => (
               <div
                 key={row.documento_id}
-                className="group flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors"
+                className="group flex items-start gap-3 app-card p-3 hover:bg-white/[0.04] transition-colors"
               >
                 <Pin className="h-3.5 w-3.5 text-violet-400 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">

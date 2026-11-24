@@ -207,7 +207,7 @@ function UploadDialog({
               <input
                 value={nombreArchivo}
                 onChange={(e) => setNombreArchivo(e.target.value)}
-                className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field h-9 w-full py-0"
                 placeholder="Nombre del archivo..."
               />
             </div>
@@ -219,7 +219,7 @@ function UploadDialog({
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field h-9 w-full py-0"
             >
               <option value="">Sin categoría</option>
               {CATEGORIAS.map((c) => (
@@ -234,7 +234,7 @@ function UploadDialog({
             <input
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              className="h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field h-9 w-full py-0"
               placeholder="Breve descripción del documento..."
             />
           </div>

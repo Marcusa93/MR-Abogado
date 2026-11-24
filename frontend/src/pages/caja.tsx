@@ -24,6 +24,7 @@ import { useCajaIaObservaciones } from '@/hooks/use-caja-ia'
 import { useClientes } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
 import { Breadcrumb } from '@/components/shared/breadcrumb'
+import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from '@/stores/toast-store'
@@ -38,6 +39,20 @@ const fmt = (n: number, moneda: MonedaCaja = 'ARS') => {
   const formatter = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
   return `${moneda === 'USD' ? 'US$ ' : '$ '}${formatter.format(n)}`
 }
+
+// Estilos de la pantalla. Verde = ingreso, rosa = egreso: son semánticos, no se tocan.
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
+const CARD_TITLE = 'text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white'
+const PANEL = 'rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-white/[0.02]'
+const FILA_MOVIL = 'app-card rounded-xl px-3 py-2.5'
+const TABLA = 'app-card hidden md:block'
+const THEAD = 'bg-zinc-50 text-[10.5px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:bg-white/[0.03] dark:text-zinc-400'
+const TBODY = 'divide-y divide-zinc-100 dark:divide-white/5'
+const TR = 'hover:bg-zinc-50 dark:hover:bg-white/[0.02]'
+const ICON_EDIT = 'rounded-lg p-1 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/[0.06] dark:hover:text-white'
+const ICON_DELETE = 'rounded-lg p-1 text-zinc-500 transition-colors hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400'
+const NAV_BTN = 'btn btn-ghost btn-icon h-7 w-7 disabled:opacity-30'
+const ARS_EQ = 'text-cyan-700 dark:text-cyan-400'
 
 const MES_LABELS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
@@ -80,58 +95,53 @@ export default function CajaPage() {
     <div className="space-y-6 animate-fade-in pb-12">
       <Breadcrumb items={[{ label: 'Caja' }]} />
 
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Caja del estudio
-          </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Ingresos, gastos y abonos mensuales. Restringido a socios autorizados.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {activeTab === 'ingresos' || activeTab === 'resumen' ? (
-            <button
-              onClick={() => setDialogOpen('ingreso')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Ingreso
-            </button>
-          ) : null}
-          {activeTab === 'gastos' || activeTab === 'resumen' ? (
-            <button
-              onClick={() => setDialogOpen('gasto')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/25 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Gasto
-            </button>
-          ) : null}
-          {activeTab === 'abonos' && (
-            <button
-              onClick={() => setDialogOpen('abono')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Nuevo abono
-            </button>
-          )}
-          {activeTab === 'gastos_fijos' && (
-            <button
-              onClick={() => setDialogOpen('gasto_fijo')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-orange-500/15 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/25 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Nuevo gasto fijo
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Caja del estudio"
+        subtitle="Ingresos, gastos y abonos mensuales. Restringido a socios autorizados."
+        actions={
+          <>
+            {activeTab === 'ingresos' || activeTab === 'resumen' ? (
+              <button
+                onClick={() => setDialogOpen('ingreso')}
+                className="btn border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
+              >
+                <Plus className="h-4 w-4" />
+                Ingreso
+              </button>
+            ) : null}
+            {activeTab === 'gastos' || activeTab === 'resumen' ? (
+              <button
+                onClick={() => setDialogOpen('gasto')}
+                className="btn border border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-300"
+              >
+                <Plus className="h-4 w-4" />
+                Gasto
+              </button>
+            ) : null}
+            {activeTab === 'abonos' && (
+              <button
+                onClick={() => setDialogOpen('abono')}
+                className="btn btn-primary"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo abono
+              </button>
+            )}
+            {activeTab === 'gastos_fijos' && (
+              <button
+                onClick={() => setDialogOpen('gasto_fijo')}
+                className="btn border border-orange-500/30 bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:text-orange-300"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo gasto fijo
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Tabs */}
-      <div className="border-b border-zinc-200 dark:border-white/10">
+      <div className="border-b border-zinc-200 dark:border-white/[0.08]">
         <nav className="flex gap-1 -mb-px overflow-x-auto no-scrollbar">
           {[
             { id: 'resumen' as const, label: 'Resumen', icon: Wallet },
@@ -149,9 +159,9 @@ export default function CajaPage() {
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 className={cn(
-                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors',
                   isActive
-                    ? 'border-cyan-400 text-zinc-900 dark:text-white'
+                    ? 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
                     : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                 )}
               >
@@ -159,7 +169,7 @@ export default function CajaPage() {
                 {t.label}
                 {t.id === 'ia' && iaObs.length > 0 && (
                   <span className={cn(
-                    'inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[9px] font-bold',
+                    'inline-flex items-center justify-center h-4 min-w-4 rounded-full px-1 text-[9px] font-bold tabular-nums',
                     iaObs.some(o => o.nivel === 'error')
                       ? 'bg-rose-500/20 text-rose-500'
                       : 'bg-amber-500/20 text-amber-500',
@@ -213,11 +223,11 @@ function GastosRecuperablesPanel() {
   if (isLoading || items.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <RotateCcw className="h-4 w-4 text-amber-400" />
-        <h3 className="text-sm font-semibold text-zinc-100">Gastos a recuperar</h3>
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <RotateCcw className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+        <h3 className={CARD_TITLE}>Gastos a recuperar</h3>
+        <span className={cn(TAG, 'tabular-nums border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
           {items.length}
         </span>
       </div>
@@ -225,17 +235,17 @@ function GastosRecuperablesPanel() {
         {items.map((g) => (
           <div
             key={g.id}
-            className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2"
+            className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.02]"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-100 truncate">
+              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 {g.descripcion || CATEGORIA_GASTO_LABEL[g.categoria] || g.categoria}
               </p>
-              <p className="text-[10px] text-zinc-500">
+              <p className="text-[11px] tabular-nums text-zinc-500">
                 {formatDate(g.fecha)} · {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
               </p>
             </div>
-            <span className="shrink-0 text-sm font-semibold text-amber-300 tabular-nums">
+            <span className="shrink-0 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {fmt(Number(g.monto), g.moneda)}
             </span>
             <button
@@ -248,7 +258,7 @@ function GastosRecuperablesPanel() {
                 }
               }}
               disabled={marcar.isPending}
-              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+              className="btn btn-sm min-h-0 shrink-0 gap-1 border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
             >
               {marcar.isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -315,7 +325,7 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
               }
             }}
             disabled={enviarTelegram.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-white/10 transition-colors disabled:opacity-50"
+            className="btn btn-ghost btn-sm"
           >
             {enviarTelegram.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
             Telegram
@@ -335,40 +345,40 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
       {/* Punto de equilibrio */}
       {(compromisosFijosARS > 0 || baseAseguradaARS > 0) && (
         <div className={cn(
-          'rounded-xl border p-4',
+          'rounded-2xl border p-4',
           delta <= 0
             ? 'border-emerald-500/20 bg-emerald-500/[0.04]'
             : 'border-amber-500/30 bg-amber-500/[0.04]'
         )}>
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-amber-400" />
-              <h3 className="text-sm font-semibold text-zinc-100">Punto de equilibrio</h3>
+              <Wallet className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+              <h3 className={CARD_TITLE}>Punto de equilibrio</h3>
             </div>
             {delta <= 0 ? (
-              <span className="text-[11px] font-medium text-emerald-300">Fijos cubiertos</span>
+              <span className={cn(TAG, 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300')}>Fijos cubiertos</span>
             ) : (
-              <span className="text-[11px] font-medium text-amber-300">Faltan {fmt(delta)}</span>
+              <span className={cn(TAG, 'tabular-nums border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>Faltan {fmt(delta)}</span>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-[11px] text-zinc-500">Base asegurada (abonos)</p>
-              <p className="text-lg font-semibold tabular-nums text-cyan-300">{fmt(baseAseguradaARS)}</p>
+              <p className="text-[11px] font-semibold text-zinc-500">Base asegurada (abonos)</p>
+              <p className="text-lg font-extrabold tracking-tight tabular-nums text-cyan-700 dark:text-cyan-300">{fmt(baseAseguradaARS)}</p>
             </div>
             <div>
-              <p className="text-[11px] text-zinc-500">Compromisos fijos</p>
-              <p className="text-lg font-semibold tabular-nums text-orange-300">{fmt(compromisosFijosARS)}</p>
+              <p className="text-[11px] font-semibold text-zinc-500">Compromisos fijos</p>
+              <p className="text-lg font-extrabold tracking-tight tabular-nums text-orange-700 dark:text-orange-300">{fmt(compromisosFijosARS)}</p>
             </div>
           </div>
           {delta > 0 && (
-            <p className="mt-2 text-xs text-amber-300">
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
               Hay que generar <span className="font-semibold">{fmt(delta)}</span> en honorarios para cubrir los gastos fijos del mes.
             </p>
           )}
           {delta <= 0 && (
-            <p className="mt-2 text-xs text-emerald-400/70">
-              Los abonos cubren los fijos. Margen: <span className="font-semibold text-emerald-400">{fmt(-delta)}</span>
+            <p className="mt-2 text-xs text-emerald-700/80 dark:text-emerald-400/70">
+              Los abonos cubren los fijos. Margen: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{fmt(-delta)}</span>
             </p>
           )}
         </div>
@@ -410,23 +420,23 @@ function TabResumen({ onGoTab }: { onGoTab: (t: Tab) => void }) {
       </div>
 
       {/* Año actual */}
-      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
-        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Año {resumen.periodo.year}</p>
+      <div className="app-card p-4">
+        <p className="eyebrow mb-2">Año {resumen.periodo.year}</p>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <p className="text-[11px] text-zinc-500">Ingresos</p>
-            <p className="text-lg font-semibold text-emerald-300 tabular-nums">{fmt(resumen.anio_actual.ingresos_ars)}</p>
+            <p className="text-lg font-extrabold tracking-tight tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(resumen.anio_actual.ingresos_ars)}</p>
           </div>
           <div>
             <p className="text-[11px] text-zinc-500">Gastos</p>
-            <p className="text-lg font-semibold text-rose-300 tabular-nums">{fmt(resumen.anio_actual.gastos_ars)}</p>
+            <p className="text-lg font-extrabold tracking-tight tabular-nums text-rose-700 dark:text-rose-300">{fmt(resumen.anio_actual.gastos_ars)}</p>
           </div>
           <div>
             <p className="text-[11px] text-zinc-500">Balance</p>
             <p className={cn(
-              'text-lg font-semibold tabular-nums',
+              'text-lg font-extrabold tracking-tight tabular-nums',
               resumen.anio_actual.ingresos_ars - resumen.anio_actual.gastos_ars >= 0
-                ? 'text-emerald-300' : 'text-rose-300'
+                ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
             )}>
               {fmt(resumen.anio_actual.ingresos_ars - resumen.anio_actual.gastos_ars)}
             </p>
@@ -443,19 +453,19 @@ function TipoCambioWidget({ cotizacion }: { cotizacion: CotizacionUSD | null }) 
   if (!cotizacion) return null
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-2.5 py-1">
-      <DollarSign className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-      <span className="text-[11px] text-zinc-400">
+    <div className="flex items-center gap-1.5 rounded-full border border-cyan-500/25 bg-cyan-500/[0.06] px-3 py-1">
+      <DollarSign className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
         US$ 1 &rarr;{' '}
-        <span className="text-amber-300 font-medium tabular-nums">$ {fmtRate(cotizacion.venta)}</span>
-        <span className="text-zinc-600 ml-1">(venta) · $ {fmtRate(cotizacion.compra)} (compra)</span>
+        <span className="font-bold tabular-nums text-cyan-700 dark:text-cyan-300">$ {fmtRate(cotizacion.venta)}</span>
+        <span className="ml-1 tabular-nums text-zinc-500">(venta) · $ {fmtRate(cotizacion.compra)} (compra)</span>
       </span>
     </div>
   )
 }
 
 function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: string; value: string; sub?: string | null; accent: 'emerald'|'rose'|'cyan'|'amber'; icon: React.ComponentType<{ className?: string }>; onClick?: () => void }) {
-  const iconColor = { emerald: 'text-emerald-400', rose: 'text-rose-400', cyan: 'text-cyan-400', amber: 'text-amber-400' }[accent]
+  const iconColor = { emerald: 'text-emerald-600 dark:text-emerald-400', rose: 'text-rose-600 dark:text-rose-400', cyan: 'text-cyan-600 dark:text-cyan-400', amber: 'text-amber-600 dark:text-amber-400' }[accent]
   return (
     <button
       type="button"
@@ -463,15 +473,15 @@ function KPICard({ label, value, sub, accent, icon: Icon, onClick }: { label: st
       disabled={!onClick}
       className={cn(
         'app-card p-3 sm:p-4 text-left w-full',
-        onClick && 'transition-colors hover:border-white/20 cursor-pointer',
+        onClick ? 'cursor-pointer' : 'dark:hover:border-white/[0.09] dark:hover:bg-[var(--card)]',
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="font-mono text-[10px] sm:text-[10.5px] uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400 leading-tight">{label}</p>
+        <p className="text-[10px] font-bold uppercase leading-tight tracking-[0.12em] text-zinc-500 sm:text-[10.5px] dark:text-zinc-400">{label}</p>
         <Icon className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0', iconColor)} />
       </div>
-      <p className="mt-1 font-mono text-lg sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 tabular-nums break-all">{value}</p>
-      {sub && <p className="mt-0.5 text-[10px] sm:text-[11px] text-zinc-500">{sub}</p>}
+      <p className="mt-1 break-all text-lg font-extrabold tracking-tight tabular-nums text-zinc-900 sm:text-2xl dark:text-white">{value}</p>
+      {sub && <p className="mt-0.5 text-[10px] font-medium tabular-nums text-zinc-500 sm:text-[11px]">{sub}</p>}
     </button>
   )
 }
@@ -482,10 +492,10 @@ function PagosPendientesCard({ pendientes }: { pendientes: PagoPendiente[] }) {
 
   if (pendientes.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Repeat className="h-4 w-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Pagos del mes</h3>
+      <div className="app-card p-4">
+        <div className="mb-1 flex items-center gap-2">
+          <Repeat className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+          <h3 className={CARD_TITLE}>Pagos del mes</h3>
         </div>
         <p className="text-xs text-zinc-500 py-2">No hay abonos mensuales cargados todavía. Andá al tab "Abonos mensuales" para agregar el primero.</p>
       </div>
@@ -494,7 +504,7 @@ function PagosPendientesCard({ pendientes }: { pendientes: PagoPendiente[] }) {
 
   return (
     <div className={cn(
-      'rounded-xl border p-4',
+      'rounded-2xl border p-4',
       atrasados.length > 0
         ? 'border-rose-500/30 bg-rose-500/[0.04]'
         : noPagados.length > 0
@@ -504,19 +514,19 @@ function PagosPendientesCard({ pendientes }: { pendientes: PagoPendiente[] }) {
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           {atrasados.length > 0 ? (
-            <AlertTriangle className="h-4 w-4 text-rose-400" />
+            <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
           ) : noPagados.length > 0 ? (
-            <Calendar className="h-4 w-4 text-amber-400" />
+            <Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           ) : (
-            <Repeat className="h-4 w-4 text-emerald-400" />
+            <Repeat className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           )}
-          <h3 className="text-sm font-semibold text-zinc-100">Cobranza del mes</h3>
-          <span className="text-[10px] text-zinc-500">
+          <h3 className={CARD_TITLE}>Cobranza del mes</h3>
+          <span className="text-[11px] font-medium tabular-nums text-zinc-500">
             {pendientes.length - noPagados.length} de {pendientes.length} cobrados
           </span>
         </div>
         {atrasados.length > 0 && (
-          <span className="text-[11px] font-medium text-rose-300">
+          <span className={cn(TAG, 'tabular-nums border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
             {atrasados.length} atrasado{atrasados.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -562,10 +572,10 @@ function PagoPendienteRow({ pago }: { pago: PagoPendiente }) {
   }
 
   const estadoClass = {
-    pagado: 'bg-emerald-500/15 text-emerald-300',
-    por_vencer: 'bg-zinc-500/15 text-zinc-400',
-    pendiente: 'bg-amber-500/15 text-amber-300',
-    atrasado: 'bg-rose-500/15 text-rose-300',
+    pagado: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    por_vencer: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
+    pendiente: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    atrasado: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
   }[pago.estado]
 
   const estadoLabel = {
@@ -577,28 +587,28 @@ function PagoPendienteRow({ pago }: { pago: PagoPendiente }) {
 
   return (
     <div className={cn(
-      'flex items-center gap-3 rounded-md border border-white/5 px-3 py-2',
-      pago.estado === 'pagado' ? 'opacity-60' : 'bg-white/[0.02]'
+      'flex items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2 dark:border-white/[0.06]',
+      pago.estado === 'pagado' ? 'opacity-60' : 'bg-white dark:bg-white/[0.02]'
     )}>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-zinc-100 truncate">
+        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {pago.cliente_apellido}, {pago.cliente_nombre}
         </p>
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] tabular-nums text-zinc-500">
           {fmt(pago.monto, pago.moneda)}
           {pago.ultimo_pago && (
             <> · últ. pago {formatDate(pago.ultimo_pago)}</>
           )}
         </p>
       </div>
-      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums', estadoClass)}>
+      <span className={cn(TAG, 'tabular-nums', estadoClass)}>
         {estadoLabel}
       </span>
       {pago.estado !== 'pagado' && (
         <button
           onClick={handleCobrar}
           disabled={createIngreso.isPending}
-          className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+          className="btn btn-sm min-h-0 gap-1 border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
         >
           {createIngreso.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           Cobré
@@ -614,26 +624,26 @@ function DesglosePorBucket({ titulo, data, accent }: { titulo: string; data: { l
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
-        <h3 className="text-sm font-semibold text-zinc-100 mb-1">{titulo}</h3>
+      <div className="app-card p-4">
+        <h3 className={cn(CARD_TITLE, 'mb-1')}>{titulo}</h3>
         <p className="text-xs text-zinc-500 py-2">Sin movimientos este mes.</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#10161d] p-4">
-      <h3 className="text-sm font-semibold text-zinc-100 mb-3">{titulo}</h3>
+    <div className="app-card p-4">
+      <h3 className={cn(CARD_TITLE, 'mb-3')}>{titulo}</h3>
       <div className="space-y-2">
         {data.map((d, i) => {
           const pct = total > 0 ? (Number(d.valor) / total) * 100 : 0
           return (
             <div key={i} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-300">{d.label}</span>
-                <span className="text-zinc-400 tabular-nums">{fmt(Number(d.valor))}</span>
+                <span className="text-zinc-700 dark:text-zinc-300">{d.label}</span>
+                <span className="font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{fmt(Number(d.valor))}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/5">
                 <div className={color} style={{ width: `${Math.max(pct, 4)}%`, height: '100%' }} />
               </div>
             </div>
@@ -656,20 +666,20 @@ function MonthNav({ mes, setMes, count, noun }: { mes: Mes; setMes: (m: Mes) => 
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-1">
-        <button onClick={prev} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10" title="Mes anterior">
+        <button onClick={prev} className={NAV_BTN} title="Mes anterior">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="min-w-[140px] text-center text-sm font-medium text-zinc-200">{MES_LABELS[mes.month - 1]} {mes.year}</span>
-        <button onClick={next} disabled={esActual} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10 disabled:opacity-30" title="Mes siguiente">
+        <span className="min-w-[140px] text-center text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{MES_LABELS[mes.month - 1]} {mes.year}</span>
+        <button onClick={next} disabled={esActual} className={NAV_BTN} title="Mes siguiente">
           <ChevronRight className="h-4 w-4" />
         </button>
         {!esActual && (
-          <button onClick={() => setMes({ year: now.getFullYear(), month: now.getMonth() + 1 })} className="ml-1 rounded-md px-2 py-1 text-[11px] text-cyan-400 hover:bg-white/5">
+          <button onClick={() => setMes({ year: now.getFullYear(), month: now.getMonth() + 1 })} className="dashboard-link ml-1 rounded-lg px-2 py-1 text-[11px] hover:bg-zinc-100 dark:hover:bg-white/5">
             Mes actual
           </button>
         )}
       </div>
-      <span className="text-xs text-zinc-500">{count} {noun}</span>
+      <span className="text-xs font-medium tabular-nums text-zinc-500">{count} {noun}</span>
     </div>
   )
 }
@@ -679,19 +689,19 @@ function YearNav({ anio, setAnio, count, noun }: { anio: number; setAnio: (y: nu
   const esActual = anio === now.getFullYear()
   return (
     <div className="flex items-center gap-1">
-      <button onClick={() => setAnio(anio - 1)} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10" title="Año anterior">
+      <button onClick={() => setAnio(anio - 1)} className={NAV_BTN} title="Año anterior">
         <ChevronLeft className="h-4 w-4" />
       </button>
-      <span className="min-w-[80px] text-center text-sm font-medium text-zinc-200">{anio}</span>
-      <button onClick={() => setAnio(anio + 1)} disabled={esActual} className="rounded-md border border-white/10 bg-white/5 p-1 text-zinc-300 hover:bg-white/10 disabled:opacity-30" title="Año siguiente">
+      <span className="min-w-[80px] text-center text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{anio}</span>
+      <button onClick={() => setAnio(anio + 1)} disabled={esActual} className={NAV_BTN} title="Año siguiente">
         <ChevronRight className="h-4 w-4" />
       </button>
       {!esActual && (
-        <button onClick={() => setAnio(now.getFullYear())} className="ml-1 rounded-md px-2 py-1 text-[11px] text-cyan-400 hover:bg-white/5">
+        <button onClick={() => setAnio(now.getFullYear())} className="dashboard-link ml-1 rounded-lg px-2 py-1 text-[11px] hover:bg-zinc-100 dark:hover:bg-white/5">
           Año actual
         </button>
       )}
-      <span className="ml-2 text-xs text-zinc-500">{count} {noun}</span>
+      <span className="ml-2 text-xs font-medium tabular-nums text-zinc-500">{count} {noun}</span>
     </div>
   )
 }
@@ -700,23 +710,23 @@ function TotalesMes({ items, tipo, label }: { items: { monto: number | string; m
   const { data: cotizacion } = useUsdRate()
   const ars = items.filter(i => i.moneda === 'ARS').reduce((s, i) => s + Number(i.monto), 0)
   const usd = items.filter(i => i.moneda === 'USD').reduce((s, i) => s + Number(i.monto), 0)
-  const color = tipo === 'ingreso' ? 'text-emerald-300' : 'text-rose-300'
+  const color = tipo === 'ingreso' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
   if (items.length === 0) return null
   const fmtRate = (n: number) => new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
-      <span className="text-[10px] uppercase tracking-wider text-zinc-500">{label ?? 'Total del mes'}</span>
-      <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(ars)}</span>
+    <div className={cn(PANEL, 'flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2')}>
+      <span className="eyebrow">{label ?? 'Total del mes'}</span>
+      <span className={cn('text-sm font-bold tabular-nums', color)}>{fmt(ars)}</span>
       {usd > 0 && (
         <div className="flex items-center gap-1.5">
-          <span className={cn('text-sm font-semibold tabular-nums', color)}>{fmt(usd, 'USD')}</span>
+          <span className={cn('text-sm font-bold tabular-nums', color)}>{fmt(usd, 'USD')}</span>
           {cotizacion ? (
-            <span className="text-xs tabular-nums text-amber-400">
+            <span className={cn('text-xs font-medium tabular-nums', ARS_EQ)}>
               ≈ {fmt(Math.round(usd * cotizacion.venta))}
-              <span className="text-zinc-600 ml-1">(a ${fmtRate(cotizacion.venta)}/USD)</span>
+              <span className="ml-1 text-zinc-500">(a ${fmtRate(cotizacion.venta)}/USD)</span>
             </span>
           ) : (
-            <span className="text-xs text-zinc-600">(cotización no disponible)</span>
+            <span className="text-xs text-zinc-500">(cotización no disponible)</span>
           )}
         </div>
       )}
@@ -763,36 +773,36 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
               const esPorAbono = !!i.abono_id
               const periodo = esPorAbono && i.periodo_month ? `${MES_LABELS[i.periodo_month - 1]} ${i.periodo_year}` : null
               return (
-                <div key={i.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+                <div key={i.id} className={FILA_MOVIL}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                        <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(i.fecha)}</span>
-                        <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                        <span className="text-[11px] font-medium tabular-nums text-zinc-500">{formatDate(i.fecha)}</span>
+                        <span className={cn(TAG, 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300')}>
                           {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
                         </span>
                         {esPorAbono && (
-                          <span className="inline-flex rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                          <span className={cn(TAG, 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300')}>
                             {periodo ?? 'abono'}
                           </span>
                         )}
                       </div>
                       {cliente && (
-                        <p className="text-[11px] text-zinc-400">{cliente.apellido}, {cliente.nombre}</p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{cliente.apellido}, {cliente.nombre}</p>
                       )}
                       {i.descripcion && <p className="text-xs text-zinc-500 line-clamp-1">{i.descripcion}</p>}
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       <div className="text-right mr-1">
-                        <p className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(i.monto), i.moneda)}</p>
+                        <p className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
                         {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
-                          <p className="text-[10px] text-amber-400 tabular-nums">{arsEquivalente(Number(i.monto))}</p>
+                          <p className={cn('text-[10.5px] tabular-nums', ARS_EQ)}>{arsEquivalente(Number(i.monto))}</p>
                         )}
                       </div>
-                      <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                      <button onClick={() => onEdit(i)} className={ICON_EDIT} title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                      <button onClick={() => setConfirmDelete(i.id)} className={ICON_DELETE} title="Eliminar">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -803,9 +813,9 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+          <div className={TABLA}>
             <table className="w-full text-sm">
-              <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+              <thead className={THEAD}>
                 <tr>
                   <th className="text-left px-3 py-2">Fecha</th>
                   <th className="text-left px-3 py-2">Tipo / Origen</th>
@@ -815,42 +825,42 @@ function TabIngresos({ onEdit }: { onEdit: (i: Ingreso) => void }) {
                   <th className="w-20"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className={TBODY}>
                 {ingresos.map((i) => {
                   const cliente = i.cliente_id ? clientesMap.get(i.cliente_id) : null
                   const esPorAbono = !!i.abono_id
                   const periodo = esPorAbono && i.periodo_month ? `${MES_LABELS[i.periodo_month - 1]} ${i.periodo_year}` : null
                   return (
-                    <tr key={i.id} className="hover:bg-white/[0.02]">
-                      <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
+                    <tr key={i.id} className={TR}>
+                      <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300 tabular-nums">{formatDate(i.fecha)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                          <span className={cn(TAG, 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300')}>
                             {TIPO_INGRESO_LABEL[i.tipo] ?? i.tipo}
                           </span>
                           {esPorAbono && (
-                            <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
+                            <span className={cn(TAG, 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300')}>
                               {periodo ?? 'abono'}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-zinc-300 text-xs">
-                        {cliente ? `${cliente.apellido}, ${cliente.nombre}` : <span className="text-zinc-600">—</span>}
+                      <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300 text-xs">
+                        {cliente ? `${cliente.apellido}, ${cliente.nombre}` : <span className="text-zinc-400 dark:text-zinc-600">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
+                      <td className="px-3 py-2 text-zinc-500 dark:text-zinc-400 line-clamp-1">{i.descripcion || '—'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        <p className="font-medium text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
+                        <p className="font-semibold text-zinc-900 dark:text-zinc-100">{fmt(Number(i.monto), i.moneda)}</p>
                         {i.moneda === 'USD' && arsEquivalente(Number(i.monto)) && (
-                          <p className="text-[10px] text-amber-400">{arsEquivalente(Number(i.monto))}</p>
+                          <p className={cn('text-[10.5px]', ARS_EQ)}>{arsEquivalente(Number(i.monto))}</p>
                         )}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => onEdit(i)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                          <button onClick={() => onEdit(i)} className={ICON_EDIT} title="Editar">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => setConfirmDelete(i.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                          <button onClick={() => setConfirmDelete(i.id)} className={ICON_DELETE} title="Eliminar">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -965,7 +975,7 @@ function PromediosMensuales({ modo, anio }: { modo: ModoPeriodo; anio: number })
 
   if (datos.meses.length === 0) {
     return (
-      <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-zinc-500">
+      <div className={cn(PANEL, 'px-3 py-2 text-xs text-zinc-500')}>
         Promedio mensual: todavía no hay meses cerrados en este período.
       </div>
     )
@@ -973,25 +983,25 @@ function PromediosMensuales({ modo, anio }: { modo: ModoPeriodo; anio: number })
 
   const resultado = datos.ingresoARS - datos.gastoARS
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+    <div className={cn(PANEL, 'px-3 py-2.5')}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-zinc-500">Promedio mensual</span>
-        <span className="text-[11px] text-zinc-500">{etiquetaRango(datos.meses)}</span>
+        <span className="eyebrow">Promedio mensual</span>
+        <span className="text-[11px] font-medium text-zinc-500">{etiquetaRango(datos.meses)}</span>
       </div>
       <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div>
           <p className="text-[11px] text-zinc-500">Gasto promedio</p>
-          <p className="text-sm font-semibold tabular-nums text-rose-300">{fmt(Math.round(datos.gastoARS))}</p>
-          {datos.gastoUSD > 0 && <p className="text-xs tabular-nums text-rose-300/80">+ {fmt(Math.round(datos.gastoUSD), 'USD')}</p>}
+          <p className="text-sm font-bold tabular-nums text-rose-700 dark:text-rose-300">{fmt(Math.round(datos.gastoARS))}</p>
+          {datos.gastoUSD > 0 && <p className="text-xs tabular-nums text-rose-700/80 dark:text-rose-300/80">+ {fmt(Math.round(datos.gastoUSD), 'USD')}</p>}
         </div>
         <div>
           <p className="text-[11px] text-zinc-500">Ingreso promedio</p>
-          <p className="text-sm font-semibold tabular-nums text-emerald-300">{fmt(Math.round(datos.ingresoARS))}</p>
-          {datos.ingresoUSD > 0 && <p className="text-xs tabular-nums text-emerald-300/80">+ {fmt(Math.round(datos.ingresoUSD), 'USD')}</p>}
+          <p className="text-sm font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{fmt(Math.round(datos.ingresoARS))}</p>
+          {datos.ingresoUSD > 0 && <p className="text-xs tabular-nums text-emerald-700/80 dark:text-emerald-300/80">+ {fmt(Math.round(datos.ingresoUSD), 'USD')}</p>}
         </div>
         <div>
           <p className="text-[11px] text-zinc-500">Resultado promedio (ARS)</p>
-          <p className={cn('text-sm font-semibold tabular-nums', resultado >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
+          <p className={cn('text-sm font-bold tabular-nums', resultado >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300')}>
             {resultado >= 0 ? '' : '−'}{fmt(Math.round(Math.abs(resultado)))}
           </p>
         </div>
@@ -1070,15 +1080,13 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
     <div className="space-y-3">
       {/* Selector de período */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+        <div className="segmented" role="group" aria-label="Período">
           {(['mes', 'anio', 'todo'] as const).map((m) => (
             <button
               key={m}
               onClick={() => setModo(m)}
-              className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-                modo === m ? 'bg-white/10 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
-              )}
+              aria-pressed={modo === m}
+              className="px-3 text-xs font-semibold"
             >
               {m === 'mes' ? 'Mes' : m === 'anio' ? 'Año' : 'Todo'}
             </button>
@@ -1087,23 +1095,23 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
 
         {modo === 'mes' && <MonthNav mes={mes} setMes={setMes} count={gastos.length} noun={countNoun} />}
         {modo === 'anio' && <YearNav anio={anioNav} setAnio={setAnioNav} count={gastos.length} noun={countNoun} />}
-        {modo === 'todo' && <span className="text-xs text-zinc-500">{gastos.length} {countNoun}</span>}
+        {modo === 'todo' && <span className="text-xs font-medium tabular-nums text-zinc-500">{gastos.length} {countNoun}</span>}
       </div>
 
       {/* Buscador */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por descripción o categoría..."
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+          className="field h-11 pl-10 pr-10"
         />
         {search && (
           <button
             onClick={() => setSearch('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-lg leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
           >
             ×
           </button>
@@ -1136,41 +1144,41 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
           {/* Mobile: cards */}
           <div className="md:hidden space-y-2">
             {gastos.map((g) => (
-              <div key={g.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <div key={g.id} className={FILA_MOVIL}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                      <span className="text-[10px] text-zinc-500 tabular-nums">{formatDate(g.fecha)}</span>
-                      <span className="inline-flex rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                      <span className="text-[11px] font-medium tabular-nums text-zinc-500">{formatDate(g.fecha)}</span>
+                      <span className={cn(TAG, 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
                         {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
                       </span>
                       {g.gasto_fijo_id && (
-                        <span className="inline-flex rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-300">
+                        <span className={cn(TAG, 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300')}>
                           fijo
                         </span>
                       )}
                       {g.recuperable && !g.recuperado_at && (
-                        <span className="inline-flex rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                        <span className={cn(TAG, 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                           a recuperar
                         </span>
                       )}
                       {g.recuperado_at && (
-                        <span className="inline-flex rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 line-through">
+                        <span className={cn(TAG, 'border-zinc-500/25 bg-zinc-500/10 text-zinc-500 line-through dark:text-zinc-400')}>
                           recuperado
                         </span>
                       )}
                     </div>
-                    {g.descripcion && <p className="text-xs text-zinc-400 line-clamp-1">{g.descripcion}</p>}
+                    {g.descripcion && <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{g.descripcion}</p>}
                     {g.expediente_id && (
-                      <p className="text-[11px] text-violet-400/70 mt-0.5">Vinculado a expediente</p>
+                      <p className="mt-0.5 text-[11px] text-violet-600 dark:text-violet-400/70">Vinculado a expediente</p>
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <span className="text-sm font-semibold text-zinc-100 tabular-nums mr-1">{fmt(Number(g.monto), g.moneda)}</span>
-                    <button onClick={() => onEdit(g)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                    <span className="mr-1 text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{fmt(Number(g.monto), g.moneda)}</span>
+                    <button onClick={() => onEdit(g)} className={ICON_EDIT} title="Editar">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setConfirmDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                    <button onClick={() => setConfirmDelete(g.id)} className={ICON_DELETE} title="Eliminar">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -1180,9 +1188,9 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+          <div className={TABLA}>
             <table className="w-full text-sm">
-              <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+              <thead className={THEAD}>
                 <tr>
                   <th className="text-left px-3 py-2">Fecha</th>
                   <th className="text-left px-3 py-2">Categoría / Origen</th>
@@ -1191,45 +1199,45 @@ function TabGastos({ onEdit }: { onEdit: (g: Gasto) => void }) {
                   <th className="w-20"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className={TBODY}>
                 {gastos.map((g) => (
-                  <tr key={g.id} className="hover:bg-white/[0.02]">
-                    <td className="px-3 py-2 text-zinc-300 tabular-nums">{formatDate(g.fecha)}</td>
+                  <tr key={g.id} className={TR}>
+                    <td className="px-3 py-2 text-zinc-700 dark:text-zinc-300 tabular-nums">{formatDate(g.fecha)}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
-                        <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                        <span className={cn(TAG, 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
                           {CATEGORIA_GASTO_LABEL[g.categoria] ?? g.categoria}
                         </span>
                         {g.gasto_fijo_id && (
-                          <span className="inline-flex items-center rounded-full bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-medium text-orange-300">
+                          <span className={cn(TAG, 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300')}>
                             fijo
                           </span>
                         )}
                         {g.recuperable && !g.recuperado_at && (
-                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                          <span className={cn(TAG, 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300')}>
                             a recuperar
                           </span>
                         )}
                         {g.recuperado_at && (
-                          <span className="inline-flex items-center rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                          <span className={cn(TAG, 'border-zinc-500/25 bg-zinc-500/10 text-zinc-500')}>
                             recuperado
                           </span>
                         )}
                         {g.expediente_id && (
-                          <span className="inline-flex items-center rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-400">
+                          <span className={cn(TAG, 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300')}>
                             expediente
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-zinc-400 line-clamp-1">{g.descripcion || '—'}</td>
-                    <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</td>
+                    <td className="px-3 py-2 text-zinc-500 dark:text-zinc-400 line-clamp-1">{g.descripcion || '—'}</td>
+                    <td className="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{fmt(Number(g.monto), g.moneda)}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => onEdit(g)} className="rounded p-1 text-zinc-500 hover:text-cyan-400" title="Editar">
+                        <button onClick={() => onEdit(g)} className={ICON_EDIT} title="Editar">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => setConfirmDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-rose-400" title="Eliminar">
+                        <button onClick={() => setConfirmDelete(g.id)} className={ICON_DELETE} title="Eliminar">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -1290,20 +1298,20 @@ function TabCuentas({ onIrIngresos }: { onIrIngresos: () => void }) {
       </div>
 
       {sinAsignar.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">
             {sinAsignar.length} {sinAsignar.length === 1 ? 'pago no tiene' : 'pagos no tienen'} cliente ni expediente, así que no
             {sinAsignar.length === 1 ? ' entra' : ' entran'} en ninguna cuenta corriente.
           </span>
-          <button type="button" onClick={onIrIngresos} className="font-medium underline hover:text-amber-200">
+          <button type="button" onClick={onIrIngresos} className="font-semibold underline hover:text-amber-800 dark:hover:text-amber-200">
             Asignarlos en Ingresos
           </button>
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-xs text-zinc-400">
-        <input type="checkbox" checked={soloDeudores} onChange={(e) => setSoloDeudores(e.target.checked)} className="rounded border-white/10 bg-white/5" />
+      <label className="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        <input type="checkbox" checked={soloDeudores} onChange={(e) => setSoloDeudores(e.target.checked)} className="rounded border-zinc-300 accent-[#577c8e] dark:border-white/10 dark:bg-white/5 dark:accent-[#66accc]" />
         Solo clientes con deuda
       </label>
 
@@ -1311,9 +1319,9 @@ function TabCuentas({ onIrIngresos }: { onIrIngresos: () => void }) {
         <EmptyState icon={Users} title={soloDeudores ? 'Nadie debe nada' : 'Sin movimientos'}
           description="Cargá lo pactado desde la ficha del cliente → Cuenta corriente, o desde la solapa Caja del expediente." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-white/10">
+        <div className="app-card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+            <thead className={THEAD}>
               <tr>
                 <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-right">Saldo</th>
@@ -1322,30 +1330,30 @@ function TabCuentas({ onIrIngresos }: { onIrIngresos: () => void }) {
                 <th className="hidden px-3 py-2 text-left md:table-cell">Próximo vencimiento</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className={TBODY}>
               {filas.map((s) => (
-                <tr key={s.cliente_id} className="hover:bg-white/[0.02]">
+                <tr key={s.cliente_id} className={TR}>
                   <td className="px-3 py-2">
-                    <Link to={`/clientes/${s.cliente_id}?tab=cuenta`} className="text-zinc-100 hover:text-cyan-400 hover:underline">
+                    <Link to={`/clientes/${s.cliente_id}?tab=cuenta`} className="font-semibold text-zinc-900 dark:text-zinc-100 hover:text-[var(--brand-accent)] hover:underline">
                       {s.apellido ? `${s.apellido}, ${s.nombre ?? ''}` : (s.nombre ?? 'Cliente')}
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {s.saldo_ars !== 0 && (
-                      <span className={s.saldo_ars > 0 ? 'text-zinc-100' : 'text-amber-300'}
+                      <span className={s.saldo_ars > 0 ? 'text-zinc-900 dark:text-zinc-100' : 'text-amber-700 dark:text-amber-300'}
                         title={s.saldo_ars < 0 ? 'Pagos sin cargo registrado (falta cargar lo pactado o pagó de más)' : undefined}>
                         {s.saldo_ars < 0 ? 'sin cargo ' : ''}{fmt(Math.abs(s.saldo_ars))}
                       </span>
                     )}
-                    {s.saldo_usd !== 0 && <span className="ml-2 text-zinc-300">{fmt(Math.abs(s.saldo_usd), 'USD')}</span>}
+                    {s.saldo_usd !== 0 && <span className="ml-2 text-zinc-700 dark:text-zinc-300">{fmt(Math.abs(s.saldo_usd), 'USD')}</span>}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {s.vencido_ars > 0 && <span className="font-medium text-rose-400">{fmt(s.vencido_ars)}</span>}
-                    {s.vencido_usd > 0 && <span className="ml-2 font-medium text-rose-400">{fmt(s.vencido_usd, 'USD')}</span>}
-                    {s.vencido_ars <= 0 && s.vencido_usd <= 0 && <span className="text-zinc-600">—</span>}
+                    {s.vencido_ars > 0 && <span className="font-medium text-rose-600 dark:text-rose-400">{fmt(s.vencido_ars)}</span>}
+                    {s.vencido_usd > 0 && <span className="ml-2 font-medium text-rose-600 dark:text-rose-400">{fmt(s.vencido_usd, 'USD')}</span>}
+                    {s.vencido_ars <= 0 && s.vencido_usd <= 0 && <span className="text-zinc-400 dark:text-zinc-600">—</span>}
                   </td>
-                  <td className="hidden px-3 py-2 text-zinc-400 md:table-cell">{s.ultimo_pago ? formatDate(s.ultimo_pago) : '—'}</td>
-                  <td className="hidden px-3 py-2 text-zinc-400 md:table-cell">{s.proximo_vencimiento ? formatDate(s.proximo_vencimiento) : '—'}</td>
+                  <td className="hidden px-3 py-2 text-zinc-500 dark:text-zinc-400 md:table-cell">{s.ultimo_pago ? formatDate(s.ultimo_pago) : '—'}</td>
+                  <td className="hidden px-3 py-2 text-zinc-500 dark:text-zinc-400 md:table-cell">{s.proximo_vencimiento ? formatDate(s.proximo_vencimiento) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1388,11 +1396,11 @@ function TabAbonos() {
         {abonos.map((a) => {
           const c = clientesMap.get(a.cliente_id)
           return (
-            <div key={a.id} className={cn('rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5', !a.activo && 'opacity-50')}>
+            <div key={a.id} className={cn(FILA_MOVIL, !a.activo && 'opacity-50')}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   {c ? (
-                    <Link to={`/clientes/${c.id}`} className="text-sm font-medium text-zinc-100 hover:text-cyan-400 line-clamp-1">
+                    <Link to={`/clientes/${c.id}`} className="line-clamp-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-[var(--brand-accent)]">
                       {c.apellido}, {c.nombre}
                     </Link>
                   ) : (
@@ -1404,12 +1412,12 @@ function TabAbonos() {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
-                  <span className="text-sm font-semibold text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</span>
+                  <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{fmt(Number(a.monto), a.moneda)}</span>
                   <button
                     onClick={() => toggle.mutate({ id: a.id, activo: !a.activo })}
                     className={cn(
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                      a.activo ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'
+                      TAG, 'transition-colors',
+                      a.activo ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300' : 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 hover:bg-zinc-500/20 dark:text-zinc-400'
                     )}
                   >
                     {a.activo ? 'Activo' : 'Inactivo'}
@@ -1422,9 +1430,9 @@ function TabAbonos() {
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden md:block rounded-lg border border-white/10 overflow-hidden">
+      <div className={TABLA}>
         <table className="w-full text-sm">
-          <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+          <thead className={THEAD}>
             <tr>
               <th className="text-left px-3 py-2">Cliente</th>
               <th className="text-right px-3 py-2">Monto</th>
@@ -1433,23 +1441,23 @@ function TabAbonos() {
               <th className="text-center px-3 py-2">Estado</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className={TBODY}>
             {abonos.map((a) => {
               const c = clientesMap.get(a.cliente_id)
               return (
-                <tr key={a.id} className={cn('hover:bg-white/[0.02]', !a.activo && 'opacity-50')}>
+                <tr key={a.id} className={cn(TR, !a.activo && 'opacity-50')}>
                   <td className="px-3 py-2">
                     {c ? (
-                      <Link to={`/clientes/${c.id}`} className="text-zinc-100 hover:text-cyan-400 font-medium">
+                      <Link to={`/clientes/${c.id}`} className="font-semibold text-zinc-900 dark:text-zinc-100 hover:text-[var(--brand-accent)]">
                         {c.apellido}, {c.nombre}
                       </Link>
                     ) : (
                       <span className="text-zinc-500">Cliente eliminado</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-right font-medium text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</td>
-                  <td className="px-3 py-2 text-center text-zinc-300 tabular-nums">{a.dia_de_cobro}</td>
-                  <td className="px-3 py-2 text-zinc-400 text-[11px]">
+                  <td className="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">{fmt(Number(a.monto), a.moneda)}</td>
+                  <td className="px-3 py-2 text-center text-zinc-700 dark:text-zinc-300 tabular-nums">{a.dia_de_cobro}</td>
+                  <td className="px-3 py-2 text-zinc-500 dark:text-zinc-400 text-[11px]">
                     Desde {formatDate(a.fecha_inicio)}
                     {a.fecha_fin && <> · hasta {formatDate(a.fecha_fin)}</>}
                   </td>
@@ -1457,8 +1465,8 @@ function TabAbonos() {
                     <button
                       onClick={() => toggle.mutate({ id: a.id, activo: !a.activo })}
                       className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                        a.activo ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'
+                        TAG, 'transition-colors',
+                        a.activo ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300' : 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 hover:bg-zinc-500/20 dark:text-zinc-400'
                       )}
                     >
                       {a.activo ? 'Activo' : 'Inactivo'}

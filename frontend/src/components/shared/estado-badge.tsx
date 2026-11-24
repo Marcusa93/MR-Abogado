@@ -18,7 +18,7 @@ export interface EstadoConfig {
 const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   NUEVA_CONSULTA: {
     label: ESTADO_INTERNO_LABELS.NUEVA_CONSULTA,
-    bg: 'bg-slate-500/20 border border-slate-400/35',
+    bg: 'bg-slate-500/12 border border-slate-400/30',
     text: 'text-zinc-800 dark:text-zinc-200',
     dot: 'bg-slate-400',
     gradient: 'from-slate-500 to-slate-400',
@@ -26,7 +26,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   PARA_INICIAR: {
     label: ESTADO_INTERNO_LABELS.PARA_INICIAR,
-    bg: 'bg-amber-500/25 border border-amber-400/50',
+    bg: 'bg-amber-500/12 border border-amber-400/30',
     text: 'text-amber-300',
     dot: 'bg-amber-400',
     gradient: 'from-amber-500 to-yellow-400',
@@ -34,7 +34,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   INICIADO: {
     label: ESTADO_INTERNO_LABELS.INICIADO,
-    bg: 'bg-blue-500/25 border border-blue-400/50',
+    bg: 'bg-blue-500/12 border border-blue-400/30',
     text: 'text-blue-300',
     dot: 'bg-blue-400',
     gradient: 'from-blue-500 to-cyan-400',
@@ -42,7 +42,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   PRUEBA: {
     label: ESTADO_INTERNO_LABELS.PRUEBA,
-    bg: 'bg-indigo-500/25 border border-indigo-400/50',
+    bg: 'bg-indigo-500/12 border border-indigo-400/30',
     text: 'text-indigo-300',
     dot: 'bg-indigo-400',
     gradient: 'from-indigo-500 to-blue-400',
@@ -50,7 +50,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   ALEGATOS: {
     label: ESTADO_INTERNO_LABELS.ALEGATOS,
-    bg: 'bg-violet-500/25 border border-violet-400/50',
+    bg: 'bg-violet-500/12 border border-violet-400/30',
     text: 'text-violet-300',
     dot: 'bg-violet-400',
     gradient: 'from-violet-500 to-purple-400',
@@ -58,7 +58,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   SENTENCIA: {
     label: ESTADO_INTERNO_LABELS.SENTENCIA,
-    bg: 'bg-cyan-500/25 border border-cyan-400/50',
+    bg: 'bg-cyan-500/12 border border-cyan-400/30',
     text: 'text-cyan-300',
     dot: 'bg-cyan-400',
     gradient: 'from-cyan-500 to-sky-400',
@@ -66,7 +66,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   APELACION: {
     label: ESTADO_INTERNO_LABELS.APELACION,
-    bg: 'bg-orange-500/25 border border-orange-400/50',
+    bg: 'bg-orange-500/12 border border-orange-400/30',
     text: 'text-orange-300',
     dot: 'bg-orange-400',
     gradient: 'from-orange-500 to-amber-400',
@@ -74,7 +74,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   CORTE: {
     label: ESTADO_INTERNO_LABELS.CORTE,
-    bg: 'bg-rose-500/25 border border-rose-400/50',
+    bg: 'bg-rose-500/12 border border-rose-400/30',
     text: 'text-rose-300',
     dot: 'bg-rose-400',
     gradient: 'from-rose-500 to-pink-400',
@@ -82,7 +82,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   FINALIZADO: {
     label: ESTADO_INTERNO_LABELS.FINALIZADO,
-    bg: 'bg-emerald-500/25 border border-emerald-400/50',
+    bg: 'bg-emerald-500/12 border border-emerald-400/30',
     text: 'text-emerald-300',
     dot: 'bg-emerald-400',
     gradient: 'from-emerald-500 to-emerald-400',
@@ -98,7 +98,7 @@ const ESTADO_CONFIG: Record<EstadoInterno, EstadoConfig> = {
   },
   PAUSADO: {
     label: ESTADO_INTERNO_LABELS.PAUSADO,
-    bg: 'bg-zinc-500/25 border border-zinc-400/50',
+    bg: 'bg-zinc-500/12 border border-zinc-400/30',
     text: 'text-zinc-300',
     dot: 'bg-zinc-400',
     gradient: 'from-zinc-500 to-slate-400',

@@ -130,7 +130,7 @@ export function NotificarClienteModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50 dark:bg-black/70" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg app-card shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/10 px-5 py-4">
@@ -183,7 +183,7 @@ export function NotificarClienteModal({
               value={mensaje}
               onChange={e => setMensaje(e.target.value)}
               rows={5}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-transparent px-3 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-none"
+              className="field w-full placeholder-zinc-400 resize-none"
             />
           </div>
 

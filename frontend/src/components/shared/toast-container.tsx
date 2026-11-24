@@ -36,7 +36,7 @@ export function ToastContainer() {
     <div
       aria-live="polite"
       aria-label="Notificaciones"
-      className="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+      className="fixed bottom-[calc(1rem+var(--bottom-nav-h,0px))] right-4 z-50 flex flex-col gap-2"
     >
       {toasts.map((t) => {
         const Icon = ICONS[t.type]

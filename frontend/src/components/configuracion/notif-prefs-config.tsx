@@ -154,7 +154,7 @@ export function NotifPrefsConfig() {
         <button
           onClick={save}
           disabled={!dirty || update.isPending}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-30"
+          className="btn btn-primary btn-sm"
         >
           {update.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
           Guardar cambios

@@ -172,7 +172,7 @@ export function SaeNotifConfig() {
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Destinatarios de email</p>
               <div className="space-y-2">
                 {emails.map((e, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
+                  <div key={i} className="flex items-center gap-2 app-card px-3 py-1.5">
                     <Mail className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     <span className="flex-1 text-xs text-zinc-200 font-mono truncate">{e}</span>
                     <button
@@ -191,7 +191,7 @@ export function SaeNotifConfig() {
                     onChange={(e) => setNewEmail(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail() } }}
                     placeholder="agregar email…"
-                    className="h-8 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                    className="field h-8 flex-1 text-xs py-0"
                   />
                   <button
                     onClick={addEmail}
@@ -312,7 +312,7 @@ export function SaeNotifConfig() {
         <button
           onClick={save}
           disabled={!dirty || update.isPending}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white dark:bg-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-30"
+          className="btn btn-primary btn-sm"
         >
           {update.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
           Guardar cambios

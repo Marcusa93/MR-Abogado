@@ -19,7 +19,7 @@ interface Props { expedienteId: string }
 function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={cn(
-      'rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] shadow-sm p-4',
+      'app-card shadow-sm p-4',
       className,
     )}>{children}</div>
   )
@@ -299,7 +299,7 @@ export function TabVisionIa({ expedienteId }: Props) {
           onChange={(e) => setInputLibre(e.target.value)}
           rows={3}
           placeholder='Ej: "el juez Pérez es duro con cautelares" o "no vamos a oponer prescripción"'
-          className="w-full text-sm bg-zinc-900/50 border border-zinc-800 rounded-md p-2.5 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 resize-y"
+          className="field w-full resize-y"
         />
         <div className="mt-2 flex justify-end">
           <button
@@ -426,7 +426,7 @@ function ParseResultPanel({
                 type="checkbox"
                 checked={checked.has(i)}
                 onChange={() => toggle(i)}
-                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-violet-500 focus:ring-violet-500"
+                className="mt-1 h-4 w-4 rounded accent-[var(--brand-accent)]"
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-zinc-200">{c.contenido}</p>
@@ -614,7 +614,7 @@ function GenerateResultPanel({
                 type="checkbox"
                 checked={checked.has(i)}
                 onChange={() => toggle(i)}
-                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-violet-500 focus:ring-violet-500"
+                className="mt-1 h-4 w-4 rounded accent-[var(--brand-accent)]"
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-zinc-200">{c.contenido}</p>

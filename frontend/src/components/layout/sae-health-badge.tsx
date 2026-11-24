@@ -51,14 +51,14 @@ export function SaeHealthBadge() {
       onClick={() => navigate('/configuracion?section=sae')}
       title={tooltipParts.join('\n')}
       className={cn(
-        'hidden md:inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors',
+        'hidden md:inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
         meta.tone,
       )}
     >
       <Icon className="h-3 w-3" />
-      <span className="font-mono text-[11px] tracking-wide">SAE</span>
+      <span className="text-[11px] font-bold tracking-[0.08em]">SAE</span>
       {cred.last_sync_at && (
-        <span className="hidden font-mono text-[11px] opacity-70 lg:inline">
+        <span className="hidden text-[11px] tabular-nums opacity-70 lg:inline">
           {new Date(cred.last_sync_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
         </span>
       )}

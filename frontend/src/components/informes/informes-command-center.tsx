@@ -183,7 +183,7 @@ function TendenciaMensual({ data }: { data: InformesDashboard['tendencia_mensual
   }))
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4 h-full">
+    <div className="app-card p-4 h-full">
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp className="h-4 w-4 text-cyan-400" />
         <h3 className="text-sm font-semibold text-zinc-100">Actividad últimos 12 meses</h3>
@@ -260,7 +260,7 @@ function PulsoIA({ data }: { data: InformesDashboard['pulso_ia'] }) {
 function MapaTribunales({ data }: { data: InformesDashboard['por_organismo'] }) {
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-2">
           <Building2 className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Mapa de tribunales</h3>
@@ -271,7 +271,7 @@ function MapaTribunales({ data }: { data: InformesDashboard['por_organismo'] }) 
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center gap-2 mb-3">
         <Building2 className="h-4 w-4 text-cyan-400" />
         <h3 className="text-sm font-semibold text-zinc-100">Mapa de tribunales</h3>
@@ -327,7 +327,7 @@ function DonutCard({
 
   if (total === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-2">
           <Icon className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">{titulo}</h3>
@@ -350,7 +350,7 @@ function DonutCard({
   })
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center gap-2 mb-3">
         <Icon className="h-4 w-4 text-cyan-400" />
         <h3 className="text-sm font-semibold text-zinc-100">{titulo}</h3>
@@ -403,7 +403,7 @@ function DistribucionEstados({ data, totalActivos }: { data: InformesDashboard['
   if (data.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center gap-2 mb-3">
         <FolderOpen className="h-4 w-4 text-cyan-400" />
         <h3 className="text-sm font-semibold text-zinc-100">Distribución por estado</h3>
@@ -449,7 +449,7 @@ function TopList({
   }[accentColor]
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center gap-2 mb-1">
         <Icon className={cn('h-4 w-4', accentColor === 'amber' ? 'text-amber-400' : accentColor === 'rose' ? 'text-rose-400' : 'text-violet-400')} />
         <h3 className="text-sm font-semibold text-zinc-100">{titulo}</h3>
@@ -489,7 +489,7 @@ function ConsultasAudienciasRow({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Consultas — tasa de conversión */}
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-3">
           <MessageSquare className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Consultas → Casos</h3>
@@ -537,7 +537,7 @@ function ConsultasAudienciasRow({
       </div>
 
       {/* Audiencias — estado general */}
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="h-4 w-4 text-violet-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Audiencias</h3>
@@ -583,7 +583,7 @@ function PorTipoTramite({ data }: { data: InformesDashboard['por_tipo_tramite'] 
   const COLORS = ['#06b6d4', '#a78bfa', '#fbbf24', '#60a5fa', '#2dd4bf', '#fb7185', '#34d399', '#818cf8']
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center gap-2 mb-3">
         <FolderOpen className="h-4 w-4 text-amber-400" />
         <h3 className="text-sm font-semibold text-zinc-100">Por tipo de trámite</h3>
@@ -613,7 +613,7 @@ function PorTipoTramite({ data }: { data: InformesDashboard['por_tipo_tramite'] 
 function PersonasRecurrentes({ data }: { data: InformesDashboard['personas_recurrentes'] }) {
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-2">
           <Users className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Personas en tus audiencias</h3>
@@ -624,7 +624,7 @@ function PersonasRecurrentes({ data }: { data: InformesDashboard['personas_recur
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-cyan-400" />
@@ -636,7 +636,7 @@ function PersonasRecurrentes({ data }: { data: InformesDashboard['personas_recur
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {data.slice(0, 12).map((p, i) => (
-          <div key={i} className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
+          <div key={i} className="app-card px-3 py-2">
             <p className="text-xs font-medium text-zinc-100 line-clamp-2 leading-tight">{p.nombre}</p>
             <p className="mt-1 text-[10px] text-zinc-500">{p.apariciones} apar.</p>
           </div>

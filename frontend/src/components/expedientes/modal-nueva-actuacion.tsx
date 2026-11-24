@@ -82,7 +82,7 @@ export function ModalNuevaActuacion({ open, onClose, expedienteId }: Props) {
                 required
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="w-full h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field w-full h-9 py-0"
               />
             </div>
             <div className="space-y-1">
@@ -90,7 +90,7 @@ export function ModalNuevaActuacion({ open, onClose, expedienteId }: Props) {
               <select
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as MovementType)}
-                className="w-full h-9 rounded-lg border border-white/10 bg-zinc-800 px-3 text-sm text-zinc-100 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+                className="field w-full h-9 py-0"
               >
                 {TIPO_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -107,7 +107,7 @@ export function ModalNuevaActuacion({ open, onClose, expedienteId }: Props) {
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Descripción breve de la actuación"
-              className="w-full h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+              className="field w-full h-9 py-0"
             />
           </div>
 
@@ -120,7 +120,7 @@ export function ModalNuevaActuacion({ open, onClose, expedienteId }: Props) {
               onChange={(e) => setCuerpo(e.target.value)}
               placeholder="Detalle de la actuación..."
               rows={4}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field w-full resize-none"
             />
           </div>
 

@@ -80,8 +80,7 @@ export function ExpedienteFilters({
     onChange({ page: 1, pageSize: filters.pageSize })
   }, [onChange, filters.pageSize])
 
-  const selectClass =
-    'h-9 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 text-sm text-zinc-800 dark:text-zinc-200 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20'
+  const selectClass = 'field h-9 w-auto py-0 pr-8 text-[13px] font-medium'
 
   const [expanded, setExpanded] = useState(false)
 
@@ -91,13 +90,13 @@ export function ExpedienteFilters({
       <div className="flex flex-wrap items-center gap-2">
         {/* Search — siempre visible */}
         <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <input
-            type="text"
+            type="search"
             placeholder="Buscar por número, carátula, cliente..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            className="h-9 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-[var(--brand-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-accent)]/20"
+            className="field h-11 pl-10"
           />
         </div>
 
@@ -107,10 +106,8 @@ export function ExpedienteFilters({
           onClick={() => onChange({ ...filters, favoritos: filters.favoritos ? null : true, page: 1 })}
           aria-pressed={!!filters.favoritos}
           className={cn(
-            'flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
-            filters.favoritos
-              ? 'border-amber-400/50 bg-amber-400/10 text-amber-600 dark:text-amber-400'
-              : 'border-zinc-200 bg-white text-zinc-700 hover:text-amber-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:text-amber-400',
+            'btn btn-ghost h-11',
+            filters.favoritos && '!border-amber-400/50 !bg-amber-400/10 !text-amber-600 dark:!text-amber-300',
           )}
           title={filters.favoritos ? 'Ver todos los expedientes' : 'Ver solo favoritos'}
         >
@@ -122,13 +119,13 @@ export function ExpedienteFilters({
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}
-          className="sm:hidden flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="btn btn-ghost h-11 sm:hidden"
           aria-expanded={expanded}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Filtros
           {activeFilterCount > 0 && (
-            <span className="ml-1 rounded-full bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)] px-1.5 text-[10px] font-semibold">
+            <span className="rounded-full bg-[var(--brand-navy)] px-1.5 text-[10px] font-bold tabular-nums text-white dark:bg-white dark:text-[var(--brand-navy)]">
               {activeFilterCount}
             </span>
           )}
@@ -146,12 +143,9 @@ export function ExpedienteFilters({
               return (
                 <button key={op.id ?? 'todos'} type="button" onClick={() => onChange({ ...filters, abogado_id: op.id, page: 1 })}
                   aria-pressed={activo}
-                  className={cn('flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors',
-                    activo
-                      ? 'border-transparent bg-[var(--brand-navy)] text-white dark:bg-white dark:text-[var(--brand-navy)]'
-                      : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10')}>
+                  className="chip">
                   {op.label}
-                  <span className="text-xs tabular-nums opacity-70">{op.n}</span>
+                  <span className="chip-count">{op.n}</span>
                 </button>
               )
             })}
@@ -246,7 +240,7 @@ export function ExpedienteFilters({
         {activeFilterCount > 0 && (
           <button
             onClick={clearFilters}
-            className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-sm text-zinc-600 dark:text-zinc-300 hover:bg-white/5 hover:text-zinc-800 dark:hover:text-zinc-200"
+            className="btn btn-ghost btn-sm border-transparent"
           >
             <X className="h-3.5 w-3.5" />
             Limpiar
@@ -257,8 +251,7 @@ export function ExpedienteFilters({
       {/* Active filter badges */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
-          <span className="mr-1 text-xs text-zinc-600 dark:text-zinc-300">Filtros activos:</span>
+          <span className="eyebrow mr-1">Filtros activos</span>
           {filters.fuero && (
             <FilterBadge
               label={FUERO_LABELS[filters.fuero] ?? filters.fuero}
@@ -325,12 +318,9 @@ export function ExpedienteFilters({
   )
 }
 
+// Todos los filtros activos con el mismo tono: el color no agregaba información.
 const BADGE_COLORS: Record<string, string> = {
-  cyan:   'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
-  violet: 'bg-violet-950/40 text-violet-400 hover:bg-violet-950/60',
-  amber:  'bg-amber-950/40 text-amber-400 hover:bg-amber-950/60',
-  indigo: 'bg-indigo-950/40 text-indigo-400 hover:bg-indigo-950/60',
-  gray:   'bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10',
+  default: 'border border-cyan-500/30 bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300',
 }
 
 function FilterBadge({
@@ -346,8 +336,8 @@ function FilterBadge({
     <button
       onClick={onRemove}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer',
-        BADGE_COLORS[color] ?? BADGE_COLORS.gray
+        'inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors',
+        BADGE_COLORS[color] ?? BADGE_COLORS.default
       )}
     >
       {label}

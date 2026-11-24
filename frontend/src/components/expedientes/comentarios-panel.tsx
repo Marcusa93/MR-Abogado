@@ -201,7 +201,7 @@ export default function ComentariosPanel({ expedienteId }: ComentariosPanelProps
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar en las notas…"
-            className="h-9 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-9 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15"
+            className="field h-9 w-full pl-9 pr-9 py-0"
           />
           {busqueda && (
             <button onClick={() => setBusqueda('')} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300">

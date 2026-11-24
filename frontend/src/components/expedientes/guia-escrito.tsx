@@ -160,7 +160,7 @@ export function GuiaEscrito({ escrito, contenido, abogado, dirty, guardando, onG
           <div className="mt-2 flex flex-wrap gap-2">
             {actual.accion && (
               <button type="button" onClick={actual.accion.onClick} disabled={actual.accion.cargando}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900 sm:min-h-9 sm:flex-none">
+                className="btn btn-primary min-h-10 flex-1 sm:min-h-9 sm:flex-none">
                 {actual.accion.cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {actual.accion.label}
               </button>
             )}

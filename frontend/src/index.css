@@ -1,11 +1,113 @@
-/* Fuentes servidas desde el propio sitio: la CSP (font-src 'self') bloquea Google Fonts. */
-@import "@fontsource-variable/geist";
+/* Fuentes servidas desde el propio sitio: la CSP (font-src 'self') bloquea Google Fonts.
+   Montserrat es la tipografía del sitio público (marcorossi.com.ar) y del manual de marca.
+   Geist Mono queda solo para código (bloques de BogaBot, atajos de teclado). */
+@import "@fontsource-variable/montserrat";
 @import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA "ESTUDIO" (2026-11) — mismo lenguaje visual que marcorossi.com.ar.
+   El frontend usa clases de la paleta de Tailwind directamente (zinc, cyan,
+   violet…) en ~200 archivos, así que la marca se aplica redefiniendo esas
+   escalas acá: zinc pasa a ser el gris azulado del sitio, cyan el acento
+   (#66ACCC en oscuro, el mismo del sitio) y violet/purple un índigo apagado
+   en vez del violeta neón. Verde, ámbar y rojo quedan: son semánticos.
+   ═══════════════════════════════════════════════════════════════════════════ */
 @theme {
-  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Las etiquetas "font-mono" del sistema (números de expediente, horas, rótulos)
+     pasan a Montserrat con cifras tabulares, como en el sitio. */
+  --font-mono: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-code: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radios más generosos, como los botones (12px) y tarjetas (16px) del sitio */
+  --radius-sm: 0.3125rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  /* Neutros: gris azulado (tono 210°) en lugar del zinc violáceo */
+  --color-zinc-50: #f5f7fa;
+  --color-zinc-100: #e9eef3;
+  --color-zinc-200: #d5dde5;
+  --color-zinc-300: #bcc7d2;
+  --color-zinc-400: #a3b0bd;
+  --color-zinc-500: #8595a6;
+  --color-zinc-600: #66778a;
+  --color-zinc-700: #4a5a6c;
+  --color-zinc-800: #354352;
+  --color-zinc-900: #273240;
+  --color-zinc-950: #1b2430;
+
+  /* Acento del sitio (hsl 199 50% 60% = #66ACCC en oscuro, #577C8E en claro) */
+  --color-cyan-50: #f0f7fb;
+  --color-cyan-100: #dcedf5;
+  --color-cyan-200: #bcdcec;
+  --color-cyan-300: #92c5de;
+  --color-cyan-400: #66accc;
+  --color-cyan-500: #4c93b5;
+  --color-cyan-600: #3c7998;
+  --color-cyan-700: #31627b;
+  --color-cyan-800: #2b5266;
+  --color-cyan-900: #264455;
+  --color-cyan-950: #162a36;
+
+  --color-sky-300: #92c5de;
+  --color-sky-400: #66accc;
+  --color-sky-500: #4c93b5;
+
+  /* Índigo apagado (navy-medium del sitio) en lugar del violeta neón */
+  --color-violet-50: #f3f4f9;
+  --color-violet-100: #e6e8f2;
+  --color-violet-200: #cdd1e6;
+  --color-violet-300: #b1b8db;
+  --color-violet-400: #959ec9;
+  --color-violet-500: #7882b4;
+  --color-violet-600: #5f6898;
+  --color-violet-700: #4c537a;
+  --color-violet-800: #3e4462;
+  --color-violet-900: #343a54;
+  --color-violet-950: #22263a;
+
+  --color-purple-50: #f3f4f9;
+  --color-purple-100: #e6e8f2;
+  --color-purple-200: #cdd1e6;
+  --color-purple-300: #b1b8db;
+  --color-purple-400: #959ec9;
+  --color-purple-500: #7882b4;
+  --color-purple-600: #5f6898;
+  --color-purple-700: #4c537a;
+  --color-purple-800: #3e4462;
+  --color-purple-900: #343a54;
+  --color-purple-950: #22263a;
+
+  /* Azul e índigo (estados "Iniciado", avisos informativos, IA): azul acero apagado,
+     distinguible del acento celeste pero sin el azul eléctrico por defecto. */
+  --color-blue-50: #f2f6fb;
+  --color-blue-100: #e1eaf6;
+  --color-blue-200: #c4d5ec;
+  --color-blue-300: #9fbbe0;
+  --color-blue-400: #7e9fd2;
+  --color-blue-500: #5f84c0;
+  --color-blue-600: #4b6ba6;
+  --color-blue-700: #3e5787;
+  --color-blue-800: #34486e;
+  --color-blue-900: #2d3d5b;
+  --color-blue-950: #1d273b;
+
+  --color-indigo-50: #f3f4fb;
+  --color-indigo-100: #e4e7f7;
+  --color-indigo-200: #cad0ee;
+  --color-indigo-300: #a9b2e2;
+  --color-indigo-400: #8c97d6;
+  --color-indigo-500: #6f7bc2;
+  --color-indigo-600: #5a64a6;
+  --color-indigo-700: #4a5286;
+  --color-indigo-800: #3d446c;
+  --color-indigo-900: #343a58;
+  --color-indigo-950: #22263b;
 }
 
 /* Tailwind v4: activar la variante `dark:` por presencia de la clase
@@ -16,7 +118,7 @@
 
 /* ─── Theme Variables ─── */
 
-/* Light mode */
+/* Modo claro — tokens del sitio (hoy la app fuerza oscuro, ver theme-provider) */
 :root {
   --background: #f5f9fb;
   --foreground: #01101e;
@@ -36,9 +138,9 @@
   --border: rgb(1 16 30 / 10%);
   --input: rgb(1 16 30 / 10%);
   --ring: #577c8e;
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  /* Brand tokens — sincronizados con "Pagina Web Dr. Marco Rossi" */
+  /* Tokens de marca — sincronizados con marcorossi.com.ar (src/index.css del sitio) */
   --brand-navy: #01101e;
   --brand-medium: #313852;
   --brand-accent: #577c8e;
@@ -46,45 +148,44 @@
   --accent-glow: rgb(87 124 142 / 22%);
   --accent-glow-soft: rgb(87 124 142 / 10%);
 
-  /* Sidebar & layout light-mode tokens */
   --sidebar-bg: #ffffff;
   --sidebar-border: rgb(1 16 30 / 10%);
-  --header-bg: rgb(255 255 255 / 85%);
+  --header-bg: rgb(245 249 251 / 85%);
   --layout-bg: #f5f9fb;
 }
 
-/* Dark mode — sincronizado con la carpeta fuente de Digital Amenities */
+/* Modo oscuro — el del sitio: navy #1C2633 de fondo, tarjetas #293444, acento #66ACCC */
 .dark {
-  --background: #0a0e13;
-  --foreground: #e8edf2;
-  --card: #10161d;
-  --card-foreground: #e8edf2;
-  --popover: #121920;
-  --popover-foreground: #e8edf2;
+  --background: #1c2633;
+  --foreground: #eef2f6;
+  --card: #263140;
+  --card-foreground: #eef2f6;
+  --popover: #2b3747;
+  --popover-foreground: #eef2f6;
   --primary: #ffffff;
-  --primary-foreground: #0a0e13;
-  --secondary: #18212b;
+  --primary-foreground: #1c2633;
+  --secondary: #313d49;
   --secondary-foreground: #ffffff;
-  --muted: #141b23;
-  --muted-foreground: rgb(160 172 186);
-  --accent: #5cc8e8;
-  --accent-foreground: #04131a;
+  --muted: #252e37;
+  --muted-foreground: #a7b3be;
+  --accent: #66accc;
+  --accent-foreground: #0d1d27;
   --destructive: #fb7185;
-  --border: rgb(255 255 255 / 9%);
-  --input: rgb(255 255 255 / 12%);
-  --ring: #5cc8e8;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 14%);
+  --ring: #66accc;
 
-  --brand-navy: #131b24;
-  --brand-medium: #18212b;
-  --brand-accent: #5cc8e8;
-  --brand-ice: #c9eef9;
-  --accent-glow: rgb(92 200 232 / 22%);
-  --accent-glow-soft: rgb(92 200 232 / 10%);
+  --brand-navy: #0a1929;
+  --brand-medium: #313d49;
+  --brand-accent: #66accc;
+  --brand-ice: #c7d9e5;
+  --accent-glow: rgb(102 172 204 / 22%);
+  --accent-glow-soft: rgb(102 172 204 / 10%);
 
-  --sidebar-bg: #0c1117;
-  --sidebar-border: rgb(255 255 255 / 7%);
-  --header-bg: rgb(10 14 19 / 82%);
-  --layout-bg: #0a0e13;
+  --sidebar-bg: #16202b;
+  --sidebar-border: rgb(255 255 255 / 8%);
+  --header-bg: rgb(28 38 51 / 88%);
+  --layout-bg: #1c2633;
 }
 
 /* ─── Light Mode Readability — DEFINITIVE FIX ─── */
@@ -97,14 +198,27 @@
 
 /* ─── Base Styles ─── */
 
-* {
-  border-color: var(--border);
+/* En @layer base (no suelto): fuera de una capa le ganaba a TODAS las utilidades
+   border-* de Tailwind y ningún borde de color (estados, selección, acento) se veía. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  code, kbd, pre, samp {
+    font-family: var(--font-code);
+  }
 }
 
 body {
   font-family: var(--font-sans);
-  font-feature-settings: 'ss01', 'cv11';
-  letter-spacing: -0.005em;
+  font-weight: 450;
+  letter-spacing: -0.006em;
   background-color: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
@@ -154,548 +268,442 @@ html {
   color: oklch(0.96 0.008 220);
 }
 
-/* ─── Glassmorphism Utilities ─── */
-
-.glass {
-  background: oklch(1 0 0 / 60%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-}
-.dark .glass {
-  background: oklch(1 0 0 / 5%);
-}
-
-.glass-strong {
-  background: oklch(1 0 0 / 70%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
-}
-.dark .glass-strong {
-  background: oklch(1 0 0 / 8%);
-}
-
-.glass-card {
-  background: oklch(1 0 0 / 70%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 6%), 0 4px 16px oklch(0 0 0 / 4%);
-}
-.dark .glass-card {
-  background: oklch(0.22 0.012 240 / 80%);
-  border-color: oklch(1 0 0 / 10%);
-  box-shadow: 0 8px 32px oklch(0 0 0 / 30%);
-}
-
-/* Glass card with animated gradient border — navy-light accent */
-.glass-card-glow {
-  background: oklch(1 0 0 / 70%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 6%), 0 4px 16px oklch(0 0 0 / 4%);
-  position: relative;
-  overflow: hidden;
-}
-.dark .glass-card-glow {
-  background: oklch(0.22 0.012 240 / 80%);
-  border-color: oklch(1 0 0 / 10%);
-  box-shadow: 0 8px 32px oklch(0 0 0 / 30%);
-}
-
-.glass-card-glow::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    var(--border-angle, 0deg),
-    oklch(0.55 0.045 230 / 30%),
-    transparent 40%,
-    transparent 60%,
-    oklch(0.55 0.045 230 / 18%)
-  );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  animation: border-rotate 8s linear infinite;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.glass-card-glow > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* ─── Gradient Utilities ─── */
-
-/* Title text — navy in light mode, ice/celeste in dark mode */
-.text-gradient-cyan {
-  color: oklch(0.12 0.04 234);
-}
-.dark .text-gradient-cyan {
-  color: oklch(0.87 0.03 220);
-}
-
-.text-gradient-violet {
-  color: oklch(0.28 0.04 260);
-}
-.dark .text-gradient-violet {
-  color: oklch(0.75 0.05 220);
-}
-
-/* Button background — accent navy del sitio (#577C8E aprox). Nombre legacy. */
-.bg-gradient-cyan {
-  background: var(--brand-accent);
-}
-
-.bg-gradient-subtle {
-  background: var(--background);
-}
-
-/* Gradient divider — accent del sitio */
-.divider-gradient {
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    oklch(0.55 0.045 230 / 25%),
-    oklch(0.55 0.045 230 / 18%),
-    transparent
-  );
-}
-
-/* ─── Glow Effects — signature navy del sitio público ─── */
-
-/* Glow principal, equivalente a `box-shadow: 0 0 20px #577c8e4d` del sitio */
-.glow {
-  box-shadow: 0 0 20px var(--accent-glow),
-    0 0 40px var(--accent-glow-soft);
-}
-
-.glow-sm {
-  box-shadow: 0 0 10px var(--accent-glow-soft);
-}
-
-.glow-lg {
-  box-shadow: 0 0 28px var(--accent-glow),
-    0 0 56px var(--accent-glow-soft);
-}
-
-/* Aliases legacy — mantenidos por backward compat con ~32 consumers */
-.glow-cyan {
-  box-shadow: 0 0 20px var(--accent-glow),
-    0 0 40px var(--accent-glow-soft);
-}
-
-.glow-cyan-sm {
-  box-shadow: 0 0 10px var(--accent-glow-soft);
-}
-
-/* ─── Mesh Gradient Background ─── */
-
-.mesh-gradient-bg {
-  background-color: var(--layout-bg);
-  background-image: none;
-}
-/* Radiales más presentes en dark (matching la profundidad del sitio público) */
-.dark .mesh-gradient-bg {
-  background-image:
-    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 14%) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 10%) 0%, transparent 55%),
-    radial-gradient(ellipse at 60% 50%, oklch(0.30 0.04 250 / 6%) 0%, transparent 60%);
-}
-
-/* ─── Login Background ─── */
-
-.login-bg-pattern {
-  background-image: radial-gradient(
-      circle at 20% 50%,
-      oklch(0.55 0.045 230 / 6%) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 80% 20%,
-      oklch(0.12 0.045 250 / 4%) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 50% 80%,
-      oklch(0.87 0.03 220 / 5%) 0%,
-      transparent 50%
-    );
-}
-
-.dot-pattern {
-  background-image: radial-gradient(
-    circle,
-    oklch(0 0 0 / 4%) 1px,
-    transparent 1px
-  );
-  background-size: 24px 24px;
-}
-.dark .dot-pattern {
-  background-image: radial-gradient(
-    circle,
-    oklch(1 0 0 / 4%) 1px,
-    transparent 1px
-  );
-}
-
-.brand-splash-bg {
-  background:
-    radial-gradient(circle at 50% 30%, oklch(0.55 0.045 230 / 8%), transparent 26%),
-    radial-gradient(circle at 20% 65%, oklch(0.87 0.03 220 / 12%), transparent 32%),
-    radial-gradient(circle at 80% 18%, oklch(0.28 0.04 260 / 6%), transparent 26%),
-    linear-gradient(180deg, oklch(0.985 0.003 220), oklch(0.96 0.01 220));
-}
-
-.dark .brand-splash-bg {
-  background:
-    radial-gradient(circle at 50% 26%, oklch(0.55 0.045 230 / 14%), transparent 26%),
-    radial-gradient(circle at 18% 70%, oklch(0.28 0.04 260 / 10%), transparent 34%),
-    radial-gradient(circle at 82% 18%, oklch(0.62 0.045 230 / 10%), transparent 28%),
-    linear-gradient(180deg, oklch(0.12 0.045 250), oklch(0.10 0.045 250));
-}
-
-.brand-logo-frame {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 2rem;
-  padding: 1.75rem 2.25rem;
-  border: 1px solid oklch(0.87 0.03 220 / 60%);
-  background:
-    linear-gradient(180deg, oklch(1 0 0 / 86%), oklch(0.97 0.01 220 / 90%));
-  box-shadow:
-    0 24px 64px oklch(0.12 0.045 250 / 10%),
-    inset 0 1px 0 oklch(1 0 0 / 75%);
-}
-
-.dark .brand-logo-frame {
-  border-color: oklch(1 0 0 / 8%);
-  background:
-    linear-gradient(180deg, oklch(0.19 0.04 246 / 92%), oklch(0.16 0.04 246 / 96%));
-  box-shadow:
-    0 24px 72px oklch(0 0 0 / 40%),
-    inset 0 1px 0 oklch(1 0 0 / 6%);
-}
-
-.brand-logo-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(135deg, oklch(1 0 0 / 38%), transparent 45%, oklch(0.87 0.03 220 / 16%));
-  pointer-events: none;
-}
-
-.dark .brand-logo-frame::before {
-  background:
-    linear-gradient(135deg, oklch(1 0 0 / 6%), transparent 45%, oklch(0.62 0.045 230 / 14%));
-}
-
-/* Dashboard surfaces aligned with the public site */
-
-.dashboard-shell {
-  background-image:
-    linear-gradient(rgb(1 16 30 / 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(1 16 30 / 0.04) 1px, transparent 1px),
-    radial-gradient(circle at 0% 0%, rgb(199 217 229 / 26%) 0%, transparent 30%),
-    radial-gradient(circle at 100% 100%, rgb(87 124 142 / 9%) 0%, transparent 34%);
-  background-size: 40px 40px, 40px 40px, auto, auto;
-}
-
-.dark .dashboard-shell {
-  background-image:
-    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 0% 0%, rgb(117 168 195 / 18%) 0%, transparent 34%),
-    radial-gradient(circle at 100% 100%, rgb(87 124 142 / 15%) 0%, transparent 38%);
-  background-size: 40px 40px, 40px 40px, auto, auto;
-}
-
-.dashboard-hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 2rem;
-  border: 1px solid rgb(87 124 142 / 22%);
-  background:
-    radial-gradient(circle at 78% 20%, rgb(117 168 195 / 24%) 0%, transparent 24%),
-    radial-gradient(circle at 18% 118%, rgb(204 222 231 / 16%) 0%, transparent 38%),
-    linear-gradient(135deg, #1c2633 0%, #223243 55%, #31495b 100%);
-  box-shadow:
-    0 36px 90px rgb(4 12 20 / 18%),
-    inset 0 1px 0 rgb(255 255 255 / 6%);
-}
-
-.dashboard-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(125deg, rgb(255 255 255 / 10%) 0%, transparent 32%),
-    linear-gradient(180deg, transparent 58%, rgb(0 0 0 / 16%) 100%);
-  pointer-events: none;
-}
-
-.dashboard-panel {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1.5rem;
-  border: 1px solid rgb(1 16 30 / 10%);
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 94%), rgb(245 249 251 / 98%));
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow:
-    0 18px 52px oklch(0.12 0.045 250 / 9%),
-    inset 0 1px 0 oklch(1 0 0 / 78%);
-}
-
-.dark .dashboard-panel {
-  border-color: rgb(255 255 255 / 14%);
-  background:
-    linear-gradient(180deg, rgb(41 52 68 / 96%), rgb(28 38 51 / 98%));
-  box-shadow:
-    0 24px 72px rgb(0 0 0 / 28%),
-    inset 0 1px 0 oklch(1 0 0 / 5%);
-}
-
-.dashboard-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(87 124 142 / 34%), transparent);
-  pointer-events: none;
-}
-
-.dashboard-panel-muted {
-  border-radius: 1.125rem;
-  border: 1px solid rgb(1 16 30 / 10%);
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 74%), rgb(245 249 251 / 88%));
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 70%);
-}
-
-.dark .dashboard-panel-muted {
-  border-color: rgb(255 255 255 / 12%);
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 4%));
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 4%);
-}
-
-.dashboard-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 9999px;
-  border: 1px solid rgb(87 124 142 / 22%);
-  background: rgb(87 124 142 / 10%);
-  padding: 0.45rem 0.8rem;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgb(87 124 142);
-}
-
-.dark .dashboard-kicker {
-  border-color: rgb(204 222 231 / 12%);
-  background: rgb(204 222 231 / 8%);
-  color: rgb(204 222 231 / 88%);
-}
-
-.dashboard-eyebrow {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgb(87 124 142);
-}
-
-.dark .dashboard-eyebrow {
-  color: rgb(204 222 231 / 72%);
-}
-
-.dashboard-link {
-  color: rgb(87 124 142);
-  transition: color 180ms ease, transform 180ms ease;
-}
-
-.dashboard-link:hover {
-  color: rgb(48 86 104);
-}
-
-.dark .dashboard-link:hover {
-  color: rgb(221 232 238);
-}
-
-.dashboard-input {
-  border: 1px solid oklch(0.87 0.03 220 / 56%);
-  background: oklch(1 0 0 / 74%);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 68%);
-}
-
-.dashboard-input:focus-within,
-.dashboard-input:focus {
-  border-color: rgb(87 124 142 / 42%);
-  box-shadow:
-    0 0 0 4px rgb(87 124 142 / 10%),
-    inset 0 1px 0 oklch(1 0 0 / 72%);
-}
-
-.dark .dashboard-input {
-  border-color: oklch(1 0 0 / 9%);
-  background: oklch(1 0 0 / 5%);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 4%);
-}
-
-.dark .dashboard-input:focus-within,
-.dark .dashboard-input:focus {
-  border-color: rgb(204 222 231 / 18%);
-  box-shadow:
-    0 0 0 4px rgb(87 124 142 / 12%),
-    inset 0 1px 0 oklch(1 0 0 / 4%);
-}
-
-.dashboard-stat-orb {
-  background: rgb(87 124 142 / 12%);
-  color: rgb(87 124 142);
-}
-
-.dark .dashboard-stat-orb {
-  background: rgb(204 222 231 / 10%);
-  color: rgb(204 222 231 / 90%);
-}
-
-.dashboard-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 9999px;
-  border: 1px solid transparent;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.dashboard-chip-accent {
-  border-color: rgb(87 124 142 / 24%);
-  background: rgb(87 124 142 / 10%);
-  color: rgb(48 86 104);
-}
-
-.dashboard-chip-warning {
-  border-color: rgb(245 158 11 / 26%);
-  background: rgb(245 158 11 / 10%);
-  color: rgb(180 83 9);
-}
-
-.dashboard-chip-success {
-  border-color: rgb(16 185 129 / 24%);
-  background: rgb(16 185 129 / 10%);
-  color: rgb(4 120 87);
-}
-
-.dashboard-chip-danger {
-  border-color: rgb(244 63 94 / 24%);
-  background: rgb(244 63 94 / 10%);
-  color: rgb(190 24 93);
-}
-
-.dark .dashboard-chip-accent {
-  border-color: rgb(204 222 231 / 12%);
-  background: rgb(204 222 231 / 10%);
-  color: rgb(221 232 238);
-}
-
-.dark .dashboard-chip-warning {
-  color: rgb(252 211 77);
-}
-
-.dark .dashboard-chip-success {
-  color: rgb(110 231 183);
-}
-
-.dark .dashboard-chip-danger {
-  color: rgb(251 113 133);
-}
-
-.dashboard-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(87 124 142 / 22%), transparent);
-}
-
-/* ─── App Card — superficie elevada para contenido de páginas interiores ─── */
-/*
-   Pensada para reemplazar el patrón "bg-white/3 border border-white/10"
-   que era plano. Lleva gradiente, gleam superior y sombra leve —
-   el mismo ADN que .dashboard-panel pero más liviana (no usa blur).
-*/
-
-.app-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid rgb(1 16 30 / 10%);
-  background: linear-gradient(180deg, rgb(255 255 255 / 96%) 0%, rgb(245 249 251 / 99%) 100%);
-  box-shadow:
-    0 2px 8px oklch(0.12 0.045 250 / 5%),
-    0 1px 2px oklch(0.12 0.045 250 / 4%),
-    inset 0 1px 0 oklch(1 0 0 / 80%);
-}
-
-.dark .app-card {
-  border-color: rgb(255 255 255 / 10%);
-  background: linear-gradient(180deg, rgb(44 56 74 / 80%) 0%, rgb(28 38 51 / 90%) 100%);
-  box-shadow:
-    0 4px 16px rgb(0 0 0 / 22%),
-    0 1px 3px rgb(0 0 0 / 18%),
-    inset 0 1px 0 oklch(1 0 0 / 5%);
-}
-
-/* Gleam horizontal sutil en el borde superior — igual que .dashboard-panel */
-.app-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(87 124 142 / 16%), transparent);
-  pointer-events: none;
-}
-
-/* ─── Interaction Utilities ─── */
-
-.card-lift {
-  transition: transform 200ms ease, box-shadow 200ms ease;
-}
-.card-lift:hover {
-  transform: translateY(-2px);
-}
-
-.writing-vertical {
-  writing-mode: vertical-lr;
-  text-orientation: mixed;
-}
-
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPONENTES — estética "Estudio" (2026-11), mismo ADN que marcorossi.com.ar:
+   superficies navy, bordes finos, radios de 12–16px, rótulos en Montserrat
+   bold con tracking (como el "Estudio jurídico en Tucumán" del hero), botón
+   primario blanco con texto navy y acento #66ACCC.
+   Van en @layer components: las utilidades de Tailwind les ganan, así que
+   cualquier `hover:border-…` o `rounded-…` puntual en una página sigue andando.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* ─── Vidrio (header, menús) ─── */
+  .glass,
+  .glass-strong {
+    background: rgb(255 255 255 / 70%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+  }
+  .dark .glass,
+  .dark .glass-strong {
+    background: rgb(28 38 51 / 82%);
+  }
+
+  /* ─── Tarjetas ─── */
+  .app-card,
+  .dashboard-panel,
+  .glass-card,
+  .glass-card-glow {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid rgb(1 16 30 / 9%);
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgb(1 16 30 / 5%);
+  }
+  .dark .app-card,
+  .dark .dashboard-panel,
+  .dark .glass-card,
+  .dark .glass-card-glow {
+    border-color: rgb(255 255 255 / 9%);
+    background: var(--card);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 4%),
+      0 14px 32px -18px rgb(0 0 0 / 60%);
+  }
+  :is(a, button).app-card {
+    transition: border-color 160ms ease, background-color 160ms ease;
+  }
+  .dark :is(a, button).app-card:hover {
+    border-color: rgb(102 172 204 / 32%);
+    background: #2a3646;
+  }
+
+  .dashboard-panel-muted {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(1 16 30 / 9%);
+    background: rgb(1 16 30 / 3%);
+  }
+  .dark .dashboard-panel-muted {
+    border-color: rgb(255 255 255 / 8%);
+    background: rgb(255 255 255 / 3.5%);
+  }
+
+  /* Bloque destacado de cabecera (Indicadores): el hero del sitio en chico */
+  .dashboard-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    border: 1px solid rgb(255 255 255 / 9%);
+    background:
+      radial-gradient(ellipse 60% 90% at 100% 0%, rgb(102 172 204 / 18%), transparent 60%),
+      linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+      #16202b;
+    background-size: auto, 40px 40px, 40px 40px, auto;
+    box-shadow: 0 24px 60px -30px rgb(0 0 0 / 70%);
+  }
+
+  /* ─── Rótulos ─── */
+  /* Eyebrow del sitio: Montserrat bold, mayúsculas, tracking amplio, color acento */
+  .eyebrow,
+  .dashboard-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #577c8e;
+  }
+  .dark .eyebrow,
+  .dark .dashboard-eyebrow {
+    color: rgb(102 172 204 / 90%);
+  }
+
+  /* Pastilla del hero del sitio ("● ESTUDIO JURÍDICO EN TUCUMÁN") */
+  .dashboard-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(87 124 142 / 22%);
+    background: rgb(87 124 142 / 10%);
+    padding: 0.3rem 0.75rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #577c8e;
+  }
+  .dark .dashboard-kicker {
+    border-color: rgb(102 172 204 / 22%);
+    background: rgb(102 172 204 / 10%);
+    color: #66accc;
+  }
+
+  /* Etiqueta de dato: tipo de notificación, número de expediente, fechas */
+  .tag-mono {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(1 16 30 / 10%);
+    padding: 0.05rem 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.35rem;
+    font-variant-numeric: tabular-nums;
+    color: #475569;
+    white-space: nowrap;
+  }
+  .dark .tag-mono {
+    border-color: rgb(255 255 255 / 11%);
+    background: rgb(255 255 255 / 4%);
+    color: #b4c1ce;
+  }
+
+  .dashboard-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    padding: 0.18rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dashboard-chip-accent { border-color: rgb(87 124 142 / 24%); background: rgb(87 124 142 / 10%); color: #3c6476; }
+  .dashboard-chip-warning { border-color: rgb(245 158 11 / 26%); background: rgb(245 158 11 / 10%); color: rgb(180 83 9); }
+  .dashboard-chip-success { border-color: rgb(16 185 129 / 24%); background: rgb(16 185 129 / 10%); color: rgb(4 120 87); }
+  .dashboard-chip-danger { border-color: rgb(244 63 94 / 24%); background: rgb(244 63 94 / 10%); color: rgb(190 24 93); }
+  .dark .dashboard-chip-accent { border-color: rgb(102 172 204 / 26%); background: rgb(102 172 204 / 12%); color: #a9d2e5; }
+  .dark .dashboard-chip-warning { color: rgb(252 211 77); }
+  .dark .dashboard-chip-success { color: rgb(110 231 183); }
+  .dark .dashboard-chip-danger { color: rgb(251 113 133); }
+
+  .dashboard-stat-orb {
+    background: rgb(87 124 142 / 12%);
+    color: #577c8e;
+  }
+  .dark .dashboard-stat-orb {
+    background: rgb(102 172 204 / 12%);
+    color: #8cc0d9;
+  }
+
+  .dashboard-link {
+    color: #577c8e;
+    font-weight: 600;
+    transition: color 160ms ease;
+  }
+  .dashboard-link:hover { color: #31627b; }
+  .dark .dashboard-link { color: #66accc; }
+  .dark .dashboard-link:hover { color: #bcdcec; }
+
+  .dashboard-divider,
+  .divider-gradient {
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── Botones (equivalentes a .btn-primary / .btn-secondary del sitio) ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.375rem;
+    border-radius: 0.75rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: nowrap;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { min-height: 2rem; padding: 0.375rem 0.75rem; font-size: 0.75rem; border-radius: 0.625rem; }
+
+  /* Primario: fondo de primer plano (blanco en oscuro), como "Reservar 20 min gratis" */
+  .btn-primary { background: #01101e; color: #ffffff; box-shadow: 0 8px 20px -10px rgb(1 16 30 / 45%); }
+  .btn-primary:hover:not(:disabled) { background: #577c8e; }
+  .dark .btn-primary { background: #ffffff; color: #1c2633; box-shadow: 0 10px 24px -12px rgb(0 0 0 / 70%); }
+  .dark .btn-primary:hover:not(:disabled) { background: #66accc; color: #0d1d27; }
+
+  /* Secundario: contorno de acento */
+  .btn-secondary { border: 1px solid rgb(87 124 142 / 45%); color: #01101e; background: transparent; }
+  .btn-secondary:hover:not(:disabled) { background: rgb(87 124 142 / 10%); border-color: #577c8e; }
+  .dark .btn-secondary { border-color: rgb(102 172 204 / 40%); color: #e9eef3; }
+  .dark .btn-secondary:hover:not(:disabled) { background: rgb(102 172 204 / 12%); border-color: #66accc; }
+
+  /* Fantasma: acciones terciarias en barras de herramientas */
+  .btn-ghost { color: #4a5a6c; border: 1px solid rgb(1 16 30 / 10%); background: transparent; }
+  .btn-ghost:hover:not(:disabled) { background: rgb(1 16 30 / 4%); color: #01101e; }
+  .dark .btn-ghost { color: #bcc7d2; border-color: rgb(255 255 255 / 10%); }
+  .dark .btn-ghost:hover:not(:disabled) { background: rgb(255 255 255 / 6%); color: #ffffff; border-color: rgb(255 255 255 / 16%); }
+
+  .btn-icon { min-height: 0; width: 2.375rem; height: 2.375rem; padding: 0; }
+
+  /* Botón primario heredado (.bg-gradient-cyan): acento plano del sitio */
+  .bg-gradient-cyan { background: #577c8e; }
+  .dark .bg-gradient-cyan { background: #66accc; }
+  .dark .bg-gradient-cyan:hover { background: #7fbcd8; }
+  .bg-gradient-subtle { background: var(--background); }
+
+  /* ─── Campos ─── */
+  .field,
+  .dashboard-input {
+    border-radius: 0.75rem;
+    border: 1px solid rgb(1 16 30 / 12%);
+    background: #ffffff;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+  .field { width: 100%; padding: 0.55rem 0.85rem; font-size: 0.875rem; color: #01101e; }
+  .field::placeholder { color: #8595a6; }
+  .field:focus,
+  .field:focus-within,
+  .dashboard-input:focus,
+  .dashboard-input:focus-within {
+    outline: none;
+    border-color: rgb(87 124 142 / 55%);
+    box-shadow: 0 0 0 4px rgb(87 124 142 / 12%);
+  }
+  .dark .field,
+  .dark .dashboard-input {
+    border-color: rgb(255 255 255 / 11%);
+    background: rgb(255 255 255 / 4%);
+    color: #eef2f6;
+  }
+  .dark .field:focus,
+  .dark .field:focus-within,
+  .dark .dashboard-input:focus,
+  .dark .dashboard-input:focus-within {
+    border-color: rgb(102 172 204 / 55%);
+    box-shadow: 0 0 0 4px rgb(102 172 204 / 12%);
+  }
+
+  /* ─── Filtros tipo pastilla (estados, pestañas de lista) ─── */
+  .chip {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(1 16 30 / 10%);
+    padding: 0.32rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4a5a6c;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+  .chip:hover { background: rgb(1 16 30 / 4%); color: #01101e; }
+  .chip[aria-pressed='true'],
+  .chip[data-active='true'] { background: #01101e; border-color: #01101e; color: #ffffff; }
+  .dark .chip { border-color: rgb(255 255 255 / 10%); color: #a3b0bd; }
+  .dark .chip:hover { background: rgb(255 255 255 / 5%); color: #e9eef3; }
+  .dark .chip[aria-pressed='true'],
+  .dark .chip[data-active='true'] { background: #ffffff; border-color: #ffffff; color: #1c2633; }
+  .chip-count { font-variant-numeric: tabular-nums; opacity: 0.65; font-weight: 700; }
+
+  /* Control segmentado (lista / tablero) */
+  .segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(1 16 30 / 10%);
+    padding: 0.1875rem;
+  }
+  .dark .segmented { border-color: rgb(255 255 255 / 10%); background: rgb(255 255 255 / 3%); }
+  .segmented > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.5625rem;
+    padding: 0.375rem 0.5rem;
+    color: #8595a6;
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+  .segmented > button:hover { color: #01101e; }
+  .dark .segmented > button:hover { color: #e9eef3; }
+  .segmented > button[aria-pressed='true'] { background: rgb(1 16 30 / 7%); color: #01101e; }
+  .dark .segmented > button[aria-pressed='true'] { background: rgb(255 255 255 / 10%); color: #ffffff; }
+
+  /* ─── Encabezado de página ─── */
+  .page-title {
+    font-size: 1.5rem;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #01101e;
+  }
+  .dark .page-title { color: #ffffff; }
+  .page-subtitle { margin-top: 0.25rem; font-size: 0.8125rem; font-weight: 500; color: #66778a; }
+  .dark .page-subtitle { color: #a3b0bd; }
+  @media (min-width: 640px) {
+    .page-title { font-size: 1.75rem; }
+  }
+
+  /* ─── Títulos con "gradiente" heredados: hoy colores planos del sitio ─── */
+  .text-gradient-cyan { color: #01101e; }
+  .dark .text-gradient-cyan { color: #ffffff; }
+  .text-gradient-violet { color: #313852; }
+  .dark .text-gradient-violet { color: #c7d9e5; }
+
+  /* ─── Halos (shadow-glow del sitio) ─── */
+  .glow,
+  .glow-cyan,
+  .glow-lg { box-shadow: 0 0 20px var(--accent-glow); }
+  .glow-sm,
+  .glow-cyan-sm { box-shadow: 0 0 10px var(--accent-glow-soft); }
+
+  /* ─── Fondos ─── */
+  .mesh-gradient-bg { background-color: var(--layout-bg); }
+
+  /* Área de trabajo: grilla técnica del hero del sitio, muy tenue, con halo de acento arriba a la derecha */
+  .dashboard-shell {
+    background-image:
+      radial-gradient(ellipse 55% 35% at 100% 0%, rgb(87 124 142 / 8%), transparent 70%),
+      linear-gradient(rgb(1 16 30 / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(1 16 30 / 0.03) 1px, transparent 1px);
+    background-size: auto, 40px 40px, 40px 40px;
+  }
+  .dark .dashboard-shell {
+    background-image:
+      radial-gradient(ellipse 55% 35% at 100% 0%, rgb(102 172 204 / 9%), transparent 70%),
+      linear-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.02) 1px, transparent 1px);
+  }
+
+  .login-bg-pattern {
+    background-image:
+      radial-gradient(ellipse 60% 50% at 100% 0%, rgb(102 172 204 / 12%), transparent 70%),
+      linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+    background-size: auto, 40px 40px, 40px 40px;
+  }
+
+  .dot-pattern {
+    background-image: radial-gradient(circle, rgb(1 16 30 / 5%) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .dark .dot-pattern {
+    background-image: radial-gradient(circle, rgb(255 255 255 / 5%) 1px, transparent 1px);
+  }
+
+  /* Pantalla de arranque */
+  .brand-splash-bg {
+    background:
+      radial-gradient(circle at 50% 30%, rgb(87 124 142 / 10%), transparent 30%),
+      linear-gradient(180deg, #f5f9fb, #eaf1f5);
+  }
+  .dark .brand-splash-bg {
+    background:
+      radial-gradient(circle at 50% 28%, rgb(102 172 204 / 14%), transparent 32%),
+      linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px),
+      #1c2633;
+    background-size: auto, 40px 40px, 40px 40px, auto;
+  }
+
+  .brand-logo-frame {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    padding: 1.75rem 2.25rem;
+    border: 1px solid rgb(1 16 30 / 9%);
+    background: #ffffff;
+    box-shadow: 0 24px 64px -24px rgb(1 16 30 / 25%);
+  }
+  .dark .brand-logo-frame {
+    border-color: rgb(255 255 255 / 9%);
+    background: var(--card);
+    box-shadow: 0 24px 64px -24px rgb(0 0 0 / 70%);
+  }
+
+  /* ─── Utilidades de interacción ─── */
+  .card-lift {
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .writing-vertical {
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .font-mono,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Punto de estado con halo (en vivo) */
+  .status-dot {
+    position: relative;
+    display: inline-block;
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
+  }
 }
 
 /* ─── Animation Utilities ─── */
@@ -860,18 +868,6 @@ html {
   }
 }
 
-html[data-theme='light'] .mesh-gradient-bg {
-  background-image:
-    radial-gradient(ellipse at 12% 0%, oklch(0.87 0.03 220 / 8%) 0%, transparent 45%),
-    radial-gradient(ellipse at 100% 90%, oklch(0.55 0.045 230 / 4%) 0%, transparent 42%);
-}
-
-html[data-theme='dark'] .mesh-gradient-bg {
-  background-image:
-    radial-gradient(ellipse at 20% 0%, oklch(0.55 0.045 230 / 8%) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 100%, oklch(0.55 0.045 230 / 6%) 0%, transparent 55%);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-brand-splash-in,
   .animate-brand-splash-out,
@@ -896,128 +892,11 @@ html[data-theme='dark'] .mesh-gradient-bg {
 /* Light mode bg/border overrides are in light-overrides.css (imported after tailwind) */
 
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ESTÉTICA TECH (2026-11) — superficies planas, bordes finos, etiquetas en mono.
-   Va al final para pisar las versiones anteriores de las mismas clases.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.font-mono, code, kbd, .tabular { font-variant-numeric: tabular-nums; }
-
-.dashboard-shell,
-.dark .dashboard-shell {
-  background-image:
-    radial-gradient(ellipse 80% 40% at 50% -10%, rgb(87 124 142 / 10%), transparent 70%),
-    linear-gradient(rgb(1 16 30 / 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(1 16 30 / 0.035) 1px, transparent 1px);
-  background-size: auto, 32px 32px, 32px 32px;
+/* Altura de la barra inferior del celular (mobile-nav.tsx): los botones flotantes la suman */
+:root { --bottom-nav-h: 0px; }
+@media (max-width: 1023.98px) {
+  body:has([data-bottom-nav]) { --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px)); }
 }
-.dark .dashboard-shell {
-  background-image:
-    radial-gradient(ellipse 80% 40% at 50% -10%, rgb(92 200 232 / 7%), transparent 70%),
-    linear-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.025) 1px, transparent 1px);
-}
-.dark .mesh-gradient-bg { background-color: var(--layout-bg); }
-
-.app-card,
-.dashboard-panel {
-  border-radius: 12px;
-  border: 1px solid rgb(1 16 30 / 9%);
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(1 16 30 / 5%);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-.dark .app-card,
-.dark .dashboard-panel {
-  border-color: rgb(255 255 255 / 8%);
-  background: linear-gradient(180deg, rgb(255 255 255 / 2.5%), rgb(255 255 255 / 1%)), var(--card);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 25%);
-}
-.app-card::before,
-.dashboard-panel::before {
-  background: linear-gradient(90deg, transparent, rgb(87 124 142 / 22%), transparent);
-}
-.dark .app-card::before,
-.dark .dashboard-panel::before {
-  background: linear-gradient(90deg, transparent 5%, rgb(92 200 232 / 28%), transparent 95%);
-}
-
-.dashboard-panel-muted { border-radius: 10px; }
-
-.dashboard-eyebrow,
-.dashboard-kicker {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgb(87 124 142);
-}
-.dark .dashboard-eyebrow { color: rgb(148 163 178); }
-.dark .dashboard-kicker { color: rgb(201 238 249 / 80%); }
-
-.dashboard-chip {
-  border-radius: 6px;
-  padding: 0.15rem 0.45rem;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-/* Etiqueta técnica: tipo de notificación, número de expediente, fechas */
-.tag-mono {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  border-radius: 5px;
-  border: 1px solid rgb(1 16 30 / 10%);
-  padding: 0.05rem 0.4rem;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.35rem;
-  color: rgb(71 85 105);
-  white-space: nowrap;
-}
-.dark .tag-mono {
-  border-color: rgb(255 255 255 / 10%);
-  background: rgb(255 255 255 / 3%);
-  color: rgb(161 174 189);
-}
-
-/* Punto de estado con halo (en vivo) */
-.status-dot {
-  position: relative;
-  display: inline-block;
-  height: 0.5rem;
-  width: 0.5rem;
-  border-radius: 9999px;
-  background: currentColor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent);
-}
-
-/* Tarjetas "glass" heredadas: planas y opacas, como .app-card */
-.glass-card,
-.glass-card-glow {
-  border-radius: 12px;
-  background: #ffffff;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: 0 1px 2px rgb(1 16 30 / 5%);
-}
-.dark .glass-card,
-.dark .glass-card-glow {
-  background: var(--card);
-  border-color: rgb(255 255 255 / 8%);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 8px 24px rgb(0 0 0 / 25%);
-}
-.glass-card-glow::before { animation: none; opacity: 0.6; }
-
-/* Botón primario heredado (.bg-gradient-cyan): acento plano */
-.dark .bg-gradient-cyan { background: #5cc8e8; }
-.dark .bg-gradient-cyan:hover { background: #7dd6f0; }
 
 /* Con un formulario a pantalla completa abierto, el botón flotante de BogaBot no tapa sus botones */
 body:has([data-oculta-bogabot]) [data-tour="bogabot-trigger"] { display: none; }

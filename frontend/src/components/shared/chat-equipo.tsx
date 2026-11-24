@@ -320,7 +320,7 @@ function ChatPanel({ onClose, isMobile = false }: { onClose: () => void; isMobil
           placeholder="Escribí un mensaje… @ para mencionar"
           rows={1}
           style={{ resize: 'none', maxHeight: 80 }}
-          className="flex-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.04] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 overflow-y-auto"
+          className="field flex-1 overflow-y-auto"
           onInput={(e) => {
             const el = e.currentTarget
             el.style.height = 'auto'
@@ -382,7 +382,7 @@ export function ChatEquipo({ enEncabezado = true }: { enEncabezado?: boolean } =
 
   const defaultBtnStyle: React.CSSProperties = {
     position: 'fixed',
-    bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))',
+    bottom: 'calc(var(--bottom-nav-h, 0px) + max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem)))',
     left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
   }
 
@@ -394,7 +394,7 @@ export function ChatEquipo({ enEncabezado = true }: { enEncabezado?: boolean } =
     ? panelStyle(pos.x, pos.y)
     : {
         position: 'fixed',
-        bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
+        bottom: 'calc(var(--bottom-nav-h, 0px) + max(1.25rem, env(safe-area-inset-bottom) + 0.75rem) + 60px)',
         left: 'max(1.25rem, calc(env(safe-area-inset-left) + 0.5rem))',
         animation: 'chat-slide-up 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
       }

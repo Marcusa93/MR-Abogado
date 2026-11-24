@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
+import { PageHeader } from '@/components/shared/page-header'
 import { useCreateCliente } from '@/hooks/use-clientes'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/stores/toast-store'
@@ -13,11 +14,10 @@ import { ArrowLeft, Loader2, Save, Eye, EyeOff, User, Building2 } from 'lucide-r
 import { CuilInput } from '@/components/shared/cuil-input'
 import type { AfipData } from '@/hooks/use-cuil-validation'
 
-const inputClass =
-  'h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15'
-const labelClass = 'mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300'
-const errorClass = 'mt-1 text-xs text-rose-500'
-const sectionClass = 'font-mono text-[10.5px] font-medium uppercase tracking-[0.12em] text-zinc-400 mb-3 flex items-center gap-2 before:h-px before:w-3 before:bg-cyan-500/50'
+const inputClass = 'field h-9 py-0'
+const labelClass = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400'
+const errorClass = 'mt-1 text-xs font-medium text-rose-500'
+const sectionClass = 'eyebrow mb-3'
 
 type TipoPersona = 'fisica' | 'juridica'
 
@@ -130,34 +130,29 @@ export default function NuevoClientePage() {
       <div>
         <button
           onClick={() => navigate(-1)}
-          className="mb-3 flex items-center gap-1 text-sm text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-zinc-200"
+          className="mb-3 flex items-center gap-1 text-sm font-semibold text-zinc-500 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
         >
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Nuevo Cliente
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-          Completá los datos del nuevo cliente del estudio.
-        </p>
+        <PageHeader
+          title="Nuevo Cliente"
+          subtitle="Completá los datos del nuevo cliente del estudio."
+        />
       </div>
 
-      <div className="glass-card rounded-xl p-6">
+      <div className="app-card p-5 sm:p-6">
         <div className="space-y-6">
 
           {/* ── Toggle tipo de persona ──────────────────────────────────── */}
           <div>
             <p className={sectionClass}>Tipo de cliente</p>
-            <div className="flex gap-2">
+            <div className="segmented" role="group" aria-label="Tipo de cliente">
               <button
                 type="button"
                 onClick={() => setTipoPersona('fisica')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                  tipoPersona === 'fisica'
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
-                    : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
-                }`}
+                aria-pressed={tipoPersona === 'fisica'}
+                className="px-3 py-2 text-[13px] font-semibold"
               >
                 <User className="h-4 w-4" />
                 Persona física
@@ -165,11 +160,8 @@ export default function NuevoClientePage() {
               <button
                 type="button"
                 onClick={() => setTipoPersona('juridica')}
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                  tipoPersona === 'juridica'
-                    ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
-                    : 'border-white/10 bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-white/10'
-                }`}
+                aria-pressed={tipoPersona === 'juridica'}
+                className="px-3 py-2 text-[13px] font-semibold"
               >
                 <Building2 className="h-4 w-4" />
                 Persona jurídica
@@ -270,7 +262,7 @@ export default function NuevoClientePage() {
             <div>
               <p className={sectionClass}>Datos de la persona jurídica</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className={labelClass}>Razón social *</label>
                   <input
                     value={razonSocial}
@@ -321,7 +313,7 @@ export default function NuevoClientePage() {
                 <label className={labelClass}>Teléfono alternativo</label>
                 <input value={telefonoAlt} onChange={(e) => setTelefonoAlt(e.target.value)} className={inputClass} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className={labelClass}>Email</label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
               </div>
@@ -380,7 +372,7 @@ export default function NuevoClientePage() {
                   <button
                     type="button"
                     onClick={() => setShowClaveArca(!showClaveArca)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
                     tabIndex={-1}
                   >
                     {showClaveArca ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -397,22 +389,22 @@ export default function NuevoClientePage() {
               value={notas}
               onChange={(e) => setNotas(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/15 resize-none"
+              className="field resize-none"
             />
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/5 pt-4">
+        <div className="mt-6 flex items-center justify-end gap-2 border-t border-zinc-200 pt-4 dark:border-white/[0.08]">
           <button
             onClick={() => navigate(-1)}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-white/5"
+            className="btn btn-ghost"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={createCliente.isPending}
-            className="flex items-center gap-1.5 min-h-[38px] rounded-lg bg-[var(--brand-navy)] dark:bg-white px-5 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn btn-primary px-5"
           >
             {createCliente.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Crear cliente
