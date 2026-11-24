@@ -82,6 +82,32 @@
   --color-purple-800: #3e4462;
   --color-purple-900: #343a54;
   --color-purple-950: #22263a;
+
+  /* Azul e índigo (estados "Iniciado", avisos informativos, IA): azul acero apagado,
+     distinguible del acento celeste pero sin el azul eléctrico por defecto. */
+  --color-blue-50: #f2f6fb;
+  --color-blue-100: #e1eaf6;
+  --color-blue-200: #c4d5ec;
+  --color-blue-300: #9fbbe0;
+  --color-blue-400: #7e9fd2;
+  --color-blue-500: #5f84c0;
+  --color-blue-600: #4b6ba6;
+  --color-blue-700: #3e5787;
+  --color-blue-800: #34486e;
+  --color-blue-900: #2d3d5b;
+  --color-blue-950: #1d273b;
+
+  --color-indigo-50: #f3f4fb;
+  --color-indigo-100: #e4e7f7;
+  --color-indigo-200: #cad0ee;
+  --color-indigo-300: #a9b2e2;
+  --color-indigo-400: #8c97d6;
+  --color-indigo-500: #6f7bc2;
+  --color-indigo-600: #5a64a6;
+  --color-indigo-700: #4a5286;
+  --color-indigo-800: #3d446c;
+  --color-indigo-900: #343a58;
+  --color-indigo-950: #22263b;
 }
 
 /* Tailwind v4: activar la variante `dark:` por presencia de la clase

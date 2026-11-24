@@ -290,11 +290,11 @@ export default function ContenidosPage() {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-violet-400" />
             Contenidos del estudio
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="page-subtitle">
             Borradores y posts para redes, newsletters, emails y otras comunicaciones.
           </p>
         </div>

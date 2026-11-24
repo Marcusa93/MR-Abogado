@@ -876,20 +876,20 @@ export default function MiTrabajoPage() {
                 <Calendar className="h-3 w-3" />
                 {todayLabel}
               </div>
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+              <h1 className="page-title">
                 {greeting}, {profile?.nombre ?? profile?.apellido ?? 'Doctor'}
               </h1>
               {!isLoading && (
-                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="page-subtitle">
                   {items.length === 0 ? 'Sin asuntos activos' : `${items.length} ${items.length === 1 ? 'asunto activo' : 'asuntos activos'}`}
                 </p>
               )}
             </>
           ) : (
             <>
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{pageTitle}</h1>
+              <h1 className="page-title">{pageTitle}</h1>
               {tab === 'personal' && (
-                <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                <p className="page-subtitle">
                   {isLoading ? 'Cargando…'
                     : `${items.length} ${items.length === 1 ? 'asunto activo' : 'asuntos activos'}${!isViewingSelf ? ' — vista de administrador' : ''}`}
                 </p>

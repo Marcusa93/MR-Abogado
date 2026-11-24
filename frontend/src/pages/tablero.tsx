@@ -778,8 +778,8 @@ export default function TableroPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Tablero</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+          <h1 className="page-title">Tablero</h1>
+          <p className="page-subtitle">
             Tareas del equipo — libres y vinculadas a expedientes
           </p>
         </div>

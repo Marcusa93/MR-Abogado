@@ -330,8 +330,8 @@ export default function JurisprudenciaPage() {
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Jurisprudencia</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="page-title">Jurisprudencia</h1>
+            <p className="page-subtitle">
               Corpus privado de fallos. Búsqueda semántica disponible desde BogaBot y al redactar escritos.
             </p>
           </div>

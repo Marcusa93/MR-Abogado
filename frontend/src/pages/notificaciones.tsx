@@ -440,10 +440,10 @@ export default function NotificacionesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="page-title">
             Novedades
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="page-subtitle">
             Primero lo que llega del SAE. Los avisos internos del estudio van aparte.
           </p>
         </div>

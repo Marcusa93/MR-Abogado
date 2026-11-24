@@ -348,10 +348,10 @@ export default function EditorialPage() {
       {/* Encabezado */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+          <h1 className="page-title flex items-center gap-2">
             <Newspaper className="h-5 w-5 text-[var(--brand-accent)] dark:text-[var(--brand-ice)]" /> Editorial
           </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-snug text-zinc-500">
+          <p className="page-subtitle max-w-2xl">
             {puedeAprobar
               ? 'Propuestas de artículos y lo que trabaja tu equipo. Nada se publica sin tu aprobación.'
               : 'Los artículos salen a nombre de Marco Rossi: vos investigás y redactás, él revisa y aprueba.'}

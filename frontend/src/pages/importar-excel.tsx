@@ -55,10 +55,10 @@ export default function ImportarExcelPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-400">
+        <h1 className="page-title">
           Importar desde Excel
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+        <p className="page-subtitle">
           Cargá tu planilla de control para sincronizar clientes y expedientes
         </p>
       </div>

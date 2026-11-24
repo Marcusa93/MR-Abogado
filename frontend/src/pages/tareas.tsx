@@ -692,7 +692,7 @@ export default function TareasPage() {
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Tareas</h1>
+        <h1 className="page-title">Tareas</h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden">
             <button type="button" onClick={() => setVista('tablero')} title="Vista tablero"

@@ -471,8 +471,8 @@ export default function NotificacionesSaePage() {
             <Bell className="h-5 w-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Notificaciones SAE</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="page-title">Notificaciones SAE</h1>
+            <p className="page-subtitle">
               Casillero electrónico · "Depositada en casillero" es la fecha que inicia el plazo procesal.
             </p>
           </div>

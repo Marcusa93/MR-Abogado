@@ -170,10 +170,10 @@ export default function CriterioPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="page-title">
             {greeting()}, {profile?.nombre || 'Claudio'}
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400 capitalize">{fechaHoy}</p>
+          <p className="page-subtitle capitalize">{fechaHoy}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap text-xs text-zinc-400">
           <Link to="/tareas" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 hover:bg-white/10 transition-colors">

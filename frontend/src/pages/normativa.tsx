@@ -305,8 +305,8 @@ export default function NormativaPage() {
             <BookMarked className="h-5 w-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Normativa</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="page-title">Normativa</h1>
+            <p className="page-subtitle">
               Biblioteca privada de leyes, decretos y códigos. Se usa como fundamento al redactar escritos.
             </p>
           </div>

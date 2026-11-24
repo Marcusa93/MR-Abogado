@@ -503,8 +503,8 @@ export default function CalculadoraDanos() {
           <Calculator className="h-5 w-5 text-amber-600 dark:text-amber-400" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Estimador de daños</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <h1 className="page-title">Estimador de daños</h1>
+          <p className="page-subtitle">
             Cálculo auditable — CCyC + LDC, criterios de Tucumán
             {valores?.vigenciaDesde && ` · CBT vigente ${valores.vigenciaDesde}`}
           </p>

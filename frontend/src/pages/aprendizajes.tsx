@@ -532,8 +532,8 @@ export default function AprendizajesPage() {
   return (
     <div className="p-5 max-w-4xl mx-auto">
       <div className="mb-5">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Aprendizajes</h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <h1 className="page-title">Aprendizajes</h1>
+        <p className="page-subtitle">
           Lo que la IA aprende de las correcciones a los escritos. Los aprobados se aplican al redactar.
         </p>
       </div>

@@ -42,10 +42,10 @@ export default function ConfiguracionPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gradient-cyan">
+        <h1 className="page-title">
           Configuraci{'ó'}n
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+        <p className="page-subtitle">
           Ajustes del perfil, apariencia y administraci{'ó'}n del sistema.
         </p>
       </div>

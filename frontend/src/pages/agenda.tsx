@@ -909,8 +909,8 @@ function AgendaUnificada() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Agenda</h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <h1 className="page-title">Agenda</h1>
+            <p className="page-subtitle">
               {vista === 'lista' ? 'Próximos 45 días' : 'Vista mensual'} · audiencias, tareas y plazos
             </p>
           </div>

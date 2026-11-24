@@ -31,10 +31,10 @@ export default function InformesPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="page-title">
             Informes
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-300">
+          <p className="page-subtitle">
             Tablero en vivo con el corpus IA del estudio
           </p>
         </div>

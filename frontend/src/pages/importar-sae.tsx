@@ -192,8 +192,8 @@ export default function ImportarSaePage() {
               <Database className="h-4.5 w-4.5 text-cyan-400" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Importar desde SAE</h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Sistema de Actuación Electrónica — Tucumán</p>
+              <h1 className="page-title">Importar desde SAE</h1>
+              <p className="page-subtitle">Sistema de Actuación Electrónica — Tucumán</p>
             </div>
           </div>
         </div>

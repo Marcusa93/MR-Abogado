@@ -522,7 +522,7 @@ export default function HoyPage() {
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">{dateLabel}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="page-title mt-1">
             {greeting()}, {nombre}
           </h1>
         </div>

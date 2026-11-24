@@ -129,10 +129,10 @@ export default function CalculadoraPlazos() {
           <Calculator className="h-5 w-5 text-amber-600 dark:text-amber-400" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+          <h1 className="page-title">
             Calculadora de plazos procesales
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="page-subtitle">
             CPCC Tucumán — descuenta ferias, feriados nacionales y provinciales y días inhábiles judiciales
           </p>
         </div>
