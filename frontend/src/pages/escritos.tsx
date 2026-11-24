@@ -67,12 +67,25 @@ const ESTADO_LABELS: Record<string, string> = {
   presentado_sae: 'Pres. SAE', presentado: 'Presentado',
 }
 const ESTADO_COLORS: Record<string, string> = {
-  borrador: 'bg-zinc-500/15 text-zinc-400',
-  final: 'bg-sky-500/15 text-sky-400',
-  firmado: 'bg-emerald-500/15 text-emerald-400',
-  presentado_sae: 'bg-amber-500/15 text-amber-400',
-  presentado: 'bg-amber-500/15 text-amber-400',
+  borrador: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300',
+  final: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  firmado: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  presentado_sae: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  presentado: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
 }
+const ESTADO_NEUTRO = 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300'
+
+/** Etiqueta de estado (pastilla con borde), como en Consultas. */
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
+
+/** Modales y hojas inferiores con el lenguaje del sitio. */
+const MODAL_FONDO = 'fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4'
+const MODAL_CAJA = 'rounded-t-3xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--popover)] sm:rounded-3xl'
+const BORDE = 'border-zinc-200 dark:border-white/[0.07]'
+
+/** Pestañas con subrayado: un solo color activo. */
+const TAB_ACTIVA = 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
+const TAB_INACTIVA = 'border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
 
 const TIPOS_SUGERIDOS = [
   'Demanda', 'Contestación de demanda', 'Contestación de traslado',
@@ -120,14 +133,16 @@ const TRAMITE_PRESETS: { label: string; tipo: string; instr: string }[] = [
   { label: 'Denuncia domicilio', tipo: 'Denuncia domicilio', instr: 'Denunciar el domicilio real de la contraria / del tercero para su notificación.' },
 ]
 
-const campoBase = 'w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500/40 focus:outline-none'
+const campoBase = 'field'
+const rotulo = 'mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300'
+const rotuloNota = 'font-normal text-zinc-400 dark:text-zinc-500'
 
 function Paso({ n, titulo, extra, children }: { n: number; titulo: string; extra?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-[10.5px] text-zinc-300">{n}</span>
-        <h3 className="text-[13px] font-medium text-zinc-200">{titulo}</h3>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-[10.5px] font-bold tabular-nums text-cyan-700 dark:text-cyan-300">{n}</span>
+        <h3 className="text-[13.5px] font-bold tracking-tight text-zinc-900 dark:text-white">{titulo}</h3>
         {extra && <div className="ml-auto">{extra}</div>}
       </div>
       {children}
@@ -318,19 +333,19 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
   const pickerExpediente = (
     <div>
       {expedienteId ? (
-        <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
-          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-          <span className="flex-1 text-sm text-cyan-200 truncate">{expedienteQuery || 'Expediente seleccionado'}</span>
+        <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5">
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+          <span className="flex-1 truncate text-sm font-semibold text-cyan-800 dark:text-cyan-100">{expedienteQuery || 'Expediente seleccionado'}</span>
           <button type="button" title="Cambiar expediente"
             onClick={() => { setExpedienteId(''); setExpedienteQuery(''); setRespondeA(''); setActuacionesExtra([]) }}
-            className="text-cyan-500 hover:text-cyan-300">
+            className="text-cyan-600 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-200">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
       ) : (
         <>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input
               type="text" list="escritos-expedientes" value={expedienteQuery} autoFocus={!inicial?.expedienteId}
               onChange={e => {
@@ -343,36 +358,36 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
                 void buscarExpedientes(val)
               }}
               placeholder="Buscar por carátula o número…"
-              className={cn(campoBase, 'h-9 pl-8')}
+              className={cn(campoBase, 'h-11 pl-10')}
             />
           </div>
           <datalist id="escritos-expedientes">
             {expedientes.map(ex => <option key={ex.id} value={ex.label} />)}
           </datalist>
-          <p className="mt-1 text-[11px] text-zinc-500">Con el expediente se completan solos el carácter, la carátula y las actuaciones. Podés seguir sin elegir uno.</p>
+          <p className="mt-1.5 text-[11.5px] text-zinc-500">Con el expediente se completan solos el carácter, la carátula y las actuaciones. Podés seguir sin elegir uno.</p>
         </>
       )}
     </div>
   )
 
   return (
-    <div data-oculta-bogabot className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70" onClick={ocupado ? undefined : onClose}>
+    <div data-oculta-bogabot className={MODAL_FONDO} onClick={ocupado ? undefined : onClose}>
       <div onClick={e => e.stopPropagation()}
-        className={cn('flex max-h-[94vh] w-full flex-col rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl overflow-hidden', esquema ? 'sm:max-w-2xl' : 'sm:max-w-xl')}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-100">{esquema ? 'Esquema del escrito' : 'Nuevo escrito'}</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : modo === 'plantilla' ? 'Escritos de trámite con los datos del expediente, al instante.' : 'Elegí el expediente y contá qué hay que presentar.'}</p>
+        className={cn(MODAL_CAJA, 'flex max-h-[94vh] w-full flex-col overflow-hidden', esquema ? 'sm:max-w-2xl' : 'sm:max-w-xl')}>
+        <div className={cn('flex shrink-0 items-start justify-between gap-3 border-b px-5 py-4', BORDE)}>
+          <div className="min-w-0">
+            <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">{esquema ? 'Esquema del escrito' : 'Nuevo escrito'}</h2>
+            <p className="mt-0.5 text-[12.5px] text-zinc-500 dark:text-zinc-400">{esquema ? 'Ajustá los argumentos y el orden. La redacción va a seguir este esquema.' : modo === 'plantilla' ? 'Escritos de trámite con los datos del expediente, al instante.' : 'Elegí el expediente y contá qué hay que presentar.'}</p>
           </div>
-          <button onClick={onClose} disabled={ocupado} title="Cerrar" className="text-zinc-500 hover:text-zinc-200 p-1 disabled:opacity-30"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} disabled={ocupado} title="Cerrar" className="btn btn-ghost btn-icon shrink-0 border-transparent"><X className="h-4 w-4" /></button>
         </div>
 
         {!esquema && (
-          <div className="px-5 pt-3 shrink-0">
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/[0.04] p-1 text-[12.5px]">
+          <div className="shrink-0 px-5 pt-4">
+            <div className="segmented grid w-full grid-cols-2 text-[12.5px]" role="group" aria-label="Modo">
               {([['ia', 'Redactar con IA'], ['plantilla', 'Plantilla de trámite, sin IA']] as const).map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setModo(k)}
-                  className={cn('rounded-md px-2 py-1.5 font-medium', modo === k ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200')}>{l}</button>
+                <button key={k} type="button" onClick={() => setModo(k)} aria-pressed={modo === k}
+                  className="px-2 py-2 font-semibold">{l}</button>
               ))}
             </div>
           </div>
@@ -382,12 +397,12 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
           <NuevoDesdePlantilla expedienteId={expedienteId} pickerExpediente={pickerExpediente} onCreated={onCreated} onClose={onClose} />
         ) : (<>
         {esquema ? (
-          <div className="min-h-0 flex-1 px-5 py-4 space-y-4 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <EsquemaEditor esquema={esquema} onChange={setEsquema} />
-            {contexto && <p className="font-mono text-[10.5px] text-zinc-600">{contexto.modelo_nombre} · {contexto.motivo_modelo}</p>}
+            {contexto && <p className="text-[10.5px] font-medium text-zinc-500">{contexto.modelo_nombre} · {contexto.motivo_modelo}</p>}
           </div>
         ) : (
-        <div className="min-h-0 flex-1 px-5 py-4 space-y-5 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           <Paso n={1} titulo="Expediente">
             {pickerExpediente}
             {expedienteId && movimientos.length > 0 && (() => {
@@ -400,9 +415,9 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
               const mov = movimientos.find(mv => mv.id === respondeA)
               return (
                 <div>
-                  <label className="mb-1 block text-xs text-zinc-400">Responde a <span className="text-zinc-600">(opcional)</span></label>
+                  <label className={rotulo}>Responde a <span className={rotuloNota}>(opcional)</span></label>
                   <select value={respondeA} onChange={e => onSelectActuacion(e.target.value)}
-                    className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                    className="field h-10 py-0">
                     <option value="">Ninguna actuación en particular</option>
                     {respondibles.length > 0 && (
                       <optgroup label="Para responder o cumplir">
@@ -423,7 +438,7 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
                       </optgroup>
                     )}
                   </select>
-                  {mov?.ai_suggested_action && <p className="mt-1 text-[11px] text-cyan-400/80">Acción sugerida: {mov.ai_suggested_action.titulo}</p>}
+                  {mov?.ai_suggested_action && <p className="mt-1.5 text-[11.5px] font-medium text-cyan-700 dark:text-cyan-300">Acción sugerida: {mov.ai_suggested_action.titulo}</p>}
                 </div>
               )
             })()}
@@ -434,17 +449,17 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
               <input ref={audioFileRef} type="file" accept="audio/*" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void volcarAudio(f); e.target.value = '' }} />
               {transcribir.isPending ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-cyan-300"><Loader2 className="h-3 w-3 animate-spin" /> Transcribiendo…</span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-700 dark:text-cyan-300"><Loader2 className="h-3 w-3 animate-spin" /> Transcribiendo…</span>
               ) : (<>
                 <button type="button" onClick={toggleGrabar}
-                  className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium',
-                    grabando ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200')}>
+                  className={cn('btn btn-sm h-7 min-h-0 gap-1 px-2 text-[11px]',
+                    grabando ? 'animate-pulse border border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'btn-ghost border-transparent')}>
                   {grabando ? <Square className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
                   {grabando ? 'Detener' : 'Dictar'}
                 </button>
                 {!grabando && (
                   <button type="button" onClick={() => audioFileRef.current?.click()} title="Subir un audio (por ejemplo, de WhatsApp)"
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-zinc-400 hover:bg-white/5 hover:text-zinc-200">
+                    className="btn btn-ghost btn-sm h-7 min-h-0 gap-1 border-transparent px-2 text-[11px]">
                     <Upload className="h-3 w-3" /> Audio
                   </button>
                 )}
@@ -455,26 +470,25 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
               value={ideaLibre} onChange={e => setIdeaLibre(e.target.value)}
               placeholder="Contalo como a un colega. Ej.: contestar el traslado de la demanda laboral de Juan García, reconviniendo por preaviso."
               rows={3}
-              className={cn(campoBase, 'py-2 resize-none')}
+              className={cn(campoBase, 'resize-none py-2.5')}
             />
             <div>
-              <p className="mb-1.5 text-[11px] text-zinc-500">O elegí un trámite frecuente</p>
+              <p className="mb-2 text-[11.5px] font-medium text-zinc-500">O elegí un trámite frecuente</p>
               <div className="flex flex-wrap gap-1.5">
                 {TRAMITE_PRESETS.map(p => (
-                  <button key={p.tipo} type="button" onClick={() => aplicarPreset(p)}
-                    className={cn('rounded-full border px-2.5 py-1 text-[11.5px] transition-colors',
-                      tipo === p.tipo ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/10 hover:text-zinc-200')}>
+                  <button key={p.tipo} type="button" onClick={() => aplicarPreset(p)} aria-pressed={tipo === p.tipo}
+                    className="chip">
                     {p.label}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-zinc-400">Tipo de escrito <span className="text-zinc-600">(opcional si lo contaste arriba)</span></label>
+              <label className={rotulo}>Tipo de escrito <span className={rotuloNota}>(opcional si lo contaste arriba)</span></label>
               <input
                 type="text" list="escritos-tipos" value={tipo} onChange={e => setTipo(e.target.value)}
                 placeholder="Contestación de traslado, Demanda, Recurso…"
-                className={cn(campoBase, 'h-9')}
+                className={cn(campoBase, 'h-10')}
               />
               <datalist id="escritos-tipos">{TIPOS_SUGERIDOS.map(t => <option key={t} value={t} />)}</datalist>
             </div>
@@ -484,17 +498,17 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
             <CaracterSelector value={caracter} expedienteId={expedienteId || null}
               onChange={(c) => { setCaracter(c); setCaracterTocado(true) }} />
             <div>
-              <label className="mb-1 block text-xs text-zinc-400">Instrucciones <span className="text-zinc-600">(opcional)</span></label>
+              <label className={rotulo}>Instrucciones <span className={rotuloNota}>(opcional)</span></label>
               <textarea
                 value={instrucciones} onChange={e => setInstrucciones(e.target.value)}
                 placeholder="Tono, puntos a destacar, normativa a citar…"
                 rows={2}
-                className={cn(campoBase, 'py-2 resize-none')}
+                className={cn(campoBase, 'resize-none py-2.5')}
               />
             </div>
             <div>
               <button type="button" onClick={() => setShowContraparte(v => !v)}
-                className="inline-flex items-center gap-1.5 text-[12px] text-zinc-400 hover:text-zinc-200">
+                className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
                 {showContraparte ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 Texto de la contraparte para rebatir {contraparteTexto.trim() && <span className="tag-mono">cargado</span>}
               </button>
@@ -504,30 +518,30 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
                     value={contraparteTexto} onChange={e => setContraparteTexto(e.target.value)}
                     placeholder="Pegá los fragmentos del escrito de la contraparte que querés rebatir. Con los argumentos principales alcanza."
                     rows={5}
-                    className={cn(campoBase, 'py-2 resize-y')}
+                    className={cn(campoBase, 'resize-y py-2.5')}
                   />
                 </div>
               )}
             </div>
           </Paso>
 
-          <section className="rounded-lg border border-white/[0.08]">
+          <section className={cn('rounded-2xl border', BORDE)}>
             <button type="button" onClick={() => setAvanzadas(v => !v)}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+              className="flex w-full items-center gap-2 px-4 py-3 text-left">
               <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-              <span className="text-[12.5px] font-medium text-zinc-300">Opciones avanzadas</span>
-              <span className="min-w-0 flex-1 truncate text-right font-mono text-[10.5px] text-zinc-500">{resumenAvanzadas}</span>
+              <span className="text-[12.5px] font-semibold text-zinc-700 dark:text-zinc-200">Opciones avanzadas</span>
+              <span className="min-w-0 flex-1 truncate text-right text-[10.5px] font-medium text-zinc-500">{resumenAvanzadas}</span>
               {avanzadas ? <ChevronUp className="h-3.5 w-3.5 shrink-0 text-zinc-500" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />}
             </button>
             {avanzadas && (
-              <div className="space-y-4 border-t border-white/[0.06] px-3 py-3">
+              <div className={cn('space-y-4 border-t px-4 py-4', BORDE)}>
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-zinc-300">Modelo de IA</span>
-                    <div className="ml-auto flex overflow-hidden rounded-md border border-white/10 text-[11.5px]">
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Modelo de IA</span>
+                    <div className="segmented ml-auto text-[11.5px]" role="group" aria-label="Modelo de IA">
                       {([['auto', 'Automático'], ['preciso', 'Preciso'], ['rapido', 'Rápido']] as const).map(([k, l]) => (
-                        <button key={k} type="button" onClick={() => { setCalidad(k); setContexto(null) }}
-                          className={cn('px-2.5 py-1', calidad === k ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-zinc-200')}>{l}</button>
+                        <button key={k} type="button" onClick={() => { setCalidad(k); setContexto(null) }} aria-pressed={calidad === k}
+                          className="px-2.5 py-1 font-semibold">{l}</button>
                       ))}
                     </div>
                   </div>
@@ -535,7 +549,7 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
                     {calidad === 'auto' ? (esFondo ? 'Escrito de fondo: se usa el modelo que mejor argumenta (Opus).' : 'Escrito de trámite: alcanza con el modelo rápido (Sonnet).')
                       : calidad === 'preciso' ? 'Opus: el que mejor razona. Más lento y más caro.' : 'Sonnet: rápido y económico.'}
                   </p>
-                  <label className="flex items-start gap-2 text-[12.5px] text-zinc-300">
+                  <label className="flex items-start gap-2 text-[12.5px] text-zinc-700 dark:text-zinc-300">
                     <input type="checkbox" checked={usarEsquema} onChange={(e) => setEsquemaPrimero(e.target.checked)} className="mt-0.5 accent-cyan-500" />
                     <span>Ver el esquema antes de redactar <span className="text-zinc-500">— argumentos, defensas de la contraria y prueba, para aprobar o corregir.{esFondo && esquemaPrimero === null ? ' Recomendado para este escrito.' : ''}</span></span>
                   </label>
@@ -543,9 +557,9 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
 
                 {modelos.length > 0 && (
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-300">Modelo estructural <span className="text-zinc-500">(base del escrito)</span></label>
+                    <label className={rotulo}>Modelo estructural <span className={rotuloNota}>(base del escrito)</span></label>
                     <select value={modeloId} onChange={e => setModeloId(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                      className="field h-10 py-0">
                       <option value="">Sin modelo (generación libre)</option>
                       {modelos.map(m => <option key={m.id} value={m.id}>{m.nombre} — {m.tipo}</option>)}
                     </select>
@@ -554,9 +568,9 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
 
                 {templates.filter(t => t.categoria === 'estilo').length > 0 && (
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-300">Template de estilo</label>
+                    <label className={rotulo}>Template de estilo</label>
                     <select value={templateId} onChange={e => setTemplateId(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-white/10 bg-zinc-800 px-2 text-sm text-zinc-100 focus:outline-none">
+                      className="field h-10 py-0">
                       <option value="">Sin template</option>
                       {templates.filter(t => t.categoria === 'estilo').map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
                     </select>
@@ -565,17 +579,17 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
 
                 {expedienteId && movimientos.length > 1 && (
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-300">Actuaciones adicionales para el contexto</label>
-                    <div className="max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-zinc-800 p-1 space-y-0.5">
+                    <label className={rotulo}>Actuaciones adicionales para el contexto</label>
+                    <div className="max-h-32 space-y-0.5 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-white/10 dark:bg-white/[0.03]">
                       {movimientos.slice(0, 60).map(m => {
                         if (m.id === respondeA) return null
                         const checked = actuacionesExtra.includes(m.id)
                         return (
-                          <label key={m.id} className="flex items-start gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white/5">
+                          <label key={m.id} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-white/5">
                             <input type="checkbox" checked={checked}
                               onChange={e => setActuacionesExtra(prev => e.target.checked ? [...prev, m.id] : prev.filter(id => id !== m.id))}
                               className="mt-0.5 accent-cyan-500 shrink-0" />
-                            <span className="text-xs text-zinc-300 leading-tight">
+                            <span className="text-xs leading-tight text-zinc-700 dark:text-zinc-300">
                               {m.is_key === true ? '★ ' : ''}{m.fecha?.slice(0, 10)} — {m.tipo_movimiento}{m.titulo ? ` — ${m.titulo.slice(0, 50)}` : ''}
                             </span>
                           </label>
@@ -586,30 +600,30 @@ function NuevoEscritoDialog({ inicial, onClose, onCreated }: { inicial?: NuevoIn
                 )}
 
                 <button type="button" onClick={handleVerContexto} disabled={verContexto.isPending}
-                  className="inline-flex items-center gap-1.5 text-[12px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50">
+                  className="dashboard-link inline-flex items-center gap-1.5 text-[12px] disabled:opacity-50">
                   {verContexto.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />} Qué va a usar la IA
                 </button>
-                {contexto && <div className="border-t border-white/5 pt-2"><ContextoIAVista c={contexto} /></div>}
+                {contexto && <div className={cn('border-t pt-3', BORDE)}><ContextoIAVista c={contexto} /></div>}
               </div>
             )}
           </section>
         </div>
         )}
 
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-white/5 bg-[#0d1319]">
+        <div className={cn('flex shrink-0 flex-wrap items-center justify-end gap-2 border-t bg-zinc-50 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:bg-black/10 sm:pb-3', BORDE)}>
           {esquema ? (
-            <button onClick={() => setEsquema(null)} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg mr-auto">Volver</button>
+            <button onClick={() => setEsquema(null)} disabled={ocupado} className="btn btn-ghost mr-auto border-transparent">Volver</button>
           ) : (
-            <p className={cn('mr-auto min-w-0 flex-1 basis-48 text-[11.5px]', hayPedido ? 'text-zinc-500' : 'text-amber-300/80')}>{aviso}</p>
+            <p className={cn('mr-auto min-w-0 flex-1 basis-48 text-[11.5px] font-medium', hayPedido ? 'text-zinc-500' : 'text-amber-700 dark:text-amber-300/90')}>{aviso}</p>
           )}
           {esquema && (
-            <button onClick={handleEsquema} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg">
+            <button onClick={handleEsquema} disabled={ocupado} className="btn btn-ghost border-transparent">
               Rehacer esquema
             </button>
           )}
-          {!esquema && <button onClick={onClose} disabled={ocupado} className="text-sm text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg disabled:opacity-30">Cancelar</button>}
+          {!esquema && <button onClick={onClose} disabled={ocupado} className="btn btn-ghost border-transparent">Cancelar</button>}
           <button onClick={usarEsquema && !esquema ? handleEsquema : handleGenerar} disabled={ocupado || !hayPedido}
-            className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
+            className="btn btn-primary">
             {generate.isPending ? (
               <><Loader2 className="h-4 w-4 animate-spin" />{progressMsg ?? 'Generando…'}</>
             ) : armarEsquema.isPending ? (
@@ -673,25 +687,23 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70">
-      <div className="w-full sm:max-w-2xl max-h-[90vh] rounded-t-xl sm:rounded-xl border border-white/10 bg-[#10161d] shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
-          <div className="flex items-center gap-3">
-            <Layers className="h-5 w-5 text-cyan-400" />
-            <div>
-              <h2 className="text-base font-semibold text-zinc-100">Modelos del estudio</h2>
-              <p className="text-xs text-zinc-400">Plantillas estructurales compartidas</p>
+    <div className={MODAL_FONDO}>
+      <div className={cn(MODAL_CAJA, 'flex max-h-[90vh] w-full flex-col overflow-hidden sm:max-w-2xl')}>
+        <div className={cn('flex shrink-0 items-center justify-between gap-3 border-b px-5 py-4 sm:px-6', BORDE)}>
+          <div className="flex min-w-0 items-center gap-3">
+            <Layers className="h-5 w-5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+            <div className="min-w-0">
+              <h2 className="text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">Modelos del estudio</h2>
+              <p className="text-[12.5px] text-zinc-500 dark:text-zinc-400">Plantillas estructurales compartidas</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 p-1"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon shrink-0 border-transparent"><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="flex gap-1 px-5 pt-3 shrink-0">
+        <div className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto px-5 pt-4 sm:px-6">
           {(['lista', 'upload', 'manual'] as const).map(tab => (
-            <button key={tab} onClick={() => { setModo(tab); setModeloExtraido(null) }}
-              className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                modo === tab ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'text-zinc-400 hover:text-zinc-200'
-              )}>
+            <button key={tab} onClick={() => { setModo(tab); setModeloExtraido(null) }} aria-pressed={modo === tab}
+              className="chip">
               {tab === 'lista' && 'Biblioteca'}
               {tab === 'upload' && 'Cargar desde texto'}
               {tab === 'manual' && 'Crear manualmente'}
@@ -699,32 +711,32 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-6">
           {modo === 'lista' && (
             <div className="space-y-2">
               {isLoading && <div className="text-sm text-zinc-500">Cargando...</div>}
               {!isLoading && modelos.length === 0 && (
                 <div className="text-center py-10">
-                  <Layers className="h-8 w-8 text-zinc-600 mx-auto mb-3" />
-                  <p className="text-sm text-zinc-400">No hay modelos cargados aún</p>
+                  <Layers className="mx-auto mb-3 h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No hay modelos cargados aún</p>
                   <button onClick={() => setModo('upload')}
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-300">
+                    className="btn btn-secondary btn-sm mt-4">
                     <Upload className="h-3.5 w-3.5" /> Cargar primer modelo
                   </button>
                 </div>
               )}
               {modelos.map(m => (
-                <div key={m.id} className="rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3">
+                <div key={m.id} className="dashboard-panel-muted rounded-xl px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-zinc-200">{m.nombre}</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">{m.tipo}</p>
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">{m.nombre}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">{m.tipo}</p>
                     </div>
-                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full', m.compartido ? 'bg-teal-500/10 text-teal-400' : 'bg-zinc-500/10 text-zinc-400')}>
+                    <span className={cn(TAG, m.compartido ? 'border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300' : ESTADO_NEUTRO)}>
                       {m.compartido ? 'Compartido' : 'Personal'}
                     </span>
                   </div>
-                  {m.contenido_modelo && <p className="text-xs text-zinc-600 mt-1">{m.contenido_modelo.secciones?.length ?? 0} secciones</p>}
+                  {m.contenido_modelo && <p className="mt-1 text-xs tabular-nums text-zinc-500">{m.contenido_modelo.secciones?.length ?? 0} secciones</p>}
                 </div>
               ))}
             </div>
@@ -732,31 +744,31 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
 
           {modo === 'upload' && !modeloExtraido && (
             <div className="space-y-4">
-              <p className="text-xs text-zinc-400">Pegá el texto de un escrito real. La IA extrae su estructura como modelo reutilizable, reemplazando datos concretos con marcadores genéricos.</p>
+              <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">Pegá el texto de un escrito real. La IA extrae su estructura como modelo reutilizable, reemplazando datos concretos con marcadores genéricos.</p>
               <div className="flex items-center gap-2">
-                <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200">
+                <label className="btn btn-ghost btn-sm cursor-pointer">
                   <Upload className="h-3.5 w-3.5" /> Cargar .txt
                   <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} />
                 </label>
-                <span className="text-xs text-zinc-600">o pegá el texto</span>
+                <span className="text-xs text-zinc-500">o pegá el texto</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-300">Nombre del modelo</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nombre del modelo</label>
                   <input type="text" value={nombreModelo} onChange={e => setNombreModelo(e.target.value)} placeholder="Demanda laboral tipo"
-                    className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" />
+                    className="field h-9 py-0 px-2.5 text-[13px]" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-300">Tipo</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Tipo</label>
                   <input type="text" value={tipoModelo} onChange={e => setTipoModelo(e.target.value)} placeholder="Demanda"
-                    className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" />
+                    className="field h-9 py-0 px-2.5 text-[13px]" />
                 </div>
               </div>
               <textarea value={textoModelo} onChange={e => setTextoModelo(e.target.value)} rows={10}
                 placeholder="Pegá aquí el texto completo del escrito modelo..."
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none" />
+                className="field resize-none text-xs leading-relaxed" />
               <button onClick={handleExtraer} disabled={!textoModelo.trim() || extraerModelo.isPending}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
+                className="btn btn-primary w-full">
                 {extraerModelo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {extraerModelo.isPending ? 'Extrayendo...' : 'Extraer estructura con IA'}
               </button>
@@ -765,30 +777,30 @@ function ModelosPanel({ onClose }: { onClose: () => void }) {
 
           {modo === 'upload' && modeloExtraido && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-teal-500/30 bg-teal-500/5 px-4 py-3">
-                <p className="text-xs font-medium text-teal-300">Estructura extraída — revisá antes de guardar</p>
+              <div className="rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3">
+                <p className="text-xs font-semibold text-teal-700 dark:text-teal-300">Estructura extraída — revisá antes de guardar</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="mb-1 block text-xs font-medium text-zinc-300">Nombre</label>
+                <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nombre</label>
                   <input type="text" value={nombreModelo} onChange={e => setNombreModelo(e.target.value)}
-                    className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
-                <div><label className="mb-1 block text-xs font-medium text-zinc-300">Tipo</label>
+                    className="field h-9 py-0 px-2.5 text-[13px]" /></div>
+                <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Tipo</label>
                   <input type="text" value={tipoModelo} onChange={e => setTipoModelo(e.target.value)}
-                    className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
+                    className="field h-9 py-0 px-2.5 text-[13px]" /></div>
               </div>
               <div className="space-y-2">
-                <p className="text-xs font-medium text-zinc-300">Secciones ({modeloExtraido.contenido.secciones.length})</p>
+                <p className="eyebrow">Secciones ({modeloExtraido.contenido.secciones.length})</p>
                 {modeloExtraido.contenido.secciones.map((s, i) => (
-                  <div key={i} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2">
-                    <p className="text-xs font-medium text-zinc-300">{s.titulo}</p>
-                    <p className="text-[11px] text-zinc-600 mt-0.5">{s.parrafos.length} párrafo{s.parrafos.length !== 1 ? 's' : ''}</p>
+                  <div key={i} className="dashboard-panel-muted px-3 py-2">
+                    <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{s.titulo}</p>
+                    <p className="mt-0.5 text-[11px] tabular-nums text-zinc-500">{s.parrafos.length} párrafo{s.parrafos.length !== 1 ? 's' : ''}</p>
                   </div>
                 ))}
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setModeloExtraido(null)} className="flex-1 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200">Volver</button>
+                <button onClick={() => setModeloExtraido(null)} className="btn btn-ghost flex-1">Volver</button>
                 <button onClick={() => handleGuardarModelo(modeloExtraido.contenido)} disabled={crearModelo.isPending}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-50">
+                  className="btn btn-primary flex-1">
                   {crearModelo.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                   Guardar modelo
                 </button>
@@ -829,54 +841,54 @@ function ManualModeloEditor({ onGuardar, guardando, nombre, setNombre, tipo, set
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="mb-1 block text-xs font-medium text-zinc-300">Nombre del modelo</label>
+        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nombre del modelo</label>
           <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
-        <div><label className="mb-1 block text-xs font-medium text-zinc-300">Tipo</label>
+            className="field h-9 py-0 px-2.5 text-[13px]" /></div>
+        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Tipo</label>
           <input type="text" value={tipo} onChange={e => setTipo(e.target.value)}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
+            className="field h-9 py-0 px-2.5 text-[13px]" /></div>
       </div>
-      <div><label className="mb-1 block text-xs font-medium text-zinc-300">Título del escrito</label>
+      <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Título del escrito</label>
         <input type="text" value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="DEMANDA LABORAL"
-          className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
+          className="field h-9 py-0 px-2.5 text-[13px]" /></div>
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="mb-1 block text-xs font-medium text-zinc-300">Encabezado</label>
+        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Encabezado</label>
           <input type="text" value={encabezado} onChange={e => setEncabezado(e.target.value)}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
-        <div><label className="mb-1 block text-xs font-medium text-zinc-300">Carátula</label>
+            className="field h-9 py-0 px-2.5 text-[13px]" /></div>
+        <div><label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Carátula</label>
           <input type="text" value={caratula} onChange={e => setCaratula(e.target.value)}
-            className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 focus:outline-none" /></div>
+            className="field h-9 py-0 px-2.5 text-[13px]" /></div>
       </div>
       <div className="space-y-3">
         {secciones.map((sec, si) => (
-          <div key={si} className="rounded-lg border border-white/8 bg-white/[0.02] p-3 space-y-2">
+          <div key={si} className="dashboard-panel-muted space-y-2 p-3">
             <div className="flex items-center gap-2">
               <input type="text" value={sec.titulo} onChange={e => updateSeccionTitulo(si, e.target.value)}
                 placeholder="Título (ej: I. HECHOS)"
-                className="flex-1 h-7 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-zinc-100 font-medium focus:outline-none" />
-              <button onClick={() => removeSeccion(si)} className="text-zinc-600 hover:text-rose-400 p-1"><X className="h-3 w-3" /></button>
+                className="field h-8 min-w-0 flex-1 px-2.5 py-0 text-xs font-semibold" />
+              <button onClick={() => removeSeccion(si)} aria-label="Quitar sección" className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400"><X className="h-3 w-3" /></button>
             </div>
             {sec.parrafos.map((p, pi) => (
               <div key={pi} className="flex gap-1.5">
                 <textarea value={p} onChange={e => updateParrafo(si, pi, e.target.value)} rows={2}
                   placeholder="Texto del párrafo..."
-                  className="flex-1 rounded-md border border-white/8 bg-white/[0.02] px-2 py-1.5 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none resize-none" />
-                <button onClick={() => removeParrafo(si, pi)} className="self-start text-zinc-600 hover:text-rose-400 p-1"><X className="h-3 w-3" /></button>
+                  className="field min-w-0 flex-1 resize-none px-2.5 py-1.5 text-xs" />
+                <button onClick={() => removeParrafo(si, pi)} aria-label="Quitar párrafo" className="self-start rounded-md p-1.5 text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400"><X className="h-3 w-3" /></button>
               </div>
             ))}
-            <button onClick={() => addParrafo(si)} className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 pl-1">
+            <button onClick={() => addParrafo(si)} className="flex items-center gap-1 pl-1 text-xs font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
               <Plus className="h-3 w-3" /> párrafo
             </button>
           </div>
         ))}
         <button onClick={addSeccion}
-          className="w-full rounded-lg border border-dashed border-white/10 py-2 text-xs text-zinc-500 hover:text-zinc-300 hover:border-white/20 flex items-center justify-center gap-1.5">
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 py-2.5 text-xs font-semibold text-zinc-500 hover:border-[var(--brand-accent)] hover:text-zinc-800 dark:border-white/15 dark:hover:text-zinc-100">
           <Plus className="h-3 w-3" /> Agregar sección
         </button>
       </div>
       <button onClick={() => onGuardar({ titulo, encabezado_juez: encabezado, caratula, secciones })}
         disabled={guardando || !nombre.trim()}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 disabled:opacity-50">
+        className="btn btn-primary w-full">
         {guardando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Guardar modelo
       </button>
@@ -948,17 +960,17 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#10161d] border-l border-white/5">
+    <div className="flex h-full flex-col">
       {/* Tabs */}
-      <div className="flex border-b border-white/5 shrink-0">
+      <div className={cn('flex shrink-0 border-b', BORDE)}>
         {([
           { key: 'jurisprudencia', label: 'Fallos', icon: Gavel },
           { key: 'normativa', label: 'Normativa', icon: BookOpen },
           { key: 'citar', label: 'Citar URL', icon: Link2 },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors border-b-2',
-              tab === key ? 'border-cyan-500 text-cyan-300' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            className={cn('flex flex-1 items-center justify-center gap-1.5 border-b-2 py-2.5 text-xs font-semibold transition-colors',
+              tab === key ? TAB_ACTIVA : TAB_INACTIVA
             )}>
             <Icon className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{label}</span>
@@ -975,16 +987,16 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 type="text" value={searchJuris} onChange={e => setSearchJuris(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearchJuris()}
                 placeholder="Buscar fallo o describir..."
-                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
+                className="field h-9 min-w-0 flex-1 px-2.5 py-0 text-xs"
               />
               <button onClick={handleSearchJuris} disabled={searchJurisprudenciaText.isPending || buscarJurisprudenciaSemantica.isPending}
-                className="h-8 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                className="btn btn-secondary btn-icon h-9 w-9 shrink-0">
                 {(searchJurisprudenciaText.isPending || buscarJurisprudenciaSemantica.isPending)
                   ? <Loader2 className="h-3 w-3 animate-spin" />
                   : <Search className="h-3 w-3" />}
               </button>
             </div>
-            <p className="text-[10px] text-zinc-600">Texto corto → búsqueda exacta · Texto largo → búsqueda semántica</p>
+            <p className="text-[10.5px] text-zinc-500">Texto corto → búsqueda exacta · Texto largo → búsqueda semántica</p>
 
             {/* Resultados texto */}
             {searchJurisprudenciaText.data && searchJurisprudenciaText.data.length > 0 && (
@@ -997,7 +1009,7 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 ))}
               </div>
             )}
-            {searchJurisprudenciaText.data?.length === 0 && <p className="text-xs text-zinc-600 text-center py-3">Sin resultados en el corpus local</p>}
+            {searchJurisprudenciaText.data?.length === 0 && <p className="py-3 text-center text-xs text-zinc-500">Sin resultados en el corpus local</p>}
 
             {/* Resultados semánticos */}
             {buscarJurisprudenciaSemantica.data && buscarJurisprudenciaSemantica.data.length > 0 && (
@@ -1013,21 +1025,21 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
             )}
 
             {/* Divider portales externos */}
-            <div className="pt-2 border-t border-white/5">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Portales externos</p>
+            <div className={cn('border-t pt-3', BORDE)}>
+              <p className="eyebrow mb-2">Portales externos</p>
               <div className="space-y-1">
                 {PORTALES_EXTERNOS.map(p => (
                   <a key={p.url} href={p.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.04] group">
+                    className="dashboard-panel-muted group flex items-center justify-between px-3 py-2 transition-colors hover:border-cyan-500/30">
                     <div>
-                      <p className="text-xs font-medium text-zinc-300 group-hover:text-cyan-300">{p.label}</p>
-                      <p className="text-[10px] text-zinc-600">{p.desc}</p>
+                      <p className="text-xs font-semibold text-zinc-800 group-hover:text-cyan-700 dark:text-zinc-200 dark:group-hover:text-cyan-300">{p.label}</p>
+                      <p className="text-[10.5px] text-zinc-500">{p.desc}</p>
                     </div>
-                    <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-cyan-400" />
+                    <ExternalLink className="h-3 w-3 text-zinc-400 group-hover:text-cyan-600 dark:text-zinc-500 dark:group-hover:text-cyan-400" />
                   </a>
                 ))}
               </div>
-              <p className="text-[10px] text-zinc-600 mt-2">Copiá la URL del fallo que encontrés y usala en la pestaña "Citar URL"</p>
+              <p className="text-[10.5px] text-zinc-500 mt-2">Copiá la URL del fallo que encontrés y usala en la pestaña "Citar URL"</p>
             </div>
           </>
         )}
@@ -1040,10 +1052,10 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 type="text" value={searchNorm} onChange={e => setSearchNorm(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearchNorm()}
                 placeholder="Ley, número, decreto..."
-                className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
+                className="field h-9 min-w-0 flex-1 px-2.5 py-0 text-xs"
               />
               <button onClick={handleSearchNorm} disabled={searchNormativa.isPending}
-                className="h-8 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                className="btn btn-secondary btn-icon h-9 w-9 shrink-0">
                 {searchNormativa.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
               </button>
             </div>
@@ -1053,19 +1065,19 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 {searchNormativa.data.map(n => {
                   const cita = formatNormativaCita(n)
                   return (
-                    <div key={n.id} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2">
-                      <p className="text-xs font-medium text-zinc-200 leading-snug">{n.titulo}</p>
-                      {n.numero && <p className="text-[10px] text-zinc-500 mt-0.5">{n.tipo} N° {n.numero}</p>}
-                      <div className="flex gap-1.5 mt-2">
+                    <div key={n.id} className="dashboard-panel-muted px-3 py-2">
+                      <p className="text-xs font-semibold leading-snug text-zinc-800 dark:text-zinc-100">{n.titulo}</p>
+                      {n.numero && <p className="mt-0.5 text-[10.5px] tabular-nums text-zinc-500">{n.tipo} N° {n.numero}</p>}
+                      <div className="mt-2 flex gap-1.5">
                         <button onClick={() => copiar(cita, n.id)}
-                          className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border transition-colors',
-                            copiado === n.id ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' : 'bg-white/5 border-white/8 text-zinc-400 hover:text-zinc-200'
+                          className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10.5px] font-semibold transition-colors',
+                            copiado === n.id ? 'border-teal-500/30 bg-teal-500/15 text-teal-700 dark:text-teal-300' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'
                           )}>
                           {copiado === n.id ? <ClipboardCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                           {copiado === n.id ? 'Copiado' : 'Copiar'}
                         </button>
                         <button onClick={() => onInsertarReferencia(cita)}
-                          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/8 px-2 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-500/15">
+                          className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[10.5px] font-semibold text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300">
                           <Plus className="h-3 w-3" /> Insertar
                         </button>
                       </div>
@@ -1074,19 +1086,19 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
                 })}
               </div>
             )}
-            {searchNormativa.data?.length === 0 && <p className="text-xs text-zinc-600 text-center py-3">Sin resultados en el corpus</p>}
+            {searchNormativa.data?.length === 0 && <p className="py-3 text-center text-xs text-zinc-500">Sin resultados en el corpus</p>}
 
-            <div className="pt-2 border-t border-white/5">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">Normativa nacional</p>
+            <div className={cn('border-t pt-3', BORDE)}>
+              <p className="eyebrow mb-2">Normativa nacional</p>
               <a href="http://www.saij.gob.ar" target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.04] group">
+                className="dashboard-panel-muted group flex items-center justify-between px-3 py-2 transition-colors hover:border-cyan-500/30">
                 <div>
-                  <p className="text-xs font-medium text-zinc-300 group-hover:text-cyan-300">SAIJ / Infojus</p>
-                  <p className="text-[10px] text-zinc-600">Sistema Argentino de Información Jurídica</p>
+                  <p className="text-xs font-semibold text-zinc-800 group-hover:text-cyan-700 dark:text-zinc-200 dark:group-hover:text-cyan-300">SAIJ / Infojus</p>
+                  <p className="text-[10.5px] text-zinc-500">Sistema Argentino de Información Jurídica</p>
                 </div>
-                <ExternalLink className="h-3 w-3 text-zinc-600 group-hover:text-cyan-400" />
+                <ExternalLink className="h-3 w-3 text-zinc-400 group-hover:text-cyan-600 dark:text-zinc-500 dark:group-hover:text-cyan-400" />
               </a>
-              <p className="text-[10px] text-zinc-600 mt-2">Encontrá la norma y copiá su URL en "Citar URL" para extraerla automáticamente</p>
+              <p className="text-[10.5px] text-zinc-500 mt-2">Encontrá la norma y copiá su URL en "Citar URL" para extraerla automáticamente</p>
             </div>
           </>
         )}
@@ -1095,107 +1107,107 @@ function ReferenciasPanel({ onInsertarReferencia }: ReferenciasProps) {
         {tab === 'citar' && (
           <>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-300">URL del fallo o normativa</label>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">URL del fallo o normativa</label>
               <div className="flex gap-1.5">
                 <input
                   type="url" value={urlInput} onChange={e => setUrlInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleFetchUrl()}
                   placeholder="https://..."
-                  className="flex-1 h-8 rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/30"
+                  className="field h-9 min-w-0 flex-1 px-2.5 py-0 text-xs"
                 />
                 <button onClick={handleFetchUrl} disabled={!urlInput.trim() || fetchReferencia.isPending}
-                  className="h-8 px-2.5 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs hover:bg-cyan-500/25 disabled:opacity-50 inline-flex items-center gap-1">
+                  className="btn btn-secondary btn-sm h-9 shrink-0 gap-1 px-2.5">
                   {fetchReferencia.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                   {fetchReferencia.isPending ? 'Extrayendo...' : 'Extraer'}
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-600 mt-1">Pegá la URL de cualquier portal jurídico. La IA extrae el tribunal, fecha y cita formal.</p>
+              <p className="mt-1.5 text-[10.5px] text-zinc-500">Pegá la URL de cualquier portal jurídico. La IA extrae el tribunal, fecha y cita formal.</p>
             </div>
 
             {citaExtraida && (
-              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2">
+              <div className="space-y-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/[0.06] p-3">
                 <div className="flex items-center justify-between">
-                  <span className={cn('text-[10px] rounded-full px-2 py-0.5 font-semibold',
-                    citaExtraida.tipo === 'fallo' ? 'bg-sky-500/15 text-sky-400' :
-                    citaExtraida.tipo === 'normativa' ? 'bg-emerald-500/15 text-emerald-400' :
-                    'bg-zinc-500/15 text-zinc-400'
+                  <span className={cn(TAG,
+                    citaExtraida.tipo === 'fallo' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' :
+                    citaExtraida.tipo === 'normativa' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' :
+                    ESTADO_NEUTRO
                   )}>
                     {citaExtraida.tipo}
                   </span>
                   <a href={citaExtraida.fuente_url} target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] text-cyan-400/60 hover:text-cyan-400 flex items-center gap-0.5">
+                    className="dashboard-link flex items-center gap-0.5 text-[10.5px]">
                     fuente <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 </div>
 
-                {citaExtraida.caratula && <p className="text-xs font-semibold text-zinc-200 leading-snug">{citaExtraida.caratula}</p>}
-                {citaExtraida.numero && <p className="text-[11px] text-zinc-500">N° {citaExtraida.numero}</p>}
+                {citaExtraida.caratula && <p className="text-xs font-semibold leading-snug text-zinc-900 dark:text-zinc-100">{citaExtraida.caratula}</p>}
+                {citaExtraida.numero && <p className="text-[11px] tabular-nums text-zinc-500">N° {citaExtraida.numero}</p>}
 
                 <div className="grid grid-cols-2 gap-2">
                   {citaExtraida.tribunal && (
                     <div>
-                      <p className="text-[10px] text-zinc-600">Tribunal</p>
-                      <p className="text-[11px] text-zinc-300">{citaExtraida.tribunal}</p>
+                      <p className="text-[10.5px] font-semibold text-zinc-500">Tribunal</p>
+                      <p className="text-[11px] text-zinc-700 dark:text-zinc-300">{citaExtraida.tribunal}</p>
                     </div>
                   )}
                   {citaExtraida.fecha && (
                     <div>
-                      <p className="text-[10px] text-zinc-600">Fecha</p>
-                      <p className="text-[11px] text-zinc-300">{citaExtraida.fecha}</p>
+                      <p className="text-[10.5px] font-semibold text-zinc-500">Fecha</p>
+                      <p className="text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300">{citaExtraida.fecha}</p>
                     </div>
                   )}
                 </div>
 
                 {citaExtraida.extracto && (
                   <div>
-                    <p className="text-[10px] text-zinc-600 mb-0.5">Extracto</p>
-                    <p className="text-[11px] text-zinc-400 italic leading-relaxed line-clamp-4">&ldquo;{citaExtraida.extracto}&rdquo;</p>
+                    <p className="mb-0.5 text-[10.5px] font-semibold text-zinc-500">Extracto</p>
+                    <p className="line-clamp-4 text-[11px] italic leading-relaxed text-zinc-600 dark:text-zinc-400">&ldquo;{citaExtraida.extracto}&rdquo;</p>
                   </div>
                 )}
 
-                <div className="rounded-md bg-zinc-800/50 border border-white/5 px-2 py-1.5">
-                  <p className="text-[10px] text-zinc-600 mb-0.5">Cita formal</p>
-                  <p className="text-xs text-zinc-300 font-medium">{citaExtraida.cita_formal}</p>
+                <div className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                  <p className="mb-0.5 text-[10.5px] font-semibold text-zinc-500">Cita formal</p>
+                  <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200">{citaExtraida.cita_formal}</p>
                 </div>
 
                 <div className="flex gap-1.5 pt-1">
                   <button onClick={() => copiar(citaExtraida.cita_formal, 'cita_formal')}
-                    className={cn('flex-1 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs border transition-colors',
-                      copiado === 'cita_formal' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' : 'bg-white/5 border-white/8 text-zinc-400 hover:text-zinc-200'
+                    className={cn('inline-flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-xs font-semibold transition-colors',
+                      copiado === 'cita_formal' ? 'border-teal-500/30 bg-teal-500/15 text-teal-700 dark:text-teal-300' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'
                     )}>
                     {copiado === 'cita_formal' ? <ClipboardCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                     Copiar cita
                   </button>
                   {citaExtraida.extracto && (
                     <button onClick={() => copiar(`${citaExtraida.cita_formal}\n\n"${citaExtraida.extracto}"`, 'cita_con_extracto')}
-                      className={cn('flex-1 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-xs border transition-colors',
-                        copiado === 'cita_con_extracto' ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' : 'bg-white/5 border-white/8 text-zinc-400 hover:text-zinc-200'
+                      className={cn('inline-flex flex-1 items-center justify-center gap-1 rounded-lg border py-1.5 text-xs font-semibold transition-colors',
+                        copiado === 'cita_con_extracto' ? 'border-teal-500/30 bg-teal-500/15 text-teal-700 dark:text-teal-300' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'
                       )}>
                       {copiado === 'cita_con_extracto' ? <ClipboardCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                       Con extracto
                     </button>
                   )}
                   <button onClick={() => onInsertarReferencia(citaExtraida.cita_formal + (citaExtraida.extracto ? `\n"${citaExtraida.extracto}"` : ''))}
-                    className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/25">
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300">
                     <Plus className="h-3 w-3" /> Insertar
                   </button>
                 </div>
 
                 <button onClick={() => { setUrlInput(''); setCitaExtraida(null) }}
-                  className="w-full text-[10px] text-zinc-600 hover:text-zinc-400 pt-1">
+                  className="w-full pt-1 text-[10.5px] font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
                   Extraer otra URL
                 </button>
               </div>
             )}
 
-            <div className="pt-1 border-t border-white/5">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-2">URLs de ejemplo</p>
+            <div className={cn('border-t pt-3', BORDE)}>
+              <p className="eyebrow mb-2">URLs de ejemplo</p>
               <div className="space-y-1">
                 {PORTALES_EXTERNOS.slice(0, 3).map(p => (
                   <button key={p.url} onClick={() => setUrlInput(p.url)}
-                    className="w-full text-left flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5 hover:bg-white/[0.04] group">
-                    <span className="text-[11px] text-zinc-400 group-hover:text-zinc-200">{p.label}</span>
-                    <span className="text-[10px] text-zinc-700">{p.url.replace('https://', '').replace('http://', '').split('/')[0]}</span>
+                    className="dashboard-panel-muted group flex w-full items-center justify-between px-3 py-1.5 text-left transition-colors hover:border-cyan-500/30">
+                    <span className="text-[11px] font-semibold text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-100">{p.label}</span>
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{p.url.replace('https://', '').replace('http://', '').split('/')[0]}</span>
                   </button>
                 ))}
               </div>
@@ -1214,23 +1226,23 @@ function FalloCard({ caratula, tribunal, tipo, score, extracto, onCopiar, onInse
   onCopiar: () => void; onInsertar: () => void; copiado: boolean
 }) {
   return (
-    <div className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2">
-      <p className="text-xs font-medium text-zinc-200 leading-snug line-clamp-2">{caratula}</p>
-      <div className="flex items-center gap-1.5 mt-0.5">
-        {tribunal && <p className="text-[10px] text-zinc-500 truncate flex-1">{tribunal}</p>}
-        {score && <span className="text-[10px] text-zinc-600">{(score * 100).toFixed(0)}%</span>}
+    <div className="dashboard-panel-muted px-3 py-2">
+      <p className="line-clamp-2 text-xs font-semibold leading-snug text-zinc-800 dark:text-zinc-100">{caratula}</p>
+      <div className="mt-0.5 flex items-center gap-1.5">
+        {tribunal && <p className="flex-1 truncate text-[10.5px] text-zinc-500">{tribunal}</p>}
+        {score && <span className="text-[10.5px] font-semibold tabular-nums text-zinc-500">{(score * 100).toFixed(0)}%</span>}
       </div>
-      {extracto && <p className="text-[10px] text-zinc-600 italic mt-1 line-clamp-2">&ldquo;{extracto}&rdquo;</p>}
-      <div className="flex gap-1.5 mt-2">
+      {extracto && <p className="mt-1 line-clamp-2 text-[10.5px] italic text-zinc-500">&ldquo;{extracto}&rdquo;</p>}
+      <div className="mt-2 flex gap-1.5">
         <button onClick={onCopiar}
-          className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border transition-colors',
-            copiado ? 'bg-teal-500/15 border-teal-500/30 text-teal-400' : 'bg-white/5 border-white/8 text-zinc-400 hover:text-zinc-200'
+          className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10.5px] font-semibold transition-colors',
+            copiado ? 'border-teal-500/30 bg-teal-500/15 text-teal-700 dark:text-teal-300' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'
           )}>
           {copiado ? <ClipboardCheck className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copiado ? 'Copiado' : 'Copiar'}
         </button>
         <button onClick={onInsertar}
-          className="inline-flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/8 px-2 py-0.5 text-[10px] text-cyan-400 hover:bg-cyan-500/15">
+          className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[10.5px] font-semibold text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300">
           <Plus className="h-3 w-3" /> Insertar
         </button>
       </div>
@@ -1408,12 +1420,12 @@ function EscritoEditor({
 
   const panelDerecho = (
     <div className="flex h-full flex-col">
-      <div className="flex gap-0.5 border-b border-white/5 px-2">
+      <div className={cn('flex items-center gap-0.5 border-b px-2', BORDE)}>
         {([['asistente', 'Asistente'], ['referencias', 'Referencias']] as const).map(([k, l]) => (
           <button key={k} type="button" onClick={() => setPanelDer(k)}
-            className={cn('border-b-2 px-2.5 py-2.5 text-[12px] font-medium', panelDer === k ? 'border-cyan-400 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300')}>{l}</button>
+            className={cn('border-b-2 px-2.5 py-3 text-[12.5px] font-semibold transition-colors', panelDer === k ? TAB_ACTIVA : TAB_INACTIVA)}>{l}</button>
         ))}
-        <button type="button" onClick={onToggleRefs} className="ml-auto p-2 text-zinc-500 hover:text-zinc-200" title="Cerrar panel"><X className="h-3.5 w-3.5" /></button>
+        <button type="button" onClick={onToggleRefs} className="btn btn-ghost btn-icon ml-auto h-8 w-8 border-transparent" title="Cerrar panel"><X className="h-3.5 w-3.5" /></button>
       </div>
       <div className="min-h-0 flex-1">
         {panelDer === 'asistente'
@@ -1428,15 +1440,15 @@ function EscritoEditor({
       <input ref={archivoRef} type="file" accept="application/pdf" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) void adjuntarPdf(f); e.target.value = '' }} />
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-white/5 shrink-0">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className={cn('flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 sm:px-4 sm:py-2.5', BORDE)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {onBack && (
-            <button onClick={onBack} className="sm:hidden p-1 rounded text-zinc-500 hover:text-zinc-200 shrink-0">
+            <button onClick={onBack} aria-label="Volver a la lista" className="btn btn-ghost btn-icon h-9 w-9 shrink-0 border-transparent sm:hidden">
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
           <button onClick={() => setPanelIzq(v => !v)} title={panelIzq ? 'Cerrar contexto' : 'Contexto, citas, revisión y versiones'}
-            className={cn('hidden lg:inline-flex p-1.5 rounded-lg hover:bg-white/5 shrink-0', panelIzq ? 'text-cyan-400' : 'text-zinc-500 hover:text-zinc-200')}>
+            className={cn('btn btn-ghost btn-icon h-9 w-9 shrink-0 border-transparent', panelIzq && 'text-cyan-700 dark:text-cyan-300', 'hidden lg:inline-flex')}>
             {panelIzq ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
           </button>
           {editandoTitulo ? (
@@ -1444,21 +1456,21 @@ function EscritoEditor({
               onChange={e => { setTituloLocal(e.target.value); setDirty(true) }}
               onBlur={() => setEditandoTitulo(false)}
               onKeyDown={e => e.key === 'Enter' && setEditandoTitulo(false)}
-              className="flex-1 min-w-0 rounded-md border border-cyan-500/40 bg-white/5 px-2 py-1 text-sm font-semibold text-zinc-100 focus:outline-none"
+              className="field h-9 min-w-0 flex-1 px-2.5 py-0 text-sm font-semibold"
             />
           ) : (
             <button onClick={() => setEditandoTitulo(true)}
-              className="text-sm font-semibold text-zinc-100 hover:text-cyan-300 truncate max-w-[180px] sm:max-w-xs text-left flex items-center gap-1">
+              className="flex max-w-[180px] items-center gap-1.5 truncate text-left text-[15px] font-bold tracking-tight text-zinc-900 hover:text-cyan-700 dark:text-white dark:hover:text-cyan-300 sm:max-w-xs">
               <span className="truncate">{tituloLocal || escrito.tipo}</span>
-              <Pencil className="h-3 w-3 text-zinc-600 shrink-0" />
+              <Pencil className="h-3 w-3 shrink-0 text-zinc-400 dark:text-zinc-500" />
             </button>
           )}
-          <span className={cn('hidden sm:inline shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold', ESTADO_COLORS[escrito.estado] ?? 'bg-zinc-500/15 text-zinc-400')}>
+          <span className={cn(TAG, ESTADO_COLORS[escrito.estado] ?? ESTADO_NEUTRO, 'hidden sm:inline-flex')}>
             {ESTADO_LABELS[escrito.estado] ?? escrito.estado}
           </span>
           {escrito.expediente && (
             <Link to={`/expedientes/${escrito.expediente_id}`}
-              className="hidden md:inline-flex shrink-0 items-center gap-1 text-[11px] text-zinc-400 hover:text-cyan-300 truncate max-w-[160px]">
+              className="hidden max-w-[160px] shrink-0 items-center gap-1 truncate text-[11.5px] font-medium text-zinc-500 hover:text-cyan-700 dark:text-zinc-400 dark:hover:text-cyan-300 md:inline-flex">
               <FolderOpen className="h-3 w-3" />
               <span className="truncate">{escrito.expediente.caratula ?? escrito.expediente.numero}</span>
             </Link>
@@ -1470,10 +1482,10 @@ function EscritoEditor({
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Vista toggle */}
-          <div data-tour="esc-vista" className="hidden sm:flex rounded-lg border border-white/10 overflow-hidden">
-            {([['editar', 'Editar', ''], ['lado', 'Lado a lado', 'hidden lg:block'], ['preview', 'Escrito', '']] as const).map(([k, l, extra]) => (
-              <button key={k} onClick={() => setVista(k)} title={k === 'lado' ? 'Editar y ver el escrito en vivo al costado' : undefined}
-                className={cn('px-2.5 py-1 text-xs font-medium', extra, vista === k ? 'bg-white/10 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300')}>
+          <div data-tour="esc-vista" className="segmented mr-1 hidden sm:inline-flex" role="group" aria-label="Vista">
+            {([['editar', 'Editar', ''], ['lado', 'Lado a lado', 'hidden lg:inline-flex'], ['preview', 'Escrito', '']] as const).map(([k, l, extra]) => (
+              <button key={k} onClick={() => setVista(k)} title={k === 'lado' ? 'Editar y ver el escrito en vivo al costado' : undefined} aria-pressed={vista === k}
+                className={cn('px-2.5 py-1 text-xs font-semibold', extra)}>
                 {l}
               </button>
             ))}
@@ -1483,12 +1495,12 @@ function EscritoEditor({
           {guardando && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500 shrink-0" />}
           {!guardando && dirty && (
             <button onClick={() => void guardarAhora()}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-1 text-xs font-medium text-zinc-200 hover:bg-white/5">
+              className="btn btn-ghost btn-sm gap-1 px-2.5">
               <Save className="h-3 w-3" /> Guardar
             </button>
           )}
           {!guardando && !dirty && savedAt && (
-            <span className="hidden sm:inline font-mono text-[10px] text-zinc-600">
+            <span className="hidden text-[10.5px] font-medium tabular-nums text-zinc-500 sm:inline">
               guardado {savedAt.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
             </span>
           )}
@@ -1496,18 +1508,18 @@ function EscritoEditor({
           <EscritosAyudaBoton />
           <button data-tour="esc-asistente" onClick={() => { if (refsOpen && panelDer === 'asistente') onToggleRefs(); else { if (vista === 'lado') setVistaState('editar'); setPanelDer('asistente'); if (!refsOpen) onToggleRefs() } }}
             title="Asistente"
-            className={cn('inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:bg-white/5', refsOpen ? 'text-cyan-300' : 'text-zinc-400 hover:text-zinc-200')}>
+            className={cn('btn btn-ghost btn-sm min-h-9 gap-1 border-transparent px-2', refsOpen && 'text-cyan-700 dark:text-cyan-300')}>
             <MessageSquare className="h-4 w-4" /> <span className="hidden md:inline">Asistente</span>
           </button>
           <div data-tour="esc-mas" className="relative">
             <button onClick={() => setMasOpen(v => !v)} aria-label="Más acciones" aria-expanded={masOpen} title="Más acciones"
-              className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/5 hover:text-zinc-200">
+              className="btn btn-ghost btn-icon border-transparent">
               <MoreHorizontal className="h-4 w-4" />
             </button>
             {masOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMasOpen(false)} />
-                <div className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-lg border border-white/10 bg-zinc-900 py-1 shadow-xl">
+                <div className="absolute right-0 top-full z-40 mt-1.5 w-64 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-2xl dark:border-white/10 dark:bg-[var(--popover)]">
                   {([
                     { icon: UserCheck, label: 'Enviar a revisión', onClick: () => setEnviarRevision(true) },
                     { icon: History, label: 'Revisión, citas y versiones', onClick: () => setPanelIzq(true) },
@@ -1517,13 +1529,13 @@ function EscritoEditor({
                     ...(escrito.expediente_id ? [{ icon: FolderOpen, label: 'Ir al expediente', onClick: () => navigate(`/expedientes/${escrito.expediente_id}`) }] : []),
                   ]).map(({ icon: Icono, label, onClick }) => (
                     <button key={label} onClick={() => { setMasOpen(false); onClick() }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-zinc-300 hover:bg-white/5">
-                      <Icono className="h-4 w-4 shrink-0 text-zinc-500" /> {label}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white">
+                      <Icono className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" /> {label}
                     </button>
                   ))}
-                  <div className="my-1 border-t border-white/10" />
+                  <div className="my-1 border-t border-zinc-200 dark:border-white/10" />
                   <button onClick={() => { setMasOpen(false); setConfirmarEliminar(true) }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-rose-400 hover:bg-rose-500/10">
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-rose-600 hover:bg-rose-500/10 dark:text-rose-400">
                     <Trash2 className="h-4 w-4 shrink-0" /> Eliminar escrito
                   </button>
                 </div>
@@ -1534,11 +1546,11 @@ function EscritoEditor({
       </div>
 
       {/* Celular y tablet: alternar entre editar y ver el escrito */}
-      <div data-tour="esc-vista" className="flex shrink-0 border-b border-white/5 sm:hidden">
+      <div data-tour="esc-vista" className={cn('flex shrink-0 border-b sm:hidden', BORDE)}>
         {([['editar', 'Editar'], ['preview', 'Ver escrito']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setVistaState(k)}
-            className={cn('flex-1 border-b-2 py-2.5 text-xs font-medium',
-              (vista === k || (k === 'editar' && vista === 'lado')) ? 'border-cyan-400 text-white' : 'border-transparent text-zinc-500')}>
+            className={cn('flex-1 border-b-2 py-3 text-[13px] font-semibold transition-colors',
+              (vista === k || (k === 'editar' && vista === 'lado')) ? TAB_ACTIVA : TAB_INACTIVA)}>
             {l}
           </button>
         ))}
@@ -1547,7 +1559,7 @@ function EscritoEditor({
       {/* Body: contexto | documento | asistente */}
       <div className="flex-1 overflow-hidden flex">
         {panelIzq && (
-          <div className="hidden lg:flex w-80 shrink-0 flex-col overflow-hidden border-r border-white/5">
+          <div className={cn('hidden w-80 shrink-0 flex-col overflow-hidden border-r bg-white/60 dark:bg-white/[0.02] lg:flex', BORDE)}>
             {panelContexto}
           </div>
         )}
@@ -1579,21 +1591,21 @@ function EscritoEditor({
               {/* Encabezado y carátula */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block font-mono text-[10px] font-medium text-zinc-500 uppercase tracking-[0.12em]">Encabezado</label>
+                  <label className="eyebrow mb-1.5 block">Encabezado</label>
                   <input value={contenido.encabezado_juez}
                     onChange={e => updateContenido({ ...contenido, encabezado_juez: e.target.value })}
-                    className="h-8 w-full rounded-lg border border-white/8 bg-white/[0.02] px-2 text-xs text-zinc-300 focus:border-cyan-500/30 focus:outline-none" />
+                    className="field h-9 px-2.5 py-0 text-xs" />
                 </div>
                 <div>
-                  <label className="mb-1 block font-mono text-[10px] font-medium text-zinc-500 uppercase tracking-[0.12em]">Carátula</label>
+                  <label className="eyebrow mb-1.5 block">Carátula</label>
                   <input value={contenido.caratula}
                     onChange={e => updateContenido({ ...contenido, caratula: e.target.value })}
-                    className="h-8 w-full rounded-lg border border-white/8 bg-white/[0.02] px-2 text-xs text-zinc-300 focus:border-cyan-500/30 focus:outline-none" />
+                    className="field h-9 px-2.5 py-0 text-xs" />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block font-mono text-[10px] font-medium text-zinc-500 uppercase tracking-[0.12em]">Me presento como</label>
+                <label className="eyebrow mb-1.5 block">Me presento como</label>
                 <CaracterSelector compacto expedienteId={escrito.expediente_id}
                   value={contenido.caracter ?? CARACTER_POR_DEFECTO}
                   onChange={(c) => {
@@ -1606,10 +1618,10 @@ function EscritoEditor({
               </div>
 
               <div>
-                <label className="mb-1 block font-mono text-[10px] font-medium text-zinc-500 uppercase tracking-[0.12em]">Presentación</label>
+                <label className="eyebrow mb-1.5 block">Presentación</label>
                 <textarea value={contenido.presentacion ?? ''} rows={2}
                   onChange={e => updateContenido({ ...contenido, presentacion: e.target.value })}
-                  className="w-full rounded-lg border border-white/8 bg-white/[0.02] px-2 py-1.5 text-xs text-zinc-300 focus:outline-none resize-none" />
+                  className="field resize-none px-2.5 py-1.5 text-xs" />
               </div>
 
               {contenido.secciones.map((seccion, si) => (
@@ -1640,7 +1652,7 @@ function EscritoEditor({
               </div>
 
               <button onClick={addSeccion}
-                className="w-full rounded-lg border border-dashed border-white/10 py-2.5 text-xs text-zinc-500 hover:text-zinc-300 hover:border-white/20 flex items-center justify-center gap-1.5">
+                className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-zinc-300 py-3 text-xs font-semibold text-zinc-500 hover:border-[var(--brand-accent)] hover:text-zinc-800 dark:border-white/15 dark:hover:text-zinc-100">
                 <Plus className="h-3.5 w-3.5" /> Agregar sección
               </button>
             </div>
@@ -1652,7 +1664,7 @@ function EscritoEditor({
             </div>
           )}
           {vista === 'preview' && !abogado && (
-            <div className="flex items-center justify-center h-full text-zinc-500 text-sm p-4 text-center">
+            <div className="flex h-full items-center justify-center p-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
               Completá tus datos profesionales en Configuración para ver la vista previa A4
             </div>
           )}
@@ -1660,14 +1672,14 @@ function EscritoEditor({
 
         {/* Escrito en vivo al costado */}
         {ladoALado && (
-          <div data-tour="esc-vivo" className="hidden lg:block w-[44%] max-w-[640px] shrink-0 border-l border-white/5">
+          <div data-tour="esc-vivo" className={cn('hidden w-[44%] max-w-[640px] shrink-0 border-l lg:block', BORDE)}>
             <VistaEnVivo contenido={contenido} abogado={abogado!} printRef={printRef} />
           </div>
         )}
 
         {/* Panel derecho: asistente / referencias — desktop */}
         {refsOpen && (
-          <div className="hidden sm:flex w-80 xl:w-96 shrink-0 flex-col overflow-hidden border-l border-white/5">
+          <div className={cn('hidden w-80 shrink-0 flex-col overflow-hidden border-l bg-white/60 dark:bg-white/[0.02] sm:flex xl:w-96', BORDE)}>
             {panelDerecho}
           </div>
         )}
@@ -1675,11 +1687,11 @@ function EscritoEditor({
 
       {/* Pantallas chicas: revisión, citas y versiones como hoja inferior */}
       {panelIzq && (
-        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/60" onClick={() => setPanelIzq(false)}>
-          <div className="flex h-[85vh] flex-col overflow-hidden rounded-t-xl border-t border-white/10 bg-[#10161d]" onClick={e => e.stopPropagation()}>
-            <div className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-2.5">
-              <span className="text-sm font-medium text-zinc-200">Revisión, citas y versiones</span>
-              <button onClick={() => setPanelIzq(false)} title="Cerrar" className="p-1.5 text-zinc-500 hover:text-zinc-200"><X className="h-4 w-4" /></button>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/55 backdrop-blur-sm lg:hidden" onClick={() => setPanelIzq(false)}>
+          <div className="flex h-[85vh] flex-col overflow-hidden rounded-t-3xl border-t border-zinc-200 bg-white dark:border-white/10 dark:bg-[var(--popover)]" onClick={e => e.stopPropagation()}>
+            <div className={cn('flex shrink-0 items-center justify-between border-b px-4 py-2.5', BORDE)}>
+              <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Revisión, citas y versiones</span>
+              <button onClick={() => setPanelIzq(false)} title="Cerrar" className="btn btn-ghost btn-icon border-transparent"><X className="h-4 w-4" /></button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">{panelContexto}</div>
           </div>
@@ -1688,8 +1700,8 @@ function EscritoEditor({
 
       {/* Mobile: panel derecho como hoja inferior */}
       {refsOpen && (
-        <div className="sm:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/60" onClick={onToggleRefs}>
-          <div className="rounded-t-xl bg-[#10161d] border-t border-white/10 h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/55 backdrop-blur-sm sm:hidden" onClick={onToggleRefs}>
+          <div className="flex h-[80vh] flex-col overflow-hidden rounded-t-3xl border-t border-zinc-200 bg-white dark:border-white/10 dark:bg-[var(--popover)]" onClick={e => e.stopPropagation()}>
             {panelDerecho}
           </div>
         </div>
@@ -1782,45 +1794,45 @@ function SeccionEditor({ seccion, si, onUpdateTitulo, onUpdateParrafo, onAddParr
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={cn('rounded-xl border bg-white/[0.02] overflow-hidden', enFoco === 0 ? 'border-cyan-500/40' : 'border-white/8')}>
-      <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.03]">
-        <button onClick={() => setCollapsed(c => !c)} className="text-zinc-600 hover:text-zinc-300">
+    <div className={cn('app-card', enFoco === 0 && 'border-cyan-500/40')}>
+      <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <button onClick={() => setCollapsed(c => !c)} className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200">
           {collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </button>
-        <span className="font-mono text-[10px] text-zinc-600">{si + 1}</span>
+        <span className="text-[10.5px] font-bold tabular-nums text-zinc-400 dark:text-zinc-500">{si + 1}</span>
         <input value={seccion.titulo} onChange={e => onUpdateTitulo(e.target.value)}
-          className="flex-1 bg-transparent text-xs font-semibold text-zinc-300 uppercase tracking-wide focus:outline-none" />
+          className="min-w-0 flex-1 bg-transparent text-xs font-bold uppercase tracking-[0.08em] text-zinc-800 focus:outline-none dark:text-zinc-100" />
         <button onClick={() => onAsistente(undefined)} title="Pedirle al asistente sobre esta sección"
-          className="p-1 rounded hover:bg-white/10 text-zinc-600 hover:text-cyan-400">
+          className="rounded-md p-1 text-zinc-400 hover:bg-cyan-500/10 hover:text-cyan-600 dark:text-zinc-500 dark:hover:text-cyan-400">
           <Wand2 className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onRemove} className="p-1 rounded text-zinc-700 hover:text-rose-400">
+        <button onClick={onRemove} aria-label="Quitar sección" className="rounded-md p-1 text-zinc-400 hover:bg-rose-500/10 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-rose-400">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {!collapsed && (
-        <div className="px-3 pb-3 pt-1 space-y-2">
+        <div className="space-y-2 px-3 pb-3 pt-3">
           {seccion.parrafos.map((parrafo, pi) => (
             <div key={pi} className="group relative">
               <textarea value={parrafo} onChange={e => onUpdateParrafo(pi, e.target.value)}
                 rows={Math.max(2, Math.ceil(parrafo.length / 80))}
-                className={cn('w-full rounded-lg border bg-white/[0.01] px-3 py-2 pr-16 [@media(hover:hover)]:pr-3 text-[13px] sm:text-xs text-zinc-300 leading-relaxed placeholder:text-zinc-700 focus:border-cyan-500/20 focus:bg-white/[0.03] focus:outline-none resize-none',
-                  enFoco === pi + 1 ? 'border-cyan-500/40' : 'border-white/5')}
+                className={cn('field resize-none px-3 py-2 pr-16 text-[13px] leading-relaxed [@media(hover:hover)]:pr-3 sm:text-xs',
+                  enFoco === pi + 1 && 'border-cyan-500/40')}
                 placeholder="Párrafo..." />
               <div className="absolute right-1 top-1 flex gap-0.5 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
                 <button onClick={() => onAsistente(pi)} title="Pedirle al asistente sobre este párrafo"
-                  className="p-1 rounded bg-zinc-800 border border-white/8 text-zinc-500 hover:text-cyan-400">
+                  className="rounded-md border border-zinc-200 bg-white p-1 text-zinc-500 hover:text-cyan-600 dark:border-white/10 dark:bg-[var(--popover)] dark:hover:text-cyan-400">
                   <Wand2 className="h-3 w-3" />
                 </button>
-                <button onClick={() => onRemoveParrafo(pi)} className="p-1 rounded bg-zinc-800 border border-white/8 text-zinc-600 hover:text-rose-400">
+                <button onClick={() => onRemoveParrafo(pi)} aria-label="Quitar párrafo" className="rounded-md border border-zinc-200 bg-white p-1 text-zinc-500 hover:text-rose-500 dark:border-white/10 dark:bg-[var(--popover)] dark:hover:text-rose-400">
                   <X className="h-3 w-3" />
                 </button>
               </div>
             </div>
           ))}
 
-          <button onClick={onAddParrafo} className="text-[11px] text-zinc-600 hover:text-zinc-400 flex items-center gap-1 pl-1">
+          <button onClick={onAddParrafo} className="flex items-center gap-1 pl-1 text-[11.5px] font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
             <Plus className="h-3 w-3" /> párrafo
           </button>
         </div>
@@ -1943,69 +1955,68 @@ export default function EscritosPage() {
   }
 
   return (
-    <div data-escritos className="-mx-4 -mt-4 -mb-20 flex h-[calc(100dvh-3.5rem)] overflow-hidden sm:-m-6">
+    <div data-escritos className="-mx-4 -mt-4 -mb-20 flex h-[calc(100dvh-3.75rem)] overflow-hidden sm:-m-6">
       {/* ── Sidebar — oculto en mobile cuando hay selección ── */}
       <div className={cn(
-        'flex flex-col border-r border-white/5 bg-zinc-900/50 transition-all duration-200',
+        'flex flex-col border-r border-zinc-200 bg-white transition-all duration-200 dark:border-white/[0.07] dark:bg-white/[0.025]',
         // Mobile: full screen si no hay selección; oculto si hay
         selectedId ? 'hidden sm:flex' : 'flex w-full',
         // Desktop: togglable, ancho fijo
         sidebarOpen ? 'sm:flex sm:w-64' : 'sm:hidden',
       )}>
         {/* Header sidebar */}
-        <div className="flex items-center justify-between px-3 py-3 border-b border-white/5">
+        <div className={cn('flex items-center justify-between border-b px-3 py-3', BORDE)}>
           <div className="flex items-center gap-2">
-            <PenLine className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-semibold text-zinc-200">Escritos</span>
+            <PenLine className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+            <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Escritos</span>
           </div>
           <div className="flex items-center gap-1">
             <EscritosAyudaBoton className="min-h-7 min-w-7" />
             <span data-tour="esc-herramientas" className="flex gap-1">
-            <button onClick={() => setShowPerfil(true)} title="Perfil de redacción" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
+            <button onClick={() => setShowPerfil(true)} title="Perfil de redacción" className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100">
               <SlidersHorizontal className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setShowUso(true)} title="Uso de IA" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
+            <button onClick={() => setShowUso(true)} title="Uso de IA" className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100">
               <BarChart3 className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setShowModelos(true)} title="Modelos" className="p-1 rounded text-zinc-600 hover:text-zinc-300">
+            <button onClick={() => setShowModelos(true)} title="Modelos" className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100">
               <Layers className="h-3.5 w-3.5" />
             </button>
             </span>
-            <button data-tour="esc-nuevo" onClick={abrirNuevo} title="Nuevo escrito" className="p-1 rounded text-zinc-600 hover:text-cyan-400">
+            <button data-tour="esc-nuevo" onClick={abrirNuevo} title="Nuevo escrito" className="rounded-md p-1 text-zinc-400 hover:bg-cyan-500/10 hover:text-cyan-700 dark:text-zinc-500 dark:hover:text-cyan-300">
               <Plus className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setSidebarOpen(false)} className="hidden sm:block p-1 rounded text-zinc-700 hover:text-zinc-400">
+            <button onClick={() => setSidebarOpen(false)} aria-label="Ocultar lista" className="hidden rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-500 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100 sm:block">
               <PanelLeftClose className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
         {/* Búsqueda */}
-        <div className="px-3 py-2 border-b border-white/5">
+        <div className={cn('border-b px-3 py-2.5', BORDE)}>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar..." className="h-7 w-full rounded-md border border-white/8 bg-white/[0.02] pl-7 pr-2 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none" />
+              placeholder="Buscar..." className="field h-10 py-0 pl-10 text-[13px]" />
           </div>
         </div>
 
         {/* Bandejas */}
-        <div data-tour="esc-bandejas" className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
+        <div data-tour="esc-bandejas" className={cn('no-scrollbar flex gap-1.5 overflow-x-auto border-b px-3 py-2.5', BORDE)}>
           {([['revisar', 'Para revisar'], ['pendientes', 'Sin terminar'], ['presentar', 'Para presentar'], ['proveido', 'Esperando proveído'], ['cerrados', 'Con proveído'], ['todos', 'Todos']] as const)
             .filter(([b]) => b !== 'revisar' || conteoBandeja('revisar') > 0 || bandeja === 'revisar').map(([b, label]) => (
-            <button key={b} type="button" onClick={() => setBandeja(b)}
-              className={cn('flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium',
-                bandeja === b ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5')}>
-              {label} <span className="tabular-nums opacity-70">{conteoBandeja(b)}</span>
+            <button key={b} type="button" onClick={() => setBandeja(b)} aria-pressed={bandeja === b}
+              className="chip min-h-8 gap-1 px-3 text-[11.5px]">
+              {label} <span className="chip-count">{conteoBandeja(b)}</span>
             </button>
           ))}
         </div>
 
         {/* Filtro expediente */}
         {expedientesUnicos.length > 0 && (
-          <div className="px-3 py-1.5 border-b border-white/5">
+          <div className={cn('border-b px-3 py-2', BORDE)}>
             <select value={filtroExpediente} onChange={e => setFiltroExpediente(e.target.value)}
-              className="w-full h-7 rounded-md border border-white/8 bg-zinc-800 text-xs text-zinc-400 focus:outline-none">
+              className="field h-9 py-0 text-xs font-medium">
               <option value="">Todos los expedientes</option>
               {expedientesUnicos.map(ex => <option key={ex.id} value={ex.id}>{ex.label}</option>)}
             </select>
@@ -2014,32 +2025,32 @@ export default function EscritosPage() {
 
         {/* Lista */}
         <div data-tour="esc-lista" className="flex-1 overflow-y-auto">
-          {isLoading && <div className="px-3 py-4 text-xs text-zinc-600">Cargando...</div>}
+          {isLoading && <div className="px-3 py-4 text-xs text-zinc-500">Cargando...</div>}
           {!isLoading && escritosFiltrados.length === 0 && (
             <div className="px-3 py-8 text-center">
-              <FileText className="h-6 w-6 text-zinc-700 mx-auto mb-2" />
-              <p className="text-xs text-zinc-600">No hay escritos</p>
-              <button onClick={abrirNuevo} className="mt-2 text-xs text-cyan-400 hover:text-cyan-300">Crear primero</button>
+              <FileText className="mx-auto mb-2 h-6 w-6 text-zinc-300 dark:text-zinc-600" />
+              <p className="text-xs font-medium text-zinc-500">No hay escritos</p>
+              <button onClick={abrirNuevo} className="dashboard-link mt-2 text-xs">Crear primero</button>
             </div>
           )}
           {escritosFiltrados.map(e => (
             <button key={e.id} onClick={() => setSelectedId(e.id)}
               className={cn(
-                'w-full text-left px-3 py-2.5 border-b border-white/[0.04]',
-                selectedId === e.id ? 'bg-cyan-500/10 border-l-2 border-l-cyan-500/50' : 'hover:bg-white/[0.03]'
+                'w-full border-b border-zinc-100 px-3 py-3 text-left transition-colors dark:border-white/[0.04]',
+                selectedId === e.id ? 'border-l-2 border-l-[var(--brand-accent)] bg-[var(--brand-navy)]/[0.05] dark:bg-[rgb(102_172_204/0.12)]' : 'hover:bg-zinc-50 dark:hover:bg-white/[0.03]'
               )}>
-              <p className="text-xs font-medium text-zinc-300 truncate">{e.titulo || e.tipo}</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={cn('text-[10px] rounded-full px-1.5 py-px', ESTADO_COLORS[e.estado] ?? 'bg-zinc-500/15 text-zinc-500')}>
+              <p className="truncate text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">{e.titulo || e.tipo}</p>
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className={cn(TAG, ESTADO_COLORS[e.estado] ?? ESTADO_NEUTRO)}>
                   {ESTADO_LABELS[e.estado] ?? e.estado}
                 </span>
                 {e.revision_pedida_a && (
-                  <span className={cn('shrink-0 rounded-full px-1.5 py-px text-[10px]',
-                    !e.revision_resultado ? 'bg-amber-500/15 text-amber-400' : e.revision_resultado === 'aprobado' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400')}>
+                  <span className={cn(TAG,
+                    !e.revision_resultado ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300' : e.revision_resultado === 'aprobado' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300')}>
                     {!e.revision_resultado ? (e.revision_pedida_a === yo ? 'revisar' : 'en revisión') : e.revision_resultado === 'aprobado' ? 'aprobado' : 'observado'}
                   </span>
                 )}
-                {e.expediente && <span className="text-[10px] text-zinc-600 truncate">{e.expediente.caratula ?? e.expediente.numero}</span>}
+                {e.expediente && <span className="truncate text-[11px] text-zinc-500">{e.expediente.caratula ?? e.expediente.numero}</span>}
               </div>
               {(() => {
                 const dias = Math.floor((Date.now() - new Date(e.updated_at).getTime()) / 86_400_000)
@@ -2054,7 +2065,7 @@ export default function EscritosPage() {
                   falta.push('firma')
                 }
                 return (
-                  <p className={cn('mt-0.5 font-mono text-[10px]', viejo ? 'text-amber-500/90' : 'text-zinc-600')}>
+                  <p className={cn('mt-1 text-[10.5px] font-medium tabular-nums', viejo ? 'text-amber-600 dark:text-amber-400/90' : 'text-zinc-500')}>
                     {e.proveido_movement_id ? 'proveído recibido' : (e.estado === 'presentado' || e.estado === 'presentado_sae') ? 'esperando proveído · ' : ''}
                     {!e.proveido_movement_id && (dias === 0 ? 'hoy' : `hace ${dias} d`)}
                     {falta.length > 0 && ` · falta: ${falta.join(', ')}`}
@@ -2066,9 +2077,9 @@ export default function EscritosPage() {
         </div>
 
         {/* FAB móvil */}
-        <div className="sm:hidden border-t border-white/5 p-3 pr-[4.75rem]">
+        <div className={cn('border-t p-3 pr-[4.75rem] sm:hidden', BORDE)}>
           <button data-tour="esc-nuevo" onClick={abrirNuevo}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
+            className="btn btn-primary w-full py-2.5 text-sm">
             <Plus className="h-4 w-4" /> Nuevo escrito
           </button>
         </div>
@@ -2076,41 +2087,41 @@ export default function EscritosPage() {
 
       {/* ── Editor principal ── */}
       <div className={cn(
-        'flex-1 flex flex-col overflow-hidden bg-zinc-950',
+        'flex flex-1 flex-col overflow-hidden bg-[var(--background)]',
         // Mobile: visible solo si hay selección
         !selectedId && 'hidden sm:flex',
       )}>
         {/* Sidebar toggle (desktop, cuando cerrado) */}
         {!sidebarOpen && (
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 border-b border-white/5 shrink-0">
-            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded text-zinc-600 hover:text-zinc-300">
+          <div className={cn('hidden shrink-0 items-center gap-2 border-b px-3 py-2 sm:flex', BORDE)}>
+            <button onClick={() => setSidebarOpen(true)} aria-label="Mostrar lista" className="btn btn-ghost btn-icon h-8 w-8 border-transparent">
               <PanelLeftOpen className="h-4 w-4" />
             </button>
-            <span className="text-xs text-zinc-600 truncate">{escritoActual?.titulo ?? ''}</span>
+            <span className="truncate text-xs font-semibold text-zinc-500">{escritoActual?.titulo ?? ''}</span>
           </div>
         )}
 
         {!escritoActual && (
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center max-w-sm">
-              <PenLine className="h-10 w-10 text-zinc-700 mx-auto mb-4" />
-              <h2 className="text-lg font-semibold text-zinc-300 mb-2">Taller de escritos</h2>
-              <p className="text-sm text-zinc-500 mb-6">Redactá con IA usando el expediente, la normativa y los fallos del estudio, o armá los de trámite con una plantilla, sin IA. Revisá con un asistente y controlá citas y forma antes de firmar.</p>
+              <PenLine className="mx-auto mb-4 h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+              <h2 className="mb-2 text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Taller de escritos</h2>
+              <p className="mb-6 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">Redactá con IA usando el expediente, la normativa y los fallos del estudio, o armá los de trámite con una plantilla, sin IA. Revisá con un asistente y controlá citas y forma antes de firmar.</p>
               <div className="flex flex-col gap-2 items-center">
                 <button onClick={abrirNuevo}
-                  className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90 dark:bg-white dark:text-zinc-900">
+                  className="btn btn-primary px-5">
                   <Sparkles className="h-4 w-4" /> Nuevo escrito con IA
                 </button>
                 <button onClick={() => setShowPerfil(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-400 hover:text-zinc-200">
+                  className="btn btn-ghost px-5">
                   <SlidersHorizontal className="h-4 w-4" /> Perfil de redacción
                 </button>
                 <button onClick={() => setShowModelos(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-400 hover:text-zinc-200">
+                  className="btn btn-ghost px-5">
                   <Layers className="h-4 w-4" /> Gestionar modelos
                 </button>
                 <button onClick={() => setShowUso(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-5 py-2.5 text-sm text-zinc-400 hover:text-zinc-200">
+                  className="btn btn-ghost px-5">
                   <BarChart3 className="h-4 w-4" /> Uso de IA
                 </button>
               </div>
