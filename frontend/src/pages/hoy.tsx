@@ -140,11 +140,11 @@ function ChecklistHoy({ perfilId }: { perfilId: string }) {
   if (tareas.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Check className="h-4 w-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Rutina diaria</h3>
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Rutina diaria</h3>
           <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
             {completadas}/{tareas.length} completadas
           </span>
@@ -236,16 +236,16 @@ function MisConsultasAsignadas({ userId }: { userId: string }) {
   if (consultas.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-amber-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Mis consultas asignadas</h3>
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+          <Users className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Mis consultas asignadas</h3>
+          <span className="rounded-full border border-white/10 px-2 py-px text-[11px] font-semibold tabular-nums text-zinc-300">
             {consultas.length}
           </span>
         </div>
-        <Link to="/consultas" className="text-[11px] text-amber-400 hover:text-amber-300">Ver todas →</Link>
+        <Link to="/consultas" className="dashboard-link text-[12px]">Ver todas →</Link>
       </div>
       <div className="space-y-1.5">
         {consultas.map(c => {
@@ -281,16 +281,16 @@ function ConsultasPendientes() {
   if (!data.length) return null
   const top = data.slice(0, 5)
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-amber-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Consultas sin atender</h3>
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+          <Users className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Consultas sin atender</h3>
+          <span className="rounded-full border border-white/10 px-2 py-px text-[11px] font-semibold tabular-nums text-zinc-300">
             {data.length}
           </span>
         </div>
-        <Link to="/consultas?estado=pendiente" className="text-[11px] text-amber-400 hover:text-amber-300">Ver todas →</Link>
+        <Link to="/consultas?estado=pendiente" className="dashboard-link text-[12px]">Ver todas →</Link>
       </div>
       <div className="space-y-1.5">
         {top.map(c => (
@@ -320,11 +320,11 @@ function ConsultasPendientes() {
 function AudienciasHoy({ items }: { items: HoyAudiencia[] }) {
   const sorted = [...items].sort((a, b) => new Date(a.hora).getTime() - new Date(b.hora).getTime())
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Audiencias de hoy</h3>
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Audiencias de hoy</h3>
           {items.length > 0 && (
             <span className="rounded-full bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-medium text-cyan-300">
               {items.length}
@@ -382,11 +382,11 @@ function AudienciasHoy({ items }: { items: HoyAudiencia[] }) {
 
 function TareasPendientes({ items }: { items: HoyTarea[] }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <CheckSquare className="h-4 w-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Tus tareas</h3>
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Tus tareas</h3>
         </div>
         <Link to="/tareas" className="text-[11px] text-emerald-400 hover:text-emerald-300">Ver todas →</Link>
       </div>
@@ -433,11 +433,11 @@ function TareasPendientes({ items }: { items: HoyTarea[] }) {
 
 function ContenidosPendientes({ items }: { items: HoyContenido[] }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-violet-400" />
-          <h3 className="text-sm font-semibold text-zinc-100">Contenidos en curso</h3>
+          <h3 className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">Contenidos en curso</h3>
         </div>
         <Link to="/contenidos" className="inline-flex items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300">
           Ver todos
@@ -521,8 +521,8 @@ export default function HoyPage() {
       {/* Saludo */}
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">{dateLabel}</p>
-          <h1 className="page-title mt-1">
+          <p className="eyebrow">{dateLabel}</p>
+          <h1 className="page-title mt-1.5">
             {greeting()}, {nombre}
           </h1>
         </div>
@@ -531,7 +531,7 @@ export default function HoyPage() {
             onClick={actualizar}
             disabled={isFetching}
             title="Actualizar"
-            className="rounded-md border border-zinc-200 p-2 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-700 disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+            className="btn btn-ghost btn-icon"
           >
             <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
           </button>
