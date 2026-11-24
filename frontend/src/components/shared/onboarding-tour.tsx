@@ -345,6 +345,13 @@ export function OnboardingTour() {
       return
     }
     const r = el.getBoundingClientRect()
+    // Oculto en esta pantalla (p. ej. la ayuda en el celular, que pasó al menú del usuario):
+    // se muestra el paso centrado, sin resaltar nada.
+    if (r.width === 0 && r.height === 0) {
+      setRect(null)
+      setReady(true)
+      return
+    }
     if (r.top < 0 || r.bottom > window.innerHeight) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }

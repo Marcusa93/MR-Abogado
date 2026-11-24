@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  useConsultas, useCreateConsulta,
+  useConsultas, useCreateConsulta, useConsultasConteo,
   TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL,
   type ConsultaEstado, type ConsultaCanal, type ConsultaTipoAsunto,
 } from '@/hooks/use-consultas'
@@ -10,9 +10,10 @@ import { toast } from '@/stores/toast-store'
 import { EmptyState } from '@/components/shared/empty-state'
 import { ErrorState } from '@/components/shared/error-state'
 import { TableSkeleton } from '@/components/shared/loading-skeleton'
+import { PageHeader } from '@/components/shared/page-header'
 import {
-  Plus, Search, Users,
-  ChevronRight, LayoutGrid, List, Clock,
+  Plus, Search, Users, X,
+  ChevronRight, LayoutGrid, List, Clock, CheckCircle2,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -28,7 +29,7 @@ function TiempoEstadoBadge({ estadoChangedAt }: { estadoChangedAt: string | null
     ? 'text-red-600 dark:text-red-400'
     : 'text-amber-600 dark:text-amber-400'
   return (
-    <span className={cn('text-[10px] font-medium flex items-center gap-0.5 shrink-0', color)}>
+    <span className={cn('flex shrink-0 items-center gap-1 text-[11px] font-semibold tabular-nums', color)} title="Días en este estado">
       <Clock className="h-3 w-3" />
       {dias === 1 ? '1 día' : `${dias} días`}
     </span>
@@ -38,16 +39,18 @@ function TiempoEstadoBadge({ estadoChangedAt }: { estadoChangedAt: string | null
 // ── Estado badges ───────────────────────────────────────────────────────────
 
 const ESTADO_STYLE: Record<ConsultaEstado, string> = {
-  pendiente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  en_proceso: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  presupuestada: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-  con_claudio: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  requiere_info: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  redactando: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  convertida: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  resuelta: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
-  descartada: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+  pendiente: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+  en_proceso: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300',
+  presupuestada: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  con_claudio: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
+  requiere_info: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+  redactando: 'border-indigo-400/30 bg-indigo-400/10 text-indigo-700 dark:text-indigo-300',
+  convertida: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  resuelta: 'border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300',
+  descartada: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
 }
+
+const TAG = 'inline-flex shrink-0 items-center rounded-full border px-2 py-px text-[10.5px] font-semibold'
 
 const ESTADOS: Array<{ value: ConsultaEstado | ''; label: string }> = [
   { value: '', label: 'Todas' },
@@ -91,65 +94,70 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg bg-white dark:bg-[var(--card)] rounded-xl shadow-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-200 dark:border-white/10 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Nueva consulta</h2>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xl leading-none">×</button>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="app-card w-full max-w-lg overflow-hidden rounded-3xl shadow-2xl dark:bg-[var(--popover)]">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/[0.08]">
+          <div>
+            <p className="eyebrow">Consultas</p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-tight text-zinc-900 dark:text-white">Nueva consulta</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="btn btn-ghost btn-icon border-transparent">
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nombre *</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Nombre *</label>
               <input
                 type="text"
                 value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
                 placeholder="Juan"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Apellido</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Apellido</label>
               <input
                 type="text"
                 value={form.apellido}
                 onChange={e => setForm(f => ({ ...f, apellido: e.target.value }))}
                 placeholder="García"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Teléfono</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Teléfono</label>
               <input
                 type="tel"
                 value={form.telefono}
                 onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))}
                 placeholder="381 4XX-XXXX"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Email</label>
               <input
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="juan@email.com"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Cómo llegó</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Cómo llegó</label>
               <select
                 value={form.canal}
                 onChange={e => setForm(f => ({ ...f, canal: e.target.value as ConsultaCanal }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
               >
                 {Object.entries(CANAL_LABEL).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
@@ -157,11 +165,11 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Tipo de asunto</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Tipo de asunto</label>
               <select
                 value={form.tipo_asunto}
                 onChange={e => setForm(f => ({ ...f, tipo_asunto: e.target.value as ConsultaTipoAsunto }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                className="field h-11"
               >
                 {Object.entries(TIPO_ASUNTO_LABEL).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
@@ -169,14 +177,14 @@ function NuevaConsultaDialog({ onClose, onCreated }: { onClose: () => void; onCr
               </select>
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
+          <div className="flex justify-end gap-2 pt-2 pb-[env(safe-area-inset-bottom)] sm:pb-0">
+            <button type="button" onClick={onClose} className="btn btn-ghost border-transparent">
               Cancelar
             </button>
             <button
               type="submit"
               disabled={create.isPending}
-              className="px-5 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
+              className="btn btn-primary"
             >
               {create.isPending ? 'Guardando…' : 'Crear consulta'}
             </button>
@@ -194,31 +202,34 @@ function ConsultaCard({ consulta, onClick }: { consulta: any; onClick: () => voi
   const asignado = consulta.assigned_profile
     ? [consulta.assigned_profile.nombre, consulta.assigned_profile.apellido].filter(Boolean).join(' ')
     : null
+  const estado = consulta.estado as ConsultaEstado
   return (
     <button
       type="button"
       onClick={onClick}
-      className="app-card group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15"
+      className="app-card group flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5"
     >
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">{nombre}</span>
-          <span className={cn('shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium', ESTADO_STYLE[consulta.estado as ConsultaEstado])}>
-            {ESTADO_LABEL[consulta.estado as ConsultaEstado]}
-          </span>
+        {/* El nombre va solo en su línea: en el celular no compite con la etiqueta de estado */}
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="truncate text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">{nombre}</span>
+          <span className="shrink-0 text-[11.5px] font-medium tabular-nums text-zinc-500">{timeAgo(consulta.created_at)}</span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span>{(TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto] ?? '').toLowerCase()}</span>
-          {consulta.telefono && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span>{consulta.telefono}</span></>}
-          {asignado && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="text-zinc-700 dark:text-zinc-300">{asignado}</span></>}
-          {consulta.diagnostico_at && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="text-emerald-600 dark:text-emerald-400">diagnóstico listo</span></>}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
+          <span className={cn(TAG, ESTADO_STYLE[estado])}>{ESTADO_LABEL[estado]}</span>
+          <span>{TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto] ?? ''}</span>
+          {consulta.telefono && <><span className="text-zinc-400 dark:text-zinc-600" aria-hidden>·</span><span className="tabular-nums">{consulta.telefono}</span></>}
+          {asignado && <><span className="text-zinc-400 dark:text-zinc-600" aria-hidden>·</span><span className="text-zinc-700 dark:text-zinc-300">{asignado}</span></>}
+          {consulta.diagnostico_at && (
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Diagnóstico listo
+            </span>
+          )}
+          <span className="ml-auto"><TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} /></span>
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className="font-mono text-[11px] text-zinc-400">{timeAgo(consulta.created_at)}</span>
-        <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300 transition-colors group-hover:text-zinc-500 dark:text-zinc-600 dark:group-hover:text-zinc-400" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400 transition-colors group-hover:text-[var(--brand-accent)] dark:text-zinc-600" />
     </button>
   )
 }
@@ -231,21 +242,21 @@ function KanbanCard({ consulta, onClick }: { consulta: any; onClick: () => void 
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-3 hover:border-zinc-300 dark:hover:border-white/20 hover:shadow-sm transition-all space-y-1.5"
+      className="app-card w-full space-y-2 rounded-xl p-3 text-left"
     >
-      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{nombre}</div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400')}>
+      <div className="truncate text-[13px] font-bold tracking-tight text-zinc-900 dark:text-white">{nombre}</div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={cn(TAG, 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-300')}>
           {TIPO_ASUNTO_LABEL[consulta.tipo_asunto as ConsultaTipoAsunto]}
         </span>
         {consulta.assigned_profile && (
-          <span className="text-[10px] text-orange-600 dark:text-orange-400 truncate">
+          <span className="truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
             {[consulta.assigned_profile.apellido, consulta.assigned_profile.nombre].filter(Boolean).join(', ')}
           </span>
         )}
       </div>
       <div className="flex items-center justify-between gap-1">
-        <span className="text-[10px] text-zinc-400">{timeAgo(consulta.created_at)}</span>
+        <span className="text-[11px] font-medium tabular-nums text-zinc-500">{timeAgo(consulta.created_at)}</span>
         <TiempoEstadoBadge estadoChangedAt={consulta.estado_changed_at} />
       </div>
     </button>
@@ -278,16 +289,16 @@ function KanbanView({ onCardClick }: { onCardClick: (id: string) => void }) {
           {KANBAN_ESTADOS.map(estado => {
             const cards = byEstado[estado] ?? []
             return (
-              <div key={estado} className="w-56 shrink-0 flex flex-col gap-2">
+              <div key={estado} className="flex w-60 shrink-0 flex-col gap-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className={cn('text-xs font-semibold rounded-full px-2 py-0.5', ESTADO_STYLE[estado])}>
+                  <span className={cn(TAG, 'px-2.5 py-0.5 text-[11px]', ESTADO_STYLE[estado])}>
                     {ESTADO_LABEL[estado]}
                   </span>
-                  <span className="text-xs font-bold text-zinc-400">{cards.length}</span>
+                  <span className="text-xs font-bold tabular-nums text-zinc-500">{cards.length}</span>
                 </div>
-                <div className="flex flex-col gap-2 min-h-[60px] rounded-xl bg-zinc-50 dark:bg-zinc-800/40 p-2">
+                <div className="flex min-h-[60px] flex-col gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
                   {cards.length === 0 ? (
-                    <div className="text-[11px] text-zinc-400 italic text-center py-3">Sin consultas</div>
+                    <div className="py-3 text-center text-[11px] font-medium text-zinc-500">Sin consultas</div>
                   ) : (
                     cards.map((c: any) => (
                       <KanbanCard key={c.id} consulta={c} onClick={() => onCardClick(c.id)} />
@@ -334,6 +345,9 @@ export default function ConsultasPage() {
   const [vista, setVista] = useState<VistaMode>(getVistaInicial)
 
   const { data: consultas, isLoading, error } = useConsultas({ estado, search })
+  // Cuántas hay abiertas en cada estado (consulta liviana, ya la usa el tablero)
+  const { data: conteo } = useConsultasConteo()
+  const abiertas = conteo ? Object.values(conteo).reduce((a, n) => a + n, 0) : null
 
   function handleSetVista(v: VistaMode) {
     setVista(v)
@@ -341,89 +355,62 @@ export default function ConsultasPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Consultas</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Potenciales clientes y diagnósticos previos al expediente</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Toggle lista/kanban */}
-          <div className="flex items-center rounded-lg border border-zinc-200 dark:border-white/10 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => handleSetVista('lista')}
-              className={cn(
-                'p-2 transition-colors',
-                vista === 'lista'
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200',
-              )}
-              title="Vista lista"
-            >
-              <List className="h-4 w-4" />
+    <div className="mx-auto max-w-5xl space-y-5">
+      <PageHeader
+        eyebrow={abiertas == null ? 'Antes del expediente' : `${abiertas} ${abiertas === 1 ? 'abierta' : 'abiertas'}`}
+        title="Consultas"
+        subtitle="Potenciales clientes y diagnósticos previos al expediente"
+        actions={
+          <>
+            <div className="segmented" role="group" aria-label="Vista">
+              <button type="button" onClick={() => handleSetVista('lista')} aria-pressed={vista === 'lista'} title="Vista lista">
+                <List className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={() => handleSetVista('kanban')} aria-pressed={vista === 'kanban'} title="Vista tablero">
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+            <button type="button" onClick={() => setShowNueva(true)} className="btn btn-primary">
+              <Plus className="h-4 w-4" />
+              Nueva consulta
             </button>
-            <button
-              type="button"
-              onClick={() => handleSetVista('kanban')}
-              className={cn(
-                'p-2 transition-colors',
-                vista === 'kanban'
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200',
-              )}
-              title="Vista kanban"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowNueva(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-opacity"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva consulta
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {vista === 'kanban' ? (
         <KanbanView onCardClick={id => navigate(`/consultas/${id}`)} />
       ) : (
         <>
-          {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre, apellido o teléfono…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
-              />
-            </div>
+          {/* Búsqueda */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="search"
+              placeholder="Buscar por nombre, apellido o teléfono…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="field h-11 pl-10"
+            />
           </div>
 
-          {/* Tabs de estado */}
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {ESTADOS.map(e => (
-              <button
-                key={e.value}
-                type="button"
-                onClick={() => setEstado(e.value)}
-                className={cn(
-                  'shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                  estado === e.value
-                    ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white/20 dark:bg-white/10 dark:text-white'
-                    : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/[0.08] dark:text-zinc-400 dark:hover:bg-white/[0.04] dark:hover:text-zinc-200',
-                )}
-              >
-                {e.label}
-              </button>
-            ))}
+          {/* Estados: en el celular se desliza de lado sin cortar la pantalla */}
+          <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+            {ESTADOS.map(e => {
+              const n = e.value ? conteo?.[e.value] : undefined
+              return (
+                <button
+                  key={e.value}
+                  type="button"
+                  onClick={() => setEstado(e.value)}
+                  aria-pressed={estado === e.value}
+                  className="chip"
+                >
+                  {e.label}
+                  {!!n && <span className="chip-count">{n}</span>}
+                </button>
+              )
+            })}
           </div>
 
           {/* Lista */}

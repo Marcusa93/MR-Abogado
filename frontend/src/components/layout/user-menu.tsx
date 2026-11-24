@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, Link } from 'react-router-dom'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, HelpCircle } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
+import { useOnboardingStore } from '@/stores/onboarding-store'
 import { createClient } from '@/lib/supabase/client'
 import { displayRol } from '@/lib/utils/display-rol'
 import { useQueryClient } from '@tanstack/react-query'
@@ -14,6 +15,7 @@ export function UserMenu() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const profile = useAuthStore((s) => s.profile)
+  const openTour = useOnboardingStore((s) => s.open)
 
   const initials = profile
     ? `${(profile.nombre?.[0] ?? '').toUpperCase()}${(profile.apellido?.[0] ?? '').toUpperCase()}`
@@ -68,17 +70,17 @@ export function UserMenu() {
       {open && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[200] w-56 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl animate-scale-in"
+          className="fixed z-[200] w-60 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl animate-scale-in dark:border-white/10 dark:bg-[var(--popover)]"
           style={{
             top: rect ? rect.bottom + 8 : 60,
             right: 16,
           }}
         >
-          <div className="border-b border-zinc-200 dark:border-zinc-700/50 px-4 py-3">
-            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <div className="border-b border-zinc-200 px-4 py-3 dark:border-white/[0.08]">
+            <p className="truncate text-sm font-bold text-zinc-900 dark:text-white">
               {fullName}
             </p>
-            <p className="truncate text-xs text-zinc-500 dark:text-zinc-300">
+            <p className="eyebrow mt-1 truncate">
               {role}
             </p>
           </div>
@@ -87,18 +89,28 @@ export function UserMenu() {
             <Link
               to="/configuracion"
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
             >
               <Settings className="h-4 w-4" />
               Mi perfil
             </Link>
 
-            <div className="border-t border-zinc-100 dark:border-zinc-800 mx-2" />
+            {/* En el celular el botón de ayuda no entra en el encabezado: vive acá */}
+            <button
+              type="button"
+              onClick={() => { setOpen(false); openTour() }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white sm:hidden"
+            >
+              <HelpCircle className="h-4 w-4" />
+              Tour de bienvenida
+            </button>
+
+            <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/[0.06]" />
 
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors rounded-b-xl"
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white"
             >
               <LogOut className="h-4 w-4" />
               Cerrar sesión

@@ -73,7 +73,7 @@ export function DashboardLayout() {
 
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header onMobileMenuToggle={() => setIsMobileOpen(!isMobileOpen)} />
+        <Header />
 
         {realtimeStatus === 'disconnected' && (
           <div className="flex items-center justify-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-600 dark:text-amber-400">

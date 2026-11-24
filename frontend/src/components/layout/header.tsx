@@ -1,5 +1,5 @@
-import { useLocation } from 'react-router-dom'
-import { Menu, Search } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { UserMenu } from './user-menu'
 import { NotificationDropdown } from './notification-dropdown'
@@ -34,11 +34,7 @@ function getPageTitle(pathname: string): string {
   return 'Marco Rossi Estudio Jurídico'
 }
 
-interface HeaderProps {
-  onMobileMenuToggle?: () => void
-}
-
-export function Header({ onMobileMenuToggle }: HeaderProps) {
+export function Header() {
   const { pathname } = useLocation()
   const title = getPageTitle(pathname)
   const openCommandPalette = useUIStore((s) => s.openCommandPalette)
@@ -52,19 +48,14 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
           height: 'calc(3.75rem + env(safe-area-inset-top, 0px))',
         }}
       >
-        {/* Izquierda: en móvil, menú + nombre de la sección; en escritorio, el buscador
+        {/* Izquierda: en el celular, monograma + nombre de la sección (el menú completo
+            está en "Más" de la barra inferior); en escritorio, el buscador
             (el título ya lo muestra cada página, repetirlo acá era ruido). */}
         <div className="flex min-w-0 items-center gap-2 lg:flex-1">
-          {onMobileMenuToggle && (
-            <button
-              type="button"
-              onClick={onMobileMenuToggle}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-zinc-500 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5 lg:hidden"
-              aria-label="Abrir menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          )}
+          <Link to="/inicio" aria-label="Inicio" className="flex h-10 w-9 shrink-0 items-center justify-center lg:hidden">
+            <img src="/logo/mr-monograma-blanco.svg" alt="" className="hidden h-6 w-auto dark:block" />
+            <img src="/logo/mr-monograma-azul.svg" alt="" className="h-6 w-auto dark:hidden" />
+          </Link>
           <h1 className="truncate text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white lg:hidden">{title}</h1>
           <button
             type="button"
@@ -91,7 +82,9 @@ export function Header({ onMobileMenuToggle }: HeaderProps) {
             <SaeHealthBadge />
           </div>
           <PushToggle />
-          <HelpButton />
+          <div className="hidden sm:block">
+            <HelpButton />
+          </div>
           <ChatEquipo />
           <NotificationDropdown />
           <UserMenu />
