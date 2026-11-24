@@ -12,7 +12,7 @@ export type ConsultaTipoAsunto =
   | 'laboral_trabajador' | 'laboral_empleador'
   | 'civil' | 'familia' | 'previsional' | 'penal' | 'otro'
 
-export type TipoHonorario = 'cuota_litis' | 'arancel_verbal' | 'arancel_escrito' | 'honorario_fijo'
+export type TipoHonorario = 'cuota_litis' | 'arancel_verbal' | 'arancel_escrito' | 'honorario_fijo' | 'mixto'
 
 export interface DiagnosticoModulo {
   area: string
@@ -25,6 +25,8 @@ export interface DiagnosticoModulo {
   checklist_cliente?: string[]
   tipo_honorario_sugerido: TipoHonorario
   descripcion_honorarios: string
+  /** false = no figura en el documento (se conserva en la consulta) */
+  incluir?: boolean
 }
 
 export interface DiagnosticoIA {
@@ -108,10 +110,24 @@ export interface Presupuesto {
   descripcion_ia: string | null
   estado: 'borrador' | 'presentado' | 'aceptado' | 'rechazado'
   notas: string | null
+  /** Área del conflicto (clave de tipo_asunto) */
+  area: string | null
+  /** Juicio, actuación administrativa o gestión que se cotiza */
+  proceso: string | null
+  tipo_actuacion: 'judicial' | 'administrativa' | 'extrajudicial' | 'consulta' | 'otra'
+  /** Alcance: qué incluye y qué no */
+  detalle: string | null
+  /** Parte fija del honorario mixto */
+  monto_fijo: number | null
+  orden: number
+  /** Figura en el documento y en los totales */
+  incluido: boolean
   created_by: string
   created_at: string
   updated_at: string
 }
+
+export type PresupuestoInput = Omit<Presupuesto, 'id' | 'created_at' | 'updated_at' | 'created_by'> & { id?: string }
 
 export interface ConsultaActividad {
   id: string
@@ -162,6 +178,7 @@ export const HONORARIO_LABEL: Record<TipoHonorario, string> = {
   arancel_verbal: 'Consulta verbal Colegio',
   arancel_escrito: 'Consulta escrita Colegio',
   honorario_fijo: 'Honorario fijo',
+  mixto: 'Fijo + porcentaje',
 }
 
 export const ARANCEL_VERBAL = 365000
@@ -177,6 +194,8 @@ export function calcularHonorarios(
     case 'arancel_verbal': return ARANCEL_VERBAL * multiplicador
     case 'arancel_escrito': return ARANCEL_ESCRITO * multiplicador
     case 'honorario_fijo': return montoBase
+    // Solo la parte variable: para el total del mixto usar honorarioEstimado (lib/consultas/cotizacion)
+    case 'mixto': return montoBase * (multiplicador / 100)
     default: return 0
   }
 }
@@ -340,6 +359,7 @@ export function usePresupuestos(consultaId: string | undefined) {
         .from('presupuestos')
         .select('*')
         .eq('consulta_id', consultaId)
+        .order('orden', { ascending: true })
         .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as Presupuesto[]
@@ -369,7 +389,7 @@ export function useUpsertPresupuesto() {
   const qc = useQueryClient()
   const profile = useAuthStore(s => s.profile)
   return useMutation({
-    mutationFn: async (payload: Omit<Presupuesto, 'id' | 'created_at' | 'updated_at' | 'created_by'> & { id?: string }) => {
+    mutationFn: async (payload: PresupuestoInput) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any
       const now = new Date().toISOString()

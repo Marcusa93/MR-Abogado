@@ -1,409 +1,389 @@
-import type { Consulta, Presupuesto, DiagnosticoIA, DiagnosticoModulo, ConsultaTipoAsunto } from '@/hooks/use-consultas'
-import { TIPO_ASUNTO_LABEL, HONORARIO_LABEL, calcularHonorarios } from '@/hooks/use-consultas'
-import { forwardRef } from 'react'
+import { forwardRef, type CSSProperties, type ReactNode } from 'react'
+import type { Consulta, Presupuesto, DiagnosticoIA, DiagnosticoModulo } from '@/hooks/use-consultas'
+import {
+  TIPO_ACTUACION_LABEL, agruparPorArea, calcularFinanciacion, calcularTotales, describirHonorario,
+  describirPlan, etiquetaArea, formatPesos, porcentajeResultado,
+  type Cotizacion,
+} from '@/lib/consultas/cotizacion'
+
+// Documento para el cliente: tapa con la identidad del estudio (navy, monograma,
+// Montserrat, como el sitio) y cuerpo con el formato de los escritos: Times
+// New Roman 12, interlineado 1,5, márgenes de 2,5 cm, sangría de 5 cm,
+// justificado, títulos centrados en negrita y subrayados, logo arriba y firma.
+// Se imprime con lib/consultas/imprimir-documento.ts.
+
+export type ModoDocumento = 'diagnostico' | 'presupuesto' | 'completo'
 
 interface Props {
   consulta: Consulta
-  presupuesto?: Presupuesto | null
-  presupuestos?: Presupuesto[]
+  presupuestos: Presupuesto[]
+  cotizacion: Cotizacion | null
+  mode: ModoDocumento
+  /** Alcance: una sola área (clave de tipo_asunto) o null para todo */
+  area?: string | null
   abogadoNombre?: string
-  mode?: 'diagnostico' | 'presupuesto'
   notasAbogado?: string | null
 }
 
-function formatPesos(n: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
-  }).format(n)
+const SERIF = '"Times New Roman", Times, serif'
+const SANS = "'Montserrat Variable', 'Montserrat', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+const NAVY = '#0a1929'
+const ACENTO = '#66ACCC'
+const GRIS = '#4b5563'
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV']
+
+const P: CSSProperties = { margin: '0 0 0.35cm', textIndent: '5cm' }
+const ROTULO: CSSProperties = { fontFamily: SANS, fontSize: '7.5pt', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase' }
+
+const TITULOS: Record<ModoDocumento, { tapa: [string, string]; cuerpo: string }> = {
+  diagnostico: { tapa: ['Diagnóstico', 'jurídico'], cuerpo: 'Diagnóstico jurídico preliminar' },
+  presupuesto: { tapa: ['Propuesta de', 'honorarios'], cuerpo: 'Propuesta de honorarios profesionales' },
+  completo: { tapa: ['Diagnóstico y', 'propuesta'], cuerpo: 'Diagnóstico jurídico preliminar y propuesta de honorarios' },
 }
 
-function ChancesBadge({ v }: { v: DiagnosticoIA['chances_estimadas'] }) {
-  const map = {
-    alta: { label: 'Probabilidad alta', color: '#16a34a' },
-    media: { label: 'Probabilidad media', color: '#ca8a04' },
-    baja: { label: 'Probabilidad baja', color: '#dc2626' },
-    sin_datos: { label: 'Sin datos suficientes', color: '#6b7280' },
-  }
-  const { label, color } = (v ? map[v] : undefined) ?? map.sin_datos
-  return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 10px',
-      borderRadius: '999px',
-      border: `1.5px solid ${color}`,
-      color,
-      fontSize: '10pt',
-      fontWeight: 600,
-    }}>
-      {label}
-    </span>
-  )
+const CHANCES: Record<string, { label: string; color: string }> = {
+  alta: { label: 'alta', color: '#15803d' },
+  media: { label: 'media', color: '#b45309' },
+  baja: { label: 'baja', color: '#b91c1c' },
+  sin_datos: { label: 'sin datos suficientes', color: '#6b7280' },
+}
+
+/** Módulos del diagnóstico que van al documento (multi-área o el formato anterior). */
+function modulosDe(diag: DiagnosticoIA | null): DiagnosticoModulo[] {
+  if (!diag) return []
+  if (diag.modulos?.length) return diag.modulos.filter((m) => m.incluir !== false)
+  if (!diag.fuero && !diag.observaciones) return []
+  return [{
+    area: '', fuero: diag.fuero ?? '', pretension: diag.pretension ?? '', chances_estimadas: diag.chances_estimadas ?? 'sin_datos',
+    acciones_recomendadas: diag.acciones_recomendadas ?? [], riesgos: diag.riesgos ?? [], observaciones: diag.observaciones ?? '',
+    checklist_cliente: diag.checklist_cliente, tipo_honorario_sugerido: diag.tipo_honorario_sugerido ?? 'honorario_fijo',
+    descripcion_honorarios: diag.descripcion_honorarios ?? '',
+  }]
 }
 
 export const ConsultaPdfPreview = forwardRef<HTMLDivElement, Props>(
-  ({ consulta, presupuesto, presupuestos, abogadoNombre, mode = 'diagnostico', notasAbogado }, ref) => {
-    const diag = consulta.diagnostico_ia
-    const fechaConsulta = new Date(consulta.created_at).toLocaleDateString('es-AR', {
-      day: '2-digit', month: 'long', year: 'numeric',
-    })
-    const nombreCliente = [consulta.apellido, consulta.nombre].filter(Boolean).join(', ')
-    const honorariosCalc = presupuesto
-      ? calcularHonorarios(presupuesto.tipo_honorario, presupuesto.monto_base ?? 0, presupuesto.multiplicador)
-      : null
-    const presupuestosEff = presupuestos && presupuestos.length > 0 ? presupuestos : (presupuesto ? [presupuesto] : [])
+  ({ consulta, presupuestos, cotizacion, mode, area = null, abogadoNombre = 'Dr. Marco Rossi', notasAbogado }, ref) => {
+    const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const fechaConsulta = new Date(consulta.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+    const cliente = [consulta.nombre, consulta.apellido].filter(Boolean).join(' ') || consulta.nombre
 
-    const firmaTitulo = mode === 'presupuesto' ? 'Presupuesto de Honorarios' : 'Diagnóstico\nJurídico Preliminar'
+    const conDiag = mode !== 'presupuesto'
+    const conHonorarios = mode !== 'diagnostico'
+    const modulos = modulosDe(consulta.diagnostico_ia).filter((m) => !area || m.area === area)
+    const items = presupuestos.filter((p) => p.incluido !== false && (!area || p.area === area))
+    // Con un área sola no aplica el precio por paquete: se muestra como por separado
+    const cot: Cotizacion | null = cotizacion && (area ? { ...cotizacion, modo: 'separado', precio_conjunto: null } : cotizacion)
+
+    const areasTapa: string[] = []
+    for (const a of [...(conDiag ? modulos.map((m) => m.area) : []), ...(conHonorarios ? items.map((i) => i.area ?? '') : [])]) {
+      if (a && !areasTapa.includes(a)) areasTapa.push(a)
+    }
+    if (!areasTapa.length) {
+      for (const a of area ? [area] : consulta.areas_derecho?.length ? consulta.areas_derecho : [consulta.tipo_asunto]) {
+        if (a && !areasTapa.includes(a)) areasTapa.push(a)
+      }
+    }
+
+    let n = 0
+    const numeral = () => ROMANOS[n++] ?? String(n)
 
     return (
-      <div
-        ref={ref}
-        className="consulta-pdf-doc"
-        style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: '12pt', color: '#000', width: '21cm', minHeight: '29.7cm', margin: '0 auto', background: 'white' }}
-      >
-        {/* ── TAPA ── */}
-        <div
-          className="consulta-pdf-cover"
-          style={{
-            width: '21cm', height: '29.7cm',
-            background: 'linear-gradient(160deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between',
-            padding: '2.5cm 2cm', boxSizing: 'border-box', pageBreakAfter: 'always',
-          }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <img src="/logo/mr-logo-blanco.svg" alt="MR Abogado" style={{ height: '70px', display: 'block', margin: '0 auto' }} />
-            <div style={{ color: '#94a3b8', fontSize: '9.5pt', marginTop: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-              Estudio Jurídico Dr. Marco Rossi · Tucumán, Argentina
-            </div>
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ width: '40px', height: '3px', background: '#3b82f6', margin: '0 auto 24px' }} />
-            <div style={{
-              color: '#ffffff', fontSize: '22pt', fontWeight: 700, letterSpacing: '0.04em',
-              lineHeight: 1.2, textTransform: 'uppercase', fontFamily: '"Times New Roman", Times, serif',
-              whiteSpace: 'pre-line',
-            }}>
-              {firmaTitulo}
-            </div>
-            <div style={{ width: '40px', height: '3px', background: '#3b82f6', margin: '24px auto 0' }} />
-          </div>
-
-          <div style={{
-            background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '12px', padding: '24px 32px', width: '100%', boxSizing: 'border-box', color: '#e2e8f0',
+      <div ref={ref}>
+        <div className="doc" style={{ width: '21cm', background: '#fff', color: '#000' }}>
+          {/* ── TAPA ─────────────────────────────────────────────────────── */}
+          <div className="doc-portada" style={{
+            width: '21cm', height: '29.7cm', position: 'relative', overflow: 'hidden', background: NAVY, color: '#fff',
+            fontFamily: SANS, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            padding: '2.2cm 2.2cm 1.8cm 2.6cm', boxSizing: 'border-box',
           }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5pt' }}>
-              <tbody>
-                <tr>
-                  <td style={{ color: '#94a3b8', paddingBottom: '8px', width: '35%' }}>Cliente</td>
-                  <td style={{ fontWeight: 600, paddingBottom: '8px' }}>{nombreCliente || consulta.nombre}</td>
-                </tr>
-                {consulta.telefono && (
-                  <tr>
-                    <td style={{ color: '#94a3b8', paddingBottom: '8px' }}>Teléfono</td>
-                    <td style={{ paddingBottom: '8px' }}>{consulta.telefono}</td>
-                  </tr>
-                )}
-                <tr>
-                  <td style={{ color: '#94a3b8', paddingBottom: '8px' }}>Materia</td>
-                  <td style={{ paddingBottom: '8px' }}>{TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}</td>
-                </tr>
-                <tr>
-                  <td style={{ color: '#94a3b8' }}>Fecha de consulta</td>
-                  <td>{fechaConsulta}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+            {/* Monograma de fondo y franja de acento */}
+            <img src="/logo/mr-monograma-blanco.svg" alt="" style={{ position: 'absolute', right: '-4.5cm', bottom: '-3.5cm', height: '19cm', opacity: 0.045 }} />
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '0.45cm', background: ACENTO }} />
 
-        {/* ── CONTENIDO ── */}
-        <div
-          className="consulta-pdf-content"
-          style={{ padding: '2.5cm', boxSizing: 'border-box', lineHeight: 1.5, textAlign: 'justify' }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: '1.2cm' }}>
-            <img src="/logo/mr-logo-azul.svg" alt="MR Abogado" style={{ height: '55px', display: 'inline-block' }} />
-          </div>
-
-          <div style={{ borderBottom: '2px solid #0f172a', marginBottom: '0.8cm' }} />
-
-          {mode === 'diagnostico' ? (
-            <DiagnosticoContent
-              diag={diag}
-              notasAbogado={notasAbogado}
-              nombreCliente={nombreCliente || consulta.nombre}
-              tipoAsunto={TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}
-              fechaConsulta={fechaConsulta}
-            />
-          ) : (
-            <PresupuestoContent
-              presupuestos={presupuestosEff}
-              honorariosCalc={honorariosCalc}
-              diag={diag}
-              nombreCliente={nombreCliente || consulta.nombre}
-              tipoAsunto={TIPO_ASUNTO_LABEL[consulta.tipo_asunto]}
-              fechaConsulta={fechaConsulta}
-            />
-          )}
-
-          {/* Firma */}
-          <div style={{ marginTop: '2.5cm', textAlign: 'center' }}>
-            <div style={{ borderTop: '1px solid #374151', width: '8cm', margin: '0 auto 6px' }} />
-            <div style={{ fontWeight: 700, fontSize: '11pt' }}>{abogadoNombre ?? 'Dr. Marco Rossi'}</div>
-            <div style={{ fontSize: '10pt', color: '#374151' }}>Abogado · Tucumán, Argentina</div>
-            <div style={{ fontSize: '9pt', color: '#6b7280', marginTop: '4px' }}>
-              Documento de uso interno — confidencial
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <img src="/logo/mr-logo-blanco.svg" alt="Estudio Jurídico Dr. Marco Rossi" style={{ height: '1.35cm' }} />
+              <span style={{ ...ROTULO, color: 'rgba(255,255,255,0.55)' }}>Confidencial</span>
             </div>
+
+            <div style={{ position: 'relative' }}>
+              <div style={{ ...ROTULO, color: ACENTO, fontSize: '8.5pt' }}>Estudio jurídico · Tucumán</div>
+              <h1 style={{ margin: '0.55cm 0 0', fontSize: '44pt', fontWeight: 800, lineHeight: 1.02, letterSpacing: '-0.015em', fontFamily: SANS }}>
+                {TITULOS[mode].tapa[0]}<br />{TITULOS[mode].tapa[1]}
+              </h1>
+              <div style={{ width: '2.4cm', height: '4px', background: ACENTO, margin: '0.9cm 0 0.8cm' }} />
+              <div style={{ ...ROTULO, color: 'rgba(255,255,255,0.55)' }}>Preparado para</div>
+              <div style={{ marginTop: '0.2cm', fontSize: '22pt', fontWeight: 600, letterSpacing: '-0.005em' }}>{cliente}</div>
+              {areasTapa.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.22cm', marginTop: '0.6cm' }}>
+                  {areasTapa.map((a) => (
+                    <span key={a} style={{
+                      border: '1px solid rgba(102,172,204,0.55)', color: '#d4ebf5', borderRadius: '999px',
+                      padding: '0.1cm 0.42cm', fontSize: '9pt', fontWeight: 600, letterSpacing: '0.02em',
+                    }}>{etiquetaArea(a)}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6cm', borderTop: '1px solid rgba(255,255,255,0.16)', paddingTop: '0.55cm' }}>
+                <DatoTapa rotulo="Fecha" valor={fecha} />
+                <DatoTapa rotulo="Consulta" valor={fechaConsulta} />
+                <DatoTapa rotulo={conHonorarios && cot?.validez_dias ? 'Validez' : 'Responsable'}
+                  valor={conHonorarios && cot?.validez_dias ? `${cot.validez_dias} días` : abogadoNombre} />
+              </div>
+              <div style={{ marginTop: '0.9cm', display: 'flex', justifyContent: 'space-between', fontSize: '8.5pt', color: 'rgba(255,255,255,0.5)' }}>
+                <span>{abogadoNombre} · Abogado</span>
+                <span>marcorossi.com.ar</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── CUERPO (formato de escritos) ─────────────────────────────── */}
+          <div className="doc-contenido" style={{
+            width: '21cm', padding: '2.5cm', boxSizing: 'border-box',
+            fontFamily: SERIF, fontSize: '12pt', lineHeight: 1.5, textAlign: 'justify', color: '#000',
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '1.2cm' }}>
+              <img src="/logo/mr-logo-azul.svg" alt="MR Abogado" style={{ height: '70px', display: 'inline-block' }} />
+            </div>
+
+            <p className="doc-titulo" style={{ textAlign: 'center', fontWeight: 'bold', textDecoration: 'underline', textTransform: 'uppercase', margin: '0 0 0.9cm' }}>
+              {TITULOS[mode].cuerpo}
+            </p>
+
+            {conDiag && (
+              <p style={P}>
+                {cliente} consultó al estudio el {fechaConsulta}. A partir de lo relatado y de la documentación aportada hasta el momento, se expone a continuación un análisis preliminar de su situación{conHonorarios ? ', junto con la propuesta de honorarios' : ''}.
+              </p>
+            )}
+
+            {conDiag && (modulos.length > 0 ? modulos.map((m, i) => (
+              <ModuloDoc key={`${m.area}-${i}`} m={m}
+                titulo={`${numeral()}. ${m.area ? etiquetaArea(m.area) : 'Análisis del caso'}`} />
+            )) : (
+              <p style={{ ...P, textIndent: 0, fontStyle: 'italic', color: GRIS }}>El diagnóstico todavía no fue elaborado.</p>
+            ))}
+
+            {conDiag && notasAbogado?.trim() && (
+              <>
+                <Seccion>{numeral()}. Observaciones</Seccion>
+                {notasAbogado.trim().split(/\n{2,}/).map((t, i) => <p key={i} style={{ ...P, whiteSpace: 'pre-wrap' }}>{t}</p>)}
+              </>
+            )}
+
+            {conHonorarios && cot && <HonorariosDoc items={items} cot={cot} numeral={numeral} cliente={conDiag ? undefined : cliente} />}
+
+            {/* Firma */}
+            <div className="doc-bloque" style={{ marginTop: '2.2cm', textAlign: 'center', lineHeight: 1.3 }}>
+              <div style={{ borderTop: '1px solid #000', width: '7.5cm', margin: '0 auto 0.2cm' }} />
+              <div style={{ fontWeight: 'bold' }}>{abogadoNombre}</div>
+              <div style={{ fontSize: '11pt' }}>Abogado · San Miguel de Tucumán</div>
+            </div>
+            <p style={{ marginTop: '1.2cm', fontSize: '9pt', lineHeight: 1.4, color: GRIS, textAlign: 'center' }}>
+              Documento confidencial, preparado para uso exclusivo de su destinatario. El análisis es preliminar y puede cambiar con nueva información o documentación.
+            </p>
           </div>
         </div>
       </div>
     )
-  }
+  },
 )
 
 ConsultaPdfPreview.displayName = 'ConsultaPdfPreview'
 
-// ── Sección diagnóstico ───────────────────────────────────────────────────────
+// ── Piezas ──────────────────────────────────────────────────────────────────
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
-
-function DiagnosticoContent({
-  diag, notasAbogado, nombreCliente, tipoAsunto, fechaConsulta,
-}: {
-  diag: DiagnosticoIA | null
-  notasAbogado?: string | null
-  nombreCliente: string
-  tipoAsunto: string
-  fechaConsulta: string
-}) {
-  const modulos = diag?.modulos && diag.modulos.length > 0 ? diag.modulos : null
-
+function DatoTapa({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
-    <>
-      <h1 style={{ textAlign: 'center', fontSize: '14pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3cm' }}>
-        Diagnóstico Jurídico Preliminar
-      </h1>
-      <div style={{ textAlign: 'center', marginBottom: '1cm', fontSize: '10.5pt', color: '#374151' }}>
-        {nombreCliente} · {tipoAsunto} · {fechaConsulta}
-      </div>
-
-      {modulos ? (
-        <>
-          {modulos.map((m, i) => (
-            <ModuloSection key={i} modulo={m} numeral={ROMAN[i] ?? String(i + 1)} multiple={modulos.length > 1} />
-          ))}
-          {notasAbogado && (
-            <Section title={`${ROMAN[modulos.length] ?? String(modulos.length + 1)}. Observaciones del abogado`}>
-              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{notasAbogado}</p>
-            </Section>
-          )}
-        </>
-      ) : diag ? (
-        <>
-          <Section title="I. Síntesis del caso">
-            <Row label="Fuero" value={diag.fuero ?? '—'} />
-            <Row label="Pretensión" value={diag.pretension ?? '—'} />
-            <div style={{ marginTop: '10px' }}><ChancesBadge v={diag.chances_estimadas ?? 'sin_datos'} /></div>
-          </Section>
-
-          <Section title="II. Análisis jurídico">
-            <p style={{ margin: 0, textIndent: '1.2cm' }}>{diag.observaciones}</p>
-          </Section>
-
-          <Section title="III. Acciones recomendadas">
-            <ol style={{ margin: '0', paddingLeft: '1.8cm' }}>
-              {(diag.acciones_recomendadas ?? []).map((a, i) => <li key={i} style={{ marginBottom: '6px' }}>{a}</li>)}
-            </ol>
-          </Section>
-
-          {(diag.riesgos?.length ?? 0) > 0 && (
-            <Section title="IV. Advertencias y riesgos">
-              <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
-                {(diag.riesgos ?? []).map((r, i) => <li key={i} style={{ marginBottom: '6px' }}>{r}</li>)}
-              </ul>
-            </Section>
-          )}
-
-          {notasAbogado && (
-            <Section title="V. Observaciones del abogado">
-              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{notasAbogado}</p>
-            </Section>
-          )}
-        </>
-      ) : (
-        <p style={{ color: '#6b7280', textAlign: 'center', fontStyle: 'italic' }}>Diagnóstico no generado aún.</p>
-      )}
-    </>
+    <div>
+      <div style={{ ...ROTULO, color: ACENTO }}>{rotulo}</div>
+      <div style={{ marginTop: '0.12cm', fontSize: '10.5pt', fontWeight: 600, color: '#fff' }}>{valor}</div>
+    </div>
   )
 }
 
-function ModuloSection({ modulo, numeral, multiple }: { modulo: DiagnosticoModulo; numeral: string; multiple: boolean }) {
-  const areaLabel = TIPO_ASUNTO_LABEL[modulo.area as ConsultaTipoAsunto] ?? modulo.area
-  const title = multiple ? `${numeral}. ${areaLabel}` : `${numeral}. Síntesis y análisis del caso`
-
+function Seccion({ children }: { children: ReactNode }) {
   return (
-    <Section title={title}>
-      <Row label="Fuero" value={modulo.fuero || '—'} />
-      <Row label="Pretensión" value={modulo.pretension || '—'} />
-      <div style={{ marginTop: '10px' }}><ChancesBadge v={modulo.chances_estimadas ?? 'sin_datos'} /></div>
-      <p style={{ margin: '10px 0 0', textIndent: '1.2cm' }}>{modulo.observaciones}</p>
-
-      {(modulo.acciones_recomendadas?.length ?? 0) > 0 && (
-        <div style={{ marginTop: '12px' }}>
-          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Acciones recomendadas</div>
-          <ol style={{ margin: 0, paddingLeft: '1.8cm' }}>
-            {modulo.acciones_recomendadas.map((a, i) => <li key={i} style={{ marginBottom: '4px' }}>{a}</li>)}
-          </ol>
-        </div>
-      )}
-
-      {(modulo.riesgos?.length ?? 0) > 0 && (
-        <div style={{ marginTop: '12px' }}>
-          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Advertencias y riesgos</div>
-          <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
-            {(modulo.riesgos ?? []).map((r, i) => <li key={i} style={{ marginBottom: '4px' }}>{r}</li>)}
-          </ul>
-        </div>
-      )}
-
-      {(modulo.checklist_cliente?.length ?? 0) > 0 && (
-        <div style={{ marginTop: '12px' }}>
-          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Documentación a solicitar</div>
-          <ul style={{ margin: 0, paddingLeft: '1.5cm' }}>
-            {(modulo.checklist_cliente ?? []).map((c, i) => <li key={i} style={{ marginBottom: '4px' }}>{c}</li>)}
-          </ul>
-        </div>
-      )}
-    </Section>
-  )
-}
-
-// ── Sección presupuesto ───────────────────────────────────────────────────────
-
-function PresupuestoContent({
-  presupuestos, honorariosCalc, diag, nombreCliente, tipoAsunto, fechaConsulta,
-}: {
-  presupuestos: Presupuesto[]
-  honorariosCalc: number | null
-  diag: DiagnosticoIA | null
-  nombreCliente: string
-  tipoAsunto: string
-  fechaConsulta: string
-}) {
-  const total = presupuestos.reduce((acc, p) => acc + calcularHonorarios(p.tipo_honorario, p.monto_base ?? 0, p.multiplicador), 0)
-  const tieneCuotaLitis = presupuestos.some(p => p.tipo_honorario === 'cuota_litis')
-  const fundamento = diag?.descripcion_honorarios
-    || diag?.modulos?.map(m => m.descripcion_honorarios).filter(Boolean).join('\n\n')
-
-  return (
-    <>
-      <h1 style={{ textAlign: 'center', fontSize: '14pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.3cm' }}>
-        Presupuesto de Honorarios Profesionales
-      </h1>
-      <div style={{ textAlign: 'center', marginBottom: '1cm', fontSize: '10.5pt', color: '#374151' }}>
-        {nombreCliente} · {tipoAsunto} · {fechaConsulta}
-      </div>
-
-      {presupuestos.length > 0 ? (
-        <>
-          {fundamento && (
-            <Section title="I. Fundamento">
-              <p style={{ margin: 0, textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{fundamento}</p>
-            </Section>
-          )}
-
-          <Section title={fundamento ? 'II. Honorarios' : 'I. Honorarios'}>
-            <div style={{ border: '1.5px solid #1e3a5f', borderRadius: '8px', padding: '20px 28px', marginTop: '12px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11pt' }}>
-                <tbody>
-                  {presupuestos.map((p, idx) => {
-                    const hc = calcularHonorarios(p.tipo_honorario, p.monto_base ?? 0, p.multiplicador)
-                    const label = p.notas
-                      ? `${HONORARIO_LABEL[p.tipo_honorario]} — ${p.notas}`
-                      : HONORARIO_LABEL[p.tipo_honorario]
-                    const pct = p.tipo_honorario === 'cuota_litis' ? ` (${p.multiplicador}%)` : ''
-                    return (
-                      <tr key={p.id} style={{ borderBottom: idx < presupuestos.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
-                        <td style={{ color: '#374151', paddingBottom: '8px', paddingTop: idx > 0 ? '8px' : '0' }}>
-                          {label}{pct}
-                          {p.tipo_honorario === 'cuota_litis' && p.monto_base && (
-                            <span style={{ display: 'block', fontSize: '9.5pt', color: '#6b7280' }}>
-                              Monto reclamado: {formatPesos(p.monto_base)}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right', paddingBottom: '8px', paddingTop: idx > 0 ? '8px' : '0', fontWeight: presupuestos.length === 1 ? 700 : 400 }}>
-                          {formatPesos(hc)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {presupuestos.length > 1 && (
-                    <tr style={{ borderTop: '2px solid #1e3a5f' }}>
-                      <td style={{ fontWeight: 700, paddingTop: '10px', fontSize: '13pt' }}>Total</td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '13pt', color: '#1e3a5f' }}>
-                        {formatPesos(total)}
-                      </td>
-                    </tr>
-                  )}
-                  {presupuestos.length === 1 && (
-                    <tr style={{ borderTop: '1px solid #d1d5db' }}>
-                      <td style={{ fontWeight: 700, paddingTop: '10px', fontSize: '13pt' }}>Honorarios estimados</td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '13pt', color: '#1e3a5f' }}>
-                        {honorariosCalc !== null ? formatPesos(honorariosCalc) : formatPesos(total)}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {tieneCuotaLitis && (
-              <p style={{ fontSize: '9.5pt', color: '#6b7280', marginTop: '10px', textAlign: 'center', fontStyle: 'italic' }}>
-                El honorario de cuota litis es sobre lo efectivamente obtenido. Sin resultado, sin cobro.
-              </p>
-            )}
-          </Section>
-
-          {presupuestos.some(p => p.notas && p.tipo_honorario !== 'cuota_litis') && (
-            <Section title={fundamento ? 'III. Condiciones y observaciones' : 'II. Condiciones y observaciones'}>
-              {presupuestos.filter(p => p.notas).map(p => (
-                <p key={p.id} style={{ margin: '0 0 6px', textIndent: '1.2cm', whiteSpace: 'pre-wrap' }}>{p.notas}</p>
-              ))}
-            </Section>
-          )}
-        </>
-      ) : (
-        <p style={{ color: '#6b7280', textAlign: 'center', fontStyle: 'italic' }}>Presupuesto no confeccionado aún.</p>
-      )}
-    </>
-  )
-}
-
-// ── Helpers de layout ──────────────────────────────────────────────────────────
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: '0.8cm' }}>
-      <h2 style={{
-        fontSize: '11pt', fontWeight: 700, textDecoration: 'underline', textAlign: 'center',
-        textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35cm', marginTop: '0.6cm',
-      }}>
-        {title}
-      </h2>
+    <p className="doc-seccion" style={{ textAlign: 'center', fontWeight: 'bold', textDecoration: 'underline', textTransform: 'uppercase', margin: '0.9cm 0 0.4cm', textIndent: 0 }}>
       {children}
-    </div>
+    </p>
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Subtitulo({ children }: { children: ReactNode }) {
+  return <p className="doc-seccion" style={{ fontWeight: 'bold', margin: '0.45cm 0 0.15cm', textIndent: 0 }}>{children}</p>
+}
+
+function Lista({ items, ordenada }: { items: string[]; ordenada?: boolean }) {
+  const contenido = items.filter(Boolean).map((t, i) => <li key={i} style={{ marginBottom: '0.1cm' }}>{t}</li>)
+  const estilo: CSSProperties = { margin: '0 0 0.3cm', paddingLeft: '1.4cm' }
+  return ordenada ? <ol style={estilo}>{contenido}</ol> : <ul style={estilo}>{contenido}</ul>
+}
+
+function ModuloDoc({ m, titulo }: { m: DiagnosticoModulo; titulo: string }) {
+  const ch = CHANCES[m.chances_estimadas] ?? CHANCES.sin_datos!
   return (
-    <div style={{ display: 'flex', gap: '1cm', marginBottom: '6px' }}>
-      <span style={{ fontWeight: 600, minWidth: '3.5cm', color: '#374151' }}>{label}:</span>
-      <span style={{ flex: 1 }}>{value}</span>
-    </div>
+    <>
+      <Seccion>{titulo}</Seccion>
+      <div className="doc-bloque" style={{ margin: '0 0 0.35cm' }}>
+        {m.fuero && <div><strong>Fuero:</strong> {m.fuero}</div>}
+        {m.pretension && <div><strong>Pretensión:</strong> {m.pretension}</div>}
+        <div>
+          <strong>Probabilidad estimada:</strong>{' '}
+          <span style={{ display: 'inline-block', width: '0.22cm', height: '0.22cm', borderRadius: '50%', background: ch.color, margin: '0 0.12cm 0.03cm 0.05cm', verticalAlign: 'middle' }} />
+          {ch.label}
+        </div>
+      </div>
+      {m.observaciones?.split(/\n{2,}/).filter(Boolean).map((t, i) => <p key={i} style={{ ...P, whiteSpace: 'pre-wrap' }}>{t}</p>)}
+      {(m.acciones_recomendadas?.filter(Boolean).length ?? 0) > 0 && (<><Subtitulo>Acciones recomendadas</Subtitulo><Lista items={m.acciones_recomendadas} ordenada /></>)}
+      {(m.riesgos?.filter(Boolean).length ?? 0) > 0 && (<><Subtitulo>Advertencias y riesgos</Subtitulo><Lista items={m.riesgos} /></>)}
+      {(m.checklist_cliente?.filter(Boolean).length ?? 0) > 0 && (<><Subtitulo>Documentación a reunir</Subtitulo><Lista items={m.checklist_cliente ?? []} /></>)}
+    </>
+  )
+}
+
+const CELDA: CSSProperties = { padding: '0.22cm 0.1cm', verticalAlign: 'top', borderBottom: '1px solid #d1d5db', textAlign: 'left' }
+const CELDA_DER: CSSProperties = { ...CELDA, textAlign: 'right', whiteSpace: 'nowrap', paddingLeft: '0.5cm' }
+const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+const pctTexto = (n: number) => `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}\u00a0%`
+
+function FilaProceso({ p, conMonto }: { p: Presupuesto; conMonto: boolean }) {
+  const porc = porcentajeResultado(p)
+  const sub = [TIPO_ACTUACION_LABEL[p.tipo_actuacion], p.detalle].filter(Boolean).join(' · ')
+  return (
+    <tr>
+      <td style={CELDA}>
+        <div style={{ fontWeight: 'bold' }}>{p.proceso || 'Honorarios'}</div>
+        {sub && <div style={{ fontSize: '10.5pt', lineHeight: 1.35, color: GRIS, fontStyle: 'italic' }}>{sub}</div>}
+      </td>
+      <td style={CELDA_DER}>
+        {conMonto ? describirHonorario(p) : porc !== null ? `incluido + ${pctTexto(porc)} del resultado` : 'incluido'}
+      </td>
+    </tr>
+  )
+}
+
+function TablaHonorarios({ children, pie }: { children: ReactNode; pie?: ReactNode }) {
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.4, margin: '0.2cm 0 0.4cm', borderTop: `2px solid ${NAVY}` }}>
+      <thead>
+        <tr>
+          <th style={{ ...CELDA, ...ROTULO, fontSize: '7pt', color: GRIS, borderBottom: `1px solid ${NAVY}` }}>Proceso o actuación</th>
+          <th style={{ ...CELDA_DER, ...ROTULO, fontSize: '7pt', color: GRIS, borderBottom: `1px solid ${NAVY}` }}>Honorario</th>
+        </tr>
+      </thead>
+      <tbody>{children}</tbody>
+      {pie && <tfoot>{pie}</tfoot>}
+    </table>
+  )
+}
+
+function FilaTotal({ etiqueta, valor, nota }: { etiqueta: string; valor: string; nota?: string }) {
+  return (
+    <tr>
+      <td style={{ ...CELDA, borderBottom: `2px solid ${NAVY}`, fontWeight: 'bold', paddingTop: '0.3cm' }}>
+        {etiqueta}
+        {nota && <div style={{ fontSize: '10.5pt', fontWeight: 'normal', fontStyle: 'italic', color: GRIS }}>{nota}</div>}
+      </td>
+      <td style={{ ...CELDA_DER, borderBottom: `2px solid ${NAVY}`, fontWeight: 'bold', fontSize: '13pt', paddingTop: '0.3cm', color: NAVY }}>{valor}</td>
+    </tr>
+  )
+}
+
+function HonorariosDoc({ items, cot, numeral, cliente }: { items: Presupuesto[]; cot: Cotizacion; numeral: () => string; cliente?: string }) {
+  if (!items.length) {
+    return (
+      <>
+        <Seccion>{numeral()}. Honorarios profesionales</Seccion>
+        <p style={{ ...P, textIndent: 0, fontStyle: 'italic', color: GRIS }}>La propuesta de honorarios todavía no fue confeccionada.</p>
+      </>
+    )
+  }
+  const grupos = agruparPorArea(items)
+  const totales = calcularTotales(items, cot)
+  const variosGrupos = grupos.length > 1
+  const notaPorcentaje = totales.hayPorcentaje ? 'más el porcentaje del resultado indicado en cada caso' : undefined
+  const opciones = cot.financiacion
+    .filter((o) => o.aplica_a === 'total' || items.some((i) => i.id === o.aplica_a))
+    .map((o) => ({ o, plan: calcularFinanciacion(o, items, cot) }))
+    .filter(({ plan }) => plan.base > 0)
+
+  return (
+    <>
+      {/* En el documento solo de honorarios el título ya lo dice */}
+      {!cliente && <Seccion>{numeral()}. Honorarios profesionales</Seccion>}
+
+      {cot.modo === 'separado' ? (
+        <>
+          <p style={P}>Se detallan los honorarios propuestos{cliente ? ` a ${cliente}` : ''} para cada proceso o actuación. Cada uno puede contratarse en forma independiente.</p>
+          {grupos.map((g) => (
+            <div key={g.area ?? 'general'}>
+              {variosGrupos && <Subtitulo>{g.label}</Subtitulo>}
+              <TablaHonorarios>{g.items.map((p) => <FilaProceso key={p.id} p={p} conMonto />)}</TablaHonorarios>
+            </div>
+          ))}
+          {items.length > 1 && totales.sumaFija > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', margin: '0 0 0.4cm', fontSize: '12pt' }}>
+              <tbody><FilaTotal etiqueta="Si se contratan todas las actuaciones" valor={formatPesos(totales.sumaFija)} nota={notaPorcentaje} /></tbody>
+            </table>
+          )}
+        </>
+      ) : (
+        <>
+          <p style={P}>Se propone{cliente ? ` a ${cliente}` : ''} un honorario único por la totalidad de las actuaciones que se detallan.</p>
+          <TablaHonorarios pie={
+            <FilaTotal etiqueta="Honorario por la totalidad" valor={formatPesos(totales.totalConjunto)}
+              nota={[totales.bonificacionPct > 0 ? `frente a ${formatPesos(totales.sumaFija)} si se contrataran por separado` : '', notaPorcentaje ?? ''].filter(Boolean).join('; ') || undefined} />
+          }>
+            {grupos.flatMap((g) => [
+              ...(variosGrupos ? [<tr key={`g-${g.area ?? 'general'}`}><td colSpan={2} style={{ ...CELDA, ...ROTULO, fontSize: '7pt', color: NAVY, paddingTop: '0.35cm' }}>{g.label}</td></tr>] : []),
+              ...g.items.map((p) => <FilaProceso key={p.id} p={p} conMonto={false} />),
+            ])}
+          </TablaHonorarios>
+        </>
+      )}
+
+      {totales.hayPorcentaje && (
+        <p style={{ ...P, fontSize: '11pt' }}>
+          Los porcentajes se calculan sobre lo que efectivamente perciba el cliente, por sentencia o por acuerdo. Si no se obtiene resultado, esa parte del honorario no se cobra.
+        </p>
+      )}
+
+      {opciones.length > 0 && (
+        <div className="doc-bloque">
+          <Subtitulo>Formas de pago</Subtitulo>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt', lineHeight: 1.4, margin: '0.1cm 0 0.4cm', borderTop: `2px solid ${NAVY}` }}>
+            <tbody>
+              {opciones.map(({ o, plan }) => {
+                const sobre = o.aplica_a === 'total' ? null : items.find((i) => i.id === o.aplica_a)
+                return (
+                  <tr key={o.id}>
+                    <td style={CELDA}>
+                      <div style={{ fontWeight: 'bold' }}>{o.titulo || 'Opción de pago'}</div>
+                      <div style={{ fontSize: '11pt' }}>
+                        {describirPlan(plan)}{sobre ? `, por ${sobre.proceso || 'esa actuación'}` : ''}.
+                        {o.recargo_pct > 0 && plan.cuotas > 0 ? ` Incluye un recargo del ${pctTexto(o.recargo_pct)} sobre el saldo.` : ''}
+                        {o.nota?.trim() ? ` ${mayuscula(o.nota.trim()).replace(/\.?$/, '.')}` : ''}
+                      </div>
+                    </td>
+                    <td style={CELDA_DER}>{formatPesos(plan.total)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {totales.hayPorcentaje && <p style={{ ...P, fontSize: '11pt' }}>La financiación comprende solo la parte fija de los honorarios.</p>}
+        </div>
+      )}
+
+      {(cot.condiciones?.trim() || cot.validez_dias) && (
+        <>
+          <Subtitulo>Condiciones</Subtitulo>
+          {cot.condiciones?.trim().split(/\n{2,}/).map((t, i) => <p key={i} style={{ ...P, whiteSpace: 'pre-wrap' }}>{t}</p>)}
+          {cot.validez_dias ? <p style={P}>La presente propuesta tiene una validez de {cot.validez_dias} días desde su emisión.</p> : null}
+        </>
+      )}
+    </>
   )
 }
