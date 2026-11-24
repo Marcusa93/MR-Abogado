@@ -31,3 +31,12 @@ verify_jwt = false
 
 [functions.ingesta-web]
 verify_jwt = false
+
+[functions.sae-sync-all]
+verify_jwt = false
+
+[functions.caja-analisis-ia]
+verify_jwt = false
+
+[functions.audiencias-daily-push]
+verify_jwt = false
