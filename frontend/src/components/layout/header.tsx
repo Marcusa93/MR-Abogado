@@ -20,7 +20,7 @@ const pageTitles: Record<string, string> = {
   '/consultas': 'Consultas',
   '/kanban': 'Tablero de Estados',
   '/tareas': 'Tareas',
-  '/agenda': 'Audiencias y Agenda',
+  '/agenda': 'Agenda',
   '/alertas': 'Alertas',
   '/informes': 'Informes',
   '/configuracion': 'Configuración',

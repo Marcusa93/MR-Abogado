@@ -358,10 +358,11 @@ export default function ExpedienteDetailPage() {
               <button
                 onClick={() => setEstadoDialogOpen(true)}
                 className="btn btn-ghost"
+                title="Cambiar estado"
+                aria-label="Cambiar estado"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Estado</span>
-                <span className="sm:hidden text-xs">Estado</span>
               </button>
               <button
                 onClick={() => setEditDialogOpen(true)}
