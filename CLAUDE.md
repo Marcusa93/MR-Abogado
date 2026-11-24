@@ -72,6 +72,11 @@ Usar siempre los términos del dominio en español: `expediente`, `actuación`, 
 - LLM calls sin tope de input → factura sin techo. Pasa por `llm-guard`.
 - Migrations con prefix inconsistente — para una nueva, usá `supabase migration new <nombre>` (genera timestamp).
 - TODOs marcados `abogado_id removed → use expediente_miembros` siguen abiertos en varios `pages/*.tsx` y `hooks/*.ts` — chequeá antes de tocar filtros por abogado.
+- **Grabadora de entrevistas pisada con una versión vieja (17/11/2026).** Se reescribió `consulta-grabadora.tsx` y la function `consulta-transcribir` de cero, sobre una versión anterior: `main` dejó de compilar (el frontend quedó una semana sin publicarse) y la function nueva no respetaba el contrato, así que las entrevistas se grababan sin texto. Reglas:
+  - Antes de tocar la grabadora (`components/consultas/consulta-grabadora.tsx`, `lib/consultas/tramos-db.ts`, `supabase/functions/consulta-transcribir`), leé los archivos actuales. Mejorala; no la reescribas.
+  - El contrato frontend ↔ function está en el encabezado de `consulta-grabadora.tsx`. Si cambiás uno, cambiá el otro en el mismo commit y publicá la function y el frontend juntos.
+  - La grabadora guarda tramos y audio completo en el dispositivo (IndexedDB) hasta que la entrevista se guarda: nunca borres un tramo si la respuesta no trae `segmentos`.
+- **Antes de pushear algo de `frontend/`**, `cd frontend && npm run build` tiene que pasar. **Después**, verificá que la Action quedó en verde: `gh run list --workflow deploy-frontend-cloudflare.yml -L 1`. Si falla, producción sigue con la versión anterior sin avisar a nadie.
 
 ## Comandos útiles
 

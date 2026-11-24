@@ -40,3 +40,7 @@ verify_jwt = false
 
 [functions.audiencias-daily-push]
 verify_jwt = false
+
+# La grabadora de entrevistas valida el usuario adentro de la función (auth.getUser).
+[functions.consulta-transcribir]
+verify_jwt = false
