@@ -71,12 +71,16 @@ import { useToggleSeguimientoActivo } from '@/hooks/use-expediente-seguimiento'
 // Tabs
 // ---------------------------------------------------------------------------
 
+// Pestañas: todas con el acento del sitio (antes cada una tenía su color).
+const TAB_ACTIVA = 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
+const TAB_BADGE = 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+
 const TABS = [
-  { id: 'resumen',    label: 'Resumen',               shortLabel: 'Resumen',   icon: LayoutDashboard, activeClasses: 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-cyan-400 dark:text-cyan-300', badgeClasses: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300' },
-  { id: 'expediente', label: 'Expediente',            shortLabel: 'Expediente', icon: Database,       activeClasses: 'border-cyan-500 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400', badgeClasses: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
-  { id: 'agenda',     label: 'Agenda y tareas',       shortLabel: 'Agenda',    icon: CalendarClock,   activeClasses: 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400', badgeClasses: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
-  { id: 'escritos',   label: 'Escritos y documentos', shortLabel: 'Escritos',  icon: PenLine,         activeClasses: 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-400', badgeClasses: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
-  { id: 'caja',       label: 'Caja',                  shortLabel: 'Caja',      icon: Wallet,          activeClasses: 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400', badgeClasses: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  { id: 'resumen',    label: 'Resumen',               shortLabel: 'Resumen',   icon: LayoutDashboard, activeClasses: TAB_ACTIVA, badgeClasses: TAB_BADGE },
+  { id: 'expediente', label: 'Expediente',            shortLabel: 'Expediente', icon: Database,       activeClasses: TAB_ACTIVA, badgeClasses: TAB_BADGE },
+  { id: 'agenda',     label: 'Agenda y tareas',       shortLabel: 'Agenda',    icon: CalendarClock,   activeClasses: TAB_ACTIVA, badgeClasses: TAB_BADGE },
+  { id: 'escritos',   label: 'Escritos y documentos', shortLabel: 'Escritos',  icon: PenLine,         activeClasses: TAB_ACTIVA, badgeClasses: TAB_BADGE },
+  { id: 'caja',       label: 'Caja',                  shortLabel: 'Caja',      icon: Wallet,          activeClasses: TAB_ACTIVA, badgeClasses: TAB_BADGE },
 ] as const
 
 // Pestañas anteriores (enlaces guardados, notificaciones, "Redactar respuesta") → pestaña y sub-pestaña nuevas.
@@ -247,14 +251,14 @@ export default function ExpedienteDetailPage() {
             <div className="min-w-0 flex-1">
               <div className="flex items-start gap-1.5">
                 <FavoritoStar expedienteId={id!} size="md" className="-ml-1.5 shrink-0" />
-                <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-zinc-50 break-words line-clamp-2 leading-snug">
+                <h1 className="page-title line-clamp-2 break-words text-lg font-bold leading-snug sm:text-[1.3rem]">
                   {expediente.caratula || (expediente as any).numero}
                 </h1>
               </div>
               <div className="mt-1 flex items-center gap-2 flex-wrap text-xs">
-                <span className="text-zinc-500 dark:text-zinc-400 font-mono">{(expediente as any).numero}</span>
+                <span className="font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{(expediente as any).numero}</span>
                 {(expediente as any).numero_sae && (
-                  <span className="text-zinc-500 dark:text-zinc-400 font-mono">
+                  <span className="font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
                     · SAE {(expediente as any).numero_sae}
                   </span>
                 )}
@@ -303,10 +307,8 @@ export default function ExpedienteDetailPage() {
                       : 'Activar seguimiento — recibirás alertas si el expediente no tiene actividad en 48 hs.'
                   }
                   className={cn(
-                    'flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors',
-                    (expediente as any).seguimiento_activo
-                      ? 'border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
-                      : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/10',
+                    'btn btn-ghost',
+                    (expediente as any).seguimiento_activo && '!border-amber-500/50 !bg-amber-500/10 !text-amber-700 dark:!text-amber-300',
                   )}
                 >
                   {toggleSeguimiento.isPending ? (
@@ -338,7 +340,7 @@ export default function ExpedienteDetailPage() {
               {(expediente.clientes as any)?.telefono && (
                 <button
                   onClick={() => setNotificarClienteOpen(true)}
-                  className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                  className="btn btn-ghost"
                   title="Enviar mensaje al cliente"
                 >
                   <Send className="h-3.5 w-3.5" />
@@ -348,14 +350,14 @@ export default function ExpedienteDetailPage() {
               {/* CTAs principales — siempre visibles */}
               <button
                 onClick={() => setTareaDialogOpen(true)}
-                className="flex min-h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-zinc-900"
+                className="btn btn-primary"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Tarea
               </button>
               <button
                 onClick={() => setEstadoDialogOpen(true)}
-                className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                className="btn btn-ghost"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Estado</span>
@@ -363,7 +365,7 @@ export default function ExpedienteDetailPage() {
               </button>
               <button
                 onClick={() => setEditDialogOpen(true)}
-                className="flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                className="btn btn-ghost"
               >
                 <Edit className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Editar</span>
@@ -372,7 +374,7 @@ export default function ExpedienteDetailPage() {
               <div className="relative">
                 <button
                   onClick={() => setMoreActionsOpen(v => !v)}
-                  className="flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 transition-colors"
+                  className="btn btn-ghost btn-icon"
                   aria-label="Más acciones"
                   aria-expanded={moreActionsOpen}
                 >
@@ -381,10 +383,10 @@ export default function ExpedienteDetailPage() {
                 {moreActionsOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMoreActionsOpen(false)} />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+                    <div className="absolute right-0 top-full z-20 mt-1.5 w-60 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-2xl dark:border-white/10 dark:bg-[var(--popover)]">
                       <button
                         onClick={() => { setMoreActionsOpen(false); setTurnoDialogOpen(true) }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.06] dark:hover:text-white"
                       >
                         <CalendarClock className="h-4 w-4" />
                         Nueva audiencia
@@ -397,14 +399,14 @@ export default function ExpedienteDetailPage() {
                           try { await exportTramitePDF(expediente) } finally { setGeneratingPdf(false) }
                         }}
                         disabled={generatingPdf}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-50"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.06] dark:hover:text-white disabled:opacity-50"
                       >
                         {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         Resumen PDF cliente
                       </button>
                       <button
                         onClick={() => { setMoreActionsOpen(false); setDescargarExpedienteOpen(true) }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/[0.06] dark:hover:text-white"
                       >
                         <Download className="h-4 w-4" />
                         Expediente completo (PDF)
@@ -414,7 +416,7 @@ export default function ExpedienteDetailPage() {
                           <div className="border-t border-zinc-200 dark:border-white/10" />
                           <button
                             onClick={() => { setMoreActionsOpen(false); setConfirmDelete(true) }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/5"
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/10"
                           >
                             <Trash2 className="h-4 w-4" />
                             Eliminar expediente
@@ -445,10 +447,10 @@ export default function ExpedienteDetailPage() {
                 ref={isActive ? activeTabRef : undefined}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] font-semibold transition-colors',
                   isActive
                     ? tab.activeClasses
-                    : 'border-transparent text-zinc-600 dark:text-zinc-300 hover:border-slate-600 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    : 'border-transparent text-zinc-500 hover:border-zinc-400 hover:text-zinc-800 dark:text-zinc-400 dark:hover:border-white/20 dark:hover:text-white'
                 )}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -460,7 +462,7 @@ export default function ExpedienteDetailPage() {
                       'flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
                       isActive
                         ? tab.badgeClasses
-                        : 'bg-white/5 text-zinc-600 dark:text-zinc-300'
+                        : 'bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300'
                     )}
                   >
                     {count}
