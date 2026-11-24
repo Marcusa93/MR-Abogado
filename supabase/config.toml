@@ -22,3 +22,12 @@ enabled = false
 
 [realtime]
 enabled = false
+
+# Funciones llamadas sin JWT de usuario (cron / server-to-server). Autentican
+# ellas mismas (x-cron-secret / x-ingesta-secret). Sin esto, un deploy sin
+# --no-verify-jwt hace que el gateway las rechace con 401 sin ejecutarlas.
+[functions.consulta-recordatorio]
+verify_jwt = false
+
+[functions.ingesta-web]
+verify_jwt = false
