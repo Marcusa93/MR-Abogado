@@ -306,7 +306,7 @@ export function ConsultaPipeline({ consulta, profile, onConvertir }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+    <div className="app-card p-5 space-y-4">
       {/* Stepper */}
       <div className="flex items-center gap-0">
         {STEPS.map((step, i) => {

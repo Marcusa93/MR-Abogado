@@ -113,7 +113,7 @@ function FijarDialog({
                     <button
                       key={doc.id}
                       onClick={() => setSelected(doc)}
-                      className="w-full text-left flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] p-2.5 hover:bg-white/[0.04] hover:border-violet-500/30 transition-colors"
+                      className="w-full text-left flex items-center gap-2 app-card p-2.5 hover:bg-white/[0.04] hover:border-violet-500/30 transition-colors"
                     >
                       <FileText className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -221,7 +221,7 @@ export function TabNormativa({ expedienteId }: Props) {
             {rows.map(row => (
               <div
                 key={row.documento_id}
-                className="group flex items-start gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors"
+                className="group flex items-start gap-3 app-card p-3 hover:bg-white/[0.04] transition-colors"
               >
                 <Pin className="h-3.5 w-3.5 text-violet-400 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">

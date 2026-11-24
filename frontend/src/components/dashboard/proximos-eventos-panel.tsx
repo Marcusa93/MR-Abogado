@@ -62,7 +62,7 @@ export function ProximosEventosPanel({ days = 30 }: { days?: number }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+      <div className="app-card p-4">
         <div className="flex items-center gap-2 mb-3">
           <CalendarClock className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-semibold text-zinc-100">Próximos {days} días</h3>
@@ -85,7 +85,7 @@ export function ProximosEventosPanel({ days = 30 }: { days?: number }) {
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 p-4">
+    <div className="app-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-cyan-400" />

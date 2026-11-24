@@ -216,7 +216,7 @@ export function ConsultaSolicitudDocs({ consultaId }: Props) {
   const total = solicitudes.length
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+    <div className="app-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileSearch className="h-4 w-4 text-zinc-400" />

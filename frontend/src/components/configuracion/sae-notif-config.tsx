@@ -172,7 +172,7 @@ export function SaeNotifConfig() {
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Destinatarios de email</p>
               <div className="space-y-2">
                 {emails.map((e, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
+                  <div key={i} className="flex items-center gap-2 app-card px-3 py-1.5">
                     <Mail className="h-3 w-3 text-zinc-500 dark:text-zinc-400 shrink-0" />
                     <span className="flex-1 text-xs text-zinc-200 font-mono truncate">{e}</span>
                     <button

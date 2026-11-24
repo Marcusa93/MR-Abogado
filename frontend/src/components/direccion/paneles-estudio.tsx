@@ -81,7 +81,7 @@ export function RutinasEquipo() {
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-zinc-900/30 mt-3">
+    <div className="app-card mt-3">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -111,7 +111,7 @@ export function RutinasEquipo() {
                 </div>
                 <div className="space-y-1">
                   {tareasPerfil.map(t => (
-                    <div key={t.id} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-1.5">
+                    <div key={t.id} className="flex items-center gap-2 app-card px-3 py-1.5">
                       <span className="flex-1 text-xs text-zinc-200">{t.titulo}</span>
                       <span className="shrink-0 text-[10px] text-zinc-500">{FRECUENCIA_LABEL[t.frecuencia]}</span>
                       <button

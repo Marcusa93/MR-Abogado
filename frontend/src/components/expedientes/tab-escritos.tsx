@@ -113,7 +113,7 @@ export function TabEscritos({ expedienteId }: Props) {
             {escritos.map(esc => (
               <div
                 key={esc.id}
-                className="group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors"
+                className="group flex items-center gap-3 app-card p-3 hover:bg-white/[0.04] transition-colors"
               >
                 <FileText className="h-4 w-4 text-violet-400 shrink-0" />
                 <button

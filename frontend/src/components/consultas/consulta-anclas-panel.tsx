@@ -226,7 +226,7 @@ export function ConsultaAnclasPanel({ consultaId }: { consultaId: string }) {
   const totalAnclados = normativa.length + juris.length
 
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+    <div className="app-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
