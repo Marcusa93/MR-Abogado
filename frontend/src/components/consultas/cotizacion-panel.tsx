@@ -30,14 +30,10 @@ interface Props {
   onPrefillConsumed: () => void
 }
 
-const INPUT = 'w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30'
-const LABEL = 'block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1'
-const CHIP = (activo: boolean) => cn(
-  'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
-  activo
-    ? 'border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900'
-    : 'border-zinc-200 text-zinc-600 hover:border-zinc-300 dark:border-white/10 dark:text-zinc-400 dark:hover:border-white/20',
-)
+// Vocabulario del rediseño (index.css): .field, .chip, .segmented, .btn, .eyebrow
+const INPUT = 'field'
+const LABEL = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400'
+const TARJETA = 'dashboard-panel-muted rounded-2xl'
 
 const TIPOS_HONORARIO: TipoHonorario[] = ['honorario_fijo', 'cuota_litis', 'mixto', 'arancel_verbal', 'arancel_escrito']
 
@@ -133,7 +129,7 @@ function ProcesoForm({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-dashed border-zinc-300 p-4 dark:border-white/15">
+    <div className="space-y-3 rounded-2xl border border-dashed border-zinc-300 p-4 dark:border-white/15">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <div>
           <label className={LABEL}>Área</label>
@@ -155,7 +151,7 @@ function ProcesoForm({
         <label className={LABEL}>Tipo de actuación</label>
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(TIPO_ACTUACION_LABEL) as TipoActuacion[]).map((t) => (
-            <button key={t} type="button" onClick={() => setTipoActuacion(t)} className={CHIP(tipoActuacion === t)}>
+            <button key={t} type="button" onClick={() => setTipoActuacion(t)} className="chip" aria-pressed={tipoActuacion === t}>
               {TIPO_ACTUACION_LABEL[t]}
             </button>
           ))}
@@ -173,7 +169,7 @@ function ProcesoForm({
         <label className={LABEL}>Honorario</label>
         <div className="flex flex-wrap gap-1.5">
           {TIPOS_HONORARIO.map((t) => (
-            <button key={t} type="button" onClick={() => cambiarTipo(t)} className={CHIP(tipo === t)}>
+            <button key={t} type="button" onClick={() => cambiarTipo(t)} className="chip" aria-pressed={tipo === t}>
               {HONORARIO_LABEL[t]}
               {t === 'arancel_verbal' && <span className="ml-1 opacity-60">{formatPesos(ARANCEL_VERBAL)}</span>}
               {t === 'arancel_escrito' && <span className="ml-1 opacity-60">{formatPesos(ARANCEL_ESCRITO)}</span>}
@@ -217,9 +213,10 @@ function ProcesoForm({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
-        <span className="text-xs text-zinc-500">En el documento:</span>
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+      <div className={cn('flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2.5',
+        valido ? 'border-cyan-500/30 bg-cyan-500/10' : 'border-zinc-200 bg-zinc-50 dark:border-white/[0.08] dark:bg-white/[0.03]')}>
+        <span className="text-[13px] font-semibold text-zinc-600 dark:text-zinc-300">En el documento</span>
+        <span className="text-sm font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">
           {describirHonorario(item)}
           {conPorcentaje && (item.monto_base ?? 0) > 0 && (
             <span className="ml-2 text-xs font-normal text-zinc-500">≈ {formatPesos(honorarioEstimado(item))} sobre lo reclamado</span>
@@ -228,12 +225,10 @@ function ProcesoForm({
       </div>
 
       <div className="flex gap-2">
-        <button type="button" onClick={onListo}
-          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5">
+        <button type="button" onClick={onListo} className="btn btn-ghost">
           Cancelar
         </button>
-        <button type="button" onClick={guardar} disabled={!valido || upsert.isPending}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+        <button type="button" onClick={guardar} disabled={!valido || upsert.isPending} className="btn btn-primary flex-1">
           {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {inicial.id ? 'Guardar' : 'Agregar'}
         </button>
@@ -267,11 +262,11 @@ function ProcesoFila({ p, onEditar }: { p: Presupuesto; onEditar: () => void }) 
   }
 
   return (
-    <div className={cn('flex gap-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10', !p.incluido && 'opacity-50')}>
+    <div className={cn(TARJETA, 'flex gap-3 p-3', !p.incluido && 'opacity-50')}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{p.proceso || HONORARIO_LABEL[p.tipo_honorario]}</span>
-          <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:border-white/10">
+          <span className="text-sm font-bold text-zinc-900 dark:text-white">{p.proceso || HONORARIO_LABEL[p.tipo_honorario]}</span>
+          <span className="tag-mono uppercase tracking-[0.08em]">
             {TIPO_ACTUACION_LABEL[p.tipo_actuacion] ?? p.tipo_actuacion}
           </span>
           {!p.incluido && <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Fuera del documento</span>}
@@ -279,19 +274,19 @@ function ProcesoFila({ p, onEditar }: { p: Presupuesto; onEditar: () => void }) 
         {p.detalle && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{p.detalle}</p>}
       </div>
       <div className="shrink-0 text-right">
-        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{describirHonorario(p)}</div>
+        <div className="text-sm font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">{describirHonorario(p)}</div>
         {porc !== null && (p.monto_base ?? 0) > 0 && (
           <div className="text-[11px] text-zinc-500">≈ {formatPesos(honorarioEstimado(p))}</div>
         )}
         <div className="mt-1.5 flex justify-end gap-1">
           <button type="button" onClick={alternarIncluido} title={p.incluido ? 'Sacar del documento' : 'Volver a incluir'}
-            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5">
+            className="btn btn-ghost btn-icon h-8 w-8">
             {p.incluido ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
-          <button type="button" onClick={onEditar} title="Editar" className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5">
+          <button type="button" onClick={onEditar} title="Editar" className="btn btn-ghost btn-icon h-8 w-8">
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          <button type="button" onClick={borrar} title="Quitar" className="rounded-md p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+          <button type="button" onClick={borrar} title="Quitar" className="btn btn-ghost btn-icon h-8 w-8 hover:text-red-600 dark:hover:text-red-400">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -315,10 +310,10 @@ function OpcionPago({
   const financiables = items.filter((i) => i.incluido && honorarioFijo(i) > 0)
   const num = (v: string) => parseFloat(v.replace(',', '.')) || 0
   return (
-    <div className="space-y-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+    <div className={cn(TARJETA, 'space-y-3 p-3')}>
       <div className="flex gap-2">
         <input value={op.titulo} onChange={(e) => onCambiar({ ...op, titulo: e.target.value })} placeholder="Nombre de la opción" className={cn(INPUT, 'font-medium')} />
-        <button type="button" onClick={onQuitar} title="Quitar opción" className="rounded-md px-2 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+        <button type="button" onClick={onQuitar} title="Quitar opción" className="btn btn-ghost btn-icon shrink-0 hover:text-red-600 dark:hover:text-red-400">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -357,7 +352,7 @@ function OpcionPago({
             placeholder="Ej.: cuotas ajustables por IPC; transferencia o efectivo" className={INPUT} />
         </div>
       </div>
-      <p className="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-800 dark:bg-white/[0.03] dark:text-zinc-200">
+      <p className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
         {plan.base > 0 ? <>{describirPlan(plan)}{plan.cuotas > 0 && <span className="text-zinc-500"> · total {formatPesos(plan.total)}</span>}</>
           : <span className="text-zinc-500">No hay una parte fija para financiar (lo que depende del resultado no se financia).</span>}
       </p>
@@ -436,14 +431,13 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
     <div className="space-y-5">
       {/* Modo de presentación */}
       <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-500/10 p-1">
+        <div className="segmented grid w-full grid-cols-2">
           {([
             { id: 'separado', label: 'Por separado', icon: Split },
             { id: 'conjunto', label: 'Todo junto', icon: Layers },
           ] as const).map(({ id, label, icon: Icon }) => (
-            <button key={id} type="button" onClick={() => cambiarCot({ ...cot, modo: id })}
-              className={cn('flex min-h-9 items-center justify-center gap-1.5 rounded-lg text-sm font-medium',
-                cot.modo === id ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+            <button key={id} type="button" aria-pressed={cot.modo === id} onClick={() => cambiarCot({ ...cot, modo: id })}
+              className="min-h-9 text-sm font-semibold">
               <Icon className="h-4 w-4" /> {label}
             </button>
           ))}
@@ -459,9 +453,8 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
       {grupos.map((g) => (
         <div key={g.area ?? 'general'} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">{g.label}</h3>
-            <button type="button" onClick={() => nuevoEn(g.area)}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5">
+            <h3 className="eyebrow">{g.label}</h3>
+            <button type="button" onClick={() => nuevoEn(g.area)} className="btn btn-ghost btn-sm">
               <Plus className="h-3.5 w-3.5" /> Agregar en {g.label.toLowerCase()}
             </button>
           </div>
@@ -476,19 +469,19 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
 
       {/* Áreas del diagnóstico todavía sin honorarios: sugerencias desde las acciones recomendadas */}
       {sinCotizar.length > 0 && !editando && (
-        <div className="space-y-2 rounded-xl border border-dashed border-zinc-300 p-3 dark:border-white/15">
-          <p className="text-xs text-zinc-500">Áreas del diagnóstico sin honorarios todavía:</p>
+        <div className="space-y-2 rounded-2xl border border-dashed border-zinc-300 p-3 dark:border-white/15">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Áreas del diagnóstico sin honorarios todavía:</p>
           {sinCotizar.map((m) => (
             <div key={m.area} className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-xs font-semibold text-zinc-700 dark:text-zinc-300">{etiquetaArea(m.area)}</span>
               {(m.acciones_recomendadas ?? []).slice(0, 4).map((a) => (
                 <button key={a} type="button" onClick={() => nuevoEn(m.area, a, m.tipo_honorario_sugerido)} title={a}
-                  className="max-w-[16rem] truncate rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] text-zinc-600 hover:border-zinc-400 dark:border-white/10 dark:text-zinc-400">
+                  className="chip max-w-[16rem] truncate">
                   + {a}
                 </button>
               ))}
               <button type="button" onClick={() => nuevoEn(m.area, '', m.tipo_honorario_sugerido)}
-                className="rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-medium text-zinc-600 hover:border-zinc-400 dark:border-white/10 dark:text-zinc-400">
+                className="chip">
                 + Otro
               </button>
             </div>
@@ -502,18 +495,18 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
           ordenNuevo={ordenNuevo} onListo={() => setEditando(null)} />
       ) : !editando && (
         <button type="button" onClick={() => nuevoEn(ordenAreas[0] ?? null)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 hover:border-zinc-400 dark:border-white/15 dark:text-zinc-400">
+          className="btn btn-ghost w-full border-dashed">
           <Plus className="h-4 w-4" /> Agregar proceso o actuación
         </button>
       )}
 
       {/* Totales */}
       {hayIncluidos && (
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <div className={cn(TARJETA, 'space-y-3 p-4')}>
           {cot.modo === 'separado' ? (
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm text-zinc-600 dark:text-zinc-400">Si contrata todo</span>
-              <span className="text-right text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              <span className="text-right text-lg font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">
                 {formatPesos(totales.sumaFija)}
                 {totales.hayPorcentaje && <span className="block text-xs font-normal text-zinc-500">más el porcentaje del resultado donde corresponde</span>}
               </span>
@@ -534,7 +527,7 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
                 <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                   Total{totales.bonificacionPct > 0 && <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">bonificación {Math.round(totales.bonificacionPct)} %</span>}
                 </span>
-                <span className="text-right text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                <span className="text-right text-lg font-extrabold tracking-tight tabular-nums text-zinc-900 dark:text-white">
                   {formatPesos(totales.totalConjunto)}
                   {totales.hayPorcentaje && <span className="block text-xs font-normal text-zinc-500">más el porcentaje del resultado donde corresponde</span>}
                 </span>
@@ -548,7 +541,7 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-zinc-500" />
-          <h3 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Posible financiación</h3>
+          <h3 className="eyebrow">Posible financiación</h3>
         </div>
         {cot.financiacion.map((op) => (
           <OpcionPago key={op.id} op={op} items={items} cot={cot}
@@ -558,12 +551,12 @@ export function CotizacionPanel({ consultaId, modulos, areasConsulta, prefill, o
         <div className="flex flex-wrap gap-1.5">
           {OPCIONES_RAPIDAS.map((r) => (
             <button key={r.label} type="button" onClick={() => cambiarCot({ ...cot, financiacion: [...cot.financiacion, nuevaOpcion(r.opcion)] })}
-              className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-400 dark:border-white/10 dark:text-zinc-400">
+              className="chip">
               + {r.label}
             </button>
           ))}
           <button type="button" onClick={() => cambiarCot({ ...cot, financiacion: [...cot.financiacion, nuevaOpcion({ titulo: 'Opción de pago', anticipo: 0, cuotas: 1 })] })}
-            className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-400 dark:border-white/10 dark:text-zinc-400">
+            className="chip">
             + Otra
           </button>
         </div>

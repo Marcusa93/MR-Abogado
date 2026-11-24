@@ -464,7 +464,7 @@ function AgregarArea({ excluidas, onElegir, disabled }: { excluidas: string[]; o
       value=""
       disabled={disabled}
       onChange={e => { if (e.target.value) onElegir(e.target.value) }}
-      className="rounded-lg border border-dashed border-zinc-300 dark:border-white/15 bg-transparent px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 focus:outline-none"
+      className="field w-auto border-dashed py-1.5 text-xs font-semibold"
       aria-label="Agregar un área al diagnóstico"
     >
       <option value="">+ Agregar área…</option>
@@ -573,11 +573,11 @@ function ModuloDiagnostico({
           </button>
           <button type="button" onClick={alternarIncluir} disabled={update.isPending}
             title={incluido ? 'Sacar del documento (no se borra)' : 'Volver a incluir en el documento'}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            className="btn btn-ghost btn-icon h-8 w-8">
             {incluido ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
           <button type="button" onClick={quitarModulo} disabled={update.isPending} title="Quitar esta área del diagnóstico"
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+            className="btn btn-ghost btn-icon h-8 w-8 hover:text-red-600 dark:hover:text-red-400">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
           {!editando ? (
@@ -603,11 +603,11 @@ function ModuloDiagnostico({
       {editando ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Área</label>
+            <label className={LABEL}>Área</label>
             <select
               value={editLocal.area}
               onChange={e => setEditLocal(prev => ({ ...prev, area: e.target.value }))}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+              className="field"
             >
               {(Object.keys(TIPO_ASUNTO_LABEL) as ConsultaTipoAsunto[]).map(a => <option key={a} value={a}>{TIPO_ASUNTO_LABEL[a]}</option>)}
             </select>
@@ -1536,7 +1536,7 @@ export default function ConsultaDetallePage() {
 
       {/* Sin diagnóstico todavía: se puede armar a mano, área por área */}
       {!diag && !isSecretaria && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-zinc-300 dark:border-white/15 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-dashed border-zinc-300 p-4 dark:border-white/15">
           <p className="text-sm text-zinc-500">Sin diagnóstico todavía. Generalo con IA desde los hechos o armalo a mano por área.</p>
           <AgregarArea excluidas={[]} onElegir={a => { void handleAgregarArea(a) }} disabled={update.isPending} />
         </div>
@@ -1935,7 +1935,7 @@ export default function ConsultaDetallePage() {
                 </select>
               )}
               <button type="button" onClick={() => { if (docModo !== modoEfectivo) setDocModo(modoEfectivo); void handleImprimirDocumento() }} disabled={imprimiendo}
-                className="btn btn-primary ml-auto">
+                className="btn btn-secondary ml-auto">
                 {imprimiendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
                 Imprimir o guardar PDF
               </button>
@@ -1948,8 +1948,8 @@ export default function ConsultaDetallePage() {
       })()}
 
       {/* Acciones */}
-      {!isSecretaria && consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (
-        <div className="flex flex-wrap gap-3">
+      {consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (diag || !isSecretaria) && (
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={handleConvertir}
