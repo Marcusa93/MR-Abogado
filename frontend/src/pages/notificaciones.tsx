@@ -148,7 +148,7 @@ function AlertaRow({
         )}
         <button
           onClick={onMarkRead}
-          className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
+          className="btn btn-ghost btn-sm"
         >
           Leída
         </button>
@@ -199,7 +199,7 @@ function SeguimientoRow({
                 {caratula}
               </p>
               {numero && (
-                <p className="mt-0.5 text-xs font-mono text-zinc-400">{numero}</p>
+                <p className="mt-0.5 text-xs font-medium tabular-nums text-zinc-400">{numero}</p>
               )}
             </Link>
           ) : (
@@ -223,7 +223,7 @@ function SeguimientoRow({
         )}
         <button
           onClick={onMarkRead}
-          className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
+          className="btn btn-ghost btn-sm"
         >
           Leída
         </button>
@@ -282,7 +282,7 @@ function SaeRow({
               </span>
             )}
             {notif.numero_expediente && (
-              <span className="text-[11px] font-mono text-zinc-400 truncate max-w-[180px]">{notif.numero_expediente}</span>
+              <span className="max-w-[180px] truncate text-[11px] font-medium tabular-nums text-zinc-400">{notif.numero_expediente}</span>
             )}
           </div>
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 line-clamp-2">
@@ -310,7 +310,7 @@ function SaeRow({
         {notif.expediente_id && (
           <button
             onClick={onCrearTarea}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
+            className="btn btn-ghost btn-sm"
             title="Crear tarea desde esta notificación"
           >
             Crear tarea
@@ -319,7 +319,7 @@ function SaeRow({
         {!notif.leida && (
           <button
             onClick={onMarkRead}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
+            className="btn btn-ghost btn-sm"
           >
             Leída
           </button>
@@ -327,7 +327,7 @@ function SaeRow({
         {notif.leida && (
           <button
             onClick={onConstancia}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white whitespace-nowrap"
+            className="btn btn-ghost btn-sm"
             title="Constancia legal"
           >
             Constancia
@@ -436,7 +436,7 @@ export default function NotificacionesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-5">
+    <div className="mx-auto max-w-5xl space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
@@ -450,9 +450,9 @@ export default function NotificacionesPage() {
         <button
           onClick={handleMarcarAllAll}
           disabled={marcarTodasLeidas.isPending || markAllSaeRead.isPending}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium text-zinc-300 hover:bg-white/10 disabled:opacity-50 whitespace-nowrap"
+          className="btn btn-ghost"
         >
-          <CheckCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <CheckCheck className="h-4 w-4" />
           <span className="hidden sm:inline">Marcar todas leídas</span>
           <span className="sm:hidden">Marcar todas</span>
         </button>
@@ -460,7 +460,7 @@ export default function NotificacionesPage() {
 
       {/* Bandejas */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 dark:border-white/10">
+        <div className="segmented" role="group" aria-label="Bandeja">
           {([
             { key: 'sae', label: 'SAE', n: saeSinLeer },
             { key: 'estudio', label: 'Del estudio', n: alertas.length },
@@ -468,43 +468,35 @@ export default function NotificacionesPage() {
             <button
               key={b.key}
               onClick={() => setBandeja(b.key)}
-              className={cn(
-                'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors',
-                bandeja === b.key
-                  ? 'bg-zinc-900 text-white dark:bg-white/10 dark:text-white'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
-              )}
+              aria-pressed={bandeja === b.key}
+              className="px-3 text-[13px] font-semibold"
             >
               {b.label}
               {b.n > 0 && (
-                <span className={cn('rounded px-1 font-mono text-[10px]', b.key === 'sae' ? 'bg-cyan-400 text-cyan-950' : 'bg-zinc-500/20')}>{b.n}</span>
+                <span className={cn('rounded-full px-1.5 text-[10px] font-bold tabular-nums', b.key === 'sae' ? 'bg-cyan-400 text-cyan-950' : 'bg-zinc-500/20')}>{b.n}</span>
               )}
             </button>
           ))}
         </div>
         {bandeja === 'sae' && (
           <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <input type="checkbox" checked={soloSinLeer} onChange={(e) => setSoloSinLeer(e.target.checked)} className="h-3.5 w-3.5 rounded" />
+            <input type="checkbox" checked={soloSinLeer} onChange={(e) => setSoloSinLeer(e.target.checked)} className="h-3.5 w-3.5 rounded accent-[var(--brand-accent)]" />
             Solo sin leer
           </label>
         )}
       </div>
 
       {bandeja === 'estudio' && (
-        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
           {TABS.filter(t => t.src !== 'sae').map(t => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); clearSelection() }}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap',
-                tab === t.key
-                  ? 'bg-zinc-200/70 text-zinc-900 dark:bg-white/10 dark:text-white'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
-              )}
+              aria-pressed={tab === t.key}
+              className="chip"
             >
               {t.key === 'todas' ? 'Todo' : t.label}
-              {tabCounts[t.key] > 0 && <span className="font-mono text-[10px] text-zinc-400">{tabCounts[t.key]}</span>}
+              {tabCounts[t.key] > 0 && <span className="chip-count">{tabCounts[t.key]}</span>}
             </button>
           ))}
         </div>
@@ -513,21 +505,21 @@ export default function NotificacionesPage() {
       {/* Search + bulk */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título, expediente, mensaje…"
-            className="field w-full pl-9 pr-3 text-xs"
+            className="field h-11 w-full pl-10"
           />
         </div>
         {selected.size > 0 ? (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-amber-300 font-medium whitespace-nowrap">{selected.size} seleccionadas</span>
+            <span className="whitespace-nowrap text-xs font-bold text-cyan-700 dark:text-cyan-300">{selected.size} seleccionadas</span>
             <button
               onClick={handleBulkMarkRead}
-              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-[11px] sm:text-xs font-medium text-emerald-300 hover:bg-emerald-500/25 whitespace-nowrap"
+              className="btn btn-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
             >
               <CheckCheck className="h-3 w-3" /> Marcar leídas
             </button>
@@ -550,7 +542,7 @@ export default function NotificacionesPage() {
 
       {/* Cabecera informativa del tab seguimiento */}
       {bandeja === 'estudio' && tab === 'seguimiento' && (
-        <div className="rounded-lg border border-orange-500/20 bg-orange-500/[0.05] px-4 py-3 text-xs text-orange-200/80 leading-relaxed">
+        <div className="rounded-2xl border border-orange-500/20 bg-orange-500/[0.05] px-4 py-3 text-xs text-orange-200/80 leading-relaxed">
           <span className="font-semibold text-orange-300">Seguimiento activo</span> — expedientes marcados con seguimiento que no registran actividad en las últimas 48 horas.
           Podés marcar un expediente para seguimiento desde su página de detalle.
         </div>

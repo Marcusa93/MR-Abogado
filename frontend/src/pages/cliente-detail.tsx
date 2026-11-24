@@ -176,7 +176,7 @@ export default function ClienteDetailPage() {
 
       {/* Banner placeholder */}
       {esPlaceholder && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
@@ -198,16 +198,16 @@ export default function ClienteDetailPage() {
       {/* Header compacto */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15 border border-amber-500/20 flex-shrink-0">
-            <User className="h-6 w-6 text-amber-500" />
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-cyan-500/25 bg-cyan-500/10">
+            <User className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 truncate">
+            <h1 className="page-title truncate">
               {cliente.apellido}, {cliente.nombre}
             </h1>
             <div className="flex items-center gap-2 mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              <span className="font-mono text-xs">{cliente.dni}</span>
-              {cliente.cuil && <span className="font-mono text-xs">· {cliente.cuil}</span>}
+              <span className="text-xs font-semibold tabular-nums">{cliente.dni}</span>
+              {cliente.cuil && <span className="text-xs font-semibold tabular-nums">· {cliente.cuil}</span>}
               <span className="text-xs">·</span>
               <span className="text-xs">
                 {expedientesActivos.length} activo{expedientesActivos.length === 1 ? '' : 's'} de {expedientes.length}
@@ -218,7 +218,7 @@ export default function ClienteDetailPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setEditDialogOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10"
+            className="btn btn-ghost"
           >
             <Edit className="h-3.5 w-3.5" />
             Editar
@@ -226,7 +226,7 @@ export default function ClienteDetailPage() {
           {isAdmin && (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10"
+              className="btn border border-red-500/30 bg-red-500/5 text-red-600 hover:bg-red-500/10 dark:text-red-400"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Eliminar</span>
@@ -247,10 +247,10 @@ export default function ClienteDetailPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                  'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] font-semibold transition-colors',
                   isActive
-                    ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
+                    ? 'border-[var(--brand-navy)] text-[var(--brand-navy)] dark:border-[var(--brand-accent)] dark:text-white'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white',
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -259,8 +259,8 @@ export default function ClienteDetailPage() {
                   <span className={cn(
                     'ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
                     isActive
-                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400',
+                      ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300'
+                      : 'bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300',
                   )}>{count}</span>
                 )}
               </button>
@@ -318,7 +318,7 @@ export default function ClienteDetailPage() {
                   }
                 }}
                 disabled={deleteCliente.isPending}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                className="btn bg-red-600 text-white hover:bg-red-700"
               >
                 {deleteCliente.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Eliminar
@@ -336,8 +336,8 @@ export default function ClienteDetailPage() {
 function DatosTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+      <div className="app-card p-4 sm:p-5 space-y-3">
+        <h3 className="eyebrow mb-2">
           Documentación
         </h3>
         <InfoItem icon={CreditCard} label="DNI" value={cliente.dni} />
@@ -357,8 +357,8 @@ function DatosTab({ cliente }: { cliente: any }) {
           value={cliente.estado_civil ? (ESTADO_CIVIL_LABELS[cliente.estado_civil as EstadoCivil] ?? cliente.estado_civil) : null}
         />
       </div>
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+      <div className="app-card p-4 sm:p-5 space-y-3">
+        <h3 className="eyebrow mb-2">
           Profesional / Sanitario
         </h3>
         <InfoItem icon={Briefcase} label="Ocupación" value={cliente.ocupacion} />
@@ -371,8 +371,8 @@ function DatosTab({ cliente }: { cliente: any }) {
 function ContactoTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+      <div className="app-card p-4 sm:p-5 space-y-3">
+        <h3 className="eyebrow mb-2">
           Teléfonos y email
         </h3>
         <InfoItem icon={Phone} label="Teléfono" value={cliente.telefono} />
@@ -386,8 +386,8 @@ function ContactoTab({ cliente }: { cliente: any }) {
           className="pt-1"
         />
       </div>
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+      <div className="app-card p-4 sm:p-5 space-y-3">
+        <h3 className="eyebrow mb-2">
           Domicilio
         </h3>
         <InfoItem icon={MapPin} label="Calle" value={cliente.domicilio} />
@@ -404,8 +404,8 @@ function ContactoTab({ cliente }: { cliente: any }) {
 function NotasTab({ cliente }: { cliente: any }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+      <div className="app-card p-4 sm:p-5">
+        <h3 className="eyebrow mb-2">
           Notas
         </h3>
         {cliente.notas ? (
@@ -417,8 +417,8 @@ function NotasTab({ cliente }: { cliente: any }) {
         )}
       </div>
       {cliente.clave_arca && (
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-4 space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+        <div className="app-card p-4 sm:p-5 space-y-3">
+          <h3 className="eyebrow mb-2">
             Claves de acceso
           </h3>
           <MaskedInfoItem icon={Key} label="Clave ARCA" value={cliente.clave_arca} />

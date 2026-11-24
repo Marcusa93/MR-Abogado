@@ -11,6 +11,7 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/utils/constants'
 import { timeAgo } from '@/lib/utils/date-helpers'
 import { toast } from '@/stores/toast-store'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/shared/page-header'
 import { isEstadoTerminal } from '@/types/enums'
 import {
   Plus,
@@ -67,10 +68,10 @@ function ClienteCard({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter') onClick() }}
-      className="app-card group w-full cursor-pointer px-4 py-3 text-left transition-colors hover:border-zinc-300 dark:hover:border-white/15"
+      className="app-card group w-full cursor-pointer px-4 py-3.5 text-left"
     >
       <div className="flex items-start gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">{nombreMostrar}</h3>
+        <h3 className="min-w-0 flex-1 truncate text-[14px] font-bold tracking-tight text-zinc-900 dark:text-white">{nombreMostrar}</h3>
         <button
           onClick={(e) => { e.stopPropagation(); onExportPDF(cliente) }}
           className="hidden shrink-0 rounded p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-zinc-700 group-hover:opacity-100 sm:block dark:hover:text-zinc-200"
@@ -79,13 +80,13 @@ function ClienteCard({
           <Download className="h-3.5 w-3.5" />
         </button>
         {stats.total > 0 && (
-          <span className={cn('shrink-0 font-mono text-[11px]', stats.active > 0 ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500')}
+          <span className={cn('shrink-0 text-[11.5px] font-semibold tabular-nums', stats.active > 0 ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500')}
             title={`${stats.active} activos de ${stats.total}`}>
             {stats.total} exp.
           </span>
         )}
       </div>
-      <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+      <div className="mt-1.5 flex items-center gap-2 text-[12px] font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
         {esJuridica && <span>jurídica</span>}
         {isPlaceholder ? <span className="text-amber-600 dark:text-amber-400">sin datos reales (importado del SAE)</span> : doc && <span>{doc}</span>}
         {cliente.telefono && <><span className="text-zinc-300 dark:text-zinc-600">·</span><span className="truncate">{cliente.telefono}</span></>}
@@ -146,34 +147,27 @@ export default function ClientesPage() {
       {/* Banner duplicados pendientes */}
       <PlaceholdersBanner />
 
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="page-title">
-            Clientes
-          </h1>
-          <p className="page-subtitle">
-            {data ? `${data.count} en total · gestión del estudio` : 'Gestión del estudio'}
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/clientes/nuevo')}
-          className="flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg bg-[var(--brand-navy)] dark:bg-white px-4 text-sm font-medium text-white dark:text-[var(--brand-navy)] shadow-sm hover:opacity-90 transition-opacity"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Nuevo cliente</span>
-        </button>
-      </div>
+      <PageHeader
+        eyebrow={data ? `${data.count} ${data.count === 1 ? 'cliente' : 'clientes'}` : 'Clientes'}
+        title="Clientes"
+        subtitle="Gestión del estudio"
+        actions={
+          <button onClick={() => navigate('/clientes/nuevo')} className="btn btn-primary">
+            <Plus className="h-4 w-4" />
+            <span>Nuevo cliente</span>
+          </button>
+        }
+      />
 
       {/* Search bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+      <div className="relative max-w-xl">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
         <input
           type="text"
           placeholder="Buscar por nombre, DNI, CUIL, email, teléfono..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="field h-9 w-full pl-9 pr-3 py-0"
+          className="field h-11 w-full pl-10"
         />
       </div>
 
@@ -223,17 +217,17 @@ export default function ClientesPage() {
                 <button
                   disabled={data.page <= 1}
                   onClick={() => goToPage(data.page - 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="btn btn-ghost btn-icon"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="px-3 text-xs text-zinc-600 dark:text-zinc-300">
+                <span className="px-3 text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300">
                   {data.page} / {data.totalPages}
                 </span>
                 <button
                   disabled={data.page >= data.totalPages}
                   onClick={() => goToPage(data.page + 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="btn btn-ghost btn-icon"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -257,7 +251,7 @@ function PlaceholdersBanner() {
   return (
     <Link
       to="/clientes/resolver"
-      className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 hover:bg-amber-500/10 transition-colors group"
+      className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 hover:bg-amber-500/10 transition-colors group"
     >
       <div className="flex items-start gap-3">
         <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
