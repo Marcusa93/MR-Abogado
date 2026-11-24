@@ -4,17 +4,20 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import {
   useConsulta, useUpdateConsulta, useDeleteConsulta,
-  usePresupuestos, useUpsertPresupuesto, useDeletePresupuesto,
+  usePresupuestos,
   useConsultaActividad, useAddConsultaActividad, useOrdenarHechos,
-  calcularHonorarios, ARANCEL_VERBAL, ARANCEL_ESCRITO,
-  TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL, HONORARIO_LABEL,
+  TIPO_ASUNTO_LABEL, CANAL_LABEL, ESTADO_LABEL,
   type ConsultaEstado, type ConsultaTipoAsunto, type ConsultaCanal, type TipoHonorario,
-  type Presupuesto, type DiagnosticoIA, type DiagnosticoModulo, type IntimacionDoc,
+  type DiagnosticoIA, type DiagnosticoModulo, type IntimacionDoc,
 } from '@/hooks/use-consultas'
+import { useCotizacionConsulta } from '@/hooks/use-cotizacion-consulta'
+import { CotizacionPanel, type PrefillProceso } from '@/components/consultas/cotizacion-panel'
+import { imprimirDocumento } from '@/lib/consultas/imprimir-documento'
+import { etiquetaArea } from '@/lib/consultas/cotizacion'
 import { useTareasConsulta, useCompletarTarea, type TareaConsultaRow } from '@/hooks/use-tareas'
 import { CrearTareaDialog } from '@/components/expedientes/crear-tarea-dialog'
 import { useAuthStore } from '@/stores/auth-store'
-import { ConsultaPdfPreview } from '@/components/consultas/consulta-pdf-preview'
+import { ConsultaPdfPreview, type ModoDocumento } from '@/components/consultas/consulta-pdf-preview'
 import { IntimacionPdfPreview } from '@/components/consultas/intimacion-pdf-preview'
 import type { TipoIntimacion } from '@/components/consultas/intimacion-pdf-preview'
 import { ConsultaAnclasPanel } from '@/components/consultas/consulta-anclas-panel'
@@ -34,7 +37,7 @@ import {
   Phone, Mail, Calendar, MessageSquare,
   CheckCircle2, AlertTriangle, Save,
   Loader2, Download, FileText, NotebookPen, Wand2, ListChecks,
-  Pencil, Trash2, Plus, X, ListTodo, Check, ExternalLink,
+  Pencil, Trash2, Plus, X, ListTodo, Check, ExternalLink, Eye, EyeOff, Printer,
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils/date-helpers'
 
@@ -66,317 +69,12 @@ const CHANCES_LABEL = {
   sin_datos: 'Sin datos suficientes',
 }
 
-function formatPesos(n: number) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
-  }).format(n)
-}
-
 const TIPO_ACTIVIDAD_ICON: Record<string, React.ReactNode> = {
   nota: <MessageSquare className="h-3.5 w-3.5" />,
   llamada: <Phone className="h-3.5 w-3.5" />,
   email: <Mail className="h-3.5 w-3.5" />,
   reunion: <Calendar className="h-3.5 w-3.5" />,
   cambio_estado: <CheckCircle2 className="h-3.5 w-3.5" />,
-}
-
-// ── Presupuesto section (solo abogados) ────────────────────────────────────
-
-function PresupuestoItemForm({
-  presupuesto,
-  consultaId,
-  deletable,
-  onSaved,
-  onCancel,
-  prefillTipo,
-  prefillConcepto,
-}: {
-  presupuesto: Presupuesto | null
-  consultaId: string
-  deletable?: boolean
-  onSaved?: () => void
-  onCancel?: () => void
-  prefillTipo?: TipoHonorario
-  prefillConcepto?: string
-}) {
-  const upsert = useUpsertPresupuesto()
-  const del = useDeletePresupuesto()
-  const isNew = !presupuesto
-
-  const [tipo, setTipo] = useState<TipoHonorario>(prefillTipo ?? presupuesto?.tipo_honorario ?? 'arancel_verbal')
-  const [montoBase, setMontoBase] = useState(presupuesto?.monto_base?.toString() ?? '')
-  const [porcentaje, setPorcentaje] = useState(
-    presupuesto?.tipo_honorario === 'cuota_litis'
-      ? presupuesto.multiplicador?.toString() ?? '20'
-      : '20'
-  )
-  const [multiplicador, setMultiplicador] = useState(
-    presupuesto && presupuesto.tipo_honorario !== 'cuota_litis'
-      ? presupuesto.multiplicador?.toString() ?? '1'
-      : '1'
-  )
-  const [concepto, setConcepto] = useState(prefillConcepto ?? presupuesto?.notas ?? '')
-
-  function handleTipoChange(v: TipoHonorario) {
-    setTipo(v)
-    if (v === 'cuota_litis') setPorcentaje('20')
-    else setMultiplicador('1')
-  }
-
-  const montoN = parseFloat(montoBase.replace(/\./g, '').replace(',', '.')) || 0
-  const pctN = parseFloat(porcentaje.replace(',', '.')) || 20
-  const multN = parseFloat(multiplicador.replace(',', '.')) || 1
-  const actMultiplicador = tipo === 'cuota_litis' ? pctN : multN
-  const calculado = calcularHonorarios(tipo, montoN, actMultiplicador)
-
-  async function handleSave() {
-    try {
-      await upsert.mutateAsync({
-        id: presupuesto?.id,
-        consulta_id: consultaId,
-        expediente_id: null,
-        tipo_honorario: tipo,
-        monto_base: montoN || null,
-        multiplicador: actMultiplicador,
-        honorarios_calculados: calculado,
-        descripcion_ia: presupuesto?.descripcion_ia ?? null,
-        estado: presupuesto?.estado ?? 'borrador',
-        notas: concepto.trim() || null,
-      })
-      toast.success(isNew ? 'Honorario agregado' : 'Honorario guardado')
-      if (isNew && onSaved) onSaved()
-    } catch {
-      toast.error('No se pudo guardar')
-    }
-  }
-
-  async function handleDelete() {
-    if (!presupuesto) return
-    if (!window.confirm('¿Eliminar este honorario?')) return
-    try {
-      await del.mutateAsync({ id: presupuesto.id, consulta_id: consultaId })
-      toast.success('Honorario eliminado')
-    } catch {
-      toast.error('No se pudo eliminar')
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Concepto</label>
-        <input
-          type="text"
-          value={concepto}
-          onChange={e => setConcepto(e.target.value)}
-          placeholder="Ej: Parte laboral, consulta penal…"
-          className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">Tipo de honorario</label>
-        <div className="grid grid-cols-2 gap-2">
-          {(Object.entries(HONORARIO_LABEL) as [TipoHonorario, string][]).map(([v, l]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => handleTipoChange(v)}
-              className={cn(
-                'rounded-lg px-3 py-2 text-xs font-medium text-left transition-all border',
-                tipo === v
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                  : 'border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300',
-              )}
-            >
-              {l}
-              {v === 'arancel_verbal' && <span className="block text-[10px] opacity-70">{formatPesos(ARANCEL_VERBAL)} base</span>}
-              {v === 'arancel_escrito' && <span className="block text-[10px] opacity-70">{formatPesos(ARANCEL_ESCRITO)} base</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {tipo === 'cuota_litis' && (
-          <>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Monto reclamado ($)</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={montoBase}
-                onChange={e => setMontoBase(e.target.value)}
-                placeholder="Ej: 5000000"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Porcentaje (%)</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={porcentaje}
-                onChange={e => setPorcentaje(e.target.value)}
-                placeholder="20"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-              />
-            </div>
-          </>
-        )}
-        {tipo === 'honorario_fijo' && (
-          <div className="col-span-2">
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Honorario fijo ($)</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={montoBase}
-              onChange={e => setMontoBase(e.target.value)}
-              placeholder="Ej: 500000"
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-            />
-          </div>
-        )}
-        {(tipo === 'arancel_verbal' || tipo === 'arancel_escrito') && (
-          <div>
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Multiplicador</label>
-            <select
-              value={multiplicador}
-              onChange={e => setMultiplicador(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-            >
-              {['0.5', '1', '1.2', '1.5', '2', '2.5', '3'].map(v => (
-                <option key={v} value={v}>{v}×</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      <div className={cn(
-        'rounded-xl p-3 flex items-center justify-between',
-        calculado > 0
-          ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-          : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-white/10',
-      )}>
-        <span className="text-sm text-zinc-600 dark:text-zinc-400">Honorarios estimados</span>
-        <span className={cn('text-lg font-bold', calculado > 0 ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-400')}>
-          {calculado > 0 ? formatPesos(calculado) : '—'}
-        </span>
-      </div>
-
-      <div className="flex gap-2">
-        {isNew && onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-2 text-sm font-medium border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-          >
-            Cancelar
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={upsert.isPending || calculado <= 0}
-          className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium bg-zinc-900 text-white hover:opacity-90 dark:bg-white dark:text-zinc-900 rounded-lg transition-colors disabled:opacity-50"
-        >
-          {upsert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          {isNew ? 'Agregar' : 'Guardar'}
-        </button>
-        {!isNew && deletable && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={del.isPending}
-            className="px-3 py-2 text-sm border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {del.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function PresupuestoSection({
-  consultaId,
-  prefill,
-  onPrefillConsumed,
-}: {
-  consultaId: string
-  prefill?: { tipo: TipoHonorario; concepto: string } | null
-  onPrefillConsumed?: () => void
-}) {
-  const { data: presupuestos = [], isLoading } = usePresupuestos(consultaId)
-  const [addingNew, setAddingNew] = useState(false)
-  const [newTipoPrefill, setNewTipoPrefill] = useState<TipoHonorario | undefined>()
-  const [newConceptoPrefill, setNewConceptoPrefill] = useState<string | undefined>()
-
-  useEffect(() => {
-    if (!prefill) return
-    setNewTipoPrefill(prefill.tipo)
-    setNewConceptoPrefill(prefill.concepto)
-    setAddingNew(true)
-    onPrefillConsumed?.()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefill])
-
-  if (isLoading) return <div className="h-8 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />
-
-  const total = presupuestos.reduce((acc, p) => acc + p.honorarios_calculados, 0)
-
-  return (
-    <div className="space-y-4">
-      {presupuestos.map((p, idx) => (
-        <div key={p.id}>
-          {idx > 0 && <div className="border-t border-zinc-100 dark:border-white/5 my-4" />}
-          {presupuestos.length > 1 && (
-            <div className="text-[10px] font-medium text-zinc-400 uppercase tracking-wide mb-2">
-              Honorario {idx + 1}{p.notas ? ` — ${p.notas}` : ''}
-            </div>
-          )}
-          <PresupuestoItemForm
-            presupuesto={p}
-            consultaId={consultaId}
-            deletable={presupuestos.length > 1}
-          />
-        </div>
-      ))}
-
-      {presupuestos.length > 1 && (
-        <div className="flex items-center justify-between border-t border-zinc-200 dark:border-white/10 pt-3">
-          <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Total honorarios</span>
-          <span className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatPesos(total)}</span>
-        </div>
-      )}
-
-      {addingNew ? (
-        <div className="border border-dashed border-blue-300 dark:border-blue-900/60 rounded-xl p-4">
-          <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-3">
-            Nuevo honorario
-          </div>
-          <PresupuestoItemForm
-            presupuesto={null}
-            consultaId={consultaId}
-            prefillTipo={newTipoPrefill}
-            prefillConcepto={newConceptoPrefill}
-            onSaved={() => { setAddingNew(false); setNewTipoPrefill(undefined); setNewConceptoPrefill(undefined) }}
-            onCancel={() => { setAddingNew(false); setNewTipoPrefill(undefined); setNewConceptoPrefill(undefined) }}
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAddingNew(true)}
-          className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-300 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/25 rounded-lg transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Agregar otro honorario
-        </button>
-      )}
-    </div>
-  )
 }
 
 // ── Intimación fehaciente section ───────────────────────────────────────────
@@ -754,6 +452,30 @@ function ActividadSection({ consultaId }: { consultaId: string }) {
 
 // ── Módulo de diagnóstico por área ─────────────────────────────────────────
 
+function AgregarArea({ excluidas, onElegir, disabled }: { excluidas: string[]; onElegir: (area: string) => void; disabled?: boolean }) {
+  const disponibles = (Object.keys(TIPO_ASUNTO_LABEL) as ConsultaTipoAsunto[]).filter(a => !excluidas.includes(a))
+  if (!disponibles.length) return null
+  return (
+    <select
+      value=""
+      disabled={disabled}
+      onChange={e => { if (e.target.value) onElegir(e.target.value) }}
+      className="rounded-lg border border-dashed border-zinc-300 dark:border-white/15 bg-transparent px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 focus:outline-none"
+      aria-label="Agregar un área al diagnóstico"
+    >
+      <option value="">+ Agregar área…</option>
+      {disponibles.map(a => <option key={a} value={a}>{TIPO_ASUNTO_LABEL[a]}</option>)}
+    </select>
+  )
+}
+
+function moduloVacio(area: string): DiagnosticoModulo {
+  return {
+    area, fuero: '', pretension: '', chances_estimadas: 'sin_datos', acciones_recomendadas: [], riesgos: [],
+    observaciones: '', checklist_cliente: [], tipo_honorario_sugerido: 'honorario_fijo', descripcion_honorarios: '',
+  }
+}
+
 function ModuloDiagnostico({
   modulo,
   idx,
@@ -761,17 +483,19 @@ function ModuloDiagnostico({
   consultaId,
   diagModulos,
   onCrearHonorario,
+  editarAlAbrir,
 }: {
   modulo: DiagnosticoModulo
   idx: number
   total: number
   consultaId: string
   diagModulos: DiagnosticoModulo[]
-  onCrearHonorario: (tipo: TipoHonorario, concepto: string) => void
+  onCrearHonorario: (area: string, tipo: TipoHonorario) => void
+  editarAlAbrir?: boolean
 }) {
   const update = useUpdateConsulta()
   const addActividad = useAddConsultaActividad()
-  const [editando, setEditando] = useState(false)
+  const [editando, setEditando] = useState(!!editarAlAbrir)
   const [editLocal, setEditLocal] = useState<DiagnosticoModulo>({ ...modulo })
   const [checklistEstado, setChecklistEstado] = useState<Record<number, boolean>>({})
 
@@ -789,6 +513,25 @@ function ModuloDiagnostico({
     }
   }
 
+  async function guardarModulos(nuevos: DiagnosticoModulo[], ok: string) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await update.mutateAsync({ id: consultaId, diagnostico_ia: { modulos: nuevos } } as any)
+      toast.success(ok)
+    } catch {
+      toast.error('No se pudo actualizar el diagnóstico')
+    }
+  }
+
+  const incluido = modulo.incluir !== false
+  const alternarIncluir = () => guardarModulos(
+    diagModulos.map((m, i) => (i === idx ? { ...m, incluir: !incluido } : m)),
+    incluido ? 'El área no va a figurar en el documento' : 'El área vuelve a figurar en el documento')
+  const quitarModulo = () => {
+    if (!window.confirm(`¿Quitar ${areaLabel} del diagnóstico? Se borra su análisis. Si solo querés que no figure en el documento, usá el ojo.`)) return
+    void guardarModulos(diagModulos.filter((_, i) => i !== idx), `${areaLabel} quitada del diagnóstico`)
+  }
+
   async function handleAgregarChecklistAlSeguimiento() {
     const items = modulo.checklist_cliente ?? []
     const pendientes = items.filter((_, i) => !checklistEstado[i])
@@ -804,26 +547,34 @@ function ModuloDiagnostico({
   }
 
   return (
-    <div className="border border-zinc-100 dark:border-white/5 rounded-xl p-4 space-y-3">
+    <div className={cn('border border-zinc-100 dark:border-white/5 rounded-xl p-4 space-y-3', !incluido && 'opacity-60')}>
       {/* Header del módulo */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {total > 1 && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 rounded-full px-2.5 py-0.5">
-              {areaLabel}
-            </span>
-          )}
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 rounded-full px-2.5 py-0.5">
+            {areaLabel || 'Sin área'}
+          </span>
           <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-medium', CHANCES_STYLE[modulo.chances_estimadas])}>
             {CHANCES_LABEL[modulo.chances_estimadas]}
           </span>
+          {!incluido && <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Fuera del documento</span>}
         </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => onCrearHonorario(modulo.tipo_honorario_sugerido, areaLabel)}
+            onClick={() => onCrearHonorario(modulo.area, modulo.tipo_honorario_sugerido)}
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors"
           >
-            <Plus className="h-3 w-3" /> Crear honorario
+            <Plus className="h-3 w-3" /> Cotizar
+          </button>
+          <button type="button" onClick={alternarIncluir} disabled={update.isPending}
+            title={incluido ? 'Sacar del documento (no se borra)' : 'Volver a incluir en el documento'}
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            {incluido ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+          <button type="button" onClick={quitarModulo} disabled={update.isPending} title="Quitar esta área del diagnóstico"
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
           {!editando ? (
             <button
@@ -847,6 +598,16 @@ function ModuloDiagnostico({
 
       {editando ? (
         <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Área</label>
+            <select
+              value={editLocal.area}
+              onChange={e => setEditLocal(prev => ({ ...prev, area: e.target.value }))}
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+            >
+              {(Object.keys(TIPO_ASUNTO_LABEL) as ConsultaTipoAsunto[]).map(a => <option key={a} value={a}>{TIPO_ASUNTO_LABEL[a]}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Fuero</label>
@@ -1222,9 +983,12 @@ export default function ConsultaDetallePage() {
   const [incorporar, setIncorporar] = useState<{ texto: string; marcas: string[] } | null>(null)
   const { data: contextosConsulta = [] } = useConsultaContextos(id ?? '')
   const hayEntrevista = contextosConsulta.length > 0
-  const [prefilledPresupuesto, setPrefilledPresupuesto] = useState<{ tipo: TipoHonorario; concepto: string } | null>(null)
-  const pdfDiagRef = useRef<HTMLDivElement>(null)
-  const pdfPresupuestoRef = useRef<HTMLDivElement>(null)
+  const [prefilledPresupuesto, setPrefilledPresupuesto] = useState<PrefillProceso | null>(null)
+  const { data: cotizacion = null } = useCotizacionConsulta(id)
+  const [docModo, setDocModo] = useState<ModoDocumento>('completo')
+  const [docArea, setDocArea] = useState<string>('')
+  const [imprimiendo, setImprimiendo] = useState(false)
+  const pdfDocRef = useRef<HTMLDivElement>(null)
   const presupuestoSectionRef = useRef<HTMLDivElement>(null)
 
   const isSecretaria = profile?.rol === 'SECRETARIA'
@@ -1418,40 +1182,16 @@ export default function ConsultaDetallePage() {
     }
   }, [consulta, checklistEstado, addActividad])
 
-  const openPrint = useCallback((ref: React.RefObject<HTMLDivElement | null>, title: string) => {
-    const content = ref.current?.innerHTML
-    if (!content) return
-    const w = window.open('', '_blank', 'width=900,height=700')
-    if (!w) return
-    w.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="utf-8" />
-      <title>${title}</title>
-      <style>
-        @page { size: A4; margin: 0; }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: white; }
-        .consulta-pdf-doc { width: 21cm; margin: 0; }
-        .consulta-pdf-cover { page-break-after: always; }
-        .consulta-pdf-content { page-break-before: always; }
-        @media print {
-          html, body { width: 21cm; }
-          .consulta-pdf-cover { height: 29.7cm; page-break-after: always; }
-        }
-      </style>
-    </head><body>${content}</body></html>`)
-    w.document.close()
-    w.onafterprint = () => w.close()
-    setTimeout(() => { w.focus(); w.print(); }, 300)
-  }, [])
-
   const nombreCliente = [consulta?.apellido, consulta?.nombre].filter(Boolean).join(', ')
-  const handlePrintDiagnostico = useCallback(() => {
-    openPrint(pdfDiagRef, `Diagnóstico — ${nombreCliente}`)
-  }, [openPrint, pdfDiagRef, nombreCliente])
-
-  const handlePrintPresupuesto = useCallback(() => {
-    openPrint(pdfPresupuestoRef, `Presupuesto — ${nombreCliente}`)
-  }, [openPrint, pdfPresupuestoRef, nombreCliente])
+  const handleImprimirDocumento = useCallback(async () => {
+    const titulo = { diagnostico: 'Diagnóstico', presupuesto: 'Honorarios', completo: 'Diagnóstico y honorarios' }[docModo]
+    setImprimiendo(true)
+    // Un cuadro para que React pinte el documento con el modo y el alcance elegidos
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    const ok = await imprimirDocumento(pdfDocRef.current, `${titulo} — ${nombreCliente}${docArea ? ` — ${etiquetaArea(docArea)}` : ''}`)
+    setImprimiendo(false)
+    if (!ok) toast.error('El navegador bloqueó la ventana del documento. Permití las ventanas emergentes para este sitio.')
+  }, [docModo, docArea, nombreCliente])
 
   const handleConvertir = useCallback(async () => {
     if (!consulta) return
@@ -1460,12 +1200,33 @@ export default function ConsultaDetallePage() {
     navigate(`/expedientes/nuevo?consulta_id=${consulta.id}&nombre=${encodeURIComponent(nombre)}&apellido=${encodeURIComponent(apellido)}&tipo_asunto=${consulta.tipo_asunto}`)
   }, [consulta, navigate])
 
-  const handleCrearHonorario = useCallback((tipo: TipoHonorario, concepto: string) => {
-    setPrefilledPresupuesto({ tipo, concepto })
+  const handleCrearHonorario = useCallback((area: string, tipo: TipoHonorario) => {
+    setPrefilledPresupuesto({ area: area || null, tipo })
     setTimeout(() => presupuestoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
   }, [])
 
   const handlePrefillConsumed = useCallback(() => setPrefilledPresupuesto(null), [])
+
+  const [moduloNuevo, setModuloNuevo] = useState<number | null>(null)
+  const handleAgregarArea = useCallback(async (area: string) => {
+    if (!consulta) return
+    const d = consulta.diagnostico_ia
+    // Un diagnóstico del formato anterior pasa a ser el primer módulo
+    const base: DiagnosticoModulo[] = d?.modulos?.length ? d.modulos
+      : d && (d.fuero || d.observaciones) ? [{
+        ...moduloVacio(consulta.tipo_asunto), fuero: d.fuero ?? '', pretension: d.pretension ?? '',
+        chances_estimadas: d.chances_estimadas ?? 'sin_datos', acciones_recomendadas: d.acciones_recomendadas ?? [],
+        riesgos: d.riesgos ?? [], observaciones: d.observaciones ?? '', checklist_cliente: d.checklist_cliente ?? [],
+        tipo_honorario_sugerido: d.tipo_honorario_sugerido ?? 'honorario_fijo', descripcion_honorarios: d.descripcion_honorarios ?? '',
+      }] : []
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await update.mutateAsync({ id: consulta.id, diagnostico_ia: { modulos: [...base, moduloVacio(area)] } } as any)
+      setModuloNuevo(base.length)
+    } catch {
+      toast.error('No se pudo agregar el área')
+    }
+  }, [consulta, update])
 
   if (isLoading) return (
     <div className="max-w-2xl mx-auto space-y-4 animate-pulse">
@@ -1773,11 +1534,22 @@ export default function ConsultaDetallePage() {
 
       <DanosCalculosPanel consultaId={consulta.id} />
 
+      {/* Sin diagnóstico todavía: se puede armar a mano, área por área */}
+      {!diag && !isSecretaria && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-zinc-300 dark:border-white/15 p-4">
+          <p className="text-sm text-zinc-500">Sin diagnóstico todavía. Generalo con IA desde los hechos o armalo a mano por área.</p>
+          <AgregarArea excluidas={[]} onElegir={a => { void handleAgregarArea(a) }} disabled={update.isPending} />
+        </div>
+      )}
+
       {/* Diagnóstico IA */}
       {diag && (
         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico jurídico</h2>
+            {hasModulos && !isSecretaria && (
+              <AgregarArea excluidas={diag.modulos!.map(m => m.area)} onElegir={a => { void handleAgregarArea(a) }} disabled={update.isPending} />
+            )}
             {/* Botón editar solo para diagnósticos legacy (sin módulos) */}
             {!hasModulos && (
               <div className="flex items-center gap-2">
@@ -1819,6 +1591,7 @@ export default function ConsultaDetallePage() {
                   consultaId={consulta.id}
                   diagModulos={diag.modulos!}
                   onCrearHonorario={handleCrearHonorario}
+                  editarAlAbrir={moduloNuevo === idx}
                 />
               ))}
             </div>
@@ -2109,53 +1882,83 @@ export default function ConsultaDetallePage() {
         <IntimacionSection consulta={consulta} />
       )}
 
-      {/* Presupuesto — solo abogados */}
-      {!isSecretaria && diag && (
-        <div ref={presupuestoSectionRef} className="rounded-xl border border-violet-200 dark:border-violet-900/30 bg-white dark:bg-[var(--card)] p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Presupuesto de honorarios</h2>
-          <PresupuestoSection
+      {/* Honorarios por proceso — solo abogados */}
+      {!isSecretaria && (
+        <div ref={presupuestoSectionRef} className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Honorarios</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">Cada juicio, actuación administrativa o gestión con su honorario, agrupados por área.</p>
+          </div>
+          <CotizacionPanel
+            key={consulta.id}
             consultaId={consulta.id}
+            modulos={diag?.modulos ?? []}
+            areasConsulta={consulta.areas_derecho?.length ? consulta.areas_derecho : [consulta.tipo_asunto]}
             prefill={prefilledPresupuesto}
             onPrefillConsumed={handlePrefillConsumed}
           />
         </div>
       )}
 
-      {/* Acciones */}
-      {(diag || (!isSecretaria && consulta.estado !== 'descartada')) && (
-        <div className="flex flex-wrap gap-3">
-          {diag && (
-            <>
-              <button
-                type="button"
-                onClick={handlePrintDiagnostico}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-zinc-200 dark:border-white/10 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg text-zinc-700 dark:text-zinc-300 transition-colors"
-              >
-                <FileText className="h-4 w-4" />
-                Diagnóstico PDF
-              </button>
-              {presupuestos.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handlePrintPresupuesto}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-violet-300 dark:border-violet-700 hover:border-violet-500 hover:text-violet-600 dark:hover:text-violet-400 rounded-lg text-violet-700 dark:text-violet-300 transition-colors"
-                >
-                  <Download className="h-4 w-4" />
-                  Presupuesto PDF
-                </button>
+      {/* Documento para el cliente */}
+      {(diag || (!isSecretaria && presupuestos.length > 0)) && (() => {
+        const modos: { id: ModoDocumento; label: string }[] = isSecretaria
+          ? [{ id: 'diagnostico', label: 'Diagnóstico' }]
+          : [{ id: 'completo', label: 'Completo' }, { id: 'diagnostico', label: 'Diagnóstico' }, { id: 'presupuesto', label: 'Honorarios' }]
+        const modoEfectivo = modos.some(m => m.id === docModo) ? docModo : modos[0]!.id
+        const areasDoc: string[] = []
+        for (const a of [...(diag?.modulos ?? []).filter(m => m.incluir !== false).map(m => m.area), ...presupuestos.filter(p => p.incluido).map(p => p.area ?? '')]) {
+          if (a && !areasDoc.includes(a)) areasDoc.push(a)
+        }
+        return (
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[var(--card)] p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-zinc-500" />
+              <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Documento para el cliente</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {modos.length > 1 && (
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-500/10 p-1">
+                  {modos.map(m => (
+                    <button key={m.id} type="button" onClick={() => setDocModo(m.id)}
+                      className={cn('min-h-8 rounded-lg px-3 text-xs font-medium',
+                        modoEfectivo === m.id ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-50' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
               )}
-            </>
-          )}
-          {consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (
-            <button
-              type="button"
-              onClick={handleConvertir}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-            >
-              <FolderPlus className="h-4 w-4" />
-              Convertir a expediente
-            </button>
-          )}
+              {areasDoc.length > 1 && (
+                <select value={docArea} onChange={e => setDocArea(e.target.value)} aria-label="Alcance del documento"
+                  className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.03] px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none">
+                  <option value="">Todas las áreas</option>
+                  {areasDoc.map(a => <option key={a} value={a}>Solo {etiquetaArea(a).toLowerCase()}</option>)}
+                </select>
+              )}
+              <button type="button" onClick={() => { if (docModo !== modoEfectivo) setDocModo(modoEfectivo); void handleImprimirDocumento() }} disabled={imprimiendo}
+                className="ml-auto flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-zinc-900">
+                {imprimiendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                Imprimir o guardar PDF
+              </button>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Tapa con la identidad del estudio y el cuerpo con el formato de los escritos (Times 12, interlineado 1,5). Las áreas y procesos marcados con el ojo tachado no salen.
+            </p>
+          </div>
+        )
+      })()}
+
+      {/* Acciones */}
+      {!isSecretaria && consulta.estado !== 'convertida' && consulta.estado !== 'descartada' && (
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleConvertir}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <FolderPlus className="h-4 w-4" />
+            Convertir a expediente
+          </button>
         </div>
       )}
 
@@ -2168,22 +1971,17 @@ export default function ConsultaDetallePage() {
         <ActividadSection consultaId={consulta.id} />
       </div>
 
-      {/* PDFs invisibles — solo para impresión */}
-      <div className="sr-only">
+      {/* Documento invisible — se copia a una ventana aparte para imprimir */}
+      <div className="sr-only" aria-hidden>
         <ConsultaPdfPreview
-          ref={pdfDiagRef}
+          ref={pdfDocRef}
           consulta={{ ...consulta, notas_libres: notas }}
-          presupuestos={presupuestos}
+          presupuestos={isSecretaria ? [] : presupuestos}
+          cotizacion={isSecretaria ? null : cotizacion}
+          mode={isSecretaria ? 'diagnostico' : docModo}
+          area={docArea || null}
           abogadoNombre="Dr. Marco Rossi"
-          mode="diagnostico"
           notasAbogado={notasAbogado || null}
-        />
-        <ConsultaPdfPreview
-          ref={pdfPresupuestoRef}
-          consulta={{ ...consulta, notas_libres: notas }}
-          presupuestos={presupuestos}
-          abogadoNombre="Dr. Marco Rossi"
-          mode="presupuesto"
         />
       </div>
     </div>
